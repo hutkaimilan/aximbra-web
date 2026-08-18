@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Reveal } from "./Reveal";
 import { LiveDemo } from "./LiveDemo";
 import { LiquidButton } from "./LiquidButton";
+import { AgentViz } from "./AgentViz";
 import { useLang } from "../i18n";
 
-const TiltCard = ({ agent, open, onToggle, labels }) => {
+const TiltCard = ({ agent, open, onToggle, labels, kind }) => {
   const onMove = (e) => {
     if (open) return;
     const el = e.currentTarget;
@@ -19,6 +20,7 @@ const TiltCard = ({ agent, open, onToggle, labels }) => {
 
   return (
     <div className="card" data-testid={`agent-card-${agent.demo || agent.title}`} onMouseMove={onMove} onMouseLeave={reset}>
+      <AgentViz kind={kind} />
       <div className="card-head">
         <div className="card-title">{agent.title}</div>
         <span className={`badge ${agent.live ? "live" : "demo"}`}>
@@ -56,7 +58,7 @@ export const Agents = () => {
       <div className="grid">
         {t.agents.map((a, i) => (
           <Reveal key={a.demo || i} delay={(i % 3) * 90} className={open === a.demo ? "span-all" : ""}>
-            <TiltCard agent={a} labels={s} open={open === a.demo}
+            <TiltCard agent={a} labels={s} kind={i} open={open === a.demo}
               onToggle={() => setOpen(open === a.demo ? null : a.demo)} />
           </Reveal>
         ))}

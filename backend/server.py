@@ -9,6 +9,7 @@ from pathlib import Path
 from datetime import datetime, timezone, date
 from pydantic import BaseModel, ValidationError, field_validator
 from typing import Literal
+from openai import AsyncOpenAI, BadRequestError
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -126,13 +127,56 @@ LEAD_SYS = (
 
 
 async def _call_llm(system_msg: str, user_text: str) -> str:
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    """
+    Egyetlen OpenAI chat-completion hivas, JSON kimenetre kenyszeritve.
+
+    Kozvetlen SDK-t hasznalunk wrapper helyett: a wrapper egy szolgaltatohoz
+    kotne a backendet. Igy a kod barhol fut, ahol van OPENAI_API_KEY.
+
+    Nehany ujabb modell nem engedi a temperature-t vagy a max_tokens-t.
+    Ilyenkor a hivast egyszer megismeteljuk igazitott parameterekkel, hogy egy
+    modellvaltas ne torje el a demot.
+    """
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=503, detail="Az élő demó jelenleg nincs beállítva. Írj nekünk: aximbra@gmail.com")
-    chat = LlmChat(api_key=api_key, session_id=f"demo-{time.time()}", system_message=system_msg).with_model("openai", "gpt-5.4-mini")
-    resp = await chat.send_message(UserMessage(text=user_text))
-    return resp if isinstance(resp, str) else str(resp)
+        raise HTTPException(
+            status_code=503,
+            detail="Az élő demó jelenleg nincs beállítva. Írj nekünk: aximbra@gmail.com",
+        )
+
+    client = AsyncOpenAI(api_key=api_key, timeout=30.0, max_retries=0)
+    kwargs = {
+        "model": os.environ.get("DEMO_MODEL", "gpt-4.1-mini"),
+        "messages": [
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_text},
+        ],
+        "response_format": {"type": "json_object"},
+        "max_tokens": 600,
+        "temperature": 0,
+    }
+
+    resp = None
+    for _ in range(3):
+        try:
+            resp = await client.chat.completions.create(**kwargs)
+            break
+        except BadRequestError as exc:
+            msg = str(exc)
+            if "temperature" in msg and "temperature" in kwargs:
+                kwargs.pop("temperature")
+                continue
+            if "max_tokens" in msg and "max_tokens" in kwargs:
+                kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
+                continue
+            raise
+    if resp is None:
+        raise ValueError("model rejected request parameters")
+
+    content = resp.choices[0].message.content
+    if not content:
+        raise ValueError("empty completion")
+    return content
 
 
 def _parse_json(raw: str) -> dict:
