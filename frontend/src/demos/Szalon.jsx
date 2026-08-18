@@ -1,18 +1,19 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import "./demos.css";
 import { DemoBar } from "./DemoBar";
 import { useLang } from "../i18n";
 
 const GALLERY = [
-  "https://static.prod-images.emergentagent.com/jobs/afbc24ab-458f-4a48-8241-485e9d12f0a0/images/ed646b4935ce300b88b3d5f19e8c1aa46aa63c331489d708be18b7a80cf0f06b.jpeg",
-  "https://static.prod-images.emergentagent.com/jobs/afbc24ab-458f-4a48-8241-485e9d12f0a0/images/c05fe525304dff5b6f53b388540f52c169e70a75e65c5c93e69ac0b5453be4b3.jpeg",
-  "https://static.prod-images.emergentagent.com/jobs/afbc24ab-458f-4a48-8241-485e9d12f0a0/images/e8d9296e507886d85103cf20a9e195792df1fd5481c7d0bf04b0c5a712906415.jpeg",
+  "https://static.prod-images.emergentagent.com/jobs/afbc24ab-458f-4a48-8241-485e9d12f0a0/images/3a7f67b4356732a7f3d819b1c595c63f72866c4612b69921b2b7edf92d9a421f.jpeg",
+  "https://static.prod-images.emergentagent.com/jobs/afbc24ab-458f-4a48-8241-485e9d12f0a0/images/ed4387a941bbe7024415b5daa6a3291347e3d6caf4d6e1ddaf29c4afcfbee545.jpeg",
+  "https://static.prod-images.emergentagent.com/jobs/afbc24ab-458f-4a48-8241-485e9d12f0a0/images/dbfeb936d5a7da5f6ad8025e2bc95e590ba7e7172376a6e80c2a87b49dda7cc1.jpeg",
 ];
 
 export default function Szalon() {
   const { t } = useLang();
   const d = t.demos.szalon;
   const L = t.demos.labels;
+  const [lb, setLb] = useState(null);
   useEffect(() => { window.scrollTo(0, 0); }, []);
   const mailto = `mailto:${d.email}?subject=${encodeURIComponent(d.cta + " — " + d.brand)}`;
 
@@ -47,7 +48,10 @@ export default function Szalon() {
         <div className="demo-container">
           <h2 className="sln-h2">{d.galleryTitle}</h2>
           <div className="sln-gallery">
-            {GALLERY.map((g, i) => <img key={i} src={g} alt="" data-testid={`sln-gallery-${i}`} />)}
+            {GALLERY.map((g, i) => (
+              <img key={i} src={g} alt="" data-testid={`sln-gallery-${i}`}
+                style={{ cursor: "zoom-in" }} onClick={() => setLb(g)} />
+            ))}
           </div>
         </div>
       </section>
@@ -72,6 +76,13 @@ export default function Szalon() {
       </section>
 
       <footer className="sln-footer">© {d.brand} · {d.address}</footer>
+
+      {lb && (
+        <div className="sln-lightbox" data-testid="sln-lightbox" onClick={() => setLb(null)}>
+          <button className="sln-lb-close" aria-label="Close" data-testid="sln-lightbox-close">×</button>
+          <img src={lb} alt="" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
     </div>
   );
 }

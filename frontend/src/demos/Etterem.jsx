@@ -3,7 +3,7 @@ import "./demos.css";
 import { DemoBar } from "./DemoBar";
 import { useLang } from "../i18n";
 
-const HERO_IMG = "https://static.prod-images.emergentagent.com/jobs/afbc24ab-458f-4a48-8241-485e9d12f0a0/images/eec847704c318a0f325a38b753c1380b45dece527d66c3e06926dc5ac70ff3d6.jpeg";
+const HERO_IMG = "https://static.prod-images.emergentagent.com/jobs/afbc24ab-458f-4a48-8241-485e9d12f0a0/images/354cd17ee3b81c3009c3856a75adb37795ce66af49f3183eb096f68ab7454cbf.jpeg";
 
 export default function Etterem() {
   const { t } = useLang();

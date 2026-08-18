@@ -23,6 +23,7 @@ export const References = () => {
         {r.cards.map((c, i) => (
           <Reveal key={i} delay={i * 80}>
             <Link to={META[i].to} className="ref-card" data-testid={`ref-card-${i}`} style={{ "--accent": META[i].accent }}>
+              <span className="ref-dot" aria-hidden="true" />
               <span className="ref-tag">{c.tag}</span>
               <div className="ref-title">{c.title}</div>
               <div className="ref-desc">{c.desc}</div>

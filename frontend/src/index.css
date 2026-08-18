@@ -211,6 +211,8 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
 .ref-cta { display: inline-block; margin-top: 20px; font-family: var(--mono); font-size: 13px; color: var(--text);
   transition: transform .25s ease; }
 .ref-card:hover .ref-cta { transform: translateX(6px); }
+.ref-dot { position: absolute; top: 24px; right: 24px; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 12px var(--accent); animation: pulse 1.8s ease-in-out infinite; }
 
 /* ===== AUDIO BLOCK ===== */
 .audio-block { margin-bottom: 18px; }
