@@ -1,0 +1,97 @@
+const CALLBAR = "mailto:epistemebudapest@gmail.com?subject=" + encodeURIComponent("Koľko hovorov zmeškávame?");
+
+const sk = {
+  nav: {
+    links: [["Agenti", "agentek"], ["Postup", "folyamat"], ["Ceny", "arak"], ["Prípadová štúdia", "eset"]],
+    contact: "KONTAKT",
+    callbar: "Koľko hovorov zmešká vaša prevádzka?",
+    callbarHref: CALLBAR,
+  },
+  hero: {
+    eyebrow: "Budapešť · AI agentúra",
+    h1: ["Nestaviame", "chatboty. Ale", "spolupracovníka."],
+    sub: "Staviame AI agentov pre firmy, ktorí vykonávajú konkrétnu prácu — triedia e-maily, kvalifikujú dopyty, dvíhajú telefón. Neodovzdávame demo, ale funkčný systém, ktorý udržiavame nažive.",
+    ctaPrimary: "Pozri agentov",
+    ctaGhost: "Pozri naživo",
+    stats: [["2–4 týždne", "prvý agent"], ["3 jazyky", "HU · EN · ES"], ["100%", "ľudské schválenie"]],
+  },
+  agentsSection: {
+    tag: "Čo staviame",
+    heading: "Dvanásť agentov, jedna logika stavby",
+    sub: "Každý je postavený z rovnakej sady modulov, preto je druhý vždy rýchlejší než prvý. Tých označených naživo si môžeš vyskúšať — vzadu beží reálny model.",
+    tryOpen: "Vyskúšať naživo ↓",
+    tryClose: "Zavrieť",
+  },
+  agents: [
+    { title: "Triedič e-mailov", badge: "Naživo", desc: "Číta prichádzajúce e-maily, zaraďuje ich do kategórií, určuje naliehavosť a povie, komu patria.", lead: "2–4 týždne" },
+    { title: "Kvalifikátor dopytov", badge: "Naživo", desc: "Prejde prichádzajúce dopyty, oboduje ich a povie, čo s nimi robiť — dnes alebo o tri mesiace.", lead: "3–5 týždňov" },
+    { title: "Interný admin agent", badge: "Demo", desc: "Presúva dáta medzi systémami, zostavuje reporty, vypĺňa formuláre. Neviditeľná práca, ktorá nikomu nechýba.", lead: "2–4 týždne" },
+    { title: "Monitor prieskumu", badge: "Demo", desc: "Sleduje konkurenciu, legislatívu alebo trh a ozve sa len vtedy, keď sa naozaj niečo stalo.", lead: "2–4 týždne" },
+    { title: "Agent zákazníckej podpory", badge: "Demo", desc: "Odpovedá z tvojich vlastných dokumentov, so zdrojmi. Čo nevie, odovzdá človeku — nevymýšľa si.", lead: "6–10 týždňov" },
+    { title: "Obsahový agent", badge: "Demo", desc: "Natrénovaný na jeden tón: newsletter, popis produktu, príspevok na sociálne siete. Schválenie ostáva u teba.", lead: "2–3 týždne" },
+    { title: "Asistent e-shopu", badge: "Demo", desc: "Odporúča produkty, kontroluje sklad, sleduje objednávky. Pracuje proti opusteniu košíka, nie proti návštevníkovi.", lead: "3–5 týždňov" },
+    { title: "Analyzátor dokumentov", badge: "Demo", desc: "Číta zmluvy, faktúry a ponuky a vytiahne z nich tých sedem polí, kvôli ktorým to niekto doteraz čítal celé.", lead: "6–8 týždňov" },
+    { title: "Finančný asistent", badge: "Demo", desc: "Kategorizuje náklady, hlási odchýlky, zostavuje reporty. Za každým tvrdením je zdrojový riadok.", lead: "6–8 týždňov" },
+    { title: "Náborový agent", badge: "Demo", desc: "Predfiltruje životopisy podľa štruktúrovaných kritérií. Pre AI Act EÚ obsahuje audit log a ľudské prehodnotenie.", lead: "3–4 týždne + právne" },
+    { title: "Agent IT prevádzky", badge: "Demo", desc: "Sleduje logy, klasifikuje výstrahy, pri známych chybách spustí opravu. Na to, čo nepozná, ťa zobudí.", lead: "3–6 týždňov" },
+    { title: "Multiagentový systém", badge: "Demo", desc: "Viac agentov v jednom procese, s odovzdávaním a kontrolnými bodmi. Má zmysel len ak je proces naozaj zložitý.", lead: "10–16 týždňov" },
+  ],
+  process: {
+    tag: "Ako pracujeme",
+    heading: "Šesť krokov, jedna ľudská brána",
+    sub: "Väčšinu agentov stavajú agenti. Čo sa nemení: schvaľuje človek — nie preto, že model je zlý, ale preto, že zodpovednosť sa nedá delegovať.",
+    steps: [
+      { n: "01", title: "Zmapovanie pracovného toku", desc: "Pozrieme sa, kam ide čas. Nepýtame sa, čo chceš automatizovať, ale ktorá úloha sa opakuje päťdesiatkrát týždenne." },
+      { n: "02", title: "Špecifikácia so schémou", desc: "Dohoda sa zaznamená v strojovo čitateľnej podobe: čo je vstup, čo výstup, čo sa počíta za chybu. Tento dokument sa neskôr stane základom testu." },
+      { n: "03", title: "Stavba v izolovanom prostredí", desc: "Každý projekt dostane vlastné uzavreté behové prostredie. Chyba sa nemôže preliať do systému iného klienta." },
+      { n: "04", title: "Nezávislá kontrola", desc: "Hotovú prácu nekontroluje ten, kto ju napísal. Beží na nej samostatný kontrolór s prázdnym kontextom a len na čítanie — takže nemôže obhajovať vlastné rozhodnutia." },
+      { n: "05", title: "Ľudské schválenie", desc: "Nič nejde von bez schválenia. Brána nie je formalita: tu sa ukáže, či je niečo technicky správne, ale pre biznis nesprávne.", amber: "◆ Rozhoduje človek, nie AI" },
+      { n: "06", title: "Odovzdanie a prevádzka", desc: "Agent beží na tvojej infraštruktúre, s tvojimi kľúčmi. Mesačný poplatok pokrýva dohľad a opravy, nie prístup." },
+    ],
+  },
+  pricing: {
+    tag: "Ceny",
+    heading: "Tvorba a vývoj webových stránok",
+    sub: "Moderné, rýchle, pre mobil optimalizované stránky — s reálnym obsahom, v ostrej prevádzke.",
+    netNote: "cena bez DPH, bez hostingu a domény",
+    popular: "Najobľúbenejšie",
+    cta: "Chcem ponuku",
+    subjectPrefix: "Dopyt na ponuku",
+    packages: [
+      { name: "Jednostránková prezentácia", price: "120 000 Ft", features: ["jednostránkový web optimalizovaný pre mobil", "kontakt, otváracie hodiny, Google Maps", "hotové za 3–5 dní"] },
+      { name: "Viacstránkový firemný", price: "290 000 Ft", features: ["viac podstránok, galéria, kontaktný formulár", "základné SEO a indexovanie v Google", "hotové za 1–2 týždne"] },
+      { name: "Na mieru / s AI", price: "od 900 000 Ft", features: ["rezervačný systém alebo AI chat / hlasový agent", "vlastné funkcie podľa potreby", "na základe ponuky, s dohodnutým termínom"] },
+    ],
+  },
+  caseStudy: {
+    tag: "V akcii",
+    heading: "Telefonujúci agent na ostrej linke",
+    pill: "VLASTNÉ DEMO",
+    para: "Trojjazyčný reštauračný asistent, ktorý dvíha telefón, rezervuje stôl a zapisuje do rovnakého počítadla voľných miest ako web. Nie je to prototyp: beží na reálnom telefónnom čísle a posiela reálne SMS potvrdenie.",
+    bullets: [
+      "Hovorí po maďarsky, anglicky a španielsky, prepína počas hovoru",
+      "Telefón a web zdieľajú rovnaký stav rezervácie",
+      "Prerušiteľný — nemusíš ho počúvať do konca",
+      "Denný limit hovorov a limit dĺžky hovoru pre predvídateľné náklady",
+    ],
+    link: "Otvoriť web →",
+    audioCaption: "Reálny telefonát s AI recepciou — asi 50 sekúnd.",
+    audioError: "Zvuková nahrávka momentálne nie je dostupná.",
+    videoBig: "▶ Video — čoskoro",
+    videoSm: "Záznam obrazovky z webovej rezervácie, od začiatku po potvrdenie.",
+    phoneLabel: "Zavolaj teraz",
+    phoneHint: ["Požiadaj o stôl v akomkoľvek jazyku.", "Denný limit: 20 hovorov."],
+  },
+  contact: {
+    heading: "Ktorá úloha ti zožerie týždeň?",
+    para: "Napíš to v jednej vete. Do dvoch pracovných dní ti povieme, či sa oplatí postaviť naň agenta — a ak nie, aj to.",
+    phoneDisabled: "Telefónny agent — čoskoro",
+  },
+  footer: {
+    left: "AXIMBRA · Budapešť · aximbra.hu",
+    right: "EPISTEME je náš vlastný demo systém, nie klientska práca.",
+  },
+  marquee: ["AGENTI, NIE CHATBOTY", "ĽUDSKÉ SCHVÁLENIE", "BUDAPEŠŤ", "HU · EN · ES", "FUNKČNÝ SYSTÉM"],
+};
+
+export default sk;

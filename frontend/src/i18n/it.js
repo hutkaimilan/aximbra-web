@@ -1,0 +1,97 @@
+const CALLBAR = "mailto:epistemebudapest@gmail.com?subject=" + encodeURIComponent("Quante chiamate stiamo perdendo?");
+
+const it = {
+  nav: {
+    links: [["Agenti", "agentek"], ["Processo", "folyamat"], ["Prezzi", "arak"], ["Caso studio", "eset"]],
+    contact: "CONTATTO",
+    callbar: "Quante chiamate perde il tuo locale?",
+    callbarHref: CALLBAR,
+  },
+  hero: {
+    eyebrow: "Budapest · agenzia AI",
+    h1: ["Non costruiamo", "chatbot. Ma un", "collaboratore."],
+    sub: "Costruiamo agenti AI per le aziende che svolgono un lavoro concreto — smistano email, qualificano richieste, rispondono al telefono. Non consegniamo una demo, ma un sistema funzionante che teniamo in vita.",
+    ctaPrimary: "Vedi gli agenti",
+    ctaGhost: "Guardalo dal vivo",
+    stats: [["2–4 settimane", "il primo agente"], ["3 lingue", "HU · EN · ES"], ["100%", "approvazione umana"]],
+  },
+  agentsSection: {
+    tag: "Cosa costruiamo",
+    heading: "Dodici agenti, una logica di costruzione",
+    sub: "Ognuno è costruito dallo stesso set di moduli, perciò il secondo è sempre più veloce del primo. Quelli contrassegnati come live puoi provarli — dietro gira un modello reale.",
+    tryOpen: "Provalo dal vivo ↓",
+    tryClose: "Chiudi",
+  },
+  agents: [
+    { title: "Selezionatore email", badge: "Live", desc: "Legge le email in arrivo, le classifica per categoria, valuta l'urgenza e indica a chi competono.", lead: "2–4 settimane" },
+    { title: "Qualificatore di lead", badge: "Live", desc: "Esamina le richieste in arrivo, le valuta e indica cosa farne — oggi o tra tre mesi.", lead: "3–5 settimane" },
+    { title: "Agente amministrativo interno", badge: "Demo", desc: "Sposta dati tra sistemi, compila report, riempie moduli. Il lavoro invisibile che non manca a nessuno.", lead: "2–4 settimane" },
+    { title: "Monitor di ricerca", badge: "Demo", desc: "Osserva i concorrenti, la normativa o il mercato e interviene solo quando è successo davvero qualcosa.", lead: "2–4 settimane" },
+    { title: "Agente di assistenza clienti", badge: "Demo", desc: "Risponde dai tuoi documenti, con le fonti. Ciò che non sa lo passa a una persona — non lo inventa.", lead: "6–10 settimane" },
+    { title: "Agente di contenuti", badge: "Demo", desc: "Addestrato su un tono: newsletter, scheda prodotto, post social. L'approvazione resta a te.", lead: "2–3 settimane" },
+    { title: "Assistente e-commerce", badge: "Demo", desc: "Consiglia prodotti, controlla le scorte, segue gli ordini. Lavora contro l'abbandono del carrello, non contro il visitatore.", lead: "3–5 settimane" },
+    { title: "Analizzatore di documenti", badge: "Demo", desc: "Legge contratti, fatture e preventivi ed estrae i sette campi per cui qualcuno finora leggeva tutto.", lead: "6–8 settimane" },
+    { title: "Assistente finanziario", badge: "Demo", desc: "Categorizza i costi, segnala scostamenti, compila report. Dietro ogni affermazione c'è una riga di origine.", lead: "6–8 settimane" },
+    { title: "Agente di selezione", badge: "Demo", desc: "Prevaglia i CV secondo criteri strutturati. Per l'AI Act UE include log di audit e revisione umana.", lead: "3–4 settimane + legale" },
+    { title: "Agente di operations IT", badge: "Demo", desc: "Guarda i log, classifica gli allarmi, esegue la correzione per i problemi noti. Ciò che non riconosce, ti sveglia per quello.", lead: "3–6 settimane" },
+    { title: "Sistema multi-agente", badge: "Demo", desc: "Più agenti in un processo, con passaggi e punti di controllo. Ha senso solo se il processo è davvero complesso.", lead: "10–16 settimane" },
+  ],
+  process: {
+    tag: "Come lavoriamo",
+    heading: "Sei passi, un varco umano",
+    sub: "La maggior parte degli agenti è costruita da agenti. Ciò che non cambia: ad approvare è una persona — non perché il modello sia scadente, ma perché la responsabilità non si delega.",
+    steps: [
+      { n: "01", title: "Mappatura del flusso di lavoro", desc: "Guardiamo dove va il tempo. Non chiediamo cosa vuoi automatizzare, ma quale attività si ripete cinquanta volte a settimana." },
+      { n: "02", title: "Specifica, con schema", desc: "L'accordo viene registrato in forma leggibile dalla macchina: cos'è l'input, cos'è l'output, cosa conta come errore. Questo documento diventa poi la base del test." },
+      { n: "03", title: "Costruzione in ambiente isolato", desc: "Ogni progetto riceve il proprio ambiente di esecuzione sigillato. Un errore non può propagarsi al sistema di un altro cliente." },
+      { n: "04", title: "Controllo indipendente", desc: "Il lavoro finito non è controllato da chi lo ha scritto. Un revisore separato gira sopra, con contesto vuoto e sola lettura — così non può difendere le proprie decisioni." },
+      { n: "05", title: "Approvazione umana", desc: "Niente esce senza approvazione. Il varco non è una formalità: è qui che emerge se qualcosa è tecnicamente corretto ma sbagliato per il business.", amber: "◆ Decide una persona, non l'AI" },
+      { n: "06", title: "Consegna e gestione", desc: "L'agente gira sulla tua infrastruttura, con le tue chiavi. Il canone mensile copre la supervisione e le correzioni, non l'accesso." },
+    ],
+  },
+  pricing: {
+    tag: "Prezzi",
+    heading: "Creazione e sviluppo di siti web",
+    sub: "Siti moderni, veloci e ottimizzati per il mobile — con contenuti reali, in esercizio.",
+    netNote: "prezzo netto, esclusi hosting e dominio",
+    popular: "Più popolare",
+    cta: "Richiedi un preventivo",
+    subjectPrefix: "Richiesta di preventivo",
+    packages: [
+      { name: "Presenza a una pagina", price: "120 000 Ft", features: ["sito a pagina singola, ottimizzato mobile", "contatti, orari, Google Maps", "pronto in 3–5 giorni"] },
+      { name: "Business multipagina", price: "290 000 Ft", features: ["più sottopagine, galleria, modulo di contatto", "SEO di base e indicizzazione Google", "pronto in 1–2 settimane"] },
+      { name: "Su misura / con AI", price: "da 900 000 Ft", features: ["sistema di prenotazione o chat / agente vocale AI", "funzioni su misura secondo necessità", "su preventivo, con scadenza concordata"] },
+    ],
+  },
+  caseStudy: {
+    tag: "In azione",
+    heading: "Un agente che telefona, su una linea reale",
+    pill: "DEMO NOSTRA",
+    para: "Un assistente per ristoranti in tre lingue che risponde al telefono, prenota un tavolo e scrive sullo stesso contatore di posti liberi del sito. Non un prototipo: gira su un numero di telefono reale e invia una conferma reale via SMS.",
+    bullets: [
+      "Parla ungherese, inglese e spagnolo, e cambia durante la chiamata",
+      "Telefono e web condividono lo stesso stato di prenotazione",
+      "Interrompibile — non serve ascoltarlo fino in fondo",
+      "Quota giornaliera di chiamate e limite di durata per un costo prevedibile",
+    ],
+    link: "Apri il sito web →",
+    audioCaption: "Una vera chiamata con la reception AI — circa 50 secondi.",
+    audioError: "L'audio al momento non è disponibile.",
+    videoBig: "▶ Video — presto",
+    videoSm: "Registrazione dello schermo della prenotazione web, dall'inizio alla conferma.",
+    phoneLabel: "Chiama ora",
+    phoneHint: ["Chiedi un tavolo in qualsiasi lingua.", "Quota giornaliera: 20 chiamate."],
+  },
+  contact: {
+    heading: "Quale attività ti divora la settimana?",
+    para: "Scrivila in una frase. Entro due giorni lavorativi ti diciamo se vale la pena costruirci un agente — e se no, anche quello.",
+    phoneDisabled: "Agente telefonico — presto",
+  },
+  footer: {
+    left: "AXIMBRA · Budapest · aximbra.hu",
+    right: "EPISTEME è il nostro sistema dimostrativo interno, non lavoro per clienti.",
+  },
+  marquee: ["AGENTI, NON CHATBOT", "APPROVAZIONE UMANA", "BUDAPEST", "HU · EN · ES", "SISTEMA FUNZIONANTE"],
+};
+
+export default it;

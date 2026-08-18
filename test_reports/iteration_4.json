@@ -1,0 +1,21 @@
+{
+  "summary": "Frontend-only testing for iteration 4 (4 new demo pages + References homepage section + router). All 12 requested checks passed: References section renders 4 cards linking to correct routes with client-side navigation; direct URL loads of /demo/etterem, /demo/szalon, /demo/rendelo, /demo/ugyvedi all return 200 with proper testids; demo-back navigates to /; demo-lang has 8 options and switches document.documentElement.lang; Deutsch fallback shows English content (no raw keys, no blank text); Etterem accordion + rst-float mailto works; Szalon shows 4 services + 3 gallery images; Rendelo shows 6 services, 3 doctor cards, urgent phone +36 1 700 0000; Ugyvedi timeline (4), practice areas (6), and law-form submit renders law-sent confirmation; homepage regression (lang-select + 3 pkg-cards) intact. Zero console errors captured across all navigations. Live LLM demos not re-tested per prior-iteration validation and budget guidance.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Demo body copy authored only in HU/EN with English fallback for DE/ES/FR/IT/RO/SK — confirmed by design per problem statement, not a bug."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "none required",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All demo pages and homepage References verified. Live LLM demos (agent-try-email/lead) intentionally skipped this iteration; last validated in iteration 3. Preview 'load' event never fires due to homepage rAF (WebGL+lenis) — use domcontentloaded + ~5s wait for homepage; demo pages have no WebGL and load fast."
+}

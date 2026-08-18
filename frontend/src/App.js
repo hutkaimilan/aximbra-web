@@ -10,8 +10,16 @@ import { Process } from "@/components/Process";
 import { Pricing } from "@/components/Pricing";
 import { CaseStudy } from "@/components/CaseStudy";
 import { Contact, Footer } from "@/components/Contact";
+import { References } from "@/components/References";
+import { LanguageProvider, useLang } from "@/i18n";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Etterem from "@/demos/Etterem";
+import Szalon from "@/demos/Szalon";
+import Rendelo from "@/demos/Rendelo";
+import Ugyvedi from "@/demos/Ugyvedi";
 
-function App() {
+function Site() {
+  const { t } = useLang();
   const lenisRef = useRef(null);
 
   useEffect(() => {
@@ -47,16 +55,14 @@ function App() {
         <Hero scrollTo={scrollTo} />
         <div className="marquee" aria-hidden="true">
           <div className="marquee-track">
-            <span>AGENTEK, NEM CHATBOTOK</span><span>EMBERI JÓVÁHAGYÁS</span><span>BUDAPEST</span>
-            <span>HU · EN · ES</span><span>MŰKÖDŐ RENDSZER</span>
-            <span>AGENTEK, NEM CHATBOTOK</span><span>EMBERI JÓVÁHAGYÁS</span><span>BUDAPEST</span>
-            <span>HU · EN · ES</span><span>MŰKÖDŐ RENDSZER</span>
+            {[...t.marquee, ...t.marquee].map((m, i) => <span key={i}>{m}</span>)}
           </div>
         </div>
         <Agents />
         <Process />
         <Pricing />
         <CaseStudy />
+        <References />
         <Contact />
       </main>
       <Footer />
@@ -64,4 +70,18 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <LanguageProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Site />} />
+          <Route path="/demo/etterem" element={<Etterem />} />
+          <Route path="/demo/szalon" element={<Szalon />} />
+          <Route path="/demo/rendelo" element={<Rendelo />} />
+          <Route path="/demo/ugyvedi" element={<Ugyvedi />} />
+        </Routes>
+      </BrowserRouter>
+    </LanguageProvider>
+  );
+}

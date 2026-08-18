@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { AGENTS } from "../data";
 import { Reveal } from "./Reveal";
 import { LiveDemo } from "./LiveDemo";
 import { LiquidButton } from "./LiquidButton";
+import { useLang } from "../i18n";
 
-const TiltCard = ({ agent, open, onToggle }) => {
+const TiltCard = ({ agent, open, onToggle, labels }) => {
   const onMove = (e) => {
     if (open) return;
     const el = e.currentTarget;
@@ -33,7 +33,7 @@ const TiltCard = ({ agent, open, onToggle }) => {
       {agent.live && (
         <div className="card-try">
           <LiquidButton ghost data-testid={`agent-try-${agent.demo}`} onClick={onToggle}>
-            {open ? "Bezárás" : "Próbáld ki élőben ↓"}
+            {open ? labels.tryClose : labels.tryOpen}
           </LiquidButton>
           {open && <LiveDemo type={agent.demo} />}
         </div>
@@ -43,21 +43,21 @@ const TiltCard = ({ agent, open, onToggle }) => {
 };
 
 export const Agents = () => {
+  const { t } = useLang();
   const [open, setOpen] = useState(null);
+  const s = t.agentsSection;
   return (
     <section className="container" id="agentek" data-testid="agents-section">
       <Reveal>
-        <span className="tag">Amit építünk</span>
-        <h2 className="h-sec">Tizenkét agent, egy építési logika</h2>
-        <p className="sub">
-          Mindegyik ugyanabból a modulkészletből épül, ezért a második mindig gyorsabb, mint az első.
-          Az élő jelöléssel ellátottakat kipróbálhatod — valódi modell fut mögötte.
-        </p>
+        <span className="tag">{s.tag}</span>
+        <h2 className="h-sec">{s.heading}</h2>
+        <p className="sub">{s.sub}</p>
       </Reveal>
       <div className="grid">
-        {AGENTS.map((a, i) => (
-          <Reveal key={a.title} delay={(i % 3) * 90} className={open === a.demo ? "span-all" : ""}>
-            <TiltCard agent={a} open={open === a.demo} onToggle={() => setOpen(open === a.demo ? null : a.demo)} />
+        {t.agents.map((a, i) => (
+          <Reveal key={a.demo || i} delay={(i % 3) * 90} className={open === a.demo ? "span-all" : ""}>
+            <TiltCard agent={a} labels={s} open={open === a.demo}
+              onToggle={() => setOpen(open === a.demo ? null : a.demo)} />
           </Reveal>
         ))}
       </div>

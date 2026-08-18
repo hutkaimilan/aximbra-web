@@ -1,0 +1,97 @@
+const CALLBAR = "mailto:epistemebudapest@gmail.com?subject=" + encodeURIComponent("Câte apeluri pierdem?");
+
+const ro = {
+  nav: {
+    links: [["Agenți", "agentek"], ["Proces", "folyamat"], ["Prețuri", "arak"], ["Studiu de caz", "eset"]],
+    contact: "CONTACT",
+    callbar: "Câte apeluri pierde localul tău?",
+    callbarHref: CALLBAR,
+  },
+  hero: {
+    eyebrow: "Budapesta · agenție AI",
+    h1: ["Nu construim", "chatboți. Ci un", "coleg de muncă."],
+    sub: "Construim agenți AI pentru companii, care fac o muncă concretă — sortează e-mailuri, califică solicitări, răspund la telefon. Nu predăm o demonstrație, ci un sistem funcțional pe care îl menținem în viață.",
+    ctaPrimary: "Vezi agenții",
+    ctaGhost: "Vezi live",
+    stats: [["2–4 săptămâni", "primul agent"], ["3 limbi", "HU · EN · ES"], ["100%", "aprobare umană"]],
+  },
+  agentsSection: {
+    tag: "Ce construim",
+    heading: "Doisprezece agenți, o logică de construcție",
+    sub: "Fiecare este construit din același set de module, de aceea al doilea este mereu mai rapid decât primul. Pe cei marcați live îi poți încerca — în spate rulează un model real.",
+    tryOpen: "Încearcă live ↓",
+    tryClose: "Închide",
+  },
+  agents: [
+    { title: "Sortator de e-mailuri", badge: "Live", desc: "Citește e-mailurile primite, le împarte pe categorii, stabilește urgența și spune cui aparțin.", lead: "2–4 săptămâni" },
+    { title: "Calificator de lead-uri", badge: "Live", desc: "Parcurge solicitările primite, le punctează și spune ce merită făcut cu fiecare — azi sau peste trei luni.", lead: "3–5 săptămâni" },
+    { title: "Agent administrativ intern", badge: "Demo", desc: "Mută date între sisteme, întocmește rapoarte, completează formulare. Munca invizibilă care nu-i lipsește nimănui.", lead: "2–4 săptămâni" },
+    { title: "Monitor de cercetare", badge: "Demo", desc: "Urmărește concurenții, legislația sau piața și anunță doar când chiar s-a întâmplat ceva.", lead: "2–4 săptămâni" },
+    { title: "Agent de relații cu clienții", badge: "Demo", desc: "Răspunde din propriile tale documente, cu surse. Ce nu știe, predă unui om — nu inventează.", lead: "6–10 săptămâni" },
+    { title: "Agent de conținut", badge: "Demo", desc: "Antrenat pe un singur ton: newsletter, descriere de produs, postare pe social. Aprobarea rămâne la tine.", lead: "2–3 săptămâni" },
+    { title: "Asistent pentru magazin online", badge: "Demo", desc: "Recomandă produse, verifică stocul, urmărește comenzile. Lucrează împotriva abandonului coșului, nu împotriva vizitatorului.", lead: "3–5 săptămâni" },
+    { title: "Analizator de documente", badge: "Demo", desc: "Citește contracte, facturi și oferte și extrage cele șapte câmpuri pentru care cineva citea tot până acum.", lead: "6–8 săptămâni" },
+    { title: "Asistent financiar", badge: "Demo", desc: "Clasifică costurile, semnalează abaterile, întocmește rapoarte. În spatele fiecărei afirmații stă o linie-sursă.", lead: "6–8 săptămâni" },
+    { title: "Agent de recrutare", badge: "Demo", desc: "Prefiltrează CV-urile după criterii structurate. Din cauza AI Act al UE, include jurnal de audit și control uman.", lead: "3–4 săptămâni + juridic" },
+    { title: "Agent de operațiuni IT", badge: "Demo", desc: "Se uită la loguri, clasifică alertele, rulează remedierea pentru erori cunoscute. Ce nu recunoaște, te trezește pentru asta.", lead: "3–6 săptămâni" },
+    { title: "Sistem multi-agent", badge: "Demo", desc: "Mai mulți agenți într-un proces, cu predări și puncte de control. Are sens doar dacă procesul e cu adevărat complex.", lead: "10–16 săptămâni" },
+  ],
+  process: {
+    tag: "Cum lucrăm",
+    heading: "Șase pași, o poartă umană",
+    sub: "Majoritatea agenților sunt construiți de agenți. Ce nu se schimbă: cel care aprobă este un om — nu pentru că modelul e slab, ci pentru că responsabilitatea nu se deleagă.",
+    steps: [
+      { n: "01", title: "Cartografierea fluxului de lucru", desc: "Ne uităm unde se duce timpul. Nu întrebăm ce vrei să automatizezi, ci ce sarcină se repetă de cincizeci de ori pe săptămână." },
+      { n: "02", title: "Specificație, cu schemă", desc: "Înțelegerea este consemnată în formă citibilă de mașină: care e intrarea, care e ieșirea, ce contează drept eroare. Acest document devine apoi baza testului." },
+      { n: "03", title: "Construcție în mediu izolat", desc: "Fiecare proiect primește propriul mediu de execuție închis. O eroare nu se poate propaga în sistemul altui client." },
+      { n: "04", title: "Verificare independentă", desc: "Munca finalizată nu este verificată de cel care a scris-o. Un verificator separat rulează peste ea, cu context gol și doar drept de citire — astfel nu-și poate apăra propriile decizii." },
+      { n: "05", title: "Aprobare umană", desc: "Nimic nu iese fără aprobare. Poarta nu e o formalitate: aici se vede dacă ceva e corect tehnic, dar greșit pentru afacere.", amber: "◆ Decide un om, nu AI-ul" },
+      { n: "06", title: "Predare și operare", desc: "Agentul rulează pe infrastructura ta, cu cheile tale. Abonamentul lunar acoperă supravegherea și reparațiile, nu accesul." },
+    ],
+  },
+  pricing: {
+    tag: "Prețuri",
+    heading: "Creare și dezvoltare de site-uri web",
+    sub: "Site-uri moderne, rapide, optimizate pentru mobil — cu conținut real, în funcțiune.",
+    netNote: "preț net, fără găzduire și domeniu",
+    popular: "Cel mai popular",
+    cta: "Cere o ofertă",
+    subjectPrefix: "Cerere de ofertă",
+    packages: [
+      { name: "Prezență pe o pagină", price: "120 000 Ft", features: ["site de o pagină, optimizat pentru mobil", "contact, program, Google Maps", "gata în 3–5 zile"] },
+      { name: "Business cu mai multe pagini", price: "290 000 Ft", features: ["mai multe subpagini, galerie, formular de contact", "SEO de bază și indexare Google", "gata în 1–2 săptămâni"] },
+      { name: "Personalizat / cu AI", price: "de la 900 000 Ft", features: ["sistem de rezervări sau chat / agent vocal AI", "funcții personalizate la cerere", "pe bază de ofertă, cu termen convenit"] },
+    ],
+  },
+  caseStudy: {
+    tag: "În acțiune",
+    heading: "Un agent care sună, pe o linie reală",
+    pill: "DEMO PROPRIU",
+    para: "Un asistent de restaurant în trei limbi care răspunde la telefon, rezervă o masă și scrie în același contor de locuri libere ca site-ul. Nu e un prototip: rulează pe un număr de telefon real și trimite o confirmare reală prin SMS.",
+    bullets: [
+      "Vorbește maghiară, engleză și spaniolă, și schimbă în timpul apelului",
+      "Telefonul și web-ul împart aceeași stare de rezervare",
+      "Poate fi întrerupt — nu trebuie ascultat până la capăt",
+      "Cotă zilnică de apeluri și limită de durată pentru un cost previzibil",
+    ],
+    link: "Deschide site-ul →",
+    audioCaption: "Un apel real cu recepția AI — circa 50 de secunde.",
+    audioError: "Înregistrarea audio nu este disponibilă momentan.",
+    videoBig: "▶ Video — în curând",
+    videoSm: "Înregistrare de ecran a rezervării web, de la început până la confirmare.",
+    phoneLabel: "Sună acum",
+    phoneHint: ["Cere o masă în orice limbă.", "Cotă zilnică: 20 de apeluri."],
+  },
+  contact: {
+    heading: "Ce sarcină îți mănâncă săptămâna?",
+    para: "Scrie-o într-o propoziție. În două zile lucrătoare îți spunem dacă merită construit un agent pentru ea — și dacă nu, tot îți spunem.",
+    phoneDisabled: "Agent telefonic — în curând",
+  },
+  footer: {
+    left: "AXIMBRA · Budapesta · aximbra.hu",
+    right: "EPISTEME este propriul nostru sistem demonstrativ, nu muncă pentru client.",
+  },
+  marquee: ["AGENȚI, NU CHATBOȚI", "APROBARE UMANĂ", "BUDAPESTA", "HU · EN · ES", "SISTEM FUNCȚIONAL"],
+};
+
+export default ro;

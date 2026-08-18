@@ -1,30 +1,39 @@
-import { PRICING } from "../data";
 import { Reveal } from "./Reveal";
+import { LiquidButton } from "./LiquidButton";
+import { useLang } from "../i18n";
 
-export const Pricing = () => (
-  <section className="container" id="arak" data-testid="pricing-section">
-    <Reveal>
-      <span className="tag">Árazás</span>
-      <h2 className="h-sec">Nyilvános sávok, nem „kérjen ajánlatot”</h2>
-      <p className="sub">
-        A bevezetési díj egyszeri, a havidíj a felügyeletet és a modellköltséget fedezi.
-        A sáv alja egyszerű eset, a teteje összetett integráció.
-      </p>
-    </Reveal>
-    <Reveal>
-      <div className="table">
-        <div className="trow head">
-          <div>Kategória</div><div>Bevezetés</div><div>Havidíj</div><div>Átfutás</div>
-        </div>
-        {PRICING.map((p) => (
-          <div className="trow" key={p.cat} data-testid={`price-row-${p.cat}`}>
-            <div className="c0">{p.cat}</div>
-            <div className="cm"><span className="lbl-m">Bevezetés: </span>{p.intro}</div>
-            <div className="cm"><span className="lbl-m">Havidíj: </span>{p.monthly}</div>
-            <div className="cm"><span className="lbl-m">Átfutás: </span>{p.lead}</div>
-          </div>
-        ))}
+export const Pricing = () => {
+  const { t } = useLang();
+  const p = t.pricing;
+  return (
+    <section className="container" id="arak" data-testid="pricing-section">
+      <Reveal>
+        <span className="tag">{p.tag}</span>
+        <h2 className="h-sec">{p.heading}</h2>
+        <p className="sub">{p.sub}</p>
+      </Reveal>
+      <div className="pkg-grid">
+        {p.packages.map((pkg, i) => {
+          const featured = i === 1;
+          const href = `mailto:aximbra@gmail.com?subject=${encodeURIComponent(`${p.subjectPrefix} – ${pkg.name}`)}`;
+          return (
+            <Reveal key={i} delay={i * 100}>
+              <div className={`pkg-card ${featured ? "featured" : ""}`} data-testid={`pkg-card-${i}`}>
+                {featured && <div className="pkg-badge" data-testid="pkg-popular">{p.popular}</div>}
+                <div className="pkg-name">{pkg.name}</div>
+                <div className="pkg-price">{pkg.price}</div>
+                <div className="pkg-net">{p.netNote}</div>
+                <ul className="pkg-features">
+                  {pkg.features.map((f, j) => <li key={j}>{f}</li>)}
+                </ul>
+                <LiquidButton as="a" href={href} ghost={!featured} className="pkg-btn" data-testid={`pkg-cta-${i}`}>
+                  {p.cta}
+                </LiquidButton>
+              </div>
+            </Reveal>
+          );
+        })}
       </div>
-    </Reveal>
-  </section>
-);
+    </section>
+  );
+};

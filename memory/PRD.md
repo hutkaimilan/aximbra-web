@@ -14,9 +14,13 @@ Premium, dark, neon-lit single-page marketing site for AXIMBRA, a Budapest AI ag
 - Exact Hungarian copy, dark neon palette, intro animation every load, WebGL hero, liquid buttons, 3D tilt cards, scroll reveals, prefers-reduced-motion support, mobile-first, keyboard-accessible with cyan focus ring.
 
 ## Implemented (2026-06-18)
-- Intro overlay (letter-by-letter 3D reveal), WebGL plasma hero + fallback, fixed shrinking nav, hero, 12 agent tilt cards, 6-step process rail with scroll-fill + amber human-gate pill, 8-row pricing table (stacks < 780px), EPISTEME case study with media placeholders + phone card, contact card, footer, editorial marquee.
-- Two live LLM demos wired to backend, inline expandable, 3 Hungarian sample inputs each, full-width span when open.
-- Backend guardrails + schema validation. `yarn build` passes. Testing agent: backend 100%, frontend 100%.
+- Intro overlay (letter-by-letter 3D reveal), WebGL plasma hero + fallback, fixed shrinking nav, hero, 12 agent tilt cards, 6-step process rail with scroll-fill + amber human-gate pill, EPISTEME case study with audio player (real MP3) + phone card, contact card, footer, editorial marquee.
+- Two live LLM demos wired to backend (OpenAI, user key), inline expandable, 3 Hungarian sample inputs each.
+- 8-language switcher (dropdown, native names, `<html lang>` sync, localStorage persistence, deep-merge fallback lang→en→hu).
+- Website-package pricing block (3 cards, middle featured "Legnépszerűbb", net-price note, mailto CTA with package name).
+- Header call-bar mail button; audio player with preload=none + error fallback.
+- FOUR demo websites (restaurant/salon/clinic/law-firm) on react-router routes with distinct art directions, homepage "Referenciák" link section, back links, language switch on demos (HU/EN authored, EN fallback for other 6).
+- All iterations pass testing 100%.
 
 ## Backlog / remaining
 - P1: Drop real media files into `frontend/public/media/` (episteme-demo.mp4, episteme-poster.jpg, episteme-hivas.mp3).

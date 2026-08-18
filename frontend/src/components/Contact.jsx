@@ -1,32 +1,38 @@
 import { Reveal } from "./Reveal";
 import { LiquidButton } from "./LiquidButton";
+import { useLang } from "../i18n";
 
-export const Contact = () => (
-  <section className="container" id="kapcsolat" data-testid="contact-section">
-    <Reveal>
-      <div className="contact-card">
-        <h2>Melyik feladat viszi el a heted?</h2>
-        <p>
-          Írd meg egy mondatban. Két munkanapon belül megmondjuk, megéri-e agentet építeni rá — és ha nem, azt is.
-        </p>
-        <div className="contact-cta">
-          <LiquidButton as="a" href="mailto:aximbra@gmail.com" data-testid="contact-email">
-            aximbra@gmail.com
-          </LiquidButton>
-          <LiquidButton ghost disabled data-testid="contact-phone-disabled">
-            Telefonos agent — hamarosan
-          </LiquidButton>
+export const Contact = () => {
+  const { t } = useLang();
+  const c = t.contact;
+  return (
+    <section className="container" id="kapcsolat" data-testid="contact-section">
+      <Reveal>
+        <div className="contact-card">
+          <h2>{c.heading}</h2>
+          <p>{c.para}</p>
+          <div className="contact-cta">
+            <LiquidButton as="a" href="mailto:aximbra@gmail.com" data-testid="contact-email">
+              aximbra@gmail.com
+            </LiquidButton>
+            <LiquidButton ghost disabled data-testid="contact-phone-disabled">
+              {c.phoneDisabled}
+            </LiquidButton>
+          </div>
         </div>
-      </div>
-    </Reveal>
-  </section>
-);
+      </Reveal>
+    </section>
+  );
+};
 
-export const Footer = () => (
-  <footer className="footer" data-testid="footer">
-    <div className="container">
-      <div>AXIMBRA · Budapest · aximbra.hu</div>
-      <div>Az EPISTEME saját fejlesztésű bemutató rendszer, nem ügyfélmunka.</div>
-    </div>
-  </footer>
-);
+export const Footer = () => {
+  const { t } = useLang();
+  return (
+    <footer className="footer" data-testid="footer">
+      <div className="container">
+        <div>{t.footer.left}</div>
+        <div>{t.footer.right}</div>
+      </div>
+    </footer>
+  );
+};

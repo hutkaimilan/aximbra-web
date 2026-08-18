@@ -1,0 +1,33 @@
+{
+  "summary": "Frontend-only iteration 2 testing (i18n language switcher + call-bar button + case-study audio player). All three new features work end-to-end. Language switcher toggles all nav links, hero H1, agents heading, process amber pill, case-study heading, contact heading, audio caption and callbar text between HU/EN with no console errors. Call-bar renders with mailto href to epistemebudapest@gmail.com with encoded subject, is visible on desktop and correctly hidden at 375px. Audio player is present in the case-study with controls, preload='none', paused on load, source /media/episteme-hivas.mp3 returns HTTP 200 (~393KB) and does not overflow at 375px width. However, the two live LLM demos (email + lead) currently FAIL with 502 due to an OpenAI AuthenticationError in the backend — the configured OPENAI_API_KEY is invalid (LiteLLM returns 'Incorrect API key provided: sk-proj-...NCEA'). This is a backend/config regression unrelated to the frontend iteration changes but must be fixed for the live-demo acceptance criterion in the request.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "/api/demo/email and /api/demo/lead", "issue": "Returns 502; backend log shows 'litellm.AuthenticationError: OpenAIException - Incorrect API key provided: sk-proj-...NCEA'. OPENAI_API_KEY in backend/.env is invalid/expired. Also observed model name 'gpt-5.4-mini' being requested — verify this is intended.", "priority": "CRITICAL"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Live LLM demos (email + lead)", "issue": "demo-result-* never renders because backend /api/demo/{email|lead} returns 502 (invalid OpenAI key). Frontend integration wiring itself is correct.", "affected_selectors": ["[data-testid=demo-run-email]", "[data-testid=demo-result-email]", "[data-testid=demo-run-lead]", "[data-testid=demo-result-lead]"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_1.json"],
+  "action_items": [
+    "Replace OPENAI_API_KEY in /app/backend/.env with a valid key (current key ending ...NCEA is rejected by OpenAI). Restart backend after update. Also verify model id 'gpt-5.4-mini' is the intended model.",
+    "After key fix, re-run email + lead demos to confirm demo-result-* appears with localized field labels."
+  ],
+  "critical_code_review_comments": [
+    "i18n.js is a single 240-line file mixing translations for both languages — acceptable for now but will grow; consider splitting to /i18n/hu.js and /i18n/en.js when translations expand.",
+    "CaseStudy.jsx correctly guards audio with onError -> episteme-audio-error fallback; matches spec.",
+    "Nav.jsx callbar uses simple <a href={mailto}> — matches 'plain link (no popup/modal)' requirement."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only run; observed demo endpoints 502)", "frontend": "100% for new iteration features (i18n + callbar + audio); live-demo flow blocked by backend key"},
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration-2 UI features verified on preview URL. Only failing acceptance item is live demos due to invalid OPENAI_API_KEY (AuthenticationError logged in /var/log/supervisor/backend.err.log). After key rotation, only need to re-verify demo-run-email + demo-run-lead — do not re-consume LLM budget on other items.",
+  "rca of the issue": "Live demo 502 -> backend calls litellm.completion(model=gpt-5.4-mini) -> OpenAI returns 401 AuthenticationError because OPENAI_API_KEY in backend/.env is invalid/revoked (key suffix ...NCEA). Server converts the exception into a 502 response to the client. Mitigation: update OPENAI_API_KEY to a valid key and confirm model id."
+}

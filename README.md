@@ -35,6 +35,9 @@ Frontend (`frontend/.env`):
 ## Media
 Drop `episteme-demo.mp4`, `episteme-poster.jpg`, and `episteme-hivas.mp3` into `frontend/public/media/`. Until then the case-study section shows dashed-border placeholders and works the moment the files appear.
 
+## Demo websites & client-side routing
+Four standalone demo sites live under client-side routes: `/demo/etterem`, `/demo/szalon`, `/demo/rendelo`, `/demo/ugyvedi` (react-router-dom 6.30.1). The AXIMBRA homepage links to them from the "Referenciák" section. Because these are SPA routes, the static server must fall back to `index.html` for unknown paths (SPA fallback). On Railway, serve the built `frontend/build` with a static server that rewrites all non-file requests to `index.html` (e.g. `serve -s build`).
+
 ## OPEN QUESTIONS
 - Live demo model: defaulted to `gpt-5.4-mini` (cheap, fast classification) via the user's own `OPENAI_API_KEY`. Change in `backend/server.py` if a different model is desired.
 - Cost accounting uses a fixed per-call estimate (`EST_COST_PER_CALL_USD`) since exact token cost is not read back; adjust if precise metering is needed.
