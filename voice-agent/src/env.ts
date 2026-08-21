@@ -49,7 +49,12 @@ export interface Env {
   notifyEmail: string;
   resendApiKey: string;
   resendFrom: string;
+  /** <ConversationRelay> TTS szolgaltato: Google | Amazon | ElevenLabs */
+  ttsProvider: string;
+  /** <ConversationRelay> hang-ID, prefix NELKUL (pl. hu-HU-Wavenet-A) */
   ttsVoice: string;
+  /** <Say> hangnev, prefixSZEL (pl. Google.hu-HU-Wavenet-A) */
+  sayVoice: string;
   ttsLanguage: string;
   /** Hany projekt van jelenleg folyamatban. Ez szabja meg a hataridosavot. */
   currentProjects: number;
@@ -87,7 +92,14 @@ export function env(): Env {
     resendApiKey,
     resendFrom: optional('RESEND_FROM', 'onboarding@resend.dev'),
 
-    ttsVoice: optional('TTS_VOICE', 'Google.hu-HU-Standard-A'),
+    // FONTOS: a <Say> es a <ConversationRelay> MASKEPP nevezi a hangokat.
+    //   <Say>              -> voice="Google.hu-HU-Wavenet-A"   (prefixszel)
+    //   <ConversationRelay>-> ttsProvider="Google" + voice="hu-HU-Wavenet-A"
+    // A ket forma osszekeverese ervenytelen kombinacio, amire a Twilio
+    // hibat kuld es BONTJA a hivast. Ezert kulon valtozo mindkettonek.
+    ttsProvider: optional('TTS_PROVIDER', 'Google'),
+    ttsVoice: optional('TTS_VOICE', 'hu-HU-Wavenet-A'),
+    sayVoice: optional('SAY_VOICE', 'Google.hu-HU-Wavenet-A'),
     ttsLanguage: optional('TTS_LANGUAGE', 'hu-HU'),
 
     // Kezzel allitod a Railway Variables lapjan, amikor uj munkat vallalsz.

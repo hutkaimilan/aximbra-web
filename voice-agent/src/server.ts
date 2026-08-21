@@ -44,6 +44,9 @@ function escapeXml(s: string): string {
 }
 
 function relayTwiml(host: string): string {
+  // A <Language> gyerekelemek nyelvenkent adjak meg a hangot es a
+  // felismerest. Ket nyelv van felveve: magyar az alap, angol pedig azert,
+  // hogy a hivas kozbeni nyelvvaltas ne ervenytelen konfiguraciora fusson.
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
@@ -51,13 +54,16 @@ function relayTwiml(host: string): string {
       url="wss://${escapeXml(host)}/relay"
       welcomeGreeting="${escapeXml(GREETING)}"
       language="hu-HU"
-      transcriptionLanguage="hu-HU"
-      ttsLanguage="hu-HU"
+      ttsProvider="${escapeXml(cfg.ttsProvider)}"
       voice="${escapeXml(cfg.ttsVoice)}"
-      interruptible="true" />
+      interruptible="any">
+      <Language code="hu-HU" ttsProvider="${escapeXml(cfg.ttsProvider)}" voice="${escapeXml(cfg.ttsVoice)}" />
+      <Language code="en-US" ttsProvider="Google" voice="en-US-Wavenet-F" />
+    </ConversationRelay>
   </Connect>
 </Response>`;
 }
+
 
 /**
  * Elutasito valasz.
@@ -74,7 +80,7 @@ function rejectTwiml(reason: 'daily' | 'concurrent'): string {
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="${escapeXml(cfg.ttsVoice)}" language="${escapeXml(cfg.ttsLanguage)}">${escapeXml(message)}</Say>
+  <Say voice="${escapeXml(cfg.sayVoice)}" language="${escapeXml(cfg.ttsLanguage)}">${escapeXml(message)}</Say>
   <Hangup/>
 </Response>`;
 }
@@ -200,7 +206,7 @@ const server = http.createServer((req, res) => {
         console.error('[http] /twiml hiba:', err);
         res.writeHead(500, { 'content-type': 'text/xml' });
         res.end(
-          `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${escapeXml(cfg.ttsVoice)}" language="${escapeXml(cfg.ttsLanguage)}">${escapeXml(FAILURE_MESSAGE)}</Say><Hangup/></Response>`,
+          `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${escapeXml(cfg.sayVoice)}" language="${escapeXml(cfg.ttsLanguage)}">${escapeXml(FAILURE_MESSAGE)}</Say><Hangup/></Response>`,
         );
       }
     })();
