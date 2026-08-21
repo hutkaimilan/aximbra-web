@@ -56,7 +56,12 @@ function relayTwiml(host: string): string {
       language="hu-HU"
       ttsProvider="${escapeXml(cfg.ttsProvider)}"
       voice="${escapeXml(cfg.ttsVoice)}"
-      interruptible="any">
+      interruptible="speech"
+      interruptSensitivity="${escapeXml(process.env['INTERRUPT_SENSITIVITY'] ?? 'low')}"
+      speechTimeout="${escapeXml(process.env['SPEECH_TIMEOUT'] ?? '1500')}"
+      ignoreBackchannel="true"
+      welcomeGreetingInterruptible="none"
+      reportInputDuringAgentSpeech="none">
       <Language code="hu-HU" ttsProvider="${escapeXml(cfg.ttsProvider)}" voice="${escapeXml(cfg.ttsVoice)}" />
       <Language code="en-US" ttsProvider="Google" voice="en-US-Wavenet-F" />
     </ConversationRelay>
