@@ -68,7 +68,12 @@ export interface Summary {
   ceg: string;
   iparag: string;
   feladat: string;
-  mennyiseg: string;
+  cegmeret: string;
+  volumen: string;
+  jelenlegi_megoldas: string;
+  idozites: string;
+  dontesi_kor: string;
+  koltsegvetes_jel: string;
   elerhetoseg: string;
   javasolt_kategoria: string;
   minosites: string;
@@ -115,7 +120,12 @@ export async function summarize(history: Turn[]): Promise<Summary | null> {
       ceg: parsed.ceg ?? fallback,
       iparag: parsed.iparag ?? fallback,
       feladat: parsed.feladat ?? fallback,
-      mennyiseg: parsed.mennyiseg ?? fallback,
+      cegmeret: parsed.cegmeret ?? fallback,
+      volumen: parsed.volumen ?? fallback,
+      jelenlegi_megoldas: parsed.jelenlegi_megoldas ?? fallback,
+      idozites: parsed.idozites ?? fallback,
+      dontesi_kor: parsed.dontesi_kor ?? fallback,
+      koltsegvetes_jel: parsed.koltsegvetes_jel ?? 'Nem megítélhető',
       elerhetoseg: parsed.elerhetoseg ?? fallback,
       javasolt_kategoria: parsed.javasolt_kategoria ?? 'Nem egyértelmű',
       minosites: parsed.minosites ?? 'D',
