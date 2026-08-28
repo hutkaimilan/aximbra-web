@@ -8,6 +8,7 @@ export const AgentSim = ({ data }) => {
   const [prog, setProg] = useState(0);        // revealed item count
   const [count, setCount] = useState(0);       // ticking counter
   const [vis, setVis] = useState(true);
+  const [appr, setAppr] = useState(null);
   const timers = useRef([]);
   const rootRef = useRef(null);
   const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -40,7 +41,7 @@ export const AgentSim = ({ data }) => {
     timers.current.push(setTimeout(finish, n * stepMs + 500));
   };
 
-  const reset = () => { clear(); setPhase("idle"); setProg(0); setCount(0); };
+  const reset = () => { clear(); setPhase("idle"); setProg(0); setCount(0); setAppr(null); };
 
   return (
     <div ref={rootRef} className={`agent-sim ${vis ? "sim-vis" : ""}`} data-testid="agent-sim">
@@ -75,15 +76,32 @@ export const AgentSim = ({ data }) => {
       {phase === "done" && (
         <div className="sim-after" data-testid="sim-after">
           <div className="sim-after-head">{data.afterHead}</div>
-          {data.afterBar && <div className="sim-bar sim-a" data-testid="sim-bar">{data.afterBar}</div>}
-          <div className="sim-picks">
-            {data.picks.map((p, i) => (
-              <div key={i} className={`sim-pick ${CAT[p.cat]}`}>
-                <span className="sim-pick-t">{p.t}</span>
-                <span className="sim-pick-r">{p.reason}</span>
-              </div>
-            ))}
-          </div>
+          {data.afterBar && <div className={`sim-bar ${data.afterBarCat === "m" ? "sim-m" : "sim-a"}`} data-testid="sim-bar">{data.afterBar}</div>}
+          {data.approve && (
+            <div className="sim-approve">
+              <button className="sim-btn go" data-testid="sim-approve" onClick={() => setAppr("ok")}>Jóváhagyom</button>
+              <button className="sim-btn skip" data-testid="sim-rewrite" onClick={() => setAppr("rw")}>Átíratom</button>
+              {appr === "ok" && <span className="sim-appr-msg">Jóváhagyva — kimegy.</span>}
+              {appr === "rw" && <span className="sim-appr-msg">Átírásra visszaküldve.</span>}
+            </div>
+          )}
+          {data.picks && data.picks.length > 0 && (
+            <div className="sim-picks">
+              {data.picks.map((p, i) => (
+                <div key={i} className={`sim-pick ${CAT[p.cat]}`}>
+                  <span className="sim-pick-t">{p.t}</span>
+                  <span className="sim-pick-r">{p.reason}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {data.audit && (
+            <div className="sim-audit" data-testid="sim-audit">
+              {data.audit.map((a, i) => (
+                <div key={i} className={`sim-audit-l ${a.includes("HIBA") ? "sim-audit-err" : ""}`}>{a}</div>
+              ))}
+            </div>
+          )}
           <div className="sim-closing" data-testid="sim-closing">{data.closing}</div>
           <button className="sim-btn again" data-testid="sim-again" onClick={reset}>↻ Újra</button>
         </div>

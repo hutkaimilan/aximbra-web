@@ -39,4 +39,10 @@
   .sim-after-head { font-size: 18px; }
   .sim-big { font-size: 20px; }
 }
+.sim-bar.sim-m { border-color: rgba(200,31,255,.5); color: #C81FFF; }
+.sim-approve { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+.sim-appr-msg { font-family: var(--mono); font-size: 12px; color: var(--cyan); }
+.sim-audit { display: grid; gap: 4px; margin-bottom: 16px; font-family: var(--mono); font-size: 12px; }
+.sim-audit-l { color: var(--muted); padding: 4px 0; border-bottom: 1px solid var(--border); }
+.sim-audit-err { color: #C81FFF; }
 @media (prefers-reduced-motion: reduce) { .agent-sim * { animation: none !important; } }
