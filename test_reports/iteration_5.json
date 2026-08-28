@@ -1,0 +1,27 @@
+{
+  "summary": "Frontend-only testing of AXIMBRA 12 agent simulations, shareable /agent/<slug> deep-links, and mobile 380px layout. All 12 sims open correctly, run/skip/done/again flow works, only one panel opens at a time, deep-links auto-open the correct panel, and mobile 380px sim panels have no internal overflow. Multi-agent, RAG, and Content-approve special behaviors all verified. No console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Mobile 380px (agent card index 11 open)", "issues": ["When card index 11 (multi-agent) is open the document.scrollWidth becomes 397 (viewport 380), producing a ~17px horizontal scroll. Investigation shows the sim panel itself and its children all fit within the viewport (panel right edge 368 < 380, no children with right>vw). The overflow is caused by the header/hero marquee spans (e.g. 'MŰKÖDŐ RENDSZER', 'AGENTEK, NEM CHATBOTOK', 'HU · EN · ES') which sit at negative left positions but a currently-visible chip extends past 380 when the page is scrolled to that card. This is NOT a sim-panel bug and reproduces without sim 11 being open at certain scroll positions. Recommend adding overflow-x:hidden on <body>/root at <=480px if a horizontal-scroll is undesired on mobile."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "OPTIONAL: hide global horizontal overflow on mobile (<=480px) with overflow-x:hidden on body or the hero marquee wrapper, so the animated ticker doesn't produce a ~17px horizontal scroll on narrow phones. This is cosmetic; sim panels themselves are correct."
+  ],
+  "critical_code_review_comments": [
+    "AgentSim.copyLink swallows clipboard errors silently — acceptable for demo, but no user-facing feedback if clipboard blocked (e.g. non-HTTPS). Consider selecting a hidden input as fallback.",
+    "Agents.jsx useEffect on slug depends only on [slug]; if user navigates between two slugs via URL only (SPA), the setTimeout scroll works, but sim state is preserved from previous slug for one tick before setSimOpen(idx) — negligible.",
+    "SLUGS array is exported but is defined outside component and duplicated conceptually with agentSims keys 0..11 — fine, but a single source-of-truth mapping would prevent drift if agents ever get reordered."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "seed_data_creation": "None (pure client-side sims).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Verified: all 12 sims work (indices 0..11). Deep links /agent/email-rendezo, /agent/multi-agent, /agent/penzugyi, /agent/ugyfelszolgalat all auto-open the correct panel and scroll to it. sim-copy button present in every open panel. Only one sim open at a time (opening another closes previous). Multi-agent (11) sim-audit visible with one HIBA-highlighted line. RAG (4) shows amber sim-bar ('Erre nem találtam választ…') + 3 picks. Content (5) shows sim-approve/sim-rewrite; clicking approve shows 'Jóváhagyva — kimegy.'. Mobile 380px: all six tested sims (0,4,5,7,8,11) have panelSW == panelCW (no internal overflow) and no chip/button overflows. Only issue: hero marquee causes ~17px document-level horizontal scroll at 380px (pre-existing, not sim-related). No console errors captured.",
+  "test_credentials": "N/A"
+}

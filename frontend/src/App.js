@@ -76,6 +76,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Site />} />
+          <Route path="/agent/:slug" element={<Site />} />
           <Route path="/demo/etterem" element={<Etterem />} />
           <Route path="/demo/szalon" element={<Szalon />} />
           <Route path="/demo/rendelo" element={<Rendelo />} />

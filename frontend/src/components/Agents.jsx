@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { Reveal } from "./Reveal";
 import { LiveDemo } from "./LiveDemo";
 import { LiquidButton } from "./LiquidButton";
@@ -7,8 +8,11 @@ import { AgentSim } from "./AgentSim";
 import sims from "./agentSims";
 import { useLang } from "../i18n";
 
+export const SLUGS = ["email-rendezo", "erdeklodo-minosito", "belso-admin", "kutatasi-monitor", "ugyfelszolgalat", "tartalom", "webshop", "dokumentum-elemzo", "penzugyi", "toborzas", "it-uzemelteto", "multi-agent"];
+
 const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim }) => {
   const simData = sims[kind];
+  const slug = SLUGS[kind];
   const onMove = (e) => {
     if (open) return;
     const el = e.currentTarget;
@@ -22,7 +26,7 @@ const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim }) => {
   const reset = (e) => { e.currentTarget.style.transform = "rotateY(0) rotateX(0)"; };
 
   return (
-    <div className="card" data-testid={`agent-card-${agent.demo || agent.title}`} onMouseMove={onMove} onMouseLeave={reset}>
+    <div className="card" id={`agent-${slug}`} data-testid={`agent-card-${agent.demo || agent.title}`} onMouseMove={onMove} onMouseLeave={reset}>
       <AgentViz kind={kind} />
       <div className="card-head">
         <div className="card-title">{agent.title}</div>
@@ -48,7 +52,7 @@ const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim }) => {
           <LiquidButton ghost data-testid={`agent-sim-btn-${kind}`} onClick={onSim}>
             {simOn ? "Bezárás" : "Nézd meg működés közben"}
           </LiquidButton>
-          {simOn && <AgentSim data={simData} />}
+          {simOn && <AgentSim data={simData} slug={slug} />}
         </div>
       )}
     </div>
@@ -59,6 +63,17 @@ export const Agents = () => {
   const { t } = useLang();
   const [open, setOpen] = useState(null);
   const [simOpen, setSimOpen] = useState(null);
+  const { slug } = useParams();
+  useEffect(() => {
+    if (!slug) return;
+    const idx = SLUGS.indexOf(slug);
+    if (idx < 0) return;
+    setOpen(null); setSimOpen(idx);
+    const tid = setTimeout(() => {
+      document.getElementById(`agent-${slug}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 500);
+    return () => clearTimeout(tid);
+  }, [slug]);
   const s = t.agentsSection;
   return (
     <section className="container" id="agentek" data-testid="agents-section">

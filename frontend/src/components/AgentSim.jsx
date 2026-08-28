@@ -3,12 +3,18 @@ import "./agentsim.css";
 
 const CAT = { m: "sim-m", c: "sim-c", a: "sim-a", dim: "sim-dim" };
 
-export const AgentSim = ({ data }) => {
+export const AgentSim = ({ data, slug }) => {
   const [phase, setPhase] = useState("idle"); // idle | running | done
   const [prog, setProg] = useState(0);        // revealed item count
   const [count, setCount] = useState(0);       // ticking counter
   const [vis, setVis] = useState(true);
   const [appr, setAppr] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const copyLink = () => {
+    const url = `${window.location.origin}/agent/${slug}`;
+    try { navigator.clipboard.writeText(url); } catch (e) {}
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
+  };
   const timers = useRef([]);
   const rootRef = useRef(null);
   const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -45,6 +51,11 @@ export const AgentSim = ({ data }) => {
 
   return (
     <div ref={rootRef} className={`agent-sim ${vis ? "sim-vis" : ""}`} data-testid="agent-sim">
+      {slug && (
+        <button className="sim-copy" data-testid="sim-copy" onClick={copyLink}>
+          {copied ? "Link másolva ✓" : "🔗 Link másolása"}
+        </button>
+      )}
       {phase === "idle" && (
         <div className="sim-before">
           <div className="sim-head"><span className="sim-big">{data.total}</span> {data.beforeLabel}</div>

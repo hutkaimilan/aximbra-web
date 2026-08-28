@@ -168,6 +168,16 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
 .lang-select:hover { border-color: var(--cyan); }
 .lang-select option { background: #0a0a18; color: var(--text); }
 
+/* ===== NAV MOBILE FIT (prevents KAPCSOLAT clipping / horizontal overflow at 380px) ===== */
+@media (max-width: 480px){
+  .nav { padding: 16px 16px; }
+  .nav.scrolled { padding: 10px 16px; }
+  .nav-links { gap: 10px; }
+  .logo { font-size: 17px; letter-spacing: .04em; }
+  .btn-nav { padding: 10px 15px; font-size: 12px; letter-spacing: .06em; }
+  .lang-select { padding: 8px 10px; font-size: 11px; }
+}
+
 /* ===== PRICING PACKAGE CARDS ===== */
 .pkg-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 22px; margin-top: 56px; align-items: stretch; }
 .pkg-grid > * { height: 100%; }

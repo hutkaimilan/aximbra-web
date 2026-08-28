@@ -22,7 +22,11 @@ Premium, dark, neon-lit single-page marketing site for AXIMBRA, a Budapest AI ag
 - FOUR demo websites (restaurant/salon/clinic/law-firm) on react-router routes with distinct art directions, homepage "Referenciák" link section, back links, language switch on demos (HU/EN authored, EN fallback for other 6).
 - All iterations pass testing 100%.
 
+## Fixed (2026-07)
+- P0: Mobile horizontal overflow at 380px — root cause was the nav bar (logo + lang-select + KAPCSOLAT button) exceeding viewport width and clipping the KAPCSOLAT button. Added `@media (max-width:480px)` block in `index.css` tightening nav padding, gap, logo/button/lang-select sizing. Verified 0px scroll overflow on home + all 4 demo pages at 380px.
+
 ## Backlog / remaining
+- P1: Add `episteme-poster.jpg` poster image for the case study video (user requested as separate round).
 - P1: Drop real media files into `frontend/public/media/` (episteme-demo.mp4, episteme-poster.jpg, episteme-hivas.mp3).
 - P2: Shared rate-limit store (Redis) if backend runs multiple Railway replicas.
 - P2: Precise token-based cost metering instead of fixed per-call estimate.
