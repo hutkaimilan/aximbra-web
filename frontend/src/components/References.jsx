@@ -42,7 +42,8 @@ export const References = () => {
         {r.cards.map((c, i) => (
           <Reveal key={i} delay={i * 80}>
             <div className="ref-card-wrap" style={{ "--accent": META[i].accent }}>
-              <Link to={META[i].to} className="ref-card" data-testid={`ref-card-${i}`}>
+              <Link to={META[i].to} className="ref-card" data-testid={`ref-card-${i}`}
+                onClick={() => sessionStorage.setItem("aximbra:return", String(window.scrollY))}>
                 <span className="ref-dot" aria-hidden="true" />
                 <span className="ref-tag">{c.tag}</span>
                 <div className="ref-title">{c.title}</div>

@@ -21,6 +21,7 @@ import Ugyvedi from "@/demos/Ugyvedi";
 function Site() {
   const { t } = useLang();
   const lenisRef = useRef(null);
+  const returningRef = useRef(sessionStorage.getItem("aximbra:return") !== null);
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -31,6 +32,21 @@ function Site() {
     const loop = (t) => { lenis.raf(t); raf = requestAnimationFrame(loop); };
     raf = requestAnimationFrame(loop);
     return () => { cancelAnimationFrame(raf); lenis.destroy(); };
+  }, []);
+
+  // Restore exact scroll position when returning from a demo page
+  useEffect(() => {
+    const saved = sessionStorage.getItem("aximbra:return");
+    if (saved === null) return;
+    sessionStorage.removeItem("aximbra:return");
+    const y = parseInt(saved, 10) || 0;
+    if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (lenisRef.current) lenisRef.current.scrollTo(y, { immediate: true, force: true });
+        else window.scrollTo(0, y);
+      });
+    });
   }, []);
 
   const scrollTo = (id) => {
@@ -45,8 +61,8 @@ function Site() {
   };
 
   return (
-    <div className="App">
-      <Intro />
+    <div className={`App${returningRef.current ? " restore" : ""}`}>
+      <Intro skip={returningRef.current} />
       <PlasmaHero />
       <div className="plasma-veil" />
       <div className="grain" />

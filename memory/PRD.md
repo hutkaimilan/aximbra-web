@@ -23,6 +23,7 @@ Premium, dark, neon-lit single-page marketing site for AXIMBRA, a Budapest AI ag
 - All iterations pass testing 100%.
 
 ## Fixed (2026-07)
+- **Demo back-navigation returns to exact scroll position**: previously the demo pages' "← Vissza az AXIMBRA-hoz" link (`DemoBar.jsx`, `<Link to="/">`) always landed at the top of the homepage. Now: `References.jsx` saves `window.scrollY` to `sessionStorage["aximbra:return"]` on demo-card click; `App.js`/`Site` restores it on mount (Lenis/window `scrollTo`, immediate), skips the ~2.6s intro overlay on return (`Intro` `skip` prop, avoids `body.lock` overriding scroll), and adds `.App.restore` class forcing all `.reveal` elements instantly visible (IntersectionObserver didn't re-fire after the programmatic jump, leaving content at opacity:0). Verified: open any of the 4 demos, press back → lands at exact same scrollY with References fully visible.
 - P0: Mobile horizontal overflow at 380px — root cause was the nav bar (logo + lang-select + KAPCSOLAT button) exceeding viewport width and clipping the KAPCSOLAT button. Added `@media (max-width:480px)` block in `index.css` tightening nav padding, gap, logo/button/lang-select sizing. Verified 0px scroll overflow on home + all 4 demo pages at 380px.
 
 ## Added (2026-07)
