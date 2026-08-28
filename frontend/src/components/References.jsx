@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Reveal } from "./Reveal";
 import { useLang } from "../i18n";
@@ -13,24 +12,6 @@ const META = [
 export const References = () => {
   const { t } = useLang();
   const r = t.demos.refs;
-  const [copied, setCopied] = useState(-1);
-
-  const copyLink = async (i) => {
-    const url = `${window.location.origin}${META[i].to}`;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = url;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-    }
-    setCopied(i);
-    setTimeout(() => setCopied((c) => (c === i ? -1 : c)), 1800);
-  };
-
   return (
     <section className="container" id="referenciak" data-testid="references-section">
       <Reveal>
@@ -41,25 +22,15 @@ export const References = () => {
       <div className="ref-grid">
         {r.cards.map((c, i) => (
           <Reveal key={i} delay={i * 80}>
-            <div className="ref-card-wrap" style={{ "--accent": META[i].accent }}>
-              <Link to={META[i].to} className="ref-card" data-testid={`ref-card-${i}`}
-                onClick={() => sessionStorage.setItem("aximbra:return", String(window.scrollY))}>
-                <span className="ref-dot" aria-hidden="true" />
-                <span className="ref-tag">{c.tag}</span>
-                <div className="ref-title">{c.title}</div>
-                <div className="ref-desc">{c.desc}</div>
-                <span className="ref-cta">{r.view}</span>
-              </Link>
-              <button
-                type="button"
-                className={`ref-copy ${copied === i ? "done" : ""}`}
-                data-testid={`ref-copy-${i}`}
-                onClick={() => copyLink(i)}
-                aria-label={r.copy}
-              >
-                {copied === i ? r.copied : r.copy}
-              </button>
-            </div>
+            <Link to={META[i].to} className="ref-card" data-testid={`ref-card-${i}`}
+              style={{ "--accent": META[i].accent }}
+              onClick={() => sessionStorage.setItem("aximbra:return", String(window.scrollY))}>
+              <span className="ref-dot" aria-hidden="true" />
+              <span className="ref-tag">{c.tag}</span>
+              <div className="ref-title">{c.title}</div>
+              <div className="ref-desc">{c.desc}</div>
+              <span className="ref-cta">{r.view}</span>
+            </Link>
           </Reveal>
         ))}
       </div>
