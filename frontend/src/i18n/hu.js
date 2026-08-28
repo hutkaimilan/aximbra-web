@@ -85,7 +85,7 @@ const hu = {
   contact: {
     heading: "Melyik feladat viszi el a heted?",
     para: "Írd meg egy mondatban. Két munkanapon belül megmondjuk, megéri-e agentet építeni rá — és ha nem, azt is.",
-    phoneDisabled: "Telefonos agent — hamarosan",
+    phoneNote: "Magyarul és angolul is beszél · egy AI agent veszi fel",
   },
   footer: {
     left: "AXIMBRA · Budapest · aximbra.hu",

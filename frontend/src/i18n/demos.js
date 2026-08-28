@@ -8,6 +8,8 @@ const demos = {
       heading: "Négy demó, négy világ",
       sub: "Mindegyik oldal kitalált márkának készült, más-más vizuális nyelven — hogy lásd, mit jelent nálunk a valós szerkezet és az éles üzem.",
       view: "Megnézem →",
+      copy: "Link másolása",
+      copied: "Kimásolva!",
       cards: [
         { tag: "Étterem", title: "OLAJFA · étterem", desc: "Sötét, filmes hangulat, meleg réz kiemeléssel." },
         { tag: "Szépségszalon", title: "FLÓRA · szépségstúdió", desc: "Világos, lágy, púder-rózsaszín és mélyzöld." },
@@ -130,6 +132,8 @@ const demos = {
       heading: "Four demos, four worlds",
       sub: "Each site is made for a fictional brand, in a different visual language — so you can see what \u201Creal structure, live operation\u201D means to us.",
       view: "View →",
+      copy: "Copy link",
+      copied: "Copied!",
       cards: [
         { tag: "Restaurant", title: "OLAJFA · restaurant", desc: "Dark, cinematic mood with warm copper accents." },
         { tag: "Beauty salon", title: "FLÓRA · beauty studio", desc: "Light, soft, powder pink and deep green." },

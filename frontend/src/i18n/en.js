@@ -85,7 +85,7 @@ const en = {
   contact: {
     heading: "Which task eats up your week?",
     para: "Write it in one sentence. Within two working days we'll tell you whether it's worth building an agent for it — and if not, that too.",
-    phoneDisabled: "Phone agent — coming soon",
+    phoneNote: "Speaks Hungarian and English · answered by an AI agent",
   },
   footer: {
     left: "AXIMBRA · Budapest · aximbra.hu",

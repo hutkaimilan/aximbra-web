@@ -15,10 +15,11 @@ export const Contact = () => {
             <LiquidButton as="a" href="mailto:aximbra@gmail.com" data-testid="contact-email">
               aximbra@gmail.com
             </LiquidButton>
-            <LiquidButton ghost disabled data-testid="contact-phone-disabled">
-              {c.phoneDisabled}
+            <LiquidButton ghost as="a" href="tel:+18024249852" data-testid="contact-phone">
+              +1 802 424 9852
             </LiquidButton>
           </div>
+          <p className="contact-phone-note" data-testid="contact-phone-note">{c.phoneNote}</p>
         </div>
       </Reveal>
     </section>

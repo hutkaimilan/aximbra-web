@@ -25,9 +25,14 @@ Premium, dark, neon-lit single-page marketing site for AXIMBRA, a Budapest AI ag
 ## Fixed (2026-07)
 - P0: Mobile horizontal overflow at 380px — root cause was the nav bar (logo + lang-select + KAPCSOLAT button) exceeding viewport width and clipping the KAPCSOLAT button. Added `@media (max-width:480px)` block in `index.css` tightening nav padding, gap, logo/button/lang-select sizing. Verified 0px scroll overflow on home + all 4 demo pages at 380px.
 
+## Added (2026-07)
+- **Mobile hamburger menu** (`Nav.jsx`): burger button + slide-down `.nav-drawer` shown ≤900px containing nav links, call-bar link and KAPCSOLAT button. Bar keeps logo + lang-select + burger. Fixed stacking-context so logo/close-X paint above drawer. 0px overflow at 380px.
+- **Video poster** `frontend/public/media/episteme-poster.jpg` — abstract neon waveform (generated, on-brand, non-photorealistic). Wired via existing `poster` attr on case-study `<video>`.
+- **Copy-link button** on each of the 4 reference demo cards (`References.jsx`): copies `origin + demo path` to clipboard, shows "Kimásolva!"/"Copied!" feedback. Strings in `demos.js` (hu/en).
+- **Real phone in Kapcsolat block** (`Contact.jsx`): replaced disabled "Telefonos agent — hamarosan" with clickable `tel:+18024249852` (+1 802 424 9852) + note "Magyarul és angolul is beszél · egy AI agent veszi fel" (hu) / EN equivalent. Contact form intentionally NOT added (mailto stays).
+
 ## Backlog / remaining
-- P1: Add `episteme-poster.jpg` poster image for the case study video (user requested as separate round).
-- P1: Drop real media files into `frontend/public/media/` (episteme-demo.mp4, episteme-poster.jpg, episteme-hivas.mp3).
+- P1: Drop real media files into `frontend/public/media/` (episteme-demo.mp4, episteme-hivas.mp3 present; poster now added).
 - P2: Shared rate-limit store (Redis) if backend runs multiple Railway replicas.
 - P2: Precise token-based cost metering instead of fixed per-call estimate.
 
