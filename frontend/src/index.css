@@ -346,6 +346,9 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
   font-family: var(--mono); font-size: 12px; }
 .card-meta .price { color: var(--text); } .card-meta .lead { color: var(--dim); }
 .card-try { margin-top: 16px; }
+.card-quote.btn { margin-top: 14px; padding: 9px 18px; font-size: 12px; letter-spacing: .08em;
+  font-family: var(--mono); width: fit-content; border-radius: 40px; }
+.card-quote.btn:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 26px rgba(200,31,255,.45); }
 
 /* ===== PROCESS ===== */
 .rail { position: relative; margin-top: 60px; padding-left: 66px; }

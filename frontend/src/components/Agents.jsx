@@ -10,7 +10,7 @@ import { useLang } from "../i18n";
 
 export const SLUGS = ["email-rendezo", "erdeklodo-minosito", "belso-admin", "kutatasi-monitor", "ugyfelszolgalat", "tartalom", "webshop", "dokumentum-elemzo", "penzugyi", "toborzas", "it-uzemelteto", "multi-agent"];
 
-const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim }) => {
+const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote }) => {
   const simData = sims[kind];
   const slug = SLUGS[kind];
   const onMove = (e) => {
@@ -39,6 +39,10 @@ const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim }) => {
         <span className="price">{agent.price}</span>
         <span className="lead">{agent.lead}</span>
       </div>
+      <LiquidButton as="a" className="card-quote" data-testid={`agent-quote-${kind}`}
+        href={`mailto:aximbra@gmail.com?subject=${encodeURIComponent(`${quote.subject} – ${agent.title}`)}`}>
+        {quote.label}
+      </LiquidButton>
       {agent.live && (
         <div className="card-try">
           <LiquidButton ghost data-testid={`agent-try-${agent.demo}`} onClick={onToggle}>
@@ -86,6 +90,7 @@ export const Agents = () => {
         {t.agents.map((a, i) => (
           <Reveal key={a.demo || i} delay={(i % 3) * 90} className={(open === a.demo || simOpen === i) ? "span-all" : ""}>
             <TiltCard agent={a} labels={s} kind={i}
+              quote={{ label: t.pricing.cta, subject: t.pricing.subjectPrefix }}
               open={open === a.demo}
               onToggle={() => { setSimOpen(null); setOpen(open === a.demo ? null : a.demo); }}
               simOn={simOpen === i}
