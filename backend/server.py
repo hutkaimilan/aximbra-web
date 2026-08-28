@@ -5,6 +5,7 @@ import os
 import json
 import time
 import logging
+import httpx
 from pathlib import Path
 from datetime import datetime, timezone, date
 from pydantic import BaseModel, ValidationError, field_validator
@@ -217,6 +218,29 @@ async def _run_demo(request: Request, body: DemoRequest, system_msg: str, model_
 @api_router.get("/")
 async def root():
     return {"message": "AXIMBRA API"}
+
+
+VOICE_HEALTH_URL = "https://aximbra-voice-production.up.railway.app/health"
+
+
+@api_router.get("/voice/health")
+async def voice_health():
+    """Server-side proxy for the live voice-agent health endpoint (avoids CORS)."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get(VOICE_HEALTH_URL)
+            r.raise_for_status()
+            data = r.json()
+        return {
+            "reachable": True,
+            "ok": bool(data.get("ok", False)),
+            "day": data.get("day"),
+            "count": data.get("count"),
+            "live": data.get("live"),
+        }
+    except Exception as e:
+        logger.warning(f"voice health unreachable: {e}")
+        return {"reachable": False, "ok": False, "day": None, "count": None, "live": None}
 
 
 @api_router.post("/demo/email")

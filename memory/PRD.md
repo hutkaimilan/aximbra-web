@@ -32,6 +32,7 @@ Premium, dark, neon-lit single-page marketing site for AXIMBRA, a Budapest AI ag
 - **Real phone in Kapcsolat block** (`Contact.jsx`): replaced disabled "Telefonos agent — hamarosan" with clickable `tel:+18024249852` (+1 802 424 9852) + note "Magyarul és angolul is beszél · egy AI agent veszi fel" (hu) / EN equivalent. Contact form intentionally NOT added (mailto stays).
 - **Drawer auto-close** (`Nav.jsx`): mobile drawer closes on outside tap (pointerdown outside nav) and on scroll/wheel/touchmove.
 - **Hero phone highlight** (`Hero.jsx`): clickable `tel:+18024249852` pill with pulsing "AI" badge + note "Egy AI agent veszi fel · magyarul és angolul is" (hu/en). 0px overflow at 380px. (Animated card previews + 6-language demo translation explicitly declined by user — market is HU, HU+EN enough.)
+- **Live hero status indicator** (`Hero.jsx` + backend `/api/voice/health`): backend proxies the external voice-agent health endpoint (`https://aximbra-voice-production.up.railway.app/health`) server-side to avoid CORS. Hero shows a real status pill — GREEN "ÉLŐ TELEFON-AGENT · ma N hívás" (+ "M aktív most" if live>0) when reachable & ok, GREY "TELEFON-AGENT NEM ELÉRHETŐ" when unreachable. Auto-refresh every 30s. Verified online (real data), offline (grey via aborted request), 0px overflow at 380px.
 
 ## Backlog / remaining
 - P1: Drop real media files into `frontend/public/media/` (episteme-demo.mp4, episteme-hivas.mp3 present; poster now added).

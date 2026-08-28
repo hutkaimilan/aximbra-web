@@ -278,6 +278,21 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
   font-size: 12px; letter-spacing: .18em; color: var(--muted); padding: 8px 16px;
   border: 1px solid var(--border); border-radius: 40px; background: var(--panel);
   backdrop-filter: blur(12px); margin-bottom: 34px; text-transform: uppercase; }
+.hero-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 34px; }
+.hero-top .eyebrow { margin-bottom: 0; }
+.hero-status { display: inline-flex; align-items: center; gap: 10px; font-family: var(--mono);
+  font-size: 12px; letter-spacing: .08em; padding: 8px 15px; border-radius: 40px;
+  border: 1px solid var(--border); background: var(--panel); backdrop-filter: blur(12px);
+  transition: border-color .3s ease, background .3s ease; }
+.hero-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
+.hero-status-label { color: var(--muted); text-transform: uppercase; }
+.hero-status-sub { color: var(--dim); }
+.hero-status-sub::before { content: "·"; margin: 0 8px 0 0; }
+.hero-status.online { border-color: rgba(38,224,122,.4); background: rgba(38,224,122,.07); }
+.hero-status.online .hero-status-dot { background: #26e07a; box-shadow: 0 0 12px #26e07a; animation: pulse 1.8s ease-in-out infinite; }
+.hero-status.online .hero-status-label { color: #7bf0b0; }
+.hero-status.checking .hero-status-dot { animation: pulse 1.2s ease-in-out infinite; }
+.hero-status.offline .hero-status-dot { background: var(--dim); }
 .h1 { font-family: var(--display); font-weight: 700; line-height: .98; letter-spacing: -.02em;
   font-size: clamp(44px, 8.5vw, 108px); margin: 0 0 30px; }
 .hero-sub { color: var(--muted); font-size: clamp(16px,1.3vw,19px); max-width: 640px; line-height: 1.7; margin-bottom: 40px; }

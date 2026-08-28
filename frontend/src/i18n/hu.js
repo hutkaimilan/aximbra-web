@@ -14,6 +14,7 @@ const hu = {
     ctaPrimary: "Nézd meg az agenteket",
     ctaGhost: "Működés közben",
     phoneCta: { note: "Egy AI agent veszi fel · magyarul és angolul is" },
+    status: { checking: "Állapot lekérése…", online: "Élő telefon-agent", offline: "Telefon-agent nem elérhető", today: "ma", callsUnit: "hívás", liveUnit: "aktív most" },
     stats: [["2–4 hét", "az első agent"], ["3 nyelv", "HU · EN · ES"], ["100%", "emberi jóváhagyás"]],
   },
   agentsSection: {
