@@ -3,9 +3,12 @@ import { Reveal } from "./Reveal";
 import { LiveDemo } from "./LiveDemo";
 import { LiquidButton } from "./LiquidButton";
 import { AgentViz } from "./AgentViz";
+import { AgentSim } from "./AgentSim";
+import sims from "./agentSims";
 import { useLang } from "../i18n";
 
-const TiltCard = ({ agent, open, onToggle, labels, kind }) => {
+const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim }) => {
+  const simData = sims[kind];
   const onMove = (e) => {
     if (open) return;
     const el = e.currentTarget;
@@ -40,6 +43,14 @@ const TiltCard = ({ agent, open, onToggle, labels, kind }) => {
           {open && <LiveDemo type={agent.demo} />}
         </div>
       )}
+      {simData && (
+        <div className="card-try">
+          <LiquidButton ghost data-testid={`agent-sim-btn-${kind}`} onClick={onSim}>
+            {simOn ? "Bezárás" : "Nézd meg működés közben"}
+          </LiquidButton>
+          {simOn && <AgentSim data={simData} />}
+        </div>
+      )}
     </div>
   );
 };
@@ -47,6 +58,7 @@ const TiltCard = ({ agent, open, onToggle, labels, kind }) => {
 export const Agents = () => {
   const { t } = useLang();
   const [open, setOpen] = useState(null);
+  const [simOpen, setSimOpen] = useState(null);
   const s = t.agentsSection;
   return (
     <section className="container" id="agentek" data-testid="agents-section">
@@ -57,9 +69,12 @@ export const Agents = () => {
       </Reveal>
       <div className="grid">
         {t.agents.map((a, i) => (
-          <Reveal key={a.demo || i} delay={(i % 3) * 90} className={open === a.demo ? "span-all" : ""}>
-            <TiltCard agent={a} labels={s} kind={i} open={open === a.demo}
-              onToggle={() => setOpen(open === a.demo ? null : a.demo)} />
+          <Reveal key={a.demo || i} delay={(i % 3) * 90} className={(open === a.demo || simOpen === i) ? "span-all" : ""}>
+            <TiltCard agent={a} labels={s} kind={i}
+              open={open === a.demo}
+              onToggle={() => { setSimOpen(null); setOpen(open === a.demo ? null : a.demo); }}
+              simOn={simOpen === i}
+              onSim={() => { setOpen(null); setSimOpen(simOpen === i ? null : i); }} />
           </Reveal>
         ))}
       </div>
