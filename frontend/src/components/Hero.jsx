@@ -23,6 +23,7 @@ const HeroStatus = ({ s }) => {
 
   const live = status && status.reachable && status.ok;
   const state = status === null ? "checking" : live ? "online" : "offline";
+  const talking = live && typeof status.live === "number" && status.live > 0;
 
   let label = s.checking;
   let sub = null;
@@ -37,8 +38,8 @@ const HeroStatus = ({ s }) => {
   }
 
   return (
-    <div className={`hero-status ${state}`} data-testid="hero-status" data-state={state}
-      role="status" aria-live="polite">
+    <div className={`hero-status ${state} ${talking ? "talking" : ""}`} data-testid="hero-status"
+      data-state={state} data-talking={talking ? "true" : "false"} role="status" aria-live="polite">
       <span className="hero-status-dot" aria-hidden="true" />
       <span className="hero-status-label" data-testid="hero-status-label">{label}</span>
       {sub && <span className="hero-status-sub" data-testid="hero-status-sub">{sub}</span>}
