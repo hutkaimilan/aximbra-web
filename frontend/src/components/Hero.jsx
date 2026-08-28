@@ -15,6 +15,13 @@ export const Hero = ({ scrollTo }) => {
         <LiquidButton data-testid="hero-primary" onClick={() => scrollTo("agentek")}>{h.ctaPrimary}</LiquidButton>
         <LiquidButton ghost data-testid="hero-ghost" onClick={() => scrollTo("eset")}>{h.ctaGhost}</LiquidButton>
       </div>
+      <a className="hero-phone" href="tel:+18024249852" data-testid="hero-phone">
+        <span className="hero-phone-live" aria-hidden="true"><span className="dot" /> AI</span>
+        <span className="hero-phone-main">
+          <span className="hero-phone-num">+1 802 424 9852</span>
+          <span className="hero-phone-note">{h.phoneCta.note}</span>
+        </span>
+      </a>
       <div className="stats">
         {h.stats.map(([big, lbl], i) => (
           <div className="stat" key={i}><div className="big">{big}</div><div className="lbl">{lbl}</div></div>

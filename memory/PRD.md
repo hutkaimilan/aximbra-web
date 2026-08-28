@@ -30,6 +30,8 @@ Premium, dark, neon-lit single-page marketing site for AXIMBRA, a Budapest AI ag
 - **Video poster** `frontend/public/media/episteme-poster.jpg` — abstract neon waveform (generated, on-brand, non-photorealistic). Wired via existing `poster` attr on case-study `<video>`.
 - **Copy-link button** on each of the 4 reference demo cards (`References.jsx`): copies `origin + demo path` to clipboard, shows "Kimásolva!"/"Copied!" feedback. Strings in `demos.js` (hu/en).
 - **Real phone in Kapcsolat block** (`Contact.jsx`): replaced disabled "Telefonos agent — hamarosan" with clickable `tel:+18024249852` (+1 802 424 9852) + note "Magyarul és angolul is beszél · egy AI agent veszi fel" (hu) / EN equivalent. Contact form intentionally NOT added (mailto stays).
+- **Drawer auto-close** (`Nav.jsx`): mobile drawer closes on outside tap (pointerdown outside nav) and on scroll/wheel/touchmove.
+- **Hero phone highlight** (`Hero.jsx`): clickable `tel:+18024249852` pill with pulsing "AI" badge + note "Egy AI agent veszi fel · magyarul és angolul is" (hu/en). 0px overflow at 380px. (Animated card previews + 6-language demo translation explicitly declined by user — market is HU, HU+EN enough.)
 
 ## Backlog / remaining
 - P1: Drop real media files into `frontend/public/media/` (episteme-demo.mp4, episteme-hivas.mp3 present; poster now added).

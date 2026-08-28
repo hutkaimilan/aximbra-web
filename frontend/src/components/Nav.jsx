@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LiquidButton } from "./LiquidButton";
 import { useLang, LANGS } from "../i18n";
 
@@ -6,6 +6,7 @@ export const Nav = ({ scrollTo }) => {
   const { t, lang, setLang } = useLang();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const navRef = useRef(null);
 
   useEffect(() => {
     let raf;
@@ -17,10 +18,27 @@ export const Nav = ({ scrollTo }) => {
     return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); };
   }, []);
 
+  // Close mobile drawer on outside tap or on scroll
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (e) => { if (navRef.current && !navRef.current.contains(e.target)) setOpen(false); };
+    const onScroll = () => setOpen(false);
+    document.addEventListener("pointerdown", onPointer);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("wheel", onScroll, { passive: true });
+    window.addEventListener("touchmove", onScroll, { passive: true });
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("wheel", onScroll);
+      window.removeEventListener("touchmove", onScroll);
+    };
+  }, [open]);
+
   const go = (id) => { setOpen(false); scrollTo(id); };
 
   return (
-    <nav className={`nav ${scrolled ? "scrolled" : ""}`} data-testid="main-nav">
+    <nav ref={navRef} className={`nav ${scrolled ? "scrolled" : ""}`} data-testid="main-nav">
       <div className="logo" data-testid="logo" onClick={() => go("top")}>
         <span className="dot" /> AXIMBRA
       </div>

@@ -13,6 +13,7 @@ const en = {
     sub: "We build AI agents for Hungarian companies that do one concrete job — sort emails, qualify leads, answer the phone. We don't hand over a demo, but a working system that we keep alive.",
     ctaPrimary: "See the agents",
     ctaGhost: "See it live",
+    phoneCta: { note: "Answered by an AI agent · in Hungarian & English" },
     stats: [["2–4 weeks", "the first agent"], ["3 languages", "HU · EN · ES"], ["100%", "human approval"]],
   },
   agentsSection: {
