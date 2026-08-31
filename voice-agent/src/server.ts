@@ -21,6 +21,7 @@ import { env } from './env.js';
 import { admitCall, callStarted, callEnded, maxCallSeconds, stats } from './limit.js';
 import { reply, summarize, type Turn } from './llm.js';
 import { sendSummary } from './email.js';
+import { sendContactSms } from './sms.js';
 import {
   GREETING,
   FAILURE_MESSAGE,
@@ -356,6 +357,9 @@ wss.on('connection', (ws: WebSocket) => {
         durationSec,
         callSid: s.callSid,
       });
+      // Kulon lepes, kulon hibakezeles: az SMS elmaradasa ne akadalyozza
+      // az osszefoglalo emailt, es forditva.
+      await sendContactSms(s.from);
     })();
   });
 
