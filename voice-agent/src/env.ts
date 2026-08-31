@@ -44,6 +44,12 @@ export interface Env {
   twilioAuthToken: string;
   publicHostname: string;
   validateSignature: boolean;
+  /** Hivas utani SMS kuldeshez kell (Twilio REST API azonositas). */
+  twilioAccountSid: string;
+  /** Errol a szamrol megy ki a hivas utani SMS a hivonak. */
+  twilioSmsFrom: string;
+  /** Igaz, ha van eleg adat SMS kuldesehez. */
+  smsEnabled: boolean;
   maxCallsPerDay: number;
   maxCallSeconds: number;
   notifyEmail: string;
@@ -69,6 +75,8 @@ export function env(): Env {
   const publicHostname = optional('PUBLIC_HOSTNAME', '');
   const notifyEmail = optional('NOTIFY_EMAIL', '');
   const resendApiKey = optional('RESEND_API_KEY', '');
+  const twilioAccountSid = optional('TWILIO_ACCOUNT_SID', '');
+  const twilioSmsFrom = optional('TWILIO_SMS_FROM', '+18024249852');
 
   const built: Env = {
     port: intOption('PORT', 8080, 1, 65535),
@@ -84,6 +92,11 @@ export function env(): Env {
 
     // Alairas-ellenorzes csak akkor lehetseges, ha mindketto megvan.
     validateSignature: twilioAuthToken !== '' && publicHostname !== '',
+
+    twilioAccountSid,
+    twilioSmsFrom,
+    // SMS-hez az Account SID es az Auth Token egyutt kell.
+    smsEnabled: twilioAccountSid !== '' && twilioAuthToken !== '',
 
     maxCallsPerDay: intOption('MAX_CALLS_PER_DAY', 15, 0, 100000),
     maxCallSeconds: intOption('MAX_CALL_SECONDS', 240, 30, 3600),
@@ -123,6 +136,13 @@ export function env(): Env {
       '[env] Hivas-osszefoglalo email KI van kapcsolva ' +
         '(NOTIFY_EMAIL vagy RESEND_API_KEY hianyzik). ' +
         'Az osszefoglalo ilyenkor csak a logba kerul.',
+    );
+  }
+
+  if (!built.smsEnabled) {
+    console.warn(
+      '[env] Hivas utani SMS KI van kapcsolva ' +
+        '(TWILIO_ACCOUNT_SID hianyzik). A hivo nem kap SMS-t hivas utan.',
     );
   }
 
