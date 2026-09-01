@@ -44,6 +44,11 @@ function testCfg() {
     target: process.env['TEST_AGENT_TARGET']?.trim() ?? '',
     maxTurns: Number.parseInt(process.env['TEST_MAX_TURNS'] ?? '14', 10),
     maxSeconds: Number.parseInt(process.env['TEST_MAX_SECONDS'] ?? '180', 10),
+    // A teszt-agent hangja. Szandekosan MAS, mint az eles agente, hogy a
+    // ketcsatornas felvetelen azonnal hallatszon, ki beszel.
+    // Env-bol jon, hogy kod nelkul cserelheto legyen.
+    ttsProvider: process.env['TEST_TTS_PROVIDER']?.trim() || 'Google',
+    ttsVoice: process.env['TEST_TTS_VOICE']?.trim() || 'hu-HU-Chirp3-HD-Charon',
   };
 }
 
@@ -138,27 +143,32 @@ function escapeXml(s: string): string {
 
 export function testTwiml(runId: string, scenarioKey: string): string {
   const cfg = env();
+  const c = testCfg();
   const host = cfg.publicHostname;
 
-  // welcomeGreeting: a mi agentunk szolal meg eloszor, miutan a masik
-  // oldal koszont. A tesztelt agent koszonoje kb. harom masodperc, ezert
-  // varunk egy kicsit a <Pause>-zal, kulonben egymasra beszelnenek.
+  // A <Pause> csak annyi, hogy a vonal felepuljon. Korabban 4 masodperc volt,
+  // de az tul sok: a masik oldal addigra elmondta a koszonojet a csendbe, es
+  // utana mindketto varakozott. Egy masodperc eleg.
+  //
+  // speechTimeout: mennyi csend utan tekintjuk befejezettnek a masik mondatat.
+  // Bot-bot beszelgetesnel ez mindket oldalon hozzaadodik a valaszidohoz,
+  // ezert ugyanaz az ertek, mint az eles agenten (1000 ms), nem tobb.
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Pause length="4"/>
+  <Pause length="1"/>
   <Connect>
     <ConversationRelay
       url="wss://${escapeXml(host)}/test/relay?run=${escapeXml(runId)}&amp;scenario=${escapeXml(scenarioKey)}"
       welcomeGreeting="${escapeXml(TESTER_OPENER)}"
       language="hu-HU"
-      ttsProvider="${escapeXml(cfg.ttsProvider)}"
-      voice="hu-HU-Wavenet-B"
+      ttsProvider="${escapeXml(c.ttsProvider)}"
+      voice="${escapeXml(c.ttsVoice)}"
       interruptible="none"
-      speechTimeout="2000"
+      speechTimeout="1000"
       ignoreBackchannel="true"
       welcomeGreetingInterruptible="none"
       reportInputDuringAgentSpeech="none">
-      <Language code="hu-HU" ttsProvider="${escapeXml(cfg.ttsProvider)}" voice="hu-HU-Wavenet-B" />
+      <Language code="hu-HU" ttsProvider="${escapeXml(c.ttsProvider)}" voice="${escapeXml(c.ttsVoice)}" />
     </ConversationRelay>
   </Connect>
 </Response>`;
@@ -182,6 +192,10 @@ interface TesterSession {
 export function handleTestRelay(ws: WebSocket, runId: string, scenarioKey: string): void {
   const c = testCfg();
   const scenario = scenarioByKey(scenarioKey);
+
+  // Ez a sor mondja meg, hogy a mi labunk egyaltalan felallt-e. Ha hivas utan
+  // nincs a logban, akkor a WebSocket be sem jott (rossz URL, rossz run id).
+  console.log(`[test] relay csatlakozott run=${runId} forgatokonyv=${scenario.key}`);
 
   const s: TesterSession = {
     runId,
@@ -432,7 +446,7 @@ export function renderRun(run: TestRun, token: string): string {
   <div class="who" style="color:#767D9C">Felvétel</div>
   <audio controls preload="none" src="/test/runs/${esc(run.id)}/audio${q}"></audio>
   <div class="meta" style="margin-top:6px">
-    Ha nem indul el, a felvétel még készül — prôbáld pár perc múlva.
+    Ha nem indul el, a felvétel még készül — próbáld pár perc múlva.
   </div>
 </div>`
     : '';
