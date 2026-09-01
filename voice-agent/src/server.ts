@@ -22,6 +22,7 @@ import { admitCall, callStarted, callEnded, maxCallSeconds, stats } from './limi
 import { reply, summarize, type Turn } from './llm.js';
 import { sendSummary } from './email.js';
 import { sendContactSms } from './sms.js';
+import { handleTestRoute, handleTestRelay } from './testAgent.js';
 import {
   GREETING,
   FAILURE_MESSAGE,
@@ -153,7 +154,31 @@ function readBody(req: http.IncomingMessage): Promise<string> {
 /* ------------------------------------------------------------------ */
 
 const server = http.createServer((req, res) => {
-  const path = (req.url ?? '/').split('?')[0];
+  const rawUrl = req.url ?? '/';
+  const path = rawUrl.split('?')[0]!;
+  const query = new URLSearchParams(rawUrl.includes('?') ? rawUrl.slice(rawUrl.indexOf('?') + 1) : '');
+
+  // A teszt-agent sajat utvonalai. Kulon modulban, hogy egy hiba itt ne
+  // erintse az eles hivasfogadast.
+  if (path.startsWith('/test')) {
+    void (async () => {
+      try {
+        const out = await handleTestRoute(req.method ?? 'GET', path, query);
+        if (!out) {
+          res.writeHead(404, { 'content-type': 'text/plain' });
+          res.end('not found');
+          return;
+        }
+        res.writeHead(out.status, out.headers);
+        res.end(out.body);
+      } catch (err) {
+        console.error('[test] utvonal hiba:', err);
+        res.writeHead(500, { 'content-type': 'text/plain' });
+        res.end('hiba');
+      }
+    })();
+    return;
+  }
 
   if (req.method === 'GET' && (path === '/health' || path === '/')) {
     res.writeHead(200, { 'content-type': 'application/json' });
@@ -230,7 +255,28 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocketServer({ noServer: true });
 
 server.on('upgrade', (req, socket, head) => {
-  const path = (req.url ?? '').split('?')[0];
+  const rawUrl = req.url ?? '';
+  const path = rawUrl.split('?')[0];
+
+  // A teszt-agent sajat relay-utvonala. Kulon session-kezeles, kulon prompt.
+  if (path === '/test/relay') {
+    const query = new URLSearchParams(
+      rawUrl.includes('?') ? rawUrl.slice(rawUrl.indexOf('?') + 1) : '',
+    );
+    const runId = query.get('run') ?? '';
+    const scenario = query.get('scenario') ?? 'alap';
+
+    if (!/^[0-9a-f]{16}$/.test(runId)) {
+      socket.destroy();
+      return;
+    }
+
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      handleTestRelay(ws, runId, scenario);
+    });
+    return;
+  }
+
   if (path !== '/relay') {
     socket.destroy();
     return;
