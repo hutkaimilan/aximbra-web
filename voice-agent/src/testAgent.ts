@@ -6,16 +6,43 @@
  * Ket ConversationRelay-vezerelt hivaslab osszekotese nem mukodott. A hivas
  * felepult, 3 percig elt, de a felvetel 3 masodperc hangot tartalmazott es az
  * atirat ures maradt: egyik oldal beszedfelismeroje sem ismerte fel a masik
- * szintetikus hangjat beszedkent. A ConversationRelay valodi emberi hangra van
- * tervezve, nem ket TTS osszekapcsolasara.
+ * szintetikus hangjat beszedkent.
  *
  * A megoldas: a mi labunk klasszikus <Say> + <Gather input="speech"> parost
- * hasznal. Ez a bevett mintazat hang felismeresere, es nem versenyzik egy
- * masik elo AI-munkamenettel. A TESZTELT oldal valtozatlan marad.
+ * hasznal. A TESZTELT oldal valtozatlan marad.
  *
- * Kovetkezmeny: a beszelgetes allapota nem egy tartos WebSocketben el, hanem
- * fordulonkent uj HTTP-keres erkezik. Az elozmenyt ezert a futas fajljabol
- * epitjuk ujra minden fordulonal - a runId az egyetlen, ami osszekoti oket.
+ * ------------------------------------------------------------------
+ * 2026-09-03 JAVITASOK - mind egy valodi felvetel elemzesebol jott:
+ *
+ * 1. A <Say> a <Gather>-en BELUL volt. A Gather beszedfelismerese a nested
+ *    <Say> alatt is fut, es az elso eszlelt hangra ELVAGJA a mondatot
+ *    (barge-in). Mivel a masik oldalon egy folyamatosan beszelo agent van,
+ *    a mondataink fele el sem hangzott: 1390 karakternyi szoveg 47 masodperc
+ *    beszedben, ami ~29 karakter/masodperc - fizikailag lehetetlen.
+ *    MOST: a <Say> a <Gather> ELE kerult. Elobb vegigmondjuk, aztan
+ *    hallgatunk. Cserebe minket nem lehet felbeszakitani - egy teszt-hivonal
+ *    ez jo csere, mert a kiszamithatosag fontosabb.
+ *
+ * 2. Az elso TwiML azonnal beszelt, mikozben a masik oldal welcomeGreeting-je
+ *    is szolt. A ket koszones egymasra ment.
+ *    MOST: az elso TwiML csak HALLGAT. Akkor mutatkozunk be, amikor a masik
+ *    fel mar koszont - ahogy egy valodi hivo is tenne.
+ *
+ * 3. Az atirat idobelyegei a run letrehozasatol szamoltak, nem a hivas
+ *    felveteletol. A csorgesi ido (5-10 mp) bennmaradt, ezert a leirat
+ *    idopontjai NEM voltak osszevethetok a felvetel pozicioival.
+ *    MOST: a hivas felvetelekor ujraallitjuk a nullpontot.
+ *
+ * 4. A fordulo-korlat elerese egyszeruen lecsapta a hivast - pont akkor,
+ *    amikor az agent az elerhetoseget kerte. A teszt igy sosem jutott el
+ *    a lenyeges lepesig.
+ *    MOST: van egy LEZARO FAZIS. Nehany fordulóval a korlat elott a
+ *    teszt-hivo elkezd lezarni: megadja az elerhetoseget, elkoszon.
+ *
+ * 5. A modell felrehallott mondatokhoz kitalalt tartalmat ("gyereklamacio"
+ *    -> "a gyerekek szemuveg-reklamacioja"), amit a masik oldal tenykent
+ *    visszaigazolt. MOST: kifejezett tiltas + visszakerdezes.
+ * ------------------------------------------------------------------
  */
 
 import twilio from 'twilio';
@@ -49,11 +76,26 @@ function testCfg() {
     token: process.env['TEST_AGENT_TOKEN']?.trim() ?? '',
     from: process.env['TEST_AGENT_FROM']?.trim() ?? '',
     target: process.env['TEST_AGENT_TARGET']?.trim() ?? '',
-    maxTurns: Number.parseInt(process.env['TEST_MAX_TURNS'] ?? '14', 10),
-    maxSeconds: Number.parseInt(process.env['TEST_MAX_SECONDS'] ?? '180', 10),
+    maxTurns: intEnv('TEST_MAX_TURNS', 14, 3, 60),
+    maxSeconds: intEnv('TEST_MAX_SECONDS', 180, 30, 600),
     // <Say> hang: prefixSZEL. Env-bol jon, hogy kod nelkul cserelheto legyen.
     sayVoice: process.env['TEST_SAY_VOICE']?.trim() || 'Google.hu-HU-Wavenet-A',
+    // A teszt-agent modellje kulon allithato: itt a gyorsasag fontosabb,
+    // mint az eles oldalon. Minden masodperc gondolkodas nema vonal.
+    model: process.env['TEST_MODEL']?.trim() || env().model,
   };
+}
+
+/** Ervenytelen szam eseten az alapertelmezes, hangos figyelmeztetessel. */
+function intEnv(name: string, fallback: number, min: number, max: number): number {
+  const raw = process.env[name];
+  if (!raw || raw.trim() === '') return fallback;
+  const parsed = Number.parseInt(raw.trim(), 10);
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+    console.warn(`[test] ${name}="${raw}" ervenytelen, helyette: ${fallback}`);
+    return fallback;
+  }
+  return parsed;
 }
 
 export function testAgentEnabled(): boolean {
@@ -88,6 +130,25 @@ function escapeXml(s: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
 }
+
+/**
+ * Beszedfelismeresi tippek.
+ *
+ * A magyar nyelvi modell nem ismeri a markanevet: a korabbi felvetelen
+ * "lakcimbra" es "accimrai" lett belole. A hints ezt kozvetlenul javitja,
+ * es igy az atirat is hasznalhato lesz kiertekelesre.
+ */
+const SPEECH_HINTS = [
+  'Aximbra',
+  'AI ügynökség',
+  'agent',
+  'automatizálás',
+  'e-mail rendező',
+  'érdeklődő minősítő',
+  'árajánlat',
+  'elérhetőség',
+  'visszahívás',
+].join(',');
 
 /* ------------------------------------------------------------------ */
 /* Hivasinditas                                                        */
@@ -125,8 +186,6 @@ export async function startTestCall(
       // egyertelmu, ki mit mondott.
       recordingChannels: 'dual',
       timeLimit: c.maxSeconds,
-      // A hivas vegen ertesulunk rola, hogy lezarhassuk a futast. Enelkul a
-      // status orokre 'running' maradna, mint a korabbi verzioban.
       statusCallback:
         `https://${cfg.publicHostname}/test/status` +
         `?run=${encodeURIComponent(run.id)}` +
@@ -153,17 +212,24 @@ export async function startTestCall(
 /* ------------------------------------------------------------------ */
 
 /**
- * Egy forduloi valasz: kimondjuk a szoveget, majd hallgatunk.
+ * Egy fordulo: (opcionalisan) kimondjuk a szoveget, majd hallgatunk.
  *
- * speechTimeout="auto" - a Twilio maga donti el, mikor fejezte be a masik a
- * mondatot. Fix erteknel vagy levagtuk a valaszat, vagy feleslegesen vartunk.
+ * A <Say> SZANDEKOSAN a <Gather>-en KIVUL van. Nested <Say> eseten a
+ * felismero mar a sajat mondatunk alatt fut, es a masik oldal hangjara
+ * elvagja - ez okozta, hogy a mondataink fele elveszett.
  *
- * A <Gather> utani <Redirect> akkor fut le, ha nem erkezett beszed: ilyenkor
- * ujra probalkozunk, nem bontunk azonnal. A csend-szamlalot URL-ben visszuk
- * tovabb, mert a kereseknek nincs kozos memoriajuk.
+ * timeout="12" - ennyit varunk arra, hogy a masik fel MEGSZOLALJON. A
+ * tesztelt agent modellhivasa is idobe telik, 5 masodperc (az alapertek)
+ * keves volt, es feleslegesen inditott csend-agat.
+ *
+ * speechTimeout="auto" - a Twilio dontse el, mikor fejezte be a mondatot.
+ *
+ * A <Gather> utani <Redirect> akkor fut le, ha nem erkezett beszed. A
+ * csend-szamlalot URL-ben visszuk tovabb, mert a kereseknek nincs kozos
+ * memoriajuk.
  */
 function turnTwiml(
-  speak: string,
+  speak: string | null,
   runId: string,
   scenarioKey: string,
   token: string,
@@ -176,14 +242,18 @@ function turnTwiml(
     `&amp;scenario=${encodeURIComponent(scenarioKey)}` +
     `&amp;token=${encodeURIComponent(token)}`;
 
+  const action = `https://${escapeXml(cfg.publicHostname)}/test/turn?${q}`;
+  const say =
+    speak === null
+      ? ''
+      : `\n  <Say voice="${escapeXml(c.sayVoice)}" language="hu-HU">${escapeXml(speak)}</Say>`;
+
   return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Gather input="speech" language="hu-HU" speechTimeout="auto"
-          action="https://${escapeXml(cfg.publicHostname)}/test/turn?${q}"
-          method="POST">
-    <Say voice="${escapeXml(c.sayVoice)}" language="hu-HU">${escapeXml(speak)}</Say>
-  </Gather>
-  <Redirect method="POST">https://${escapeXml(cfg.publicHostname)}/test/turn?${q}&amp;silence=${silences + 1}</Redirect>
+<Response>${say}
+  <Gather input="speech" language="hu-HU" speechTimeout="auto" timeout="12"
+          hints="${escapeXml(SPEECH_HINTS)}"
+          action="${action}" method="POST"/>
+  <Redirect method="POST">${action}&amp;silence=${silences + 1}</Redirect>
 </Response>`;
 }
 
@@ -215,7 +285,22 @@ function historyFromRun(run: TestRun): Turn[] {
   }));
 }
 
-/** A hivas elso TwiML-je: bemutatkozunk, majd hallgatunk. */
+/** A futas nullpontja ezredmasodpercben. */
+function baseMs(run: TestRun): number {
+  const t = new Date(run.createdAt).getTime();
+  return Number.isFinite(t) ? t : Date.now();
+}
+
+/**
+ * A hivas elso TwiML-je.
+ *
+ * Nem beszelunk: megvarjuk, hogy a hivott fel koszonjon. Igy nem megy
+ * egymasra a ket bemutatkozas, es ugy viselkedunk, ahogy egy valodi hivo.
+ *
+ * Itt allitjuk at a futas nullpontjat is a hivas FELVETELENEK idejere. A
+ * `createdAt` eddig a hivasinditas ideje volt, benne a csorgessel, ezert az
+ * atirat idobelyegei nem estek egybe a felvetel pozicioival.
+ */
 async function handleFirstTurn(
   runId: string,
   scenarioKey: string,
@@ -224,10 +309,26 @@ async function handleFirstTurn(
   const run = await loadRun(runId);
   if (!run) return hangupTwiml('Elnézést, technikai hiba történt. Viszonthallásra!');
 
-  await appendTurn(runId, { who: 'tester', text: TESTER_OPENER, atMs: 0 });
-  console.log(`[test] elso fordulo run=${runId} forgatokonyv=${scenarioKey}`);
+  await updateRun(runId, { createdAt: new Date().toISOString() });
+  console.log(`[test] hivas felveve run=${runId} forgatokonyv=${scenarioKey}`);
 
-  return turnTwiml(TESTER_OPENER, runId, scenarioKey, token, 0);
+  return turnTwiml(null, runId, scenarioKey, token, 0);
+}
+
+/**
+ * A lezaro fazis extra utasitasai.
+ *
+ * A korlat elerese elott nehany fordulóval ranyomunk a lezarasra, hogy a
+ * teszt tenylegesen vegigmenjen a tolcsren (elerhetoseg atadasa), ne pedig
+ * a limit vagja el a beszelgetest a legfontosabb pillanatban.
+ */
+function phaseNote(remaining: number): string {
+  if (remaining > 4) return '';
+  return `\n\nMOST ZARD LE A BESZELGETEST:
+- Legfeljebb ${remaining} valaszod van hatra.
+- Ha meg nem kertek el az elerhetosegedet, ajanld fel magadtol.
+- Az elerhetoseged: ez a telefonszam, amirol hivsz, es a kovacs.peter kukac kovacsoptika pont hu cim.
+- Ezutan koszonj el egy rovid mondattal, es a valaszod vegere ird oda: ${END_MARKER}`;
 }
 
 /** Minden tovabbi fordulo: meghallgatjuk, valaszolunk. */
@@ -242,8 +343,23 @@ async function handleNextTurn(
   const run = await loadRun(runId);
   if (!run) return hangupTwiml('Elnézést, technikai hiba történt. Viszonthallásra!');
 
-  const startedAt = new Date(run.createdAt).getTime();
-  const atMs = Date.now() - startedAt;
+  const startedAt = baseMs(run);
+  const testerTurns = run.turns.filter((t) => t.who === 'tester').length;
+
+  if (heard) {
+    await appendTurn(runId, { who: 'target', text: heard, atMs: Date.now() - startedAt });
+  }
+
+  // Elso sajat megszolalas. Fix szoveg, modellhivas nelkul: nulla varakozas,
+  // es a forgatokonyv mindig ugyanugy indul.
+  if (testerTurns === 0) {
+    await appendTurn(runId, {
+      who: 'tester',
+      text: TESTER_OPENER,
+      atMs: Date.now() - startedAt,
+    });
+    return turnTwiml(TESTER_OPENER, runId, scenarioKey, token, 0);
+  }
 
   // Csend: a masik oldal nem szolalt meg. Ketszer probalkozunk ujra, utana
   // lezarjuk - kulonben a hivas a teljes idokorlatig ures maradna.
@@ -266,10 +382,7 @@ async function handleNextTurn(
     );
   }
 
-  await appendTurn(runId, { who: 'target', text: heard, atMs });
-
   // Fordulo-korlat: ket bot kepes vegtelenul udvariaskodni egymassal.
-  const testerTurns = run.turns.filter((t) => t.who === 'tester').length;
   if (testerTurns >= c.maxTurns) {
     console.log(`[test] befejezes run=${runId} ok=fordulo-korlat`);
     await updateRun(runId, { status: 'done' });
@@ -280,7 +393,17 @@ async function handleNextTurn(
     const history = historyFromRun(run);
     history.push({ role: 'user', content: heard });
 
-    const raw = await reply(history, buildTesterPrompt(scenarioByKey(scenarioKey)));
+    const prompt =
+      buildTesterPrompt(scenarioByKey(scenarioKey)) + phaseNote(c.maxTurns - testerTurns);
+
+    const raw = await reply(history, prompt, {
+      // Ket rovid mondat. A hosszabb valasz csak a nema varakozast novelne.
+      maxTokens: 90,
+      temperature: 0.4,
+      timeoutMs: 8_000,
+      model: c.model,
+    });
+
     const wantsEnd = raw.includes(END_MARKER);
     const spoken = raw.replace(END_MARKER, '').trim() || 'Értem.';
 
@@ -348,13 +471,17 @@ export async function fetchRecordingAudio(
     'base64',
   );
 
-  const res = await fetch(url, {
-    headers: { Authorization: `Basic ${auth}` },
-    signal: AbortSignal.timeout(30_000),
-  });
-
-  if (!res.ok) return { ok: false, status: res.status };
-  return { ok: true, body: Buffer.from(await res.arrayBuffer()) };
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Basic ${auth}` },
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) return { ok: false, status: res.status };
+    return { ok: true, body: Buffer.from(await res.arrayBuffer()) };
+  } catch (err) {
+    console.error('[test] felvetel letoltes hiba:', err);
+    return { ok: false, status: 504 };
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -460,8 +587,6 @@ export function renderRun(run: TestRun, token: string): string {
     ? run.turns
         .map((t) => {
           const who = t.who === 'tester' ? 'Teszt-agent (hívó)' : 'AXIMBRA agent';
-          // Ketfele ido: a felvetelen valo pozicio, es a valos ora.
-          // Az elso a visszahallgatashoz kell, a masodik a naplokhoz.
           const wall = new Date(startedAt.getTime() + t.atMs).toLocaleTimeString('hu-HU');
           return `<div class="turn">
   <div class="at" title="${esc(wall)}">${esc(clock(t.atMs))}</div>
@@ -499,7 +624,9 @@ ${audio}
 <div class="card">
   <div class="who" style="color:#767D9C;margin-bottom:6px">Átirat</div>
   <div class="meta" style="margin-bottom:8px">
-    A bal oldali idő a felvételen belüli pozíció. Fölé húzva a pontos óraidő.
+    A bal oldali idő a hívás felvételétől számít, így egybeesik a felvétel
+    pozíciójával. A hívó sorai a kimondás kezdetén, az AXIMBRA agent sorai a
+    felismerés végén vannak időbélyegezve. Fölé húzva a pontos óraidő.
   </div>
   ${turns}
 </div>`);
