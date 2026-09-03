@@ -1,14 +1,21 @@
-/**github.com/hutkaimilan/aximbra-web/edit/main/voice-agent/src/testAgent.ts
+/**
  * Teszt-agent: felhivja a sajat voice agentunket, es erdeklodo ugyfelet
- * jatszik. A beszelgetes felvetele es leirata visszanezheto.
+ * jatszik. A beszelgetes felvetele es idobelyeges leirata visszanezheto.
  *
- * Miert kell: minden uj voice agent utan valakinek fel kell hivnia es
- * vegigbeszelnie a forgatokonyvet. Ez az a munka, amit gep is el tud vegezni.
+ * MIERT NEM ConversationRelay a mi oldalunkon:
+ * Ket ConversationRelay-vezerelt hivaslab osszekotese nem mukodott. A hivas
+ * felepult, 3 percig elt, de a felvetel 3 masodperc hangot tartalmazott es az
+ * atirat ures maradt: egyik oldal beszedfelismeroje sem ismerte fel a masik
+ * szintetikus hangjat beszedkent. A ConversationRelay valodi emberi hangra van
+ * tervezve, nem ket TTS osszekapcsolasara.
  *
- * Ket hivaslab van:
- *   - a MI labunk (ez a fajl): kimeno hivas, sajat ConversationRelay-jel
- *   - a TESZTELT lab: a rendes /twiml vegpont, valtozatlanul
- * Mindketto ugyanezen a szerveren fut, de teljesen kulon utvonalon.
+ * A megoldas: a mi labunk klasszikus <Say> + <Gather input="speech"> parost
+ * hasznal. Ez a bevett mintazat hang felismeresere, es nem versenyzik egy
+ * masik elo AI-munkamenettel. A TESZTELT oldal valtozatlan marad.
+ *
+ * Kovetkezmeny: a beszelgetes allapota nem egy tartos WebSocketben el, hanem
+ * fordulonkent uj HTTP-keres erkezik. Az elozmenyt ezert a futas fajljabol
+ * epitjuk ujra minden fordulonal - a runId az egyetlen, ami osszekoti oket.
  */
 
 import twilio from 'twilio';
@@ -44,18 +51,14 @@ function testCfg() {
     target: process.env['TEST_AGENT_TARGET']?.trim() ?? '',
     maxTurns: Number.parseInt(process.env['TEST_MAX_TURNS'] ?? '14', 10),
     maxSeconds: Number.parseInt(process.env['TEST_MAX_SECONDS'] ?? '180', 10),
-    // A teszt-agent hangja. Szandekosan MAS, mint az eles agente, hogy a
-    // ketcsatornas felvetelen azonnal hallatszon, ki beszel.
-    // Env-bol jon, hogy kod nelkul cserelheto legyen.
-    ttsProvider: process.env['TEST_TTS_PROVIDER']?.trim() || 'Google',
-    ttsVoice: process.env['TEST_TTS_VOICE']?.trim() || 'hu-HU-Chirp3-HD-Charon',
+    // <Say> hang: prefixSZEL. Env-bol jon, hogy kod nelkul cserelheto legyen.
+    sayVoice: process.env['TEST_SAY_VOICE']?.trim() || 'Google.hu-HU-Wavenet-A',
   };
 }
 
 export function testAgentEnabled(): boolean {
   const c = testCfg();
   const cfg = env();
-  // Twilio-hitelesites kell a hivasinditashoz es a felvetel letoltesehez.
   return (
     c.token !== '' &&
     c.from !== '' &&
@@ -75,6 +78,15 @@ function tokenMatches(given: string | null): boolean {
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a[i]! ^ b[i]!;
   return diff === 0;
+}
+
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 /* ------------------------------------------------------------------ */
@@ -113,6 +125,14 @@ export async function startTestCall(
       // egyertelmu, ki mit mondott.
       recordingChannels: 'dual',
       timeLimit: c.maxSeconds,
+      // A hivas vegen ertesulunk rola, hogy lezarhassuk a futast. Enelkul a
+      // status orokre 'running' maradna, mint a korabbi verzioban.
+      statusCallback:
+        `https://${cfg.publicHostname}/test/status` +
+        `?run=${encodeURIComponent(run.id)}` +
+        `&token=${encodeURIComponent(c.token)}`,
+      statusCallbackEvent: ['completed'],
+      statusCallbackMethod: 'POST',
     });
 
     await updateRun(run.id, { callSid: call.sid });
@@ -129,181 +149,177 @@ export async function startTestCall(
 }
 
 /* ------------------------------------------------------------------ */
-/* TwiML a mi labunkhoz                                                */
+/* TwiML                                                               */
 /* ------------------------------------------------------------------ */
 
-function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-export function testTwiml(runId: string, scenarioKey: string): string {
-  const cfg = env();
+/**
+ * Egy forduloi valasz: kimondjuk a szoveget, majd hallgatunk.
+ *
+ * speechTimeout="auto" - a Twilio maga donti el, mikor fejezte be a masik a
+ * mondatot. Fix erteknel vagy levagtuk a valaszat, vagy feleslegesen vartunk.
+ *
+ * A <Gather> utani <Redirect> akkor fut le, ha nem erkezett beszed: ilyenkor
+ * ujra probalkozunk, nem bontunk azonnal. A csend-szamlalot URL-ben visszuk
+ * tovabb, mert a kereseknek nincs kozos memoriajuk.
+ */
+function turnTwiml(
+  speak: string,
+  runId: string,
+  scenarioKey: string,
+  token: string,
+  silences: number,
+): string {
   const c = testCfg();
-  const host = cfg.publicHostname;
+  const cfg = env();
+  const q =
+    `run=${encodeURIComponent(runId)}` +
+    `&amp;scenario=${encodeURIComponent(scenarioKey)}` +
+    `&amp;token=${encodeURIComponent(token)}`;
 
-  // A <Pause> csak annyi, hogy a vonal felepuljon. Korabban 4 masodperc volt,
-  // de az tul sok: a masik oldal addigra elmondta a koszonojet a csendbe, es
-  // utana mindketto varakozott. Egy masodperc eleg.
-  //
-  // speechTimeout: mennyi csend utan tekintjuk befejezettnek a masik mondatat.
-  // Bot-bot beszelgetesnel ez mindket oldalon hozzaadodik a valaszidohoz,
-  // ezert ugyanaz az ertek, mint az eles agenten (1000 ms), nem tobb.
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Pause length="1"/>
-  <Connect>
-    <ConversationRelay
-      url="wss://${escapeXml(host)}/test/relay?run=${escapeXml(runId)}&amp;scenario=${escapeXml(scenarioKey)}"
-      welcomeGreeting="${escapeXml(TESTER_OPENER)}"
-      language="hu-HU"
-      ttsProvider="${escapeXml(c.ttsProvider)}"
-      voice="${escapeXml(c.ttsVoice)}"
-      interruptible="none"
-      speechTimeout="1000"
-      ignoreBackchannel="true"
-      welcomeGreetingInterruptible="none"
-      reportInputDuringAgentSpeech="none">
-      <Language code="hu-HU" ttsProvider="${escapeXml(c.ttsProvider)}" voice="${escapeXml(c.ttsVoice)}" />
-    </ConversationRelay>
-  </Connect>
+  <Gather input="speech" language="hu-HU" speechTimeout="auto"
+          action="https://${escapeXml(cfg.publicHostname)}/test/turn?${q}"
+          method="POST">
+    <Say voice="${escapeXml(c.sayVoice)}" language="hu-HU">${escapeXml(speak)}</Say>
+  </Gather>
+  <Redirect method="POST">https://${escapeXml(cfg.publicHostname)}/test/turn?${q}&amp;silence=${silences + 1}</Redirect>
+</Response>`;
+}
+
+/** Elkoszones es bontas. */
+function hangupTwiml(speak: string): string {
+  const c = testCfg();
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="${escapeXml(c.sayVoice)}" language="hu-HU">${escapeXml(speak)}</Say>
+  <Hangup/>
 </Response>`;
 }
 
 /* ------------------------------------------------------------------ */
-/* A teszt-agent beszelgetese                                          */
+/* Beszelgetes-logika                                                  */
 /* ------------------------------------------------------------------ */
 
-interface TesterSession {
-  runId: string;
-  history: Turn[];
-  systemPrompt: string;
-  startedAt: number;
-  turns: number;
-  busy: boolean;
-  closed: boolean;
-  timer: NodeJS.Timeout | null;
+/**
+ * Az elozmeny ujraepitese a futas fajljabol.
+ *
+ * A <Gather> mintazatnal minden fordulo kulon HTTP-keres, nincs memoriaban
+ * tartott session. Ez elonyos is: egy ujrainditas kozben sem vesz el a
+ * beszelgetes, mert a lemezen van.
+ */
+function historyFromRun(run: TestRun): Turn[] {
+  return run.turns.map((t) => ({
+    role: t.who === 'tester' ? ('assistant' as const) : ('user' as const),
+    content: t.text,
+  }));
 }
 
-export function handleTestRelay(ws: WebSocket, runId: string, scenarioKey: string): void {
+/** A hivas elso TwiML-je: bemutatkozunk, majd hallgatunk. */
+async function handleFirstTurn(
+  runId: string,
+  scenarioKey: string,
+  token: string,
+): Promise<string> {
+  const run = await loadRun(runId);
+  if (!run) return hangupTwiml('Elnézést, technikai hiba történt. Viszonthallásra!');
+
+  await appendTurn(runId, { who: 'tester', text: TESTER_OPENER, atMs: 0 });
+  console.log(`[test] elso fordulo run=${runId} forgatokonyv=${scenarioKey}`);
+
+  return turnTwiml(TESTER_OPENER, runId, scenarioKey, token, 0);
+}
+
+/** Minden tovabbi fordulo: meghallgatjuk, valaszolunk. */
+async function handleNextTurn(
+  runId: string,
+  scenarioKey: string,
+  token: string,
+  heard: string,
+  silences: number,
+): Promise<string> {
   const c = testCfg();
-  const scenario = scenarioByKey(scenarioKey);
+  const run = await loadRun(runId);
+  if (!run) return hangupTwiml('Elnézést, technikai hiba történt. Viszonthallásra!');
 
-  // Ez a sor mondja meg, hogy a mi labunk egyaltalan felallt-e. Ha hivas utan
-  // nincs a logban, akkor a WebSocket be sem jott (rossz URL, rossz run id).
-  console.log(`[test] relay csatlakozott run=${runId} forgatokonyv=${scenario.key}`);
+  const startedAt = new Date(run.createdAt).getTime();
+  const atMs = Date.now() - startedAt;
 
-  const s: TesterSession = {
-    runId,
-    history: [],
-    systemPrompt: buildTesterPrompt(scenario),
-    startedAt: Date.now(),
-    turns: 0,
-    busy: false,
-    closed: false,
-    timer: null,
-  };
+  // Csend: a masik oldal nem szolalt meg. Ketszer probalkozunk ujra, utana
+  // lezarjuk - kulonben a hivas a teljes idokorlatig ures maradna.
+  //
+  // A szamlalo 1-rol indul, mert az elso <Redirect> mar silence=1-et kuld.
+  // Igy: 1 -> baratsagos ujraprobalas, 2 -> rovid "Halló?", 3 -> bontas.
+  if (!heard) {
+    if (silences >= 3) {
+      console.log(`[test] befejezes run=${runId} ok=nincs-valasz`);
+      await updateRun(runId, { status: 'done' });
+      return hangupTwiml('Úgy tűnik, megszakadt a vonal. Viszonthallásra!');
+    }
+    console.log(`[test] csend run=${runId} (${silences}/2)`);
+    return turnTwiml(
+      silences <= 1 ? 'Halló, hallja amit mondok?' : 'Halló?',
+      runId,
+      scenarioKey,
+      token,
+      silences,
+    );
+  }
 
-  // A nyito mondatot a Twilio mondja ki (welcomeGreeting), de a modell
-  // elozmenyeben is szerepelnie kell, kulonben ujra bemutatkozna.
-  s.history.push({ role: 'assistant', content: TESTER_OPENER });
-  void appendTurn(runId, { who: 'tester', text: TESTER_OPENER, atMs: 0 });
+  await appendTurn(runId, { who: 'target', text: heard, atMs });
 
-  const send = (text: string, last = true): void => {
-    if (ws.readyState !== ws.OPEN) return;
-    ws.send(JSON.stringify({ type: 'text', token: text, last }));
-  };
+  // Fordulo-korlat: ket bot kepes vegtelenul udvariaskodni egymassal.
+  const testerTurns = run.turns.filter((t) => t.who === 'tester').length;
+  if (testerTurns >= c.maxTurns) {
+    console.log(`[test] befejezes run=${runId} ok=fordulo-korlat`);
+    await updateRun(runId, { status: 'done' });
+    return hangupTwiml('Köszönöm szépen, ennyi elég is. Viszonthallásra!');
+  }
 
-  const finish = (reason: string): void => {
-    if (s.closed) return;
-    s.closed = true;
-    if (s.timer) clearTimeout(s.timer);
-    console.log(`[test] befejezes run=${runId} ok=${reason}`);
-    setTimeout(() => {
-      if (ws.readyState === ws.OPEN) ws.close(1000, reason);
-    }, 4_000);
-  };
+  try {
+    const history = historyFromRun(run);
+    history.push({ role: 'user', content: heard });
 
-  // Kemeny felso korlat: ket bot kepes vegtelenul udvariaskodni egymassal.
-  s.timer = setTimeout(() => finish('idokorlat'), c.maxSeconds * 1_000);
+    const raw = await reply(history, buildTesterPrompt(scenarioByKey(scenarioKey)));
+    const wantsEnd = raw.includes(END_MARKER);
+    const spoken = raw.replace(END_MARKER, '').trim() || 'Értem.';
 
-  ws.on('message', (data) => {
-    void (async () => {
-      let msg: Record<string, unknown>;
-      try {
-        msg = JSON.parse(data.toString()) as Record<string, unknown>;
-      } catch {
-        return;
-      }
+    await appendTurn(runId, {
+      who: 'tester',
+      text: spoken,
+      atMs: Date.now() - startedAt,
+    });
 
-      if (msg['type'] !== 'prompt') return;
-      if (msg['last'] === false) return;
+    if (wantsEnd) {
+      console.log(`[test] befejezes run=${runId} ok=cel-elerve`);
+      await updateRun(runId, { status: 'done' });
+      return hangupTwiml(spoken);
+    }
+    return turnTwiml(spoken, runId, scenarioKey, token, 0);
+  } catch (err) {
+    console.error('[test] modellhiba:', err);
+    await updateRun(runId, { status: 'failed', error: String(err) });
+    return hangupTwiml('Elnézést, megszakadt a vonal. Viszonthallásra!');
+  }
+}
 
-      const heard =
-        typeof msg['voicePrompt'] === 'string' ? msg['voicePrompt'].trim() : '';
-      if (!heard || s.busy || s.closed) return;
-
-      s.busy = true;
-      s.history.push({ role: 'user', content: heard });
-      void appendTurn(runId, {
-        who: 'target',
-        text: heard,
-        atMs: Date.now() - s.startedAt,
-      });
-
-      try {
-        s.turns += 1;
-        if (s.turns > c.maxTurns) {
-          send('Köszönöm szépen, ennyi elég is. Viszonthallásra!');
-          finish('fordulo-korlat');
-          return;
-        }
-
-        const raw = await reply(s.history, s.systemPrompt);
-        const wantsEnd = raw.includes(END_MARKER);
-        const spoken = raw.replace(END_MARKER, '').trim();
-
-        s.history.push({ role: 'assistant', content: raw });
-        void appendTurn(runId, {
-          who: 'tester',
-          text: spoken,
-          atMs: Date.now() - s.startedAt,
-        });
-
-        if (spoken) send(spoken);
-        if (wantsEnd) finish('cel-elerve');
-      } catch (err) {
-        console.error('[test] modellhiba:', err);
-        send('Elnézést, megszakadt a vonal. Viszonthallásra!');
-        finish('modellhiba');
-      } finally {
-        s.busy = false;
-      }
-    })();
-  });
-
-  ws.on('close', () => {
-    if (s.timer) clearTimeout(s.timer);
-    const durationSec = Math.round((Date.now() - s.startedAt) / 1000);
-    console.log(`[test] hivas vege run=${runId} ${durationSec}s`);
-    void updateRun(runId, { status: 'done', durationSec });
-  });
-
-  ws.on('error', (err) => {
-    console.error('[test] socket hiba:', err);
-    void updateRun(runId, { status: 'failed', error: String(err) });
-  });
+/**
+ * Regi WebSocket-belepesi pont. A Gather-alapu mintara valtas ota nem
+ * hasznaljuk, de a server.ts meg importalja - a socketet azonnal zarjuk.
+ */
+export function handleTestRelay(ws: WebSocket, runId: string, _scenario: string): void {
+  console.warn(`[test] elavult /test/relay hivas run=${runId}, bontva`);
+  try {
+    ws.close(1000, 'deprecated');
+  } catch {
+    /* mar zarva */
+  }
 }
 
 /* ------------------------------------------------------------------ */
 /* Felvetel                                                            */
 /* ------------------------------------------------------------------ */
 
-/** A hivashoz tartozo felvetel SID-je, ha mar elkeszult. */
 export async function findRecordingSid(callSid: string): Promise<string | null> {
   const cfg = env();
   try {
@@ -318,7 +334,7 @@ export async function findRecordingSid(callSid: string): Promise<string | null> 
 
 /**
  * A felvetel hangfajlja. A Twilio media-URL alap-hitelesitest kivan, ezert
- * a szerver kéri le es tovabbitja - igy a token nem kerul a bongeszobe.
+ * a szerver keri le es tovabbitja - igy a token nem kerul a bongeszobe.
  */
 export async function fetchRecordingAudio(
   recordingSid: string,
@@ -353,6 +369,14 @@ function esc(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/** ms -> "1:23" alak, a felvetel idovonalahoz igazitva. */
+function clock(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 function layout(body: string): string {
   return `<!DOCTYPE html>
 <html lang="hu"><head><meta charset="utf-8"/>
@@ -378,7 +402,10 @@ button{background:linear-gradient(90deg,#2BD9FE,#B14BFF);color:#04040C;
 .running{background:#3A2E00;color:#FFD75E}
 .done{background:#04312A;color:#4BE3C0}
 .failed{background:#3A0E14;color:#FF7A8A}
-.turn{padding:9px 0;border-bottom:1px solid #171B2E}
+.turn{display:flex;gap:14px;padding:10px 0;border-bottom:1px solid #171B2E}
+.turn:last-child{border-bottom:0}
+.at{flex:0 0 46px;color:#5A6180;font-size:12px;font-variant-numeric:tabular-nums;
+ padding-top:2px}
 .who{font-size:11px;letter-spacing:.12em;text-transform:uppercase}
 .tester{color:#B14BFF}.target{color:#2BD9FE}
 .meta{color:#767D9C;font-size:12px}
@@ -426,16 +453,22 @@ ${list}`);
 
 export function renderRun(run: TestRun, token: string): string {
   const q = `?token=${encodeURIComponent(token)}`;
-  const when = new Date(run.createdAt).toLocaleString('hu-HU');
+  const startedAt = new Date(run.createdAt);
+  const when = startedAt.toLocaleString('hu-HU');
 
   const turns = run.turns.length
     ? run.turns
         .map((t) => {
           const who = t.who === 'tester' ? 'Teszt-agent (hívó)' : 'AXIMBRA agent';
-          const sec = Math.round(t.atMs / 1000);
+          // Ketfele ido: a felvetelen valo pozicio, es a valos ora.
+          // Az elso a visszahallgatashoz kell, a masodik a naplokhoz.
+          const wall = new Date(startedAt.getTime() + t.atMs).toLocaleTimeString('hu-HU');
           return `<div class="turn">
-  <div class="who ${esc(t.who)}">${esc(who)} · ${sec}s</div>
-  <div>${esc(t.text)}</div>
+  <div class="at" title="${esc(wall)}">${esc(clock(t.atMs))}</div>
+  <div>
+    <div class="who ${esc(t.who)}">${esc(who)}</div>
+    <div>${esc(t.text)}</div>
+  </div>
 </div>`;
         })
         .join('')
@@ -447,6 +480,7 @@ export function renderRun(run: TestRun, token: string): string {
   <audio controls preload="none" src="/test/runs/${esc(run.id)}/audio${q}"></audio>
   <div class="meta" style="margin-top:6px">
     Ha nem indul el, a felvétel még készül — próbáld pár perc múlva.
+    Kétcsatornás: a két fél külön sávon hallható.
   </div>
 </div>`
     : '';
@@ -464,6 +498,9 @@ ${error}
 ${audio}
 <div class="card">
   <div class="who" style="color:#767D9C;margin-bottom:6px">Átirat</div>
+  <div class="meta" style="margin-bottom:8px">
+    A bal oldali idő a felvételen belüli pozíció. Fölé húzva a pontos óraidő.
+  </div>
   ${turns}
 </div>`);
 }
@@ -479,24 +516,33 @@ export interface TestResponse {
 }
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
+const XML = { 'content-type': 'text/xml' };
+const TEXT = { 'content-type': 'text/plain' };
 
 /**
  * A /test/* utvonalak kezelese. null = nem ez a modul kezeli a kerest.
+ *
+ * A `form` parameter a POST-torzs mezoit tartalmazza (Twilio urlencoded).
  */
 export async function handleTestRoute(
   method: string,
   path: string,
   query: URLSearchParams,
+  form?: URLSearchParams,
 ): Promise<TestResponse | null> {
   if (!path.startsWith('/test')) return null;
 
   if (!testAgentEnabled()) {
-    return { status: 503, headers: HTML, body: layout('<h1>A teszt-agent nincs bekapcsolva.</h1>') };
+    return {
+      status: 503,
+      headers: HTML,
+      body: layout('<h1>A teszt-agent nincs bekapcsolva.</h1>'),
+    };
   }
 
   const token = query.get('token');
   if (!tokenMatches(token)) {
-    return { status: 404, headers: { 'content-type': 'text/plain' }, body: 'not found' };
+    return { status: 404, headers: TEXT, body: 'not found' };
   }
   const t = token!;
 
@@ -521,11 +567,60 @@ export async function handleTestRoute(
     };
   }
 
+  // A hivas elso TwiML-je.
+  if (method === 'POST' && path === '/test/twiml') {
+    const runId = query.get('run') ?? '';
+    if (!isValidRunId(runId)) {
+      return { status: 400, headers: TEXT, body: 'rossz run id' };
+    }
+    return {
+      status: 200,
+      headers: XML,
+      body: await handleFirstTurn(runId, query.get('scenario') ?? 'alap', t),
+    };
+  }
+
+  // Minden tovabbi fordulo.
+  if (method === 'POST' && path === '/test/turn') {
+    const runId = query.get('run') ?? '';
+    if (!isValidRunId(runId)) {
+      return { status: 400, headers: TEXT, body: 'rossz run id' };
+    }
+    const heard = (form?.get('SpeechResult') ?? '').trim();
+    const silences = Number.parseInt(query.get('silence') ?? '0', 10) || 0;
+    return {
+      status: 200,
+      headers: XML,
+      body: await handleNextTurn(
+        runId,
+        query.get('scenario') ?? 'alap',
+        t,
+        heard,
+        silences,
+      ),
+    };
+  }
+
+  // Hivas vege: idotartam rogzitese, futas lezarasa.
+  if (method === 'POST' && path === '/test/status') {
+    const runId = query.get('run') ?? '';
+    if (isValidRunId(runId)) {
+      const secs = Number.parseInt(form?.get('CallDuration') ?? '0', 10) || null;
+      const run = await loadRun(runId);
+      await updateRun(runId, {
+        durationSec: secs,
+        status: run?.status === 'failed' ? 'failed' : 'done',
+      });
+      console.log(`[test] hivas vege run=${runId} ${secs ?? '?'}s`);
+    }
+    return { status: 204, headers: TEXT, body: '' };
+  }
+
   const audioMatch = /^\/test\/runs\/([0-9a-f]{16})\/audio$/.exec(path);
   if (method === 'GET' && audioMatch) {
     const run = await loadRun(audioMatch[1]!);
     if (!run?.callSid) {
-      return { status: 404, headers: { 'content-type': 'text/plain' }, body: 'nincs felvetel' };
+      return { status: 404, headers: TEXT, body: 'nincs felvetel' };
     }
 
     let sid = run.recordingSid;
@@ -534,12 +629,12 @@ export async function handleTestRoute(
       if (sid) await updateRun(run.id, { recordingSid: sid });
     }
     if (!sid) {
-      return { status: 404, headers: { 'content-type': 'text/plain' }, body: 'a felvetel meg keszul' };
+      return { status: 404, headers: TEXT, body: 'a felvetel meg keszul' };
     }
 
     const audio = await fetchRecordingAudio(sid);
     if (!audio.ok) {
-      return { status: 502, headers: { 'content-type': 'text/plain' }, body: 'felvetel nem elerheto' };
+      return { status: 502, headers: TEXT, body: 'felvetel nem elerheto' };
     }
     return {
       status: 200,
@@ -557,17 +652,5 @@ export async function handleTestRoute(
     return { status: 200, headers: HTML, body: renderRun(run, t) };
   }
 
-  if (method === 'POST' && path === '/test/twiml') {
-    const runId = query.get('run') ?? '';
-    if (!isValidRunId(runId)) {
-      return { status: 400, headers: { 'content-type': 'text/plain' }, body: 'rossz run id' };
-    }
-    return {
-      status: 200,
-      headers: { 'content-type': 'text/xml' },
-      body: testTwiml(runId, query.get('scenario') ?? 'alap'),
-    };
-  }
-
-  return { status: 404, headers: { 'content-type': 'text/plain' }, body: 'not found' };
+  return { status: 404, headers: TEXT, body: 'not found' };
 }
