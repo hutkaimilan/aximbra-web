@@ -9,8 +9,7 @@
  *
  * A ConversationRelay-t hasznaljuk sajat hangfeldolgozas helyett: a Twilio
  * intezi a beszed-szoveg es szoveg-beszed atalakitast, a felbeszakitast es
- * a puffereles. Nekunk csak a "mit valaszoljon" resz marad. Ez nagysagrenddel
- * kevesebb kod, es kevesebb hely, ahol elromolhat egy elo hivas.
+ * a puffereles. Nekunk csak a "mit valaszoljon" resz marad.
  */
 
 import http from 'node:http';
@@ -19,7 +18,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 
 import { env } from './env.js';
 import { admitCall, callStarted, callEnded, maxCallSeconds, stats } from './limit.js';
-import { reply, summarize, type Turn } from './llm.js';
+import { replyStream, summarize, type Turn } from './llm.js';
 import { sendSummary } from './email.js';
 import { sendContactSms } from './sms.js';
 import { handleTestRoute, handleTestRelay } from './testAgent.js';
@@ -71,13 +70,11 @@ function relayTwiml(host: string): string {
 </Response>`;
 }
 
-
 /**
  * Elutasito valasz.
  *
  * Szandekosan beszelunk, nem <Reject>-elunk: egy foglalt jelzes egy
  * marketingoldalon szereplo szamnal ugy hangzik, mintha a ceg nem letezne.
- * Tiz masodperc beszed olcsobb, mint az elvesztett bizalom.
  */
 function rejectTwiml(reason: 'daily' | 'concurrent'): string {
   const message =
@@ -96,15 +93,6 @@ function rejectTwiml(reason: 'daily' | 'concurrent'): string {
 /* Twilio signature                                                     */
 /* ------------------------------------------------------------------ */
 
-/**
- * Twilio keres-alairas ellenorzese.
- *
- * Sajat implementacio a twilio SDK helyett: a teljes SDK behuzasa egyetlen
- * HMAC miatt felesleges fuggoseg. Az algoritmus dokumentalt es stabil.
- *
- * A publikus hostot env-bol vesszuk, nem a Host fejlecbol: proxy mogott a
- * fejlec hamisithato, es akkor az alairas-ellenorzes megkerulheto lenne.
- */
 function validTwilioSignature(
   signature: string | undefined,
   url: string,
@@ -135,8 +123,6 @@ function readBody(req: http.IncomingMessage): Promise<string> {
     let size = 0;
     req.on('data', (chunk: Buffer) => {
       size += chunk.length;
-      // Egy Twilio webhook nehany kilobajt. A felso hatar egy elgepelt
-      // vagy rosszindulatu keres ellen ved.
       if (size > 64 * 1024) {
         reject(new Error('tul nagy keres'));
         req.destroy();
@@ -158,17 +144,11 @@ const server = http.createServer((req, res) => {
   const path = rawUrl.split('?')[0]!;
   const query = new URLSearchParams(rawUrl.includes('?') ? rawUrl.slice(rawUrl.indexOf('?') + 1) : '');
 
-  // A teszt-agent sajat utvonalai. Kulon modulban, hogy egy hiba itt ne
-  // erintse az eles hivasfogadast.
   if (path.startsWith('/test')) {
     void (async () => {
       try {
-        // A Twilio urlencoded torzsben kuldi a SpeechResult-ot es a
-        // CallDuration-t. GET-nel nincs torzs, ezert csak POST-nal olvassuk.
         const form =
-          req.method === 'POST'
-            ? new URLSearchParams(await readBody(req))
-            : undefined;
+          req.method === 'POST' ? new URLSearchParams(await readBody(req)) : undefined;
 
         const out = await handleTestRoute(req.method ?? 'GET', path, query, form);
         if (!out) {
@@ -220,8 +200,6 @@ const server = http.createServer((req, res) => {
           }
         }
 
-        // A limit-ellenorzes az alairas UTAN fut: alairas nelkuli keres ne
-        // tudja elfogyasztani a napi keretet.
         const verdict = admitCall();
         const from = params.get('From') ?? '<ismeretlen>';
 
@@ -265,13 +243,11 @@ server.on('upgrade', (req, socket, head) => {
   const rawUrl = req.url ?? '';
   const path = rawUrl.split('?')[0];
 
-  // A teszt-agent sajat relay-utvonala. Kulon session-kezeles, kulon prompt.
   if (path === '/test/relay') {
     const query = new URLSearchParams(
       rawUrl.includes('?') ? rawUrl.slice(rawUrl.indexOf('?') + 1) : '',
     );
     const runId = query.get('run') ?? '';
-    const scenario = query.get('scenario') ?? 'alap';
 
     if (!/^[0-9a-f]{16}$/.test(runId)) {
       socket.destroy();
@@ -279,7 +255,7 @@ server.on('upgrade', (req, socket, head) => {
     }
 
     wss.handleUpgrade(req, socket, head, (ws) => {
-      handleTestRelay(ws, runId, scenario);
+      handleTestRelay(ws, runId, query.get('scenario') ?? 'alap');
     });
     return;
   }
@@ -298,8 +274,16 @@ interface Session {
   from: string;
   callSid: string;
   startedAt: number;
-  /** Igaz, amig egy modellhivas fut. Vedelem az atfedo valaszok ellen. */
-  busy: boolean;
+  /** Meg fel nem dolgozott hivoi mondatok. Sosem dobunk el egyet sem. */
+  queue: string[];
+  /** Igaz, amig a feldolgozo ciklus fut. */
+  draining: boolean;
+  /** Igaz, amig egy valasz eppen kimenoben van (stream vagy TTS). */
+  speaking: boolean;
+  /** Az eppen futo modellhivas leallitasa felbeszakitaskor. */
+  abort: AbortController | null;
+  /** Amit az aktualis fordulobol mar kikuldtunk a Twilionak. */
+  streamed: string;
   timer: NodeJS.Timeout | null;
   closed: boolean;
   /** A hivas elejen rogzitett prompt: hivas kozben nem valtozhat. */
@@ -310,11 +294,18 @@ wss.on('connection', (ws: WebSocket) => {
   callStarted();
 
   const s: Session = {
-    history: [],
+    // A welcomeGreeting-et a Twilio mondja ki, nem mi. Ha nem tesszuk be a
+    // tortenetbe, a modell nem tud rola, hogy mar koszontunk - es az elso
+    // valaszaban ujra bemutatkozik. Pontosan ez tortent elesben.
+    history: [{ role: 'assistant', content: GREETING }],
     from: '<ismeretlen>',
     callSid: '<ismeretlen>',
     startedAt: Date.now(),
-    busy: false,
+    queue: [],
+    draining: false,
+    speaking: false,
+    abort: null,
+    streamed: '',
     timer: null,
     closed: false,
     systemPrompt: buildSystemPrompt(cfg.currentProjects),
@@ -325,13 +316,82 @@ wss.on('connection', (ws: WebSocket) => {
     ws.send(JSON.stringify({ type: 'text', token: text, last }));
   };
 
+  /** Egy fordulo kimondasa, tokenenkent tovabbitva. */
+  const speakReply = async (): Promise<void> => {
+    const ac = new AbortController();
+    s.abort = ac;
+    s.streamed = '';
+    s.speaking = true;
+
+    try {
+      const full = await replyStream(
+        s.history,
+        s.systemPrompt,
+        (delta) => {
+          s.streamed += delta;
+          send(delta, false);
+        },
+        { signal: ac.signal, maxTokens: 200, temperature: 0.3, timeoutMs: 12_000 },
+      );
+      send('', true);
+      s.history.push({ role: 'assistant', content: full });
+    } catch (err) {
+      if (ac.signal.aborted) {
+        // Felbeszakitottak. Amit tenylegesen kimondtunk, az kerul a
+        // tortenetbe - kulonben a modell azt hinne, hogy elmondta a
+        // teljes mondatot, es arra epitene a kovetkezo valaszat.
+        const said = s.streamed.trim();
+        if (said) s.history.push({ role: 'assistant', content: said });
+        console.log(`[ws] felbeszakitva callSid=${s.callSid}`);
+        return;
+      }
+
+      console.error('[ws] modellhiba:', err);
+      if (s.streamed.trim()) {
+        // Mar beszeltunk: a felmondatot lezarjuk, nem kezdunk uj szoveget.
+        send('', true);
+        s.history.push({ role: 'assistant', content: s.streamed.trim() });
+      } else {
+        send(FAILURE_MESSAGE, true);
+        s.history.push({ role: 'assistant', content: FAILURE_MESSAGE });
+      }
+    } finally {
+      s.speaking = false;
+      s.abort = null;
+    }
+  };
+
+  /**
+   * A varakozo mondatok feldolgozasa.
+   *
+   * Ha a hivo beszel, mikozben a modell dolgozik, a mondata a sorba kerul,
+   * es a kovetkezo fordulonal ossze van vonva. A korabbi verzio ilyenkor
+   * NEMAN ELDOBTA a mondatot - a hivo ugy erezte, nem figyelnek ra.
+   */
+  const drain = async (): Promise<void> => {
+    if (s.draining) return;
+    s.draining = true;
+    try {
+      while (s.queue.length > 0 && !s.closed) {
+        const text = s.queue.splice(0, s.queue.length).join(' ').trim();
+        if (!text) continue;
+        s.history.push({ role: 'user', content: text });
+        await speakReply();
+      }
+    } finally {
+      s.draining = false;
+    }
+  };
+
   // Hivashossz-korlat. A timer a socket megnyitasakor indul, nem a setup
   // uzenetnel: a Twilio innentol szamlaz.
   s.timer = setTimeout(() => {
     if (s.closed) return;
     console.log(`[ws] idokorlat lejart callSid=${s.callSid}`);
+    // Ha eppen beszelunk, elobb elvagjuk - kulonben ket szoveg keveredne.
+    s.abort?.abort();
+    s.queue.length = 0;
     send(TIME_LIMIT_MESSAGE, true);
-    // Hat masodperc, hogy a mondat elhangozzon, mielott bontunk.
     setTimeout(() => {
       if (ws.readyState === ws.OPEN) ws.close(1000, 'time limit');
     }, 6_000);
@@ -356,35 +416,45 @@ wss.on('connection', (ws: WebSocket) => {
         return;
       }
 
+      // Felbeszakitas: a hivo belevagott a mondatunkba. A Twilio megmondja,
+      // meddig jutottunk a felolvasasban.
+      if (type === 'interrupt') {
+        const said =
+          typeof msg['utteranceUntilInterrupt'] === 'string'
+            ? msg['utteranceUntilInterrupt'].trim()
+            : '';
+
+        if (s.speaking) {
+          if (said) s.streamed = said;
+          s.abort?.abort();
+          return;
+        }
+
+        // A stream mar lezarult, de a TTS meg jatszott. A tortenet utolso
+        // sajat mondatat visszavagjuk arra, ami tenylegesen elhangzott.
+        const last = s.history[s.history.length - 1];
+        if (last && last.role === 'assistant' && said) {
+          last.content = said;
+        }
+        return;
+      }
+
+      if (type === 'error') {
+        console.error('[ws] ConversationRelay hiba:', msg['description'] ?? msg);
+        return;
+      }
+
       if (type !== 'prompt') return;
 
-      // A ConversationRealy reszleges leiratokat is kuldhet; csak a
+      // A ConversationRelay reszleges leiratokat is kuldhet; csak a
       // veglegesre valaszolunk, kulonben felmondatokra reagalnank.
       if (msg['last'] === false) return;
 
       const text = typeof msg['voicePrompt'] === 'string' ? msg['voicePrompt'].trim() : '';
       if (!text) return;
 
-      // Ha meg fut egy korabbi valasz, ezt a fordulot eldobjuk. Ket
-      // parhuzamos valasz osszekeveredve erkezne a hivohoz.
-      if (s.busy) {
-        console.warn('[ws] atfedo prompt eldobva');
-        return;
-      }
-
-      s.busy = true;
-      s.history.push({ role: 'user', content: text });
-
-      try {
-        const answer = await reply(s.history, s.systemPrompt);
-        s.history.push({ role: 'assistant', content: answer });
-        send(answer, true);
-      } catch (err) {
-        console.error('[ws] modellhiba:', err);
-        send(FAILURE_MESSAGE, true);
-      } finally {
-        s.busy = false;
-      }
+      s.queue.push(text);
+      await drain();
     })();
   });
 
@@ -392,6 +462,7 @@ wss.on('connection', (ws: WebSocket) => {
     if (s.closed) return;
     s.closed = true;
 
+    s.abort?.abort();
     if (s.timer) {
       clearTimeout(s.timer);
       s.timer = null;
@@ -401,18 +472,26 @@ wss.on('connection', (ws: WebSocket) => {
     const durationSec = Math.round((Date.now() - s.startedAt) / 1000);
     console.log(`[ws] hivas vege callSid=${s.callSid} ${durationSec}s`);
 
-    // Az osszefoglalo a hivas utan fut. Nem varunk ra: a socket mar zart,
-    // a hivo letette. Hiba eseten a fuggveny magaban naploz.
+    // Az osszefoglalo a hivas utan fut. A bevezeto koszonest kihagyjuk
+    // belole: nem informacio, csak zajt vinne az osszefoglaloba.
+    const transcript = s.history.slice(1);
+
     void (async () => {
-      const summary = await summarize(s.history);
-      await sendSummary(summary, s.history, {
-        from: s.from,
-        durationSec,
-        callSid: s.callSid,
-      });
-      // Kulon lepes, kulon hibakezeles: az SMS elmaradasa ne akadalyozza
-      // az osszefoglalo emailt, es forditva.
-      await sendContactSms(s.from);
+      try {
+        const summary = await summarize(transcript);
+        await sendSummary(summary, transcript, {
+          from: s.from,
+          durationSec,
+          callSid: s.callSid,
+        });
+      } catch (err) {
+        console.error('[ws] osszefoglalo kuldes hiba:', err);
+      }
+      try {
+        await sendContactSms(s.from);
+      } catch (err) {
+        console.error('[ws] SMS kuldes hiba:', err);
+      }
     })();
   });
 
@@ -431,8 +510,6 @@ server.listen(cfg.port, '0.0.0.0', () => {
   );
 });
 
-// Railway SIGTERM-et kuld deploykor. Rendezett leallas: a folyamatban levo
-// hivasok ne szakadjanak meg felmondatban.
 process.on('SIGTERM', () => {
   console.log('[stop] SIGTERM, leallas');
   server.close(() => process.exit(0));
