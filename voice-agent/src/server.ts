@@ -55,6 +55,7 @@ function relayTwiml(host: string): string {
       url="wss://${escapeXml(host)}/relay"
       welcomeGreeting="${escapeXml(GREETING)}"
       language="hu-HU"
+      hints="Aximbra,AI ügynökség,agent,automatizálás,e-mail rendező,érdeklődő minősítő,árajánlat,elérhetőség"
       ttsProvider="${escapeXml(cfg.ttsProvider)}"
       voice="${escapeXml(cfg.ttsVoice)}"
       interruptible="speech"

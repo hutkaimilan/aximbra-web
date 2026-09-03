@@ -45,7 +45,9 @@
  * ------------------------------------------------------------------
  */
 
+import crypto from 'node:crypto';
 import twilio from 'twilio';
+import OpenAI from 'openai';
 import type { WebSocket } from 'ws';
 
 import { env } from './env.js';
@@ -54,7 +56,7 @@ import {
   buildTesterPrompt,
   scenarioByKey,
   SCENARIOS,
-  TESTER_OPENER,
+  openerFor,
   END_MARKER,
 } from './testPrompt.js';
 import {
@@ -83,6 +85,15 @@ function testCfg() {
     // A teszt-agent modellje kulon allithato: itt a gyorsasag fontosabb,
     // mint az eles oldalon. Minden masodperc gondolkodas nema vonal.
     model: process.env['TEST_MODEL']?.trim() || env().model,
+    // Ferfi hang. A Twilio <Say> magyar keszleteben CSAK noi hang van
+    // (hu-HU-Standard-B es hu-HU-Wavenet-B), ezert az OpenAI TTS-evel
+    // szintetizalunk, es <Play>-jel jatsszuk le.
+    ttsModel: process.env['TEST_TTS_MODEL']?.trim() || 'tts-1',
+    ttsVoice: process.env['TEST_TTS_VOICE']?.trim() || 'onyx',
+    // Ennyi csendet varunk a masik fel mondata utan, mielott lezarjuk a
+    // felismerest. Az "auto" MONDAT KOZBEN zart le, ezert vagott bele a
+    // teszt-agent az AXIMBRA agent szavaba 11-bol 8 alkalommal.
+    speechTimeout: intEnv('TEST_SPEECH_TIMEOUT', 2, 1, 10),
   };
 }
 
@@ -149,6 +160,78 @@ const SPEECH_HINTS = [
   'elérhetőség',
   'visszahívás',
 ].join(',');
+
+/* ------------------------------------------------------------------ */
+/* Beszedszinezis (ferfi hang)                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A Twilio <Say> magyar hangkeszleteben nincs ferfi hang: csak
+ * hu-HU-Standard-B es hu-HU-Wavenet-B letezik, mindketto noi. Ezert a
+ * teszt-agent mondatait az OpenAI TTS-evel szintetizaljuk, es <Play>-jel
+ * jatsszuk le.
+ *
+ * A hangfajlt memoriaban tartjuk: a Twilio egy masodpercen belul lekeri,
+ * es utana mar nincs ra szukseg. Lemezre irni felesleges I/O lenne.
+ */
+interface Clip {
+  buf: Buffer;
+  at: number;
+}
+
+const clips = new Map<string, Clip>();
+const CLIP_TTL_MS = 15 * 60_000;
+/** Felso korlat, hogy egy elszabadult ciklus se ehesse meg a memoriat. */
+const CLIP_MAX = 200;
+
+function sweepClips(): void {
+  const now = Date.now();
+  for (const [id, c] of clips) {
+    if (now - c.at > CLIP_TTL_MS) clips.delete(id);
+  }
+  while (clips.size > CLIP_MAX) {
+    const oldest = clips.keys().next();
+    if (oldest.done) break;
+    clips.delete(oldest.value);
+  }
+}
+
+let ttsClient: OpenAI | null = null;
+
+/**
+ * Egy mondat felmondasa hangfajlba.
+ *
+ * Hiba eseten null-t ad vissza, es a hivo <Say>-re esik vissza: a teszt
+ * inkabb menjen tovabb noi hanggal, mint hogy elszalljon a hivas.
+ */
+async function synth(text: string): Promise<string | null> {
+  const c = testCfg();
+  try {
+    if (!ttsClient) {
+      ttsClient = new OpenAI({ apiKey: env().openaiApiKey, maxRetries: 1 });
+    }
+    // A voice/model mezok union-tipusuak az SDK-ban, de env-bol allithatok
+    // akarunk lenni, ezert a parametertombot egyben tipizaljuk.
+    const params = {
+      model: c.ttsModel,
+      voice: c.ttsVoice,
+      input: text,
+      response_format: 'mp3',
+    } as unknown as OpenAI.Audio.SpeechCreateParams;
+
+    const res = await ttsClient.audio.speech.create(params, { timeout: 15_000 });
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length === 0) return null;
+
+    const id = crypto.randomBytes(8).toString('hex');
+    sweepClips();
+    clips.set(id, { buf, at: Date.now() });
+    return id;
+  } catch (err) {
+    console.error('[test] TTS hiba, visszaesunk <Say>-re:', err);
+    return null;
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /* Hivasinditas                                                        */
@@ -228,13 +311,13 @@ export async function startTestCall(
  * csend-szamlalot URL-ben visszuk tovabb, mert a kereseknek nincs kozos
  * memoriajuk.
  */
-function turnTwiml(
+async function turnTwiml(
   speak: string | null,
   runId: string,
   scenarioKey: string,
   token: string,
   silences: number,
-): string {
+): Promise<string> {
   const c = testCfg();
   const cfg = env();
   const q =
@@ -243,26 +326,41 @@ function turnTwiml(
     `&amp;token=${encodeURIComponent(token)}`;
 
   const action = `https://${escapeXml(cfg.publicHostname)}/test/turn?${q}`;
-  const say =
-    speak === null
-      ? ''
-      : `\n  <Say voice="${escapeXml(c.sayVoice)}" language="hu-HU">${escapeXml(speak)}</Say>`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>${say}
-  <Gather input="speech" language="hu-HU" speechTimeout="auto" timeout="12"
+<Response>${await voiceBlock(speak, token)}
+  <Gather input="speech" language="hu-HU" speechTimeout="${c.speechTimeout}" timeout="12"
           hints="${escapeXml(SPEECH_HINTS)}"
           action="${action}" method="POST"/>
   <Redirect method="POST">${action}&amp;silence=${silences + 1}</Redirect>
 </Response>`;
 }
 
-/** Elkoszones es bontas. */
-function hangupTwiml(speak: string): string {
+/**
+ * A kimondando mondat TwiML-blokkja.
+ *
+ * Elsodlegesen <Play> az OpenAI-jal szintetizalt ferfi hanggal. Ha a TTS
+ * elszall, <Say>-re esunk vissza, hogy a teszt attol meg lefusson.
+ */
+async function voiceBlock(speak: string | null, token: string): Promise<string> {
+  if (speak === null) return '';
   const c = testCfg();
+  const cfg = env();
+
+  const clip = await synth(speak);
+  if (clip) {
+    const url =
+      `https://${escapeXml(cfg.publicHostname)}/test/voice/${clip}.mp3` +
+      `?token=${encodeURIComponent(token)}`;
+    return `\n  <Play>${url}</Play>`;
+  }
+  return `\n  <Say voice="${escapeXml(c.sayVoice)}" language="hu-HU">${escapeXml(speak)}</Say>`;
+}
+
+/** Elkoszones es bontas. */
+async function hangupTwiml(speak: string, token: string): Promise<string> {
   return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say voice="${escapeXml(c.sayVoice)}" language="hu-HU">${escapeXml(speak)}</Say>
+<Response>${await voiceBlock(speak, token)}
   <Hangup/>
 </Response>`;
 }
@@ -307,7 +405,7 @@ async function handleFirstTurn(
   token: string,
 ): Promise<string> {
   const run = await loadRun(runId);
-  if (!run) return hangupTwiml('Elnézést, technikai hiba történt. Viszonthallásra!');
+  if (!run) return await hangupTwiml('Elnézést, technikai hiba történt. Viszonthallásra!', token);
 
   await updateRun(runId, { createdAt: new Date().toISOString() });
   console.log(`[test] hivas felveve run=${runId} forgatokonyv=${scenarioKey}`);
@@ -341,7 +439,7 @@ async function handleNextTurn(
 ): Promise<string> {
   const c = testCfg();
   const run = await loadRun(runId);
-  if (!run) return hangupTwiml('Elnézést, technikai hiba történt. Viszonthallásra!');
+  if (!run) return await hangupTwiml('Elnézést, technikai hiba történt. Viszonthallásra!', token);
 
   const startedAt = baseMs(run);
   const testerTurns = run.turns.filter((t) => t.who === 'tester').length;
@@ -353,12 +451,13 @@ async function handleNextTurn(
   // Elso sajat megszolalas. Fix szoveg, modellhivas nelkul: nulla varakozas,
   // es a forgatokonyv mindig ugyanugy indul.
   if (testerTurns === 0) {
+    const opener = openerFor(scenarioByKey(scenarioKey));
     await appendTurn(runId, {
       who: 'tester',
-      text: TESTER_OPENER,
+      text: opener,
       atMs: Date.now() - startedAt,
     });
-    return turnTwiml(TESTER_OPENER, runId, scenarioKey, token, 0);
+    return await turnTwiml(opener, runId, scenarioKey, token, 0);
   }
 
   // Csend: a masik oldal nem szolalt meg. Ketszer probalkozunk ujra, utana
@@ -370,10 +469,10 @@ async function handleNextTurn(
     if (silences >= 3) {
       console.log(`[test] befejezes run=${runId} ok=nincs-valasz`);
       await updateRun(runId, { status: 'done' });
-      return hangupTwiml('Úgy tűnik, megszakadt a vonal. Viszonthallásra!');
+      return await hangupTwiml('Úgy tűnik, megszakadt a vonal. Viszonthallásra!', token);
     }
     console.log(`[test] csend run=${runId} (${silences}/2)`);
-    return turnTwiml(
+    return await turnTwiml(
       silences <= 1 ? 'Halló, hallja amit mondok?' : 'Halló?',
       runId,
       scenarioKey,
@@ -386,7 +485,7 @@ async function handleNextTurn(
   if (testerTurns >= c.maxTurns) {
     console.log(`[test] befejezes run=${runId} ok=fordulo-korlat`);
     await updateRun(runId, { status: 'done' });
-    return hangupTwiml('Köszönöm szépen, ennyi elég is. Viszonthallásra!');
+    return await hangupTwiml('Köszönöm szépen, ennyi elég is. Viszonthallásra!', token);
   }
 
   try {
@@ -416,13 +515,13 @@ async function handleNextTurn(
     if (wantsEnd) {
       console.log(`[test] befejezes run=${runId} ok=cel-elerve`);
       await updateRun(runId, { status: 'done' });
-      return hangupTwiml(spoken);
+      return await hangupTwiml(spoken, token);
     }
-    return turnTwiml(spoken, runId, scenarioKey, token, 0);
+    return await turnTwiml(spoken, runId, scenarioKey, token, 0);
   } catch (err) {
     console.error('[test] modellhiba:', err);
     await updateRun(runId, { status: 'failed', error: String(err) });
-    return hangupTwiml('Elnézést, megszakadt a vonal. Viszonthallásra!');
+    return await hangupTwiml('Elnézést, megszakadt a vonal. Viszonthallásra!', token);
   }
 }
 
@@ -741,6 +840,17 @@ export async function handleTestRoute(
       console.log(`[test] hivas vege run=${runId} ${secs ?? '?'}s`);
     }
     return { status: 204, headers: TEXT, body: '' };
+  }
+
+  const voiceMatch = /^\/test\/voice\/([0-9a-f]{16})\.mp3$/.exec(path);
+  if (method === 'GET' && voiceMatch) {
+    const clip = clips.get(voiceMatch[1]!);
+    if (!clip) return { status: 404, headers: TEXT, body: 'lejart hangklip' };
+    return {
+      status: 200,
+      headers: { 'content-type': 'audio/mpeg', 'cache-control': 'no-store' },
+      body: clip.buf,
+    };
   }
 
   const audioMatch = /^\/test\/runs\/([0-9a-f]{16})\/audio$/.exec(path);
