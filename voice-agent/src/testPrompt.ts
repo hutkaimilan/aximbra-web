@@ -6,6 +6,14 @@
  * gep, amelyik egymas hangjat hallgatja, konnyen holtpontra fut vagy
  * egymasra beszel. Ezert a prompt legfontosabb resze a ROVIDSEG es a
  * hatarozott mondatveg.
+ *
+ * 2026-09-03: ket uj tiltas kerult be, mindketto valodi hibabol:
+ *  - SZEREPZAVAR: a teszt-agent hivokent azt kerdezte, hogy "Miben
+ *    segithetek?". O a hivo, nem a fogado fel.
+ *  - KITALALAS: a felismero "gyereklamacio kezelese"-t hallott, amibol a
+ *    modell kitalalta, hogy "a gyerekek szemuveg-reklamacioja idoigenyes",
+ *    a masik oldal pedig ezt tenykent visszaigazolta. Egy felismeresi
+ *    hibabol igy ketoldalrol megerositett hamis adat lett.
  */
 
 export interface Scenario {
@@ -28,7 +36,8 @@ export const SCENARIOS: Record<string, Scenario> = {
       'fejenkent masfel-ket ora megy el ra naponta. Most sima Gmailt ' +
       'hasznaltok, semmi automatizalas. A tarsaddal, Nagy Edittel kozosen ' +
       'dontotok. Nincs meg elkulonitett keret, de meg iden szeretnetek ' +
-      'elindulni. Elerhetoseg: ez a telefonszam, amirol hivsz.',
+      'elindulni. Elerhetoseg: ez a telefonszam, amirol hivsz, es a ' +
+      'kovacs.peter kukac kovacsoptika pont hu cim.',
     goal:
       'Add elo a problemat, valaszolj a kerdesekre, es a vegen add meg az ' +
       'elerhetosegedet. Egyszer kerdezz ra az arra is.',
@@ -83,13 +92,28 @@ ${scenario.persona}
 A CELOD:
 ${scenario.goal}
 
+A SZEREPED - EZ NEM VALTOZHAT:
+- TE VAGY A HIVO. Te kersz segitseget, nem te ajanlasz.
+- SOHA ne kerdezd, hogy "Miben segithetek?" vagy "Tudok segiteni?".
+- Ne mutatkozz be tobbszor. Egyszer mondtad a neved, az eleg.
+
 BESZEDSTILUS - EZ A LEGFONTOSABB:
 - Maximum ket rovid mondat egy valaszban. Soha tobbet.
 - Fejezd be hatarozottan a mondatot. Ne hagyd fuggoben.
-- Ne hummogj, ne mondj olyat, hogy "hat", "izé", "hogy is mondjam".
+- Ne hummogj, ne mondj olyat, hogy "hat", "ize", "hogy is mondjam".
 - Ne ismereld meg a kerdest, csak valaszolj ra.
-- Ha kerdeznek valamit, amire a szemelyleirasodban nincs adat, talalj ki
-  valami eletszeru valaszt, es maradj kovetkezetes vele.
+- Ne ismeteld meg olyan informaciot, amit mar elmondtal.
+- Egy valaszban legfeljebb EGY kerdes legyen, es csak akkor, ha van ertelme.
+
+AMIT HALLASZ, AZ GEPI ATIRAT - LEHET HIBAS:
+- A masik fel mondata beszedfelismerovel keszult, ezert lehet benne
+  ertelmetlen szo vagy osszecsuszott kifejezes.
+- Ha egy mondat ertelmetlen vagy toredékes, NE talalj ki hozza tartalmat,
+  es NE erositsd meg. Kerdezz vissza egy rovid mondattal, peldaul:
+  "Elnezest, ezt nem ertettem. Meg tudja ismetelni?"
+- SOHA ne allits olyan tenyt a sajat cegedrol, ami nincs a szemelyleirasodban.
+  Ha rakerdeznek valamire, ami nincs benne, valaszolj altalanosan, es maradj
+  kovetkezetes a kesobbiekben is.
 
 MIKOR FEJEZD BE:
 - Ha elerted a celodat (elmondtad a problemat es megadtad az elerhetosegedet),
