@@ -1,13 +1,17 @@
 /**
  * OpenAI-reteg.
  *
- * Ket kulon feladat, ket kulon beallitas:
- *   reply()   - beszelgetes kozben, minden fordulonal. Rovid, gyors, olcso.
- *   summarize() - hivas utan, egyszer. Strukturalt JSON.
+ * Harom kulon feladat, harom kulon beallitas:
+ *   replyStream() - eles hivas kozben. Tokenenkent adja vissza a valaszt,
+ *                   hogy a ConversationRelay mar az elso szavaknal
+ *                   elkezdhesse a felolvasast. Ez a hivas erzekelt
+ *                   varakozasat masodpercekrol tizedmasodpercekre viszi le.
+ *   reply()       - ott, ahol nincs ertelme a streamnek (teszt-agent: a
+ *                   TwiML-t ugyis egyben kell visszaadni).
+ *   summarize()   - hivas utan, egyszer. Strukturalt JSON.
  *
- * Latencia a fo megkotes a reply()-nal: telefonon minden masodperc csend
- * ugy hangzik, mintha megszakadt volna a vonal. Ezert alacsony a
- * max_tokens es rovid a timeout - inkabb rovid valasz, mint keso valasz.
+ * Latencia a fo megkotes: telefonon minden masodperc csend ugy hangzik,
+ * mintha megszakadt volna a vonal.
  */
 
 import OpenAI from 'openai';
@@ -19,48 +23,106 @@ export interface Turn {
   content: string;
 }
 
+export interface ReplyOptions {
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
+  timeoutMs?: number;
+  /** Felbeszakitaskor ezzel allitjuk le a mar futo streamet. */
+  signal?: AbortSignal;
+}
+
 let client: OpenAI | null = null;
 
 function openai(): OpenAI {
   if (!client) {
     client = new OpenAI({
       apiKey: env().openaiApiKey,
-      // Rovid timeout: ha 12 masodperc alatt nincs valasz, a hivo mar
-      // ugy erzi, megszakadt a vonal. Jobb hibauzenetet mondani.
       timeout: 12_000,
-      maxRetries: 1,
+      // Streamnel az ujraprobalas felmondat utan ujrakezdene a szoveget,
+      // ezert a retryt hivasonkent allitjuk, nem globalisan.
+      maxRetries: 0,
     });
   }
   return client;
 }
 
-/**
- * Egy beszelgetesi fordulo valasza.
- *
- * A teljes eddigi tortenetet elkuldjuk minden alkalommal: a modell allapot
- * nelkuli, a "memoria" maga a tortenet. Ez az oka annak, hogy nem kell
- * kulon emlekezet-reteg egy hivason belul.
- */
-export async function reply(history: Turn[], systemPrompt: string): Promise<string> {
-  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+function buildMessages(
+  history: Turn[],
+  systemPrompt: string,
+): OpenAI.Chat.ChatCompletionMessageParam[] {
+  return [
     { role: 'system', content: systemPrompt },
     ...history.map((t) => ({ role: t.role, content: t.content }) as const),
   ];
+}
 
-  const completion = await openai().chat.completions.create({
-    model: env().model,
-    messages,
-    // 220 token ~ 3-4 magyar mondat. Telefonon ennel hosszabb valasz
-    // mar tul sok - a hivo kozbevag, es osszekeveredik a fonal.
-    max_tokens: 220,
-    temperature: 0.6,
-  });
+/**
+ * Egy beszelgetesi fordulo valasza, egyben.
+ *
+ * A teljes eddigi tortenetet elkuldjuk minden alkalommal: a modell allapot
+ * nelkuli, a "memoria" maga a tortenet.
+ */
+export async function reply(
+  history: Turn[],
+  systemPrompt: string,
+  opts: ReplyOptions = {},
+): Promise<string> {
+  const completion = await openai().chat.completions.create(
+    {
+      model: opts.model ?? env().model,
+      messages: buildMessages(history, systemPrompt),
+      max_tokens: opts.maxTokens ?? 220,
+      // Alacsony homerseklet: telefonos felvetelnel a kiszamithatosag
+      // tobbet er, mint a valtozatossag. Magas ertek mellett a modell
+      // hajlamos ujra bemutatkozni es korbe-korbe kerdezni.
+      temperature: opts.temperature ?? 0.3,
+    },
+    { timeout: opts.timeoutMs ?? 12_000, maxRetries: 1, signal: opts.signal },
+  );
 
   const text = completion.choices[0]?.message?.content?.trim();
-  if (!text) {
-    throw new Error('Ures valasz a modelltol');
-  }
+  if (!text) throw new Error('Ures valasz a modelltol');
   return text;
+}
+
+/**
+ * Ugyanaz, de tokenenkent.
+ *
+ * `onDelta` minden szovegdarabra meghivodik, ahogy erkezik. A fuggveny a
+ * teljes osszefuzott szoveggel ter vissza.
+ *
+ * Felbeszakitasnal az `opts.signal` abortalodik: ilyenkor a ciklus kivetelt
+ * dob, es a MAR KIMONDOTT resz a hivo felelossege (o gyujti az `onDelta`
+ * darabokat). Ezert nem dobunk el semmit itt.
+ */
+export async function replyStream(
+  history: Turn[],
+  systemPrompt: string,
+  onDelta: (delta: string) => void,
+  opts: ReplyOptions = {},
+): Promise<string> {
+  const stream = await openai().chat.completions.create(
+    {
+      model: opts.model ?? env().model,
+      messages: buildMessages(history, systemPrompt),
+      max_tokens: opts.maxTokens ?? 220,
+      temperature: opts.temperature ?? 0.3,
+      stream: true,
+    },
+    { timeout: opts.timeoutMs ?? 12_000, maxRetries: 0, signal: opts.signal },
+  );
+
+  let full = '';
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content;
+    if (!delta) continue;
+    full += delta;
+    onDelta(delta);
+  }
+
+  if (!full.trim()) throw new Error('Ures valasz a modelltol');
+  return full.trim();
 }
 
 export interface Summary {
@@ -85,8 +147,7 @@ export interface Summary {
  * Hivas utani strukturalt osszefoglalo.
  *
  * Ez mar nem latencia-erzekeny (a hivo letette), ezert nagyobb a keret es
- * hosszabb a timeout. JSON-modot kenyszeritunk, hogy ne kelljen a valaszbol
- * kodblokkokat hamozni.
+ * hosszabb a timeout.
  */
 export async function summarize(history: Turn[]): Promise<Summary | null> {
   if (history.length === 0) return null;
@@ -96,24 +157,25 @@ export async function summarize(history: Turn[]): Promise<Summary | null> {
     .join('\n');
 
   try {
-    const completion = await openai().chat.completions.create({
-      model: env().model,
-      messages: [
-        { role: 'system', content: SUMMARY_PROMPT },
-        { role: 'user', content: transcript },
-      ],
-      response_format: { type: 'json_object' },
-      max_tokens: 700,
-      temperature: 0,
-    }, { timeout: 30_000 });
+    const completion = await openai().chat.completions.create(
+      {
+        model: env().model,
+        messages: [
+          { role: 'system', content: SUMMARY_PROMPT },
+          { role: 'user', content: transcript },
+        ],
+        response_format: { type: 'json_object' },
+        max_tokens: 700,
+        temperature: 0,
+      },
+      { timeout: 30_000, maxRetries: 1 },
+    );
 
     const raw = completion.choices[0]?.message?.content;
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<Summary>;
 
-    // Minden mezot kitoltunk: a hianyzo kulcs a kesobbi email-sablonban
-    // "undefined"-kent jelenne meg, ami zavaro.
     const fallback = 'nem hangzott el';
     return {
       nev: parsed.nev ?? fallback,
@@ -133,8 +195,6 @@ export async function summarize(history: Turn[]): Promise<Summary | null> {
       kovetkezo_lepes: parsed.kovetkezo_lepes ?? 'Visszahívás',
     };
   } catch (err) {
-    // Az osszefoglalo elmaradasa nem kritikus: a teljes atirat a logban
-    // marad, abbol kezzel is kiolvashato minden.
     console.error('[llm] osszefoglalo sikertelen:', err);
     return null;
   }
