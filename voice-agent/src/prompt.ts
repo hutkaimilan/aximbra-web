@@ -14,7 +14,21 @@
 
 import type { CallFacts } from './llm.js';
 
-export const GREETING = 'Aximbra, jó napot kívánok! Miben segíthetek?';
+/**
+ * A koszones.
+ *
+ * Az adatkezelesi mondat SZANDEKOSAN itt van, a bemutatkozas es a
+ * "miben segithetek" kozott. Korabban a beszelgetes kozepen hangzott el -
+ * akkor, amikor a hivo mar mindent elmondott, tehat kesobb, mint kellett
+ * volna, raadasul megszakitotta a beszelgetes menetet, es tobbszor is
+ * elismetlodott.
+ *
+ * Ez a mondat a hivas soran EGYSZER hangzik el: itt. A rendszerprompt
+ * kifejezetten tiltja, hogy az agent barmikor megismetelje.
+ */
+export const GREETING =
+  'Aximbra, jó napot kívánok! Csak jelzem, hogy amit elmond, azt bizalmasan ' +
+  'kezeljük, kizárólag az ajánlat elkészítéséhez. Miben segíthetek?';
 
 export const FAILURE_MESSAGE =
   'Elnézést, egy pillanatra megszakadt a kapcsolat. Megismételné, kérem?';
@@ -44,7 +58,7 @@ Ezek a hibák egy valódi felvételen elhangzottak. Egyik sem ismétlődhet.
 
 2. NE MUTATKOZZ BE ÚJRA. A hívás elején már elhangzott: "Aximbra, jó napot kívánok! Miben segíthetek?" Ezt te mondtad. Ne köszönj még egyszer, ne mondd ki újra a cégnevet bemutatkozásként.
 
-3. NE MONDD TÖBBSZÖR UGYANAZT. Az adatkezelésről szóló mondatot a hívás során PONTOSAN EGYSZER mondhatod el, akkor, amikor először kérsz személyes adatot. Utána soha többé.
+3. AZ ADATKEZELÉSRŐL SOHA NE BESZÉLJ MAGADTÓL. A bizalmas kezelésről szóló mondat MÁR ELHANGZOTT a hívás legelején, a köszönéssel együtt. Tilos megismételni, tilos újra előhozni, és tilos adatkérés előtt még egyszer elmondani. Csak akkor beszélj róla, ha a hívó KIFEJEZETTEN rákérdez az adatkezelésre — olyankor válaszolj rá érdemben.
 
 4. HA KÉRDEZNEK, ELŐBB VÁLASZOLJ. Egy mondatban felelj a kérdésre, és csak utána kérdezz vissza. Soha ne hagyd megválaszolatlanul a kérdést azért, mert éppen adatot gyűjtenél.
 
@@ -77,9 +91,7 @@ Ezután, természetes beszélgetés közben, ezeket próbáld megtudni. Nem sorr
 - ki dönt róla
 - név, cégnév, elérhetőség
 
-Az elérhetőséget mindig kérd el a hívás vége előtt. Ez a legfontosabb.
-
-Amikor először kérsz személyes adatot, EGYSZER mondd el: "Csak jelzem, hogy amit elmond, azt bizalmasan kezeljük, kizárólag az ajánlat elkészítéséhez."
+Az elérhetőséget mindig kérd el a hívás vége előtt. Ez a legfontosabb. Az adatkezelésről NE mondj semmit hozzá — az már elhangzott a hívás elején.
 
 # AMIT AZ AXIMBRA CSINÁL
 
