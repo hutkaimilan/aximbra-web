@@ -12,6 +12,8 @@
  * probaidoszakunk"), aminek semmi alapja nem volt.
  */
 
+import type { CallFacts } from './llm.js';
+
 export const GREETING = 'Aximbra, jó napot kívánok! Miben segíthetek?';
 
 export const FAILURE_MESSAGE =
@@ -57,6 +59,10 @@ Ezek a hibák egy valódi felvételen elhangzottak. Egyik sem ismétlődhet.
 9. HA IDŐ KELL, MONDD KI. Ha gondolkodnod kell, ne hallgass némán. Mondd: "Egy pillanat, megnézem." A néma szünet a telefonban úgy hangzik, mintha megszakadt volna a vonal.
 
 10. SOHA NE TALÁLJ KI ADATOT. Árat, határidőt, feltételt csak az alábbi listából mondhatsz. Ha valamit nem tudsz, ezt mondd: "Ezt nem tudom fejből, de kollégám visszajelez róla."
+
+11. HA MÁSODSZOR IS ÁRAT KÉRNEK, UGYANAZT MONDD. Tilos szűkíteni a sávot, tilos "közepes megoldásra" új számot kitalálni. Ha pontosabbat kérnek: "A pontos árhoz ismernünk kell a részleteket, ezt kollégám tudja megmondani." Egy valódi felvételen az agent kitalált egy 200-350 ezres sávot, ami sehol nem szerepel — ez súlyos hiba.
+
+12. A SZÁMOKAT BETŰVEL ÍRD. Nem "150 000", hanem "százötvenezer". Nem "2-4", hanem "két-négy". A számjegyeket a felolvasó összekeveri, és értelmetlenül hangzanak el.
 
 # A BESZÉLGETÉS MENETE
 
@@ -130,10 +136,99 @@ Mondd meg őszintén, hogy AI agent vagy, és hogy pont ezt a technológiát mut
 
 Ha a hívó angolul vagy spanyolul kezd beszélni, válts át arra a nyelvre, és maradj is ott.`;
 
-export function buildSystemPrompt(projects: number): string {
-  if (projects <= 0) return SYSTEM_PROMPT_BASE;
+/**
+ * A hivas kozben mar megtudott adatok kinyeresehez hasznalt prompt.
+ *
+ * Kulon, kicsi hivas: nem a beszelgeto modell dolga, hogy adatot
+ * konyveljen. Nulla homerseklet, JSON kimenet.
+ */
+export const FACTS_PROMPT = `Egy folyamatban lévő telefonbeszélgetés átiratát kapod. A hívó egy érdeklődő ügyfél.
+
+Feladatod: gyűjtsd ki, mit mondott el eddig a HÍVÓ magáról. CSAK JSON-t adj vissza.
+
+FONTOS: az átirat beszédfelismerővel készült, ezért az e-mail címek és számok kimondva szerepelnek. Alakítsd őket normál formára:
+- "kukac" → @
+- "pont" → .
+- "kovacs pont peter kukac kovacsoptika pont hu" → "kovacs.peter@kovacsoptika.hu"
+
+Ha egy adat NEM hangzott el, oda null-t írj. Soha ne találj ki semmit, és ne következtess. Csak azt írd be, ami ténylegesen elhangzott.
+
+{
+  "nev": "a hívó neve, vagy null",
+  "ceg": "a cég neve, vagy null",
+  "email": "e-mail cím normál formában, vagy null",
+  "telefon": "telefonszám, ha külön megadta, vagy null",
+  "feladat": "melyik feladatot automatizálná, vagy null",
+  "cegmeret": "hányan dolgoznak ott, vagy null",
+  "volumen": "mennyiség vagy időráfordítás, vagy null",
+  "jelenlegi_megoldas": "mit használ most, vagy null",
+  "idozites": "mikorra szeretné, vagy null",
+  "dontesi_kor": "ki dönt róla, vagy null"
+}`;
+
+const FACT_LABELS: Array<[keyof CallFacts, string]> = [
+  ['nev', 'Név'],
+  ['ceg', 'Cég'],
+  ['email', 'E-mail cím'],
+  ['telefon', 'Telefonszám'],
+  ['feladat', 'Milyen feladatot automatizálna'],
+  ['cegmeret', 'Cégméret'],
+  ['volumen', 'Mennyiség / időráfordítás'],
+  ['jelenlegi_megoldas', 'Jelenlegi megoldás'],
+  ['idozites', 'Időzítés'],
+  ['dontesi_kor', 'Ki dönt'],
+];
+
+/**
+ * A mar ismert adatok blokkja, a rendszerprompt ELEJERE.
+ *
+ * Azert elore kerul, es nem hatra, mert egy hosszu prompt kozepen a modell
+ * atsiklik felette. Ez a blokk valtozik fordulonkent - a prompt tobbi
+ * resze nem.
+ */
+export function buildFactsBlock(facts: CallFacts, callerNumber: string): string {
+  const lines: string[] = [];
+
+  for (const [key, label] of FACT_LABELS) {
+    const v = facts[key];
+    if (v) lines.push(`- ${label}: ${v}`);
+  }
+
+  // A hivo szamat a telefonhalozattol kapjuk, nem tole kell megkerdezni.
+  const known = callerNumber && callerNumber !== '<ismeretlen>' ? callerNumber : null;
+  if (known && !facts.telefon) {
+    lines.push(`- Telefonszám (a hívásból, nem ő mondta): ${known}`);
+  }
+
+  if (lines.length === 0) {
+    return `# AMIT MÁR TUDSZ
+
+Egyelőre semmit. Most derítsd ki, miért hív.
+
+`;
+  }
+
+  return `# AMIT MÁR TUDSZ — EZEKRE SOHA NE KÉRDEZZ RÁ ÚJRA
+
+${lines.join('\n')}
+
+Ezek az adatok MÁR ELHANGZOTTAK ebben a hívásban. Tilos újra megkérdezni bármelyiket, és tilos megerősítésre visszakérdezni rá. Ha az e-mail cím szerepel a listában, akkor megvan — ne kérd el még egyszer, hanem használd.
+
+Ha valamit el akarsz küldeni, mondd ki, hogy melyik címre küldöd, és kérdezd meg, hogy jó-e — de csak akkor, ha tényleg küldesz valamit.
+
+`;
+}
+
+export function buildSystemPrompt(
+  projects: number,
+  facts?: CallFacts,
+  callerNumber = '',
+): string {
+  const head = facts ? buildFactsBlock(facts, callerNumber) : '';
+  const base = head + SYSTEM_PROMPT_BASE;
+  if (projects <= 0) return base;
   return (
-    SYSTEM_PROMPT_BASE +
+    base +
     `\n\n# JELENLEGI TERHELÉS\n\nMost ${projects} projekt fut párhuzamosan. ` +
     `Ha a határidőről kérdeznek, ezt vedd figyelembe, de ne ijeszd el a hívót.`
   );

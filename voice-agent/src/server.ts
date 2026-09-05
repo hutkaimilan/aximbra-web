@@ -18,7 +18,15 @@ import { WebSocketServer, type WebSocket } from 'ws';
 
 import { env } from './env.js';
 import { admitCall, callStarted, callEnded, maxCallSeconds, stats } from './limit.js';
-import { replyStream, summarize, type Turn } from './llm.js';
+import {
+  replyStream,
+  summarize,
+  extractFacts,
+  emptyFacts,
+  mergeFacts,
+  type Turn,
+  type CallFacts,
+} from './llm.js';
 import { sendSummary } from './email.js';
 import { sendContactSms } from './sms.js';
 import { handleTestRoute, handleTestRelay } from './testAgent.js';
@@ -26,6 +34,7 @@ import {
   GREETING,
   FAILURE_MESSAGE,
   TIME_LIMIT_MESSAGE,
+  FACTS_PROMPT,
   buildSystemPrompt,
 } from './prompt.js';
 
@@ -287,8 +296,10 @@ interface Session {
   streamed: string;
   timer: NodeJS.Timeout | null;
   closed: boolean;
-  /** A hivas elejen rogzitett prompt: hivas kozben nem valtozhat. */
-  systemPrompt: string;
+  /** Amit a hivas soran mar megtudtunk a hivorol. */
+  facts: CallFacts;
+  /** Igaz, amig egy tenykinyeres fut: nem inditunk parhuzamosan masikat. */
+  extracting: boolean;
 }
 
 wss.on('connection', (ws: WebSocket) => {
@@ -309,7 +320,8 @@ wss.on('connection', (ws: WebSocket) => {
     streamed: '',
     timer: null,
     closed: false,
-    systemPrompt: buildSystemPrompt(cfg.currentProjects),
+    facts: emptyFacts(),
+    extracting: false,
   };
 
   const send = (text: string, last = false): void => {
@@ -327,7 +339,7 @@ wss.on('connection', (ws: WebSocket) => {
     try {
       const full = await replyStream(
         s.history,
-        s.systemPrompt,
+        buildSystemPrompt(cfg.currentProjects, s.facts, s.from),
         (delta) => {
           s.streamed += delta;
           send(delta, false);
@@ -363,6 +375,35 @@ wss.on('connection', (ws: WebSocket) => {
   };
 
   /**
+   * A mar elhangzott adatok frissitese, HATTERBEN.
+   *
+   * Szandekosan nem varjuk meg: a valasz mar kiment a vonalra, mire ez
+   * elindul. Igy nulla varakozast ad a hivasnak. Cserebe a frissites egy
+   * fordulot kesik - ami eleg, mert a kovetkezo kerdes elott keszen van.
+   *
+   * Ha elszall, a korabbi tenyek megmaradnak. A hivas soha nem all meg
+   * emiatt.
+   */
+  const refreshFacts = (): void => {
+    if (s.extracting || s.closed) return;
+    s.extracting = true;
+
+    void (async () => {
+      try {
+        const found = await extractFacts(s.history, FACTS_PROMPT, {
+          maxTokens: 300,
+          timeoutMs: 10_000,
+        });
+        if (found) s.facts = mergeFacts(s.facts, found);
+      } catch (err) {
+        console.error('[ws] tenyfrissites hiba:', err);
+      } finally {
+        s.extracting = false;
+      }
+    })();
+  };
+
+  /**
    * A varakozo mondatok feldolgozasa.
    *
    * Ha a hivo beszel, mikozben a modell dolgozik, a mondata a sorba kerul,
@@ -378,6 +419,7 @@ wss.on('connection', (ws: WebSocket) => {
         if (!text) continue;
         s.history.push({ role: 'user', content: text });
         await speakReply();
+        refreshFacts();
       }
     } finally {
       s.draining = false;
