@@ -96,6 +96,18 @@ const en = {
   marquee: ["AGENTS, NOT CHATBOTS", "HUMAN APPROVAL", "BUDAPEST", "HU · EN · ES", "WORKING SYSTEM"],
   demo: {
     run: "Run", loading: "Analyzing…", sample: "Example", error: "Couldn't reach the service. Please try again later.",
+    draft: {
+      title: "Reply draft",
+      run: "Write a reply",
+      loading: "Drafting…",
+      toneLabel: "Tone",
+      tones: { hivatalos: "Formal", kozvetlen: "Direct" },
+      subject: "Subject",
+      copy: "Copy",
+      copied: "Copied",
+      copyError: "Copying failed.",
+      note: "The agent never sends anything — the draft is yours.",
+    },
     email: {
       placeholder: "Paste the text of an incoming email…",
       samples: [

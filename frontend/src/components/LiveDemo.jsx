@@ -14,22 +14,51 @@ export const LiveDemo = ({ type }) => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  const [tone, setTone] = useState("hivatalos");
+  const [draft, setDraft] = useState(null);
+  const [drafting, setDrafting] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const post = async (path, payload) => {
+    const res = await fetch(`${API}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Session-Id": sessionId },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || d.error);
+    return data;
+  };
 
   const run = async () => {
     if (!input.trim()) return;
-    setLoading(true); setError(""); setResult(null);
+    setLoading(true); setError(""); setResult(null); setDraft(null);
     try {
-      const res = await fetch(`${API}${ENDPOINT[type]}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Session-Id": sessionId },
-        body: JSON.stringify({ text: input.slice(0, 4000) }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.detail || d.error); }
-      else { setResult(data); }
-    } catch {
-      setError(d.error);
+      setResult(await post(ENDPOINT[type], { text: input.slice(0, 4000) }));
+    } catch (e) {
+      setError(e.message || d.error);
     } finally { setLoading(false); }
+  };
+
+  const writeDraft = async (nextTone) => {
+    const useTone = nextTone || tone;
+    setTone(useTone);
+    setDrafting(true); setError(""); setCopied(false);
+    try {
+      setDraft(await post("/demo/draft", { text: input.slice(0, 4000), tone: useTone }));
+    } catch (e) {
+      setError(e.message || d.error);
+    } finally { setDrafting(false); }
+  };
+
+  const copyDraft = async () => {
+    try {
+      await navigator.clipboard.writeText(draft.valasz);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError(d.draft.copyError);
+    }
   };
 
   return (
@@ -54,6 +83,43 @@ export const LiveDemo = ({ type }) => {
               <div className="v">{result[key]}</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {type === "email" && result && (
+        <div className="draft-block" data-testid="demo-draft-block">
+          <div className="draft-head">
+            <span className="draft-title">{d.draft.title}</span>
+            <div className="tone-toggle" role="group" aria-label={d.draft.toneLabel}>
+              {["hivatalos", "kozvetlen"].map((tn) => (
+                <button key={tn} type="button" data-testid={`demo-tone-${tn}`}
+                  className={`tone-btn ${tone === tn ? "active" : ""}`}
+                  onClick={() => (draft ? writeDraft(tn) : setTone(tn))}>
+                  {d.draft.tones[tn]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {!draft ? (
+            <LiquidButton data-testid="demo-draft-run" onClick={() => writeDraft()} disabled={drafting}>
+              {drafting ? <><span className="spin" /> {d.draft.loading}</> : d.draft.run}
+            </LiquidButton>
+          ) : (
+            <div data-testid="demo-draft-result">
+              <div className="draft-subject">
+                <span className="k">{d.draft.subject}</span>
+                <span className="v">{draft.targy}</span>
+              </div>
+              <pre className="draft-body">{drafting ? d.draft.loading : draft.valasz}</pre>
+              <div className="draft-actions">
+                <button type="button" className="sample-btn" data-testid="demo-draft-copy" onClick={copyDraft}>
+                  {copied ? d.draft.copied : d.draft.copy}
+                </button>
+                <span className="draft-note">{d.draft.note}</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

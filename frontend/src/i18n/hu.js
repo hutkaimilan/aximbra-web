@@ -96,6 +96,18 @@ const hu = {
   marquee: ["AGENTEK, NEM CHATBOTOK", "EMBERI JÓVÁHAGYÁS", "BUDAPEST", "HU · EN · ES", "MŰKÖDŐ RENDSZER"],
   demo: {
     run: "Futtatás", loading: "Elemzés…", sample: "Példa", error: "Nem sikerült elérni a szolgáltatást. Próbáld újra később.",
+    draft: {
+      title: "Válasz-piszkozat",
+      run: "Írjon választ",
+      loading: "Fogalmazás…",
+      toneLabel: "Hangnem",
+      tones: { hivatalos: "Hivatalos", kozvetlen: "Közvetlen" },
+      subject: "Tárgy",
+      copy: "Másolás",
+      copied: "Másolva",
+      copyError: "A másolás nem sikerült.",
+      note: "Az agent soha nem küld el semmit — a piszkozat a tiéd.",
+    },
     email: {
       placeholder: "Illeszd be egy beérkező e-mail szövegét…",
       samples: [

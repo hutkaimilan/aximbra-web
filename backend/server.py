@@ -74,6 +74,10 @@ class DemoRequest(BaseModel):
         return v[:MAX_INPUT_CHARS]
 
 
+class DraftRequest(DemoRequest):
+    tone: Literal["hivatalos", "kozvetlen"] = "hivatalos"
+
+
 class EmailResult(BaseModel):
     kategoria: Literal["Reklamáció", "Árajánlat-kérés", "Számlázási kérdés", "Technikai támogatás", "Együttműködési ajánlat", "Egyéb"]
     surgosseg: Literal["Sürgős", "Normál", "Ráér"]
@@ -86,6 +90,25 @@ class EmailResult(BaseModel):
     @classmethod
     def _cap(cls, v):
         return v[:300]
+
+
+class DraftResult(BaseModel):
+    targy: str
+    valasz: str
+
+    @field_validator("targy")
+    @classmethod
+    def _subject(cls, v):
+        return v[:120]
+
+    @field_validator("valasz")
+    @classmethod
+    def _notice(cls, v):
+        # The draft must always carry its own AI notice, even if the model drops it.
+        v = v[:4000].rstrip()
+        if "[AI által készített tervezet" not in v:
+            v += "\n\n[AI által készített tervezet – küldés előtt ellenőrizd]"
+        return v
 
 
 class LeadResult(BaseModel):
@@ -118,6 +141,29 @@ EMAIL_SYS = (
     "osszefoglalo (max 300 karakter, magyarul), javasolt_lepes (max 300 karakter, magyarul)."
 )
 
+DRAFT_TONES = {
+    "hivatalos": (
+        "HIVATALOS és udvarias. Magázódj, formális megszólítással (például Tisztelt …) "
+        "és formális zárással (például Tisztelettel)."
+    ),
+    "kozvetlen": (
+        "KÖZVETLEN és barátságos, de professzionális. Természetes megszólítás "
+        "(például Kedves …); magázódj, ha a viszony nem egyértelmű."
+    ),
+}
+
+DRAFT_SYS = (
+    "Te egy magyar asszisztens vagy, aki e-mail VÁLASZ-TERVEZETET ír. SOHA nem küldesz e-mailt. "
+    "KIZÁRÓLAG érvényes JSON objektummal válaszolj, magyarázat nélkül, ezekkel a kulcsokkal: "
+    "targy (a válasz tárgysora, max 120 karakter), valasz (a válaszlevél teljes szövege). "
+    "Szabályok: a válasz nyelve egyezzen a bejövő levél nyelvével. Hangnem: {tone}. "
+    "SOHA ne ígérj határidőt, árat, mennyiséget vagy bármit, ami nem szerepel a levélben. "
+    "Ha az érdemi válaszhoz hiányzik egy információ, ne találd ki: kérdezz rá röviden, udvariasan. "
+    "A valasz mező legvégére külön sorban mindig kerüljön: "
+    "[AI által készített tervezet – küldés előtt ellenőrizd]"
+)
+
+
 LEAD_SYS = (
     "Te egy magyar értékesítési érdeklődő-minősítő asszisztens vagy. Minősítsd a leírt érdeklődőt (BANT logika). "
     "KIZÁRÓLAG érvényes JSON objektummal válaszolj, magyarázat nélkül, ezekkel a kulcsokkal: "
@@ -127,7 +173,7 @@ LEAD_SYS = (
 )
 
 
-async def _call_llm(system_msg: str, user_text: str) -> str:
+async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600) -> str:
     """
     Egyetlen OpenAI chat-completion hivas, JSON kimenetre kenyszeritve.
 
@@ -153,7 +199,7 @@ async def _call_llm(system_msg: str, user_text: str) -> str:
             {"role": "user", "content": user_text},
         ],
         "response_format": {"type": "json_object"},
-        "max_tokens": 600,
+        "max_tokens": max_tokens,
         "temperature": 0,
     }
 
@@ -192,13 +238,13 @@ def _parse_json(raw: str) -> dict:
     return json.loads(raw)
 
 
-async def _run_demo(request: Request, body: DemoRequest, system_msg: str, model_cls):
+async def _run_demo(request: Request, body: DemoRequest, system_msg: str, model_cls, max_tokens: int = 600):
     session_id = request.headers.get("X-Session-Id", "anon")
     _check_limits(request, session_id)
     last_err = None
     for _ in range(3):  # 1 try + 2 retries
         try:
-            raw = await _call_llm(system_msg, body.text)
+            raw = await _call_llm(system_msg, body.text, max_tokens)
             data = _parse_json(raw)
             result = model_cls(**data)
             _record_run(session_id)
@@ -251,6 +297,14 @@ async def demo_email(request: Request, body: DemoRequest):
 @api_router.post("/demo/lead")
 async def demo_lead(request: Request, body: DemoRequest):
     return await _run_demo(request, body, LEAD_SYS, LeadResult)
+
+
+@api_router.post("/demo/draft")
+async def demo_draft(request: Request, body: DraftRequest):
+    """Reply draft for the pasted email. Drafting only - nothing is ever sent,
+    and nothing about the request is stored."""
+    system_msg = DRAFT_SYS.format(tone=DRAFT_TONES[body.tone])
+    return await _run_demo(request, body, system_msg, DraftResult, max_tokens=1100)
 
 
 app.include_router(api_router)
