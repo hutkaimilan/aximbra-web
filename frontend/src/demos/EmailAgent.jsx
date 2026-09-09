@@ -27,7 +27,7 @@ const get = (path) => fetch(`${API}${path}`, { credentials: "include" }).then(as
   return data;
 });
 
-export default function EmailAgent() {
+export default function EmailAgent({ embedded = false }) {
   const [status, setStatus] = useState(null);
   const [progress, setProgress] = useState(null);
   const [results, setResults] = useState(null);
@@ -95,20 +95,22 @@ export default function EmailAgent() {
   const pct = progress?.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <div className="agent-page">
-      <header className="agent-top">
-        <Link to="/" className="agent-back">← AXIMBRA</Link>
-        <span className={`agent-pill ${status?.connected ? "on" : ""}`}>
-          {status?.connected ? status.email : "Nincs csatlakozva"}
-        </span>
-      </header>
+    <div className={embedded ? "agent-embed" : "agent-page"}>
+      {!embedded && (
+        <header className="agent-top">
+          <Link to="/" className="agent-back">← AXIMBRA</Link>
+          <span className={`agent-pill ${status?.connected ? "on" : ""}`}>
+            {status?.connected ? status.email : "Nincs csatlakozva"}
+          </span>
+        </header>
+      )}
 
       <main className="agent-main">
         {!status ? (
           <div className="agent-center"><span className="spin" /></div>
         ) : !status.connected ? (
           <div className="agent-intro">
-            <h1>E-mail rendező agent</h1>
+            {!embedded && <h1>E-mail rendező agent</h1>}
             <p className="agent-lead">
               Csatlakoztasd a Gmail-fiókod, és az agent végigmegy az elmúlt 30 nap
               levelein: kategóriába sorolja, sürgősséget állapít meg, és megmondja,

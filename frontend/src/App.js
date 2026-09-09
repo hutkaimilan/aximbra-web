@@ -6,6 +6,7 @@ import { PlasmaHero } from "@/components/PlasmaHero";
 import { Nav } from "@/components/Nav";
 import { Hero } from "@/components/Hero";
 import { Agents } from "@/components/Agents";
+import { EmailAgentSection } from "@/components/EmailAgentSection";
 import { Process } from "@/components/Process";
 import { Pricing } from "@/components/Pricing";
 import { CaseStudy } from "@/components/CaseStudy";
@@ -76,6 +77,7 @@ function Site() {
           </div>
         </div>
         <Agents />
+        <EmailAgentSection />
         <Process />
         <Pricing />
         <CaseStudy />

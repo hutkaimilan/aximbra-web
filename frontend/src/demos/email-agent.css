@@ -10,6 +10,13 @@
 .agent-pill.on { color: var(--cyan); border-color: var(--cyan); background: rgba(0,233,255,.06); }
 
 .agent-main { max-width: 900px; margin: 0 auto; padding: 40px 20px 80px; }
+
+/* Embedded on the home page: no page chrome, sits inside the section grid. */
+.agent-embed { margin-top: 26px; border: 1px solid var(--border); border-radius: 18px;
+  background: rgba(6,8,20,.7); backdrop-filter: blur(18px); }
+.agent-embed .agent-main { padding: 26px 22px; max-width: none; }
+.agent-embed .agent-intro h1 { display: none; }
+@media (max-width: 600px) { .agent-embed .agent-main { padding: 20px 16px; } }
 .agent-center { display: flex; justify-content: center; padding: 80px 0; }
 
 .agent-intro h1 { font-family: var(--display); font-weight: 700; font-size: clamp(28px, 5vw, 44px);
