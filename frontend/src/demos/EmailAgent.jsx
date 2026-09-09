@@ -21,7 +21,17 @@ const URGENCY = [
 
 const urgencyOf = (n) => URGENCY.find((u) => (n || 0) >= u.min) || URGENCY[3];
 
-const get = (path) => fetch(`${API}${path}`, { credentials: "include" }).then(async (r) => {
+// The token arrives in the callback URL and lives in sessionStorage, so it dies
+// with the tab - and a cross-host cookie (which browsers would drop) is avoided.
+const KEY = "aximbra:agent";
+const token = () => { try { return sessionStorage.getItem(KEY) || ""; } catch { return ""; } };
+const setToken = (v) => {
+  try { v ? sessionStorage.setItem(KEY, v) : sessionStorage.removeItem(KEY); } catch { /* private mode */ }
+};
+
+const get = (path) => fetch(`${API}${path}`, {
+  headers: token() ? { "X-Agent-Session": token() } : {},
+}).then(async (r) => {
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.detail || "Hiba");
   return data;
@@ -54,8 +64,11 @@ export default function EmailAgent({ embedded = false }) {
     const params = new URLSearchParams(window.location.search);
     const err = params.get("error");
     if (err) setError(ERRORS[err] || "Ismeretlen hiba.");
+    const s = params.get("s");
+    if (s) setToken(s);
     if (err || params.get("connected")) {
-      window.history.replaceState({}, "", "/demo/email-agent");
+      // Drop the token from the address bar so it is not shared or bookmarked.
+      window.history.replaceState({}, "", window.location.pathname);
     }
     get("/status").then((s) => {
       setStatus(s);
@@ -69,7 +82,12 @@ export default function EmailAgent({ embedded = false }) {
 
   // Leaving the page ends the run server-side, so returning starts from scratch.
   useEffect(() => {
-    const end = () => navigator.sendBeacon && navigator.sendBeacon(`${API}/disconnect`);
+    const end = () => {
+      const t = token();
+      if (t && navigator.sendBeacon) {
+        navigator.sendBeacon(`${API}/disconnect?s=${encodeURIComponent(t)}`);
+      }
+    };
     window.addEventListener("pagehide", end);
     return () => window.removeEventListener("pagehide", end);
   }, []);
@@ -87,8 +105,12 @@ export default function EmailAgent({ embedded = false }) {
   };
 
   const disconnect = async () => {
-    await fetch(`${API}/disconnect`, { method: "POST", credentials: "include" });
-    window.location.assign("/demo/email-agent");
+    await fetch(`${API}/disconnect`, {
+      method: "POST",
+      headers: token() ? { "X-Agent-Session": token() } : {},
+    }).catch(() => {});
+    setToken("");
+    window.location.assign(window.location.pathname);
   };
 
   const done = progress && !progress.running && progress.total > 0;

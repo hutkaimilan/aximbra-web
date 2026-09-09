@@ -16,10 +16,24 @@ def test_status_is_public_and_anonymous():
     r = c.get("/api/agent/email/status")
     assert r.status_code == 200 and r.json()["connected"] is False
 
-def test_forged_cookie_rejected():
-    c.cookies.set(mail_agent.SESSION_COOKIE, "hamis")
-    assert c.get("/api/agent/email/results").status_code == 401
-    c.cookies.clear()
+def test_forged_token_rejected():
+    r = c.get("/api/agent/email/results", headers={mail_agent.SESSION_HEADER: "hamis"})
+    assert r.status_code == 401
+
+def test_valid_token_reaches_the_session_lookup():
+    """A signed token must resolve to its session id, so a run survives the
+    cross-host hop from the API back to the site."""
+    sid = "abc123"
+    token = mail_agent._fernet.encrypt(sid.encode()).decode()
+    class Req:
+        headers = {mail_agent.SESSION_HEADER: token}
+    assert mail_agent._read_session(Req()) == sid
+
+def test_session_is_not_carried_by_a_cookie():
+    """Cookies would be dropped between the site and the API hosts."""
+    src = open(BACKEND / "mail_agent.py").read()
+    assert "set_cookie" not in src
+    assert "delete_cookie" not in src
 
 def test_send_is_blocked_at_code_level():
     class D: pass

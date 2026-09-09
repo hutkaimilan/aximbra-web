@@ -15,7 +15,7 @@ import re
 from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from cryptography.fernet import Fernet
 from google_auth_oauthlib.flow import Flow
@@ -41,7 +41,7 @@ GMAIL_SCOPES = [
     "https://www.googleapis.com/auth/userinfo.email",
 ]
 
-SESSION_COOKIE = "aximbra_agent"
+SESSION_HEADER = "X-Agent-Session"
 SESSION_TTL_SECONDS = 30 * 60
 MAX_EMAILS = 15
 MAX_SESSIONS = 40
@@ -85,7 +85,10 @@ def _sweep():
 
 
 def _read_session(request: Request):
-    raw = request.cookies.get(SESSION_COOKIE)
+    """The site and the API sit on different hosts, so a cookie would be
+    cross-site and browsers would not send it. The token travels in a header
+    instead, which also keeps the run out of any long-lived browser storage."""
+    raw = request.headers.get(SESSION_HEADER, "")
     if not raw:
         return None
     try:
@@ -236,22 +239,23 @@ async def callback(code: str = "", state: str = "", error: str = ""):
     except Exception as e:  # noqa - never 500 into the browser
         logger.error("agent oauth failed: %s", type(e).__name__)
         return RedirectResponse(f"{target}?error=token_exchange")
-    response = RedirectResponse(f"{target}?connected=1")
-    # No max-age: the run ends with the browser session, never outliving the visit.
-    response.set_cookie(
-        SESSION_COOKIE, _fernet.encrypt(sid.encode()).decode(),
-        httponly=True, secure=True, samesite="lax", path="/",
-    )
+    token = _fernet.encrypt(sid.encode()).decode()
     asyncio.create_task(run_agent(sid))
-    return response
+    return RedirectResponse(f"{target}?connected=1&s={token}")
 
 
 @router.post("/disconnect")
-async def disconnect(request: Request, response: Response):
+async def disconnect(request: Request, s: str = ""):
+    """Accepts the token in the header, or as ?s= for sendBeacon on page exit,
+    which cannot set headers."""
     sid = _read_session(request)
+    if not sid and s:
+        try:
+            sid = _fernet.decrypt(s.encode(), ttl=SESSION_TTL_SECONDS).decode()
+        except Exception:  # noqa
+            sid = None
     if sid:
         _sessions.pop(sid, None)
-    response.delete_cookie(SESSION_COOKIE, path="/")
     return {"ok": True}
 
 
