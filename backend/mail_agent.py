@@ -19,7 +19,6 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from cryptography.fernet import Fernet
 from google_auth_oauthlib.flow import Flow
-from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build, Resource
 
 logger = logging.getLogger(__name__)
@@ -231,7 +230,9 @@ async def callback(code: str = "", state: str = "", error: str = ""):
         sid = os.urandom(16).hex()
         _sessions[sid] = {
             "email": email,
-            "creds_json": creds.to_json(),
+            # Kept as the live object: the run is in-memory only, and an online
+            # grant has no refresh token to rebuild credentials from.
+            "creds": creds,
             "analyses": [],
             "state": _new_state(),
             "created_at": datetime.now(timezone.utc),
@@ -295,8 +296,7 @@ async def run_agent(sid: str):
     state = sess["state"]
     if state["running"]:
         return
-    creds = Credentials.from_authorized_user_info(json.loads(sess["creds_json"]), GMAIL_SCOPES)
-    service = SafeGmailProxy(build("gmail", "v1", credentials=creds))
+    service = SafeGmailProxy(build("gmail", "v1", credentials=sess["creds"]))
     state.update({"running": True, "message": "Levelek lekérése…"})
     try:
         after = int((datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS)).timestamp())
@@ -320,5 +320,9 @@ async def run_agent(sid: str):
             finally:
                 state["done"] += 1
         state["message"] = "Kész"
+    except Exception as e:  # noqa - a dead background task would leave the page spinning
+        logger.exception("agent run failed")
+        state["message"] = "Az elemzés megszakadt. Próbáld újra."
+        state["errors"] += 1
     finally:
         state["running"] = False

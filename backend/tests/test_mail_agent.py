@@ -48,6 +48,22 @@ def test_agent_never_writes_to_the_mailbox():
     for forbidden in (".trash(", ".modify(", "addLabelIds", "STARRED", "drafts()"):
         assert forbidden not in src, forbidden
 
+def test_run_survives_an_online_only_grant():
+    """A demo asks for online access, so Google returns no refresh token and the
+    credentials must never be rebuilt from JSON."""
+    src = open(BACKEND / "mail_agent.py").read()
+    assert "from_authorized_user_info" not in src
+    assert "creds_json" not in src
+    assert 'access_type="online"' in src
+
+def test_run_reports_its_own_failure():
+    """A crashed background task would leave the page spinning forever."""
+    src = open(BACKEND / "mail_agent.py").read()
+    idx = src.find("async def run_agent")
+    body = src[idx:]
+    assert "except Exception" in body
+    assert 'state["message"] = "Az elemzés megszakadt. Próbáld újra."' in body
+
 def test_agent_stores_nothing_persistent():
     src = open(BACKEND / "mail_agent.py").read()
     for forbidden in ("mongo", "sqlite", "open(", "psycopg"):
