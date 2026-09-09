@@ -460,6 +460,14 @@ video.demo-media, audio.demo-media { width: 100%; border-radius: 16px; margin-bo
 .result-field.full { grid-column: 1 / -1; }
 .demo-error { color: var(--amber); font-size: 14px; margin-top: 14px; font-family: var(--mono); }
 
+/* ===== DEMO: RUN ON YOUR OWN INBOX ===== */
+.own-inbox-cta { display: flex; flex-direction: column; gap: 3px; margin-top: 18px; padding: 14px 16px;
+  border: 1px solid var(--cyan); border-radius: 12px; background: rgba(0,233,255,.05);
+  text-decoration: none; transition: background .25s ease; }
+.own-inbox-cta:hover { background: rgba(0,233,255,.11); }
+.own-inbox-label { font-size: 15px; color: var(--cyan); font-weight: 600; }
+.own-inbox-note { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+
 /* ===== DEMO: REPLY DRAFT ===== */
 .draft-block { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
 .draft-head { display: flex; align-items: center; justify-content: space-between; gap: 12px;

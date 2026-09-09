@@ -96,6 +96,10 @@ const en = {
   marquee: ["AGENTS, NOT CHATBOTS", "HUMAN APPROVAL", "BUDAPEST", "HU · EN · ES", "WORKING SYSTEM"],
   demo: {
     run: "Run", loading: "Analyzing…", sample: "Example", error: "Couldn't reach the service. Please try again later.",
+    ownInbox: {
+      label: "Run it on your own inbox →",
+      note: "Google sign-in, read-only, nothing is stored.",
+    },
     draft: {
       title: "Reply draft",
       run: "Write a reply",

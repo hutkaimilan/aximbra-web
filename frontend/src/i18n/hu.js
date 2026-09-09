@@ -96,6 +96,10 @@ const hu = {
   marquee: ["AGENTEK, NEM CHATBOTOK", "EMBERI JÓVÁHAGYÁS", "BUDAPEST", "HU · EN · ES", "MŰKÖDŐ RENDSZER"],
   demo: {
     run: "Futtatás", loading: "Elemzés…", sample: "Példa", error: "Nem sikerült elérni a szolgáltatást. Próbáld újra később.",
+    ownInbox: {
+      label: "Futtasd a saját postafiókodon →",
+      note: "Google-bejelentkezés, csak olvasás, semmit nem tárolunk.",
+    },
     draft: {
       title: "Válasz-piszkozat",
       run: "Írjon választ",
