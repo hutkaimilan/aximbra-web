@@ -460,37 +460,6 @@ video.demo-media, audio.demo-media { width: 100%; border-radius: 16px; margin-bo
 .result-field.full { grid-column: 1 / -1; }
 .demo-error { color: var(--amber); font-size: 14px; margin-top: 14px; font-family: var(--mono); }
 
-/* ===== DEMO: RUN ON YOUR OWN INBOX ===== */
-.own-inbox-cta { display: flex; flex-direction: column; gap: 3px; margin-top: 18px; padding: 14px 16px;
-  border: 1px solid var(--cyan); border-radius: 12px; background: rgba(0,233,255,.05);
-  text-decoration: none; transition: background .25s ease; }
-.own-inbox-cta:hover { background: rgba(0,233,255,.11); }
-.own-inbox-label { font-size: 15px; color: var(--cyan); font-weight: 600; }
-.own-inbox-note { font-family: var(--mono); font-size: 11px; color: var(--dim); }
-
-/* ===== DEMO: REPLY DRAFT ===== */
-.draft-block { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
-.draft-head { display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  flex-wrap: wrap; margin-bottom: 14px; }
-.draft-title { font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--dim); }
-.tone-toggle { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid var(--border);
-  border-radius: 40px; }
-.tone-btn { font-family: var(--mono); font-size: 12px; color: var(--muted); padding: 6px 14px;
-  border: none; border-radius: 40px; background: transparent; cursor: pointer; transition: all .25s ease; }
-.tone-btn:hover { color: var(--cyan); }
-.tone-btn.active { color: var(--bg, #06081a); background: var(--cyan); }
-.draft-subject { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
-  border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px;
-  background: rgba(0,233,255,.03); }
-.draft-subject .k { font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--dim); }
-.draft-subject .v { font-size: 15px; color: var(--text); }
-.draft-body { margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; padding: 16px;
-  background: rgba(0,0,0,.3); color: var(--text); font-family: var(--body); font-size: 14px;
-  line-height: 1.7; white-space: pre-wrap; word-break: break-word; overflow-x: auto; }
-.draft-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
-.draft-note { font-family: var(--mono); font-size: 11px; color: var(--dim); }
 .spin { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3);
   border-top-color: #fff; border-radius: 50%; animation: sp .7s linear infinite; }
 @keyframes sp { to { transform: rotate(360deg); } }

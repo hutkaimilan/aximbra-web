@@ -74,43 +74,6 @@ class DemoRequest(BaseModel):
         return v[:MAX_INPUT_CHARS]
 
 
-class DraftRequest(DemoRequest):
-    tone: Literal["hivatalos", "kozvetlen"] = "hivatalos"
-
-
-class EmailResult(BaseModel):
-    kategoria: Literal["Reklamáció", "Árajánlat-kérés", "Számlázási kérdés", "Technikai támogatás", "Együttműködési ajánlat", "Egyéb"]
-    surgosseg: Literal["Sürgős", "Normál", "Ráér"]
-    felelos: Literal["Ügyfélszolgálat", "Értékesítés", "Pénzügy", "Műszaki", "Vezetőség"]
-    valaszhatarido: Literal["4 órán belül", "1 munkanap", "3 munkanap"]
-    osszefoglalo: str
-    javasolt_lepes: str
-
-    @field_validator("osszefoglalo", "javasolt_lepes")
-    @classmethod
-    def _cap(cls, v):
-        return v[:300]
-
-
-class DraftResult(BaseModel):
-    targy: str
-    valasz: str
-
-    @field_validator("targy")
-    @classmethod
-    def _subject(cls, v):
-        return v[:120]
-
-    @field_validator("valasz")
-    @classmethod
-    def _notice(cls, v):
-        # The draft must always carry its own AI notice, even if the model drops it.
-        v = v[:4000].rstrip()
-        if "[AI által készített tervezet" not in v:
-            v += "\n\n[AI által készített tervezet – küldés előtt ellenőrizd]"
-        return v
-
-
 class LeadResult(BaseModel):
     minosites: Literal["A", "B", "C", "D"]
     igeny: Literal["Igazolt", "Valószínű", "Ismeretlen", "Nem illeszkedik"]
@@ -129,39 +92,6 @@ class LeadResult(BaseModel):
     @classmethod
     def _cap_j(cls, v):
         return v[:300]
-
-
-EMAIL_SYS = (
-    "Te egy magyar ügyfélszolgálati e-mail rendező asszisztens vagy. Osztályozd a beérkező e-mailt. "
-    "KIZÁRÓLAG érvényes JSON objektummal válaszolj, magyarázat nélkül, ezekkel a kulcsokkal: "
-    "kategoria (Reklamáció|Árajánlat-kérés|Számlázási kérdés|Technikai támogatás|Együttműködési ajánlat|Egyéb), "
-    "surgosseg (Sürgős|Normál|Ráér), "
-    "felelos (Ügyfélszolgálat|Értékesítés|Pénzügy|Műszaki|Vezetőség), "
-    "valaszhatarido (4 órán belül|1 munkanap|3 munkanap), "
-    "osszefoglalo (max 300 karakter, magyarul), javasolt_lepes (max 300 karakter, magyarul)."
-)
-
-DRAFT_TONES = {
-    "hivatalos": (
-        "HIVATALOS és udvarias. Magázódj, formális megszólítással (például Tisztelt …) "
-        "és formális zárással (például Tisztelettel)."
-    ),
-    "kozvetlen": (
-        "KÖZVETLEN és barátságos, de professzionális. Természetes megszólítás "
-        "(például Kedves …); magázódj, ha a viszony nem egyértelmű."
-    ),
-}
-
-DRAFT_SYS = (
-    "Te egy magyar asszisztens vagy, aki e-mail VÁLASZ-TERVEZETET ír. SOHA nem küldesz e-mailt. "
-    "KIZÁRÓLAG érvényes JSON objektummal válaszolj, magyarázat nélkül, ezekkel a kulcsokkal: "
-    "targy (a válasz tárgysora, max 120 karakter), valasz (a válaszlevél teljes szövege). "
-    "Szabályok: a válasz nyelve egyezzen a bejövő levél nyelvével. Hangnem: {tone}. "
-    "SOHA ne ígérj határidőt, árat, mennyiséget vagy bármit, ami nem szerepel a levélben. "
-    "Ha az érdemi válaszhoz hiányzik egy információ, ne találd ki: kérdezz rá röviden, udvariasan. "
-    "A valasz mező legvégére külön sorban mindig kerüljön: "
-    "[AI által készített tervezet – küldés előtt ellenőrizd]"
-)
 
 
 LEAD_SYS = (
@@ -289,11 +219,6 @@ async def voice_health():
         return {"reachable": False, "ok": False, "day": None, "count": None, "live": None}
 
 
-@api_router.post("/demo/email")
-async def demo_email(request: Request, body: DemoRequest):
-    return await _run_demo(request, body, EMAIL_SYS, EmailResult)
-
-
 @api_router.post("/demo/lead")
 async def demo_lead(request: Request, body: DemoRequest):
     return await _run_demo(request, body, LEAD_SYS, LeadResult)
@@ -358,13 +283,6 @@ async def classify_one(email: dict) -> dict:
         "next_step": str(data.get("next_step") or "")[:400],
     }
 
-
-@api_router.post("/demo/draft")
-async def demo_draft(request: Request, body: DraftRequest):
-    """Reply draft for the pasted email. Drafting only - nothing is ever sent,
-    and nothing about the request is stored."""
-    system_msg = DRAFT_SYS.format(tone=DRAFT_TONES[body.tone])
-    return await _run_demo(request, body, system_msg, DraftResult, max_tokens=1100)
 
 
 app.include_router(api_router)

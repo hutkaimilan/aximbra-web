@@ -96,31 +96,6 @@ const en = {
   marquee: ["AGENTS, NOT CHATBOTS", "HUMAN APPROVAL", "BUDAPEST", "HU · EN · ES", "WORKING SYSTEM"],
   demo: {
     run: "Run", loading: "Analyzing…", sample: "Example", error: "Couldn't reach the service. Please try again later.",
-    ownInbox: {
-      label: "Run it on your own inbox →",
-      note: "Google sign-in, read-only, nothing is stored.",
-    },
-    draft: {
-      title: "Reply draft",
-      run: "Write a reply",
-      loading: "Drafting…",
-      toneLabel: "Tone",
-      tones: { hivatalos: "Formal", kozvetlen: "Direct" },
-      subject: "Subject",
-      copy: "Copy",
-      copied: "Copied",
-      copyError: "Copying failed.",
-      note: "The agent never sends anything — the draft is yours.",
-    },
-    email: {
-      placeholder: "Paste the text of an incoming email…",
-      samples: [
-        "Dear Support Team, the product I ordered last week arrived damaged, the box was torn. Please arrange a replacement as soon as possible, I'm very disappointed. I await your urgent reply.",
-        "Hello! I'd like a quote for 200 custom-printed t-shirts for a company event. We'd plan delivery for June. What prices and lead time can you offer?",
-        "Hi! The amount on my invoice doesn't match the order, I see a duplicate item. Could you check and correct it? Not urgent, but it'd be good to settle by the end of the month.",
-      ],
-      fields: [["kategoria", "Category"], ["surgosseg", "Urgency"], ["felelos", "Owner"], ["valaszhatarido", "Response deadline"], ["osszefoglalo", "Summary", true], ["javasolt_lepes", "Suggested step", true]],
-    },
     lead: {
       placeholder: "Describe the incoming lead in a few sentences…",
       samples: [

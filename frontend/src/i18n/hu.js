@@ -96,31 +96,6 @@ const hu = {
   marquee: ["AGENTEK, NEM CHATBOTOK", "EMBERI JÓVÁHAGYÁS", "BUDAPEST", "HU · EN · ES", "MŰKÖDŐ RENDSZER"],
   demo: {
     run: "Futtatás", loading: "Elemzés…", sample: "Példa", error: "Nem sikerült elérni a szolgáltatást. Próbáld újra később.",
-    ownInbox: {
-      label: "Futtasd a saját postafiókodon →",
-      note: "Google-bejelentkezés, csak olvasás, semmit nem tárolunk.",
-    },
-    draft: {
-      title: "Válasz-piszkozat",
-      run: "Írjon választ",
-      loading: "Fogalmazás…",
-      toneLabel: "Hangnem",
-      tones: { hivatalos: "Hivatalos", kozvetlen: "Közvetlen" },
-      subject: "Tárgy",
-      copy: "Másolás",
-      copied: "Másolva",
-      copyError: "A másolás nem sikerült.",
-      note: "Az agent soha nem küld el semmit — a piszkozat a tiéd.",
-    },
-    email: {
-      placeholder: "Illeszd be egy beérkező e-mail szövegét…",
-      samples: [
-        "Tisztelt Ügyfélszolgálat! A múlt héten rendelt terméket sérülten kaptam meg, a doboz be volt szakadva. Kérem, mielőbb intézkedjenek a cseréről, mert nagyon csalódott vagyok. Válaszukat sürgősen várom.",
-        "Jó napot! Szeretnék árajánlatot kérni 200 db egyedi feliratozott pólóra, céges rendezvényre. A szállítást júniusra terveznénk. Milyen árakkal és határidővel tudnak dolgozni?",
-        "Üdv! A számlámon szereplő összeg nem egyezik a megrendeléssel, dupla tételt látok. Meg tudnátok nézni és korrigálni? Nem sürgős, de a hónap végéig jó lenne rendezni.",
-      ],
-      fields: [["kategoria", "Kategória"], ["surgosseg", "Sürgősség"], ["felelos", "Felelős"], ["valaszhatarido", "Válaszhatáridő"], ["osszefoglalo", "Összefoglaló", true], ["javasolt_lepes", "Javasolt lépés", true]],
-    },
     lead: {
       placeholder: "Írd le pár mondatban a beérkező érdeklődőt…",
       samples: [
