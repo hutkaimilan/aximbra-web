@@ -17,6 +17,7 @@ import Etterem from "@/demos/Etterem";
 import Szalon from "@/demos/Szalon";
 import Rendelo from "@/demos/Rendelo";
 import Ugyvedi from "@/demos/Ugyvedi";
+import EmailAgent from "@/demos/EmailAgent";
 
 function Site() {
   const { t } = useLang();
@@ -97,6 +98,7 @@ export default function App() {
           <Route path="/demo/szalon" element={<Szalon />} />
           <Route path="/demo/rendelo" element={<Rendelo />} />
           <Route path="/demo/ugyvedi" element={<Ugyvedi />} />
+          <Route path="/demo/email-agent" element={<EmailAgent />} />
         </Routes>
       </BrowserRouter>
     </LanguageProvider>

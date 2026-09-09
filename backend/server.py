@@ -299,6 +299,66 @@ async def demo_lead(request: Request, body: DemoRequest):
     return await _run_demo(request, body, LEAD_SYS, LeadResult)
 
 
+AGENT_SYS = (
+    "Te egy magyar e-mail-osztályozó vagy. Egyetlen bejövő e-mailt kapsz. "
+    "KIZÁRÓLAG érvényes JSON objektummal válaszolj, magyarázat nélkül, ezekkel a kulcsokkal: "
+    "category (PONTOSAN egy: Ügyfél – kérdés|Ügyfél – panasz|Üzleti lehetőség|Számla / pénzügy|"
+    "Hatóság / hivatalos|Szolgáltatói értesítés|Hírlevél / marketing|Spam / kéretlen|Egyéb), "
+    "urgency (egész szám 1-5, 5 = ma kell rá válaszolni), "
+    "urgency_reason (egy mondat magyarul), "
+    "needs_reply (igen|nem|nem egyértelmű), "
+    "deadline (ha szerepel dátum vagy határidő a levélben, idézd; ha nincs, üres string), "
+    "summary (egyetlen mondat magyarul arról, mit akar a feladó, akkor is magyarul, ha a levél más nyelvű), "
+    "next_step (konkrét javasolt következő lépés, ne általánosság). "
+    "SOHA ne találj ki adatot: ami nem derül ki, az maradjon üres. "
+    "A tárgymezőből ne következtess a szándékra, a levél törzsét olvasd. "
+    "Automatikus választ (out of office, no-reply) soha ne minősíts ügyfélkérdésnek."
+)
+
+AGENT_CATEGORIES = {
+    "Ügyfél – kérdés", "Ügyfél – panasz", "Üzleti lehetőség", "Számla / pénzügy",
+    "Hatóság / hivatalos", "Szolgáltatói értesítés", "Hírlevél / marketing",
+    "Spam / kéretlen", "Egyéb",
+}
+
+
+async def classify_one(email: dict) -> dict:
+    """One classification for the in-page email agent. Shares the demos' daily
+    cost ceiling so a long mailbox cannot run up an unbounded bill."""
+    _reset_if_new_day()
+    if _state["cost"] >= DAILY_COST_CEILING_USD:
+        raise HTTPException(status_code=429, detail="Az agent mára elérte a napi keretét.")
+    text = (
+        f"Feladó: {email.get('sender', '')}\n"
+        f"Tárgy: {email.get('subject', '')}\n"
+        f"Dátum: {email.get('date', '')}\n\n"
+        f"Levél törzse:\n{(email.get('body') or email.get('snippet') or '')[:6000]}"
+    )
+    raw = await _call_llm(AGENT_SYS, text, max_tokens=700)
+    _state["cost"] += EST_COST_PER_CALL_USD
+    data = _parse_json(raw)
+
+    category = data.get("category")
+    if category not in AGENT_CATEGORIES:
+        category = "Egyéb"
+    try:
+        urgency = max(1, min(5, int(data.get("urgency", 1))))
+    except Exception:  # noqa
+        urgency = 1
+    needs_reply = data.get("needs_reply")
+    if needs_reply not in ("igen", "nem", "nem egyértelmű"):
+        needs_reply = "nem egyértelmű"
+    return {
+        "category": category,
+        "urgency": urgency,
+        "urgency_reason": str(data.get("urgency_reason") or "")[:300],
+        "needs_reply": needs_reply,
+        "deadline": str(data.get("deadline") or "")[:120],
+        "summary": str(data.get("summary") or "")[:400],
+        "next_step": str(data.get("next_step") or "")[:400],
+    }
+
+
 @api_router.post("/demo/draft")
 async def demo_draft(request: Request, body: DraftRequest):
     """Reply draft for the pasted email. Drafting only - nothing is ever sent,
@@ -308,6 +368,9 @@ async def demo_draft(request: Request, body: DraftRequest):
 
 
 app.include_router(api_router)
+
+from mail_agent import router as mail_agent_router  # noqa: E402 - after api_router
+app.include_router(mail_agent_router)
 
 app.add_middleware(
     CORSMiddleware,

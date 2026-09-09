@@ -6,12 +6,6 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const ENDPOINT = { email: "/demo/email", lead: "/demo/lead" };
 const sessionId = Math.random().toString(36).slice(2);
 
-// The full agent runs as its own service; ?demo=1 makes that run read-only and
-// keeps it out of the database.
-const MAIL_AGENT_URL =
-  process.env.REACT_APP_MAIL_AGENT_URL ||
-  "https://mail-organizer-production-d527.up.railway.app";
-
 export const LiveDemo = ({ type }) => {
   const { t } = useLang();
   const d = t.demo;
@@ -93,8 +87,7 @@ export const LiveDemo = ({ type }) => {
       )}
 
       {type === "email" && (
-        <a className="own-inbox-cta" data-testid="demo-own-inbox"
-          href={`${MAIL_AGENT_URL}/?demo=1`} target="_blank" rel="noreferrer">
+        <a className="own-inbox-cta" data-testid="demo-own-inbox" href="/demo/email-agent">
           <span className="own-inbox-label">{d.ownInbox.label}</span>
           <span className="own-inbox-note">{d.ownInbox.note}</span>
         </a>
