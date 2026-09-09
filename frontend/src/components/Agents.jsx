@@ -52,7 +52,7 @@ const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote }) 
           {open && (agent.demo === "email" ? <EmailAgent embedded /> : <LiveDemo type={agent.demo} />)}
         </div>
       )}
-      {simData && (
+      {simData && agent.demo !== "email" && (
         <div className="card-try">
           <LiquidButton ghost data-testid={`agent-sim-btn-${kind}`} onClick={onSim}>
             {simOn ? "Bezárás" : "Nézd meg működés közben"}
