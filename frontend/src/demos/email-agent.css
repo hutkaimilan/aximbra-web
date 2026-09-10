@@ -212,3 +212,67 @@
   .agent-draft-btn, .agent-tone { font-size: 12.5px; }
   .agent-draft-foot { gap: 10px; }
 }
+
+/* ---------- Opt-in for mailbox writing ---------- */
+.agent-optin {
+  display: flex; gap: 11px; align-items: flex-start;
+  margin: 16px 0 18px; padding: 14px 16px;
+  border: 1px solid rgba(255,176,32,.3); border-radius: 12px;
+  background: rgba(40,28,8,.4);
+  font-size: 13.5px; line-height: 1.6; color: #D8C9AE; cursor: pointer;
+}
+.agent-optin input[type="checkbox"] {
+  flex: none; width: 17px; height: 17px; margin-top: 2px; accent-color: #FFB020;
+}
+.agent-optin b { color: #FFD9A0; }
+.agent-optin-warn {
+  display: block; margin-top: 8px; padding-top: 8px;
+  border-top: 1px solid rgba(255,176,32,.2);
+  font-size: 12.5px; color: #BFAE92;
+}
+
+/* ---------- Saving a draft into Gmail ---------- */
+.agent-draft-save {
+  padding: 8px 16px; border: 1px solid rgba(255,176,32,.5); border-radius: 8px;
+  background: rgba(255,176,32,.12); color: #FFD9A0;
+  font-family: inherit; font-size: 13px; cursor: pointer; transition: background .2s ease;
+}
+.agent-draft-save:hover:not(:disabled) { background: rgba(255,176,32,.22); }
+.agent-draft-save:disabled { opacity: .6; cursor: default; }
+
+.agent-confirm {
+  margin-top: 12px; padding: 14px 16px;
+  border: 1px solid rgba(255,176,32,.4); border-radius: 12px;
+  background: rgba(40,28,8,.55);
+  font-size: 13.5px; line-height: 1.6; color: #D8C9AE;
+}
+.agent-confirm p { margin: 0 0 12px; }
+.agent-confirm b { color: #FFD9A0; }
+.agent-confirm-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.agent-confirm-yes {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px; border: none; border-radius: 8px;
+  background: #FFB020; color: #1A1208;
+  font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+}
+.agent-confirm-yes:hover:not(:disabled) { background: #FFC350; }
+.agent-confirm-yes:disabled { opacity: .7; cursor: default; }
+.agent-confirm-no {
+  padding: 10px 16px; border: 1px solid rgba(216,201,174,.3); border-radius: 8px;
+  background: transparent; color: #BFAE92;
+  font-family: inherit; font-size: 13.5px; cursor: pointer;
+}
+.agent-confirm-no:hover:not(:disabled) { background: rgba(216,201,174,.1); }
+
+.agent-saved {
+  margin-top: 12px; padding: 12px 16px;
+  border: 1px solid rgba(120,230,160,.3); border-radius: 10px;
+  background: rgba(10,32,20,.5);
+  font-size: 13.5px; line-height: 1.6; color: #BFE6CC;
+}
+.agent-saved b { color: #8FE6AE; }
+.agent-saved a { color: #8FE6AE; }
+@media (max-width: 600px) {
+  .agent-optin { font-size: 13px; padding: 12px 14px; }
+  .agent-confirm, .agent-saved { font-size: 13px; padding: 12px 14px; }
+}

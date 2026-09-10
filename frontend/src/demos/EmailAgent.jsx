@@ -61,15 +61,20 @@ const TONES = [["hivatalos", "Hivatalos"], ["kozvetlen", "Közvetlen"]];
  * call here, and most of a mailbox does not need an answer. Each panel owns its
  * own state so one email's draft cannot interfere with another's.
  *
- * The text stays on the page. Nothing is written to the mailbox and nothing is
- * sent — copying it out is a deliberate step the visitor takes.
+ * The text is written on the page. Putting it into the visitor's Gmail Drafts is
+ * a second, separate step, offered only when the session holds draft-writing
+ * access, and it asks for an explicit confirmation first — that save is the one
+ * action in the whole agent that changes the mailbox. Sending is never offered.
  */
-const DraftPanel = ({ email }) => {
+const DraftPanel = ({ email, canDraft }) => {
   const [tone, setTone] = useState("hivatalos");
   const [draft, setDraft] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(null);
 
   const write = async (nextTone) => {
     const useTone = nextTone || tone;
@@ -77,10 +82,26 @@ const DraftPanel = ({ email }) => {
     try {
       setDraft(await post("/draft", { id: email.id, tone: useTone }));
       setTone(useTone);
+      // A reworded draft is not the one that was saved; make the visitor confirm
+      // again rather than leaving a stale "saved" badge next to new text.
+      setSaved(null);
+      setConfirming(false);
     } catch (e) {
       setErr(e.message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const saveToGmail = async () => {
+    setSaving(true); setErr("");
+    try {
+      setSaved(await post("/draft/save", { id: email.id, tone, confirm: true }));
+      setConfirming(false);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -133,10 +154,51 @@ const DraftPanel = ({ email }) => {
             <button className="agent-draft-copy" onClick={copy}>
               {copied ? "Kimásolva" : "Másolás"}
             </button>
+            {canDraft && !saved && !confirming && (
+              <button className="agent-draft-save" onClick={() => setConfirming(true)}
+                disabled={saving} data-testid={`agent-save-${email.id}`}>
+                Mentés a Gmail vázlatok közé
+              </button>
+            )}
             <span className="agent-draft-note">
-              Fogalmazvány — az agent nem küldi el, és a fiókodba sem írja be.
+              {canDraft
+                ? "Az agent nem küldi el — a vázlatot te nyitod meg és te küldöd."
+                : "Fogalmazvány — az agent nem küldi el, és a fiókodba sem írja be."}
             </span>
           </div>
+
+          {/* The confirmation. Deliberately a second click on a separate control,
+              not a confirm() dialog, so the visitor reads what will happen and to
+              whom before the mailbox is touched. */}
+          {confirming && (
+            <div className="agent-confirm" data-testid={`agent-confirm-${email.id}`}>
+              <p>
+                Vázlatot írok a Gmail-fiókodba <b>{email.sender}</b> levelére,
+                a saját levelezőszálára. <b>Nem küldöm el</b> — a Vázlatok közt
+                találod, és te döntöd el, elküldöd-e.
+              </p>
+              <div className="agent-confirm-row">
+                <button className="agent-confirm-yes" onClick={saveToGmail} disabled={saving}
+                  data-testid={`agent-confirm-yes-${email.id}`}>
+                  {saving ? <><span className="spin" /> Mentés…</> : "Megerősítem, mentsd vázlatként"}
+                </button>
+                <button className="agent-confirm-no" onClick={() => setConfirming(false)}
+                  disabled={saving}>
+                  Mégsem
+                </button>
+              </div>
+            </div>
+          )}
+
+          {saved && (
+            <div className="agent-saved" data-testid={`agent-saved-${email.id}`}>
+              <b>{saved.updated ? "Vázlat frissítve." : "Vázlat elmentve."}</b>{" "}
+              Címzett: {saved.to}.{" "}
+              <a href={saved.gmail_url} target="_blank" rel="noopener noreferrer">
+                Megnyitom a Gmailben
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -158,6 +220,9 @@ export default function EmailAgent({ embedded = false }) {
   const [results, setResults] = useState(null);
   const [error, setError] = useState("");
   const [connecting, setConnecting] = useState(false);
+  // Off by default, and deliberately not remembered: handing over write access to
+  // a mailbox is a decision to take each time, not one to inherit from last visit.
+  const [allowDrafts, setAllowDrafts] = useState(false);
   const [openId, setOpenId] = useState(null);
   const timer = useRef(null);
 
@@ -211,7 +276,9 @@ export default function EmailAgent({ embedded = false }) {
     setConnecting(true);
     setError("");
     try {
-      const d = await get("/connect");
+      // The wider grant is requested only when the visitor ticked the box. The
+      // default path asks Google for read access and nothing else.
+      const d = await get(allowDrafts ? "/connect?drafts=true" : "/connect");
       window.location.href = d.auth_url;
     } catch (e) {
       setConnecting(false);
@@ -269,17 +336,36 @@ export default function EmailAgent({ embedded = false }) {
                 <h3>A kért Google-jogosultságok</h3>
                 <ul>
                   <li>
-                    <code>gmail.readonly</code> — a leveleid olvasása.
-                    Írási jogot nem kérünk: a Google-nál sincs módunk levelet
-                    küldeni, címkézni vagy törölni a nevedben.
+                    <code>gmail.readonly</code> — a leveleid olvasása. Ez mindig
+                    kell, és alapesetben ez az egyetlen jog, amit kérünk.
                   </li>
                   <li><code>userinfo.email</code> és <code>openid</code> — hogy tudjuk, melyik fiókot nézzük.</li>
+                  <li>
+                    <code>gmail.compose</code> — <b>csak ha bepipálod a vázlatírást.</b>
+                    Ettől tud vázlatot tenni a fiókodba. A Google-nak nincs „csak
+                    vázlat” jogosultsága, ezért ez küldést is engedne — ez a kód
+                    viszont soha nem küld, a küldés kódszinten tiltott. Pipa nélkül
+                    ezt a jogot nem is kérjük.
+                  </li>
                 </ul>
 
                 <h3>Mit olvasunk</h3>
                 <ul>
                   <li>Az elmúlt <b>30 nap</b> legfeljebb <b>15 levele</b>. Semmi régebbi, semmi több.</li>
                   <li>Feladó, tárgy, dátum és a levél szövege — a mellékleteket nem nyitjuk meg.</li>
+                </ul>
+
+                <h3>Mit írunk</h3>
+                <ul>
+                  <li>
+                    Pipa nélkül: <b>semmit</b>. A fogalmazvány a lapon marad, te másolod ki.
+                  </li>
+                  <li>
+                    Vázlatírással: egyetlen dolgot, levelenként, a te külön
+                    megerősítésed után — egy <b>válaszvázlatot</b> a Gmail Vázlatok
+                    közé. Meglévő levelet nem módosítunk: nem címkézünk, nem
+                    csillagozunk, nem törlünk, és <b>nem küldünk el semmit</b>.
+                  </li>
                 </ul>
 
                 <h3>Hová kerül</h3>
@@ -336,9 +422,36 @@ export default function EmailAgent({ embedded = false }) {
                 {status.configured === false && (
                   <div className="agent-error">Az agent Google-hozzáférése még nincs beállítva.</div>
                 )}
+
+                {/* Opt-in for mailbox writing. Unticked by default, and the text
+                    says exactly what the wider grant means — including that
+                    Google's own consent screen will mention sending, because
+                    gmail.compose has no draft-only variant. */}
+                <label className="agent-optin" data-testid="agent-optin">
+                  <input type="checkbox" checked={allowDrafts} disabled={connecting}
+                    onChange={(e) => setAllowDrafts(e.target.checked)}
+                    data-testid="agent-optin-box" />
+                  <span>
+                    <b>Írhat vázlatot a postafiókomba.</b> Ha bepipálod, az agent a
+                    megírt választ — a te külön megerősítésed után, levelenként —
+                    beteszi a Gmail <i>Vázlatok</i> közé, a saját levelezőszálára.
+                    Elküldeni akkor is csak te tudod.
+                    <span className="agent-optin-warn">
+                      Fontos: a Google-nak nincs „csak vázlat” jogosultsága, ezért a
+                      beleegyező képernyő küldési jogot is említeni fog. Ez a kód
+                      soha nem küld levelet — a küldés kódszinten tiltott —, de a
+                      jogosultság, amit megadsz, ennél szélesebb. Ha ez nem
+                      kényelmes, hagyd üresen: a fogalmazás pipa nélkül is működik,
+                      csak kimásolni kell.
+                    </span>
+                  </span>
+                </label>
+
                 <button className="agent-cta" onClick={connect}
                   disabled={connecting || status.configured === false}>
-                  {connecting ? <><span className="spin" /> Átirányítás…</> : "Csatlakozás a Google-fiókhoz"}
+                  {connecting ? <><span className="spin" /> Átirányítás…</>
+                    : allowDrafts ? "Csatlakozás — olvasás és vázlatírás"
+                    : "Csatlakozás a Google-fiókhoz"}
                 </button>
               </>
             )}
@@ -420,7 +533,7 @@ export default function EmailAgent({ embedded = false }) {
                             <p>{e.next_step || "—"}</p>
                             <div className="k">A levél</div>
                             <pre>{e.body || e.snippet || "(üres)"}</pre>
-                            <DraftPanel email={e} />
+                            <DraftPanel email={e} canDraft={status.can_draft === true} />
                           </div>
                         )}
                       </div>

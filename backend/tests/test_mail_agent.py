@@ -1,4 +1,7 @@
+import base64
 import os, sys
+from email import message_from_bytes, policy
+from email.header import decode_header, make_header
 from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parent.parent
@@ -51,9 +54,13 @@ def test_only_read_access_is_requested():
     assert not any("gmail.modify" in s for s in mail_agent.GMAIL_SCOPES)
     assert not any(s.endswith("/auth/gmail") for s in mail_agent.GMAIL_SCOPES)
 
-def test_agent_never_writes_to_the_mailbox():
+def test_agent_never_alters_existing_mail():
+    """The agent may now create a reply draft, on an explicit grant plus a
+    per-email confirmation. Everything else about the mailbox stays untouched: it
+    does not label, star, trash, or modify a single existing message."""
     src = open(BACKEND / "mail_agent.py").read()
-    for forbidden in (".trash(", ".modify(", "addLabelIds", "STARRED", "drafts()"):
+    for forbidden in (".trash(", ".modify(", "addLabelIds", "removeLabelIds", "STARRED",
+                      "messages().insert", "messages().batchModify"):
         assert forbidden not in src, forbidden
 
 def test_run_survives_an_online_only_grant():
@@ -142,7 +149,9 @@ def _session_with(analyses):
         "email": "teszt@example.com",
         "creds": None,
         "analyses": analyses,
+        "can_draft": False,
         "drafts": {},
+        "saved": {},
         "state": mail_agent._new_state(),
         "created_at": datetime.now(timezone.utc),
     }
@@ -280,10 +289,275 @@ def test_bad_model_output_is_a_502_not_a_crash(monkeypatch):
         mail_agent._sessions.pop(sid, None)
 
 
-def test_drafting_still_never_sends_or_writes_to_the_mailbox():
-    """Drafting is in-page text. It must not have introduced a Gmail write."""
+def test_drafting_never_sends():
+    """Writing a draft is allowed now; sending one never is. The line that must
+    not move is send, in any form — drafts().send() included."""
     src = open(BACKEND / "mail_agent.py").read()
-    for forbidden in (".send(", "drafts()", "messages().insert", "addLabelIds"):
+    for forbidden in (".send(", "messages().send", "drafts().send", "gmail.send"):
         assert forbidden not in src, forbidden
-    assert "gmail.compose" not in src
-    assert "https://www.googleapis.com/auth/gmail.readonly" in src
+    # the send block is still the code-level guarantee, not just an absent call
+    class D: pass
+    with pytest.raises(PermissionError):
+        _ = mail_agent.SafeGmailProxy(D()).send
+
+
+def test_read_only_is_still_the_default_grant():
+    """The wider scope is opt-in. A visitor who does not ask for draft writing must
+    not be asked for it."""
+    assert "https://www.googleapis.com/auth/gmail.readonly" in mail_agent.GMAIL_SCOPES
+    assert mail_agent.COMPOSE_SCOPE not in mail_agent.GMAIL_SCOPES
+    assert mail_agent.COMPOSE_SCOPE in mail_agent.GMAIL_SCOPES_COMPOSE
+    # readonly is still requested alongside compose - compose cannot read mail
+    assert all(s in mail_agent.GMAIL_SCOPES_COMPOSE for s in mail_agent.GMAIL_SCOPES)
+    # modify is still never requested: it would allow altering existing mail
+    assert not any("gmail.modify" in s for s in mail_agent.GMAIL_SCOPES_COMPOSE)
+
+
+# ---------------- writing the draft into the mailbox ----------------
+class FakeDrafts:
+    """Stands in for service.users().drafts(): records calls, returns ids."""
+    def __init__(self, store):
+        self.store = store
+
+    def create(self, userId, body):
+        self.store.append(("create", userId, body))
+        return _Exec({"id": "draft-1", "message": {"threadId": body["message"].get("threadId")}})
+
+    def update(self, userId, id, body):
+        self.store.append(("update", userId, id, body))
+        return _Exec({"id": id})
+
+
+class _Exec:
+    def __init__(self, result):
+        self._r = result
+
+    def execute(self):
+        return self._r
+
+
+class FakeUsers:
+    def __init__(self, store):
+        self._d = FakeDrafts(store)
+
+    def drafts(self):
+        return self._d
+
+
+class FakeService:
+    def __init__(self, store):
+        self._u = FakeUsers(store)
+
+    def users(self):
+        return self._u
+
+
+@pytest.fixture
+def gmail_calls(monkeypatch):
+    """Intercepts build() so no real Gmail call is made; returns recorded calls."""
+    calls = []
+    monkeypatch.setattr(mail_agent, "build", lambda *a, **k: FakeService(calls))
+    monkeypatch.setattr(mail_agent, "SafeGmailProxy", lambda target: target)
+    return calls
+
+
+THREADED = dict(
+    EMAIL, thread_id="t99", message_id="<orig@pelda.hu>",
+    references="<older@pelda.hu>", reply_to="",
+)
+
+
+def _session_ready_to_save(can_draft=True, email=None):
+    """A session that already holds a generated draft for EMAIL m1."""
+    sid, h = _session_with([dict(email or THREADED)])
+    s = mail_agent._sessions[sid]
+    s["can_draft"] = can_draft
+    s["drafts"]["m1:hivatalos"] = {
+        "tone": "hivatalos", "targy": "Árajánlat", "valasz": "Kedves A!\n\nKöszönjük.",
+    }
+    return sid, h
+
+
+def test_saving_a_draft_requires_a_session():
+    r = c.post("/api/agent/email/draft/save", json={"id": "m1", "confirm": True})
+    assert r.status_code == 401
+
+
+def test_saving_is_refused_without_the_grant(gmail_calls):
+    sid, h = _session_ready_to_save(can_draft=False)
+    try:
+        r = c.post("/api/agent/email/draft/save",
+                   json={"id": "m1", "confirm": True}, headers=h)
+        assert r.status_code == 403
+        assert "vázlatírási engedély" in r.json()["detail"]
+        assert gmail_calls == [], "Gmail was touched without the grant"
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_saving_is_refused_without_confirmation(gmail_calls):
+    """The mailbox is never written on an unconfirmed request, grant or no grant."""
+    sid, h = _session_ready_to_save()
+    try:
+        for payload in ({"id": "m1"}, {"id": "m1", "confirm": False}):
+            r = c.post("/api/agent/email/draft/save", json=payload, headers=h)
+            assert r.status_code == 400, payload
+            assert "Megerősítés nélkül" in r.json()["detail"]
+        assert gmail_calls == [], "Gmail was touched without confirmation"
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_saving_needs_an_existing_draft(gmail_calls):
+    sid, h = _session_with([dict(THREADED)])
+    mail_agent._sessions[sid]["can_draft"] = True
+    try:
+        r = c.post("/api/agent/email/draft/save",
+                   json={"id": "m1", "confirm": True}, headers=h)
+        assert r.status_code == 409
+        assert gmail_calls == []
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_confirmed_save_creates_a_threaded_reply_draft(gmail_calls):
+    sid, h = _session_ready_to_save()
+    try:
+        r = c.post("/api/agent/email/draft/save",
+                   json={"id": "m1", "confirm": True}, headers=h)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["draft_id"] == "draft-1"
+        assert body["updated"] is False
+        assert body["to"] == "a@b.hu"
+        assert body["subject"] == "Re: Árajánlat"
+        assert "draft-1" in body["gmail_url"]
+
+        assert len(gmail_calls) == 1
+        op, user, payload = gmail_calls[0]
+        assert (op, user) == ("create", "me")
+        assert payload["message"]["threadId"] == "t99"
+
+        # Parsed, not string-matched: a Hungarian subject is RFC 2047 encoded
+        # (=?utf-8?q?...?=), so asserting on the raw bytes would either fail on
+        # correct output or pass on mojibake.
+        msg = message_from_bytes(
+            base64.urlsafe_b64decode(payload["message"]["raw"]), policy=policy.default
+        )
+        assert msg["To"] == "a@b.hu"
+        assert msg["From"] == "teszt@example.com"
+        assert str(make_header(decode_header(msg["Subject"]))) == "Re: Árajánlat"
+        # threading headers, not just Gmail's threadId
+        assert msg["In-Reply-To"] == "<orig@pelda.hu>"
+        assert msg["References"] == "<older@pelda.hu> <orig@pelda.hu>"
+        assert "Köszönjük" in msg.get_content()
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_reply_to_wins_over_from(gmail_calls):
+    sid, h = _session_ready_to_save(email=dict(THREADED, reply_to="ugyfelszolgalat@b.hu"))
+    try:
+        r = c.post("/api/agent/email/draft/save",
+                   json={"id": "m1", "confirm": True}, headers=h)
+        assert r.json()["to"] == "ugyfelszolgalat@b.hu"
+        msg = message_from_bytes(base64.urlsafe_b64decode(gmail_calls[0][2]["message"]["raw"]))
+        assert msg["To"] == "ugyfelszolgalat@b.hu"
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_reconfirming_updates_the_same_draft(gmail_calls):
+    """A second confirmation must not leave a pile of near-identical drafts."""
+    sid, h = _session_ready_to_save()
+    try:
+        c.post("/api/agent/email/draft/save", json={"id": "m1", "confirm": True}, headers=h)
+        r = c.post("/api/agent/email/draft/save", json={"id": "m1", "confirm": True}, headers=h)
+        assert r.status_code == 200
+        assert r.json()["updated"] is True
+        assert r.json()["draft_id"] == "draft-1"
+        assert [call[0] for call in gmail_calls] == ["create", "update"]
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_unanswerable_sender_is_refused(gmail_calls):
+    sid, h = _session_ready_to_save(email=dict(THREADED, sender="", reply_to=""))
+    try:
+        r = c.post("/api/agent/email/draft/save",
+                   json={"id": "m1", "confirm": True}, headers=h)
+        assert r.status_code == 422
+        assert gmail_calls == []
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_gmail_refusal_is_a_502_not_a_crash(monkeypatch):
+    class Boom:
+        def users(self):
+            raise RuntimeError("gmail said no")
+    monkeypatch.setattr(mail_agent, "build", lambda *a, **k: Boom())
+    monkeypatch.setattr(mail_agent, "SafeGmailProxy", lambda t: t)
+    sid, h = _session_ready_to_save()
+    try:
+        r = c.post("/api/agent/email/draft/save",
+                   json={"id": "m1", "confirm": True}, headers=h)
+        assert r.status_code == 502
+        assert "nem fogadta el" in r.json()["detail"]
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_subject_is_normalised_to_a_reply():
+    f = mail_agent._reply_subject
+    assert f("Árajánlat") == "Re: Árajánlat"
+    assert f("Re: Árajánlat") == "Re: Árajánlat"
+    assert f("RE: Árajánlat") == "RE: Árajánlat"
+    assert f("") == "Re:"
+    assert f("(nincs tárgy)") == "Re:"
+
+
+def test_status_reports_draft_permission():
+    body = c.get("/api/agent/email/status").json()
+    assert body["can_draft"] is False, "no session means no draft permission"
+
+
+def test_granted_scopes_decide_not_what_was_requested():
+    """A visitor can untick a scope on Google's consent screen. Asking is not
+    receiving, and the page must not offer a button that cannot work."""
+    class Creds:
+        def __init__(self, scopes):
+            self.granted_scopes = scopes
+    g = mail_agent._granted_compose
+    assert g(Creds([mail_agent.COMPOSE_SCOPE]), requested=True) is True
+    assert g(Creds(["https://www.googleapis.com/auth/gmail.readonly"]), requested=True) is False
+    assert g(Creds([]), requested=True) is True, "no list reported -> fall back to request"
+    assert g(Creds([]), requested=False) is False
+
+
+def test_connect_carries_the_draft_choice_into_the_oauth_state(monkeypatch):
+    """The callback must rebuild the flow with the same scopes, or Google rejects
+    the exchange."""
+    seen = {}
+
+    class FakeFlow:
+        code_verifier = "v"
+
+        def authorization_url(self, **kw):
+            return ("https://accounts.google.com/fake", "state-1")
+
+    def fake_flow(with_compose=False):
+        seen["with_compose"] = with_compose
+        return FakeFlow()
+
+    monkeypatch.setattr(mail_agent, "_flow", fake_flow)
+    mail_agent._oauth_states.clear()
+
+    c.get("/api/agent/email/connect")
+    assert seen["with_compose"] is False
+    assert mail_agent._oauth_states["state-1"]["with_compose"] is False
+
+    c.get("/api/agent/email/connect?drafts=true")
+    assert seen["with_compose"] is True
+    assert mail_agent._oauth_states["state-1"]["with_compose"] is True
+    mail_agent._oauth_states.clear()

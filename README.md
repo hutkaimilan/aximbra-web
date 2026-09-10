@@ -64,10 +64,31 @@ a classification) and most of a mailbox needs no answer, so it is on demand rath
 - The prompt forbids inventing facts: unknown values come back as `[dátum]`-style placeholders, and the
   signature is `[a te neved]` rather than a made-up name.
 
-**The draft never leaves the page.** It is not written to Gmail Drafts and it is not sent — copying it out
-is a step the visitor takes. Writing to the mailbox would need `gmail.compose` or `gmail.modify`, i.e. write
-access, which would contradict the read-only promise on the page; sending is blocked in code by
-`SafeGmailProxy` and guarded by tests.
+### Writing the draft into Gmail
+The draft can also be written into the visitor's Gmail **Drafts**, behind two independent gates. Both are
+required; neither has a default that opens it.
+
+1. **Permission, at connect time.** An unticked checkbox on the connect screen. Ticking it asks Google for
+   `gmail.compose` alongside `gmail.readonly` (`GET /connect?drafts=true`); leaving it alone asks for read
+   access only. The choice travels in the OAuth state so the callback rebuilds the flow with the same
+   scopes — a mismatch there makes Google reject the exchange. The session records what Google *granted*,
+   not what was asked: a visitor can untick a scope on the consent screen, so `can_draft` comes from the
+   credentials, and the save button never appears for a session that cannot use it.
+2. **Confirmation, per email.** `POST /draft/save` requires `confirm: true` and refuses without it. In the
+   UI this is a second click on a separate control that names the recipient first — not a `confirm()`
+   dialog. This is the only call in the whole agent that changes the mailbox.
+
+The draft is threaded onto the original conversation: Gmail's `threadId` plus real `In-Reply-To` and
+`References` headers, because without the headers other mail clients show the reply as an unrelated
+message. Re-confirming after a reword **updates** the same draft instead of leaving near-duplicates, and
+rewording clears the saved badge so it never sits next to text that was not saved.
+
+**It is still never sent.** `SafeGmailProxy` refuses every send-type call — `drafts().send()` included — and
+a test asserts no send call exists in the source. Existing mail is never altered either: no labelling,
+starring, trashing or modifying, also held by a test. Be straight about the trade-off, because the page is:
+Google has **no draft-only scope**, so `gmail.compose` also permits sending. The grant is therefore wider
+than what this code uses, Google's consent screen will say so, and the checkbox text says so too before it
+can be ticked. `gmail.modify` is still never requested — that would allow altering existing mail.
 
 ## Before the Gmail agent goes public
 `gmail.readonly` is a Google **restricted** scope. Offering it to the public needs all three of:

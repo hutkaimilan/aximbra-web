@@ -13,6 +13,7 @@ import logging
 import os
 import re
 from datetime import datetime, timezone, timedelta
+from email.message import EmailMessage
 from email.utils import parsedate_to_datetime
 
 from typing import Literal
@@ -58,16 +59,26 @@ AGENT_PUBLIC = _env_flag("AGENT_PUBLIC", default=True)
 # AGENT_SESSION_KEY only matters if the service ever runs more than one replica.
 _fernet = Fernet((os.environ.get("AGENT_SESSION_KEY") or Fernet.generate_key().decode()).encode())
 
-# gmail.readonly, not gmail.modify. The agent only ever calls users.getProfile,
-# messages.list and messages.get, all of which readonly covers. modify would have
-# made Google's consent screen ask for write access to the visitor's mailbox —
-# access this code does not use, contradicting the read-only promise on the page,
-# and the single biggest reason to refuse the grant.
+# Two scope sets, chosen by the visitor at connect time.
+#
+# READ is the default. users.getProfile, messages.list and messages.get are all
+# covered by gmail.readonly, and that is all the page asks for unless the visitor
+# deliberately ticks the draft-writing box.
+#
+# COMPOSE adds gmail.compose, which is what Gmail requires to put a draft in
+# someone's mailbox. Be clear-eyed about it: Google has no draft-only scope, so
+# gmail.compose also *permits* sending, and the consent screen says so. This code
+# never sends — SafeGmailProxy refuses every send-type call and a test holds that
+# line — but the grant is wider than what we use, and the page states that in
+# those words before the box can be ticked.
 GMAIL_SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "openid",
     "https://www.googleapis.com/auth/userinfo.email",
 ]
+
+COMPOSE_SCOPE = "https://www.googleapis.com/auth/gmail.compose"
+GMAIL_SCOPES_COMPOSE = [*GMAIL_SCOPES, COMPOSE_SCOPE]
 
 SESSION_HEADER = "X-Agent-Session"
 SESSION_TTL_SECONDS = 30 * 60
@@ -145,7 +156,24 @@ def _require(request: Request) -> dict:
     return sess
 
 
-def _flow():
+def _granted_compose(creds, requested: bool) -> bool:
+    """Did Google actually grant draft-writing access?
+
+    The consent screen lets a visitor untick individual scopes, so what we asked
+    for and what we got can differ. google-auth exposes the granted list on the
+    credentials when the token response carried one; when it does not, fall back
+    to what was requested — the first Gmail call would fail anyway, and this keeps
+    the page from offering a button that cannot work.
+    """
+    granted = getattr(creds, "granted_scopes", None) or getattr(creds, "scopes", None)
+    if not granted:
+        return requested
+    return COMPOSE_SCOPE in granted
+
+
+def _flow(with_compose: bool = False):
+    """OAuth flow. `with_compose` is set only when the visitor asked for draft
+    writing on the page — it is never the default."""
     if not AGENT_PUBLIC:
         raise HTTPException(
             status_code=503,
@@ -160,7 +188,7 @@ def _flow():
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
             "token_uri": "https://oauth2.googleapis.com/token",
         }},
-        scopes=GMAIL_SCOPES,
+        scopes=GMAIL_SCOPES_COMPOSE if with_compose else GMAIL_SCOPES,
         redirect_uri=GMAIL_REDIRECT_URI,
     )
 
@@ -218,6 +246,13 @@ def _parse(msg):
         "snippet": msg.get("snippet", ""),
         "date": date_iso,
         "body": _body(payload),
+        # Kept for threading a reply draft onto the original conversation. Without
+        # these, a draft lands in Gmail as a brand-new thread and reads as a
+        # different message than the one it answers.
+        "thread_id": msg.get("threadId"),
+        "message_id": _header(headers, "Message-Id") or _header(headers, "Message-ID"),
+        "references": _header(headers, "References"),
+        "reply_to": _header(headers, "Reply-To"),
     }
 
 
@@ -232,17 +267,27 @@ async def status(request: Request):
         # Distinct from `configured`: credentials can be present while the agent
         # is deliberately not offered to the public yet.
         "public": AGENT_PUBLIC,
+        # Whether this session may write drafts into the mailbox. False unless the
+        # visitor ticked the box *and* Google granted it.
+        "can_draft": bool(sess and sess.get("can_draft")),
     }
 
 
 @router.get("/connect")
-async def connect():
-    flow = _flow()
+async def connect(drafts: bool = False):
+    """`drafts=true` asks Google for draft-writing access as well.
+
+    It comes from a box the visitor ticks, never from a default, and it is carried
+    through the OAuth state so the callback builds the flow with the same scopes —
+    a mismatch there makes Google reject the exchange.
+    """
+    flow = _flow(with_compose=drafts)
     url, state = flow.authorization_url(
         access_type="online", prompt="consent", include_granted_scopes="false"
     )
     _oauth_states[state] = {
         "code_verifier": flow.code_verifier,
+        "with_compose": drafts,
         "created_at": datetime.now(timezone.utc),
     }
     for key, val in list(_oauth_states.items()):
@@ -260,7 +305,7 @@ async def callback(code: str = "", state: str = "", error: str = ""):
     if not st:
         return RedirectResponse(f"{target}?error=invalid_state")
     try:
-        flow = _flow()
+        flow = _flow(with_compose=bool(st.get("with_compose")))
         flow.code_verifier = st["code_verifier"]
         # google-auth-oauthlib and googleapiclient are synchronous (requests under
         # the hood). Called inline they would block the whole event loop, stalling
@@ -278,10 +323,18 @@ async def callback(code: str = "", state: str = "", error: str = ""):
         sid = os.urandom(16).hex()
         _sessions[sid] = {
             "email": email,
+            # What Google actually granted, not what we asked for. A visitor can
+            # untick scopes on the consent screen, so asking is not receiving —
+            # and an endpoint that trusted the request would fail later, inside a
+            # Gmail call, instead of saying so up front.
+            "can_draft": _granted_compose(creds, requested=bool(st.get("with_compose"))),
             # Drafts the visitor asked for, keyed by "<email id>:<tone>" so asking
             # for the same one twice is free. Dies with the session like everything
             # else here.
             "drafts": {},
+            # Gmail draft ids by email id, so a second confirmation updates the
+            # draft it already created instead of littering the mailbox.
+            "saved": {},
             # Kept as the live object: the run is in-memory only, and an online
             # grant has no refresh token to rebuild credentials from.
             "creds": creds,
@@ -375,6 +428,128 @@ async def draft(request: Request, body: DraftBody):
     result = await draft_one(email, body.tone)
     sess["drafts"][cache_key] = result
     return {**result, "cached": False}
+
+
+# ---------- Writing the draft into the mailbox ----------
+def _reply_recipient(email: dict) -> str:
+    """Reply-To wins over From when the sender asked for it."""
+    return (email.get("reply_to") or email.get("sender") or "").strip()
+
+
+def _reply_subject(subject: str) -> str:
+    subject = (subject or "").strip()
+    if not subject or subject == "(nincs tárgy)":
+        return "Re:"
+    return subject if subject[:3].lower() == "re:" else f"Re: {subject}"
+
+
+def _build_reply_mime(email: dict, from_addr: str, subject: str, text: str) -> str:
+    """RFC 2822 reply, base64url-encoded the way the Gmail API wants it.
+
+    Threading needs In-Reply-To and References, not just Gmail's threadId: without
+    the headers other mail clients show the reply as an unrelated message, and
+    Gmail itself will refuse a threadId whose subject does not match.
+    """
+    msg = EmailMessage()
+    msg["To"] = _reply_recipient(email)
+    msg["From"] = from_addr
+    msg["Subject"] = subject
+    parent_id = (email.get("message_id") or "").strip()
+    if parent_id:
+        msg["In-Reply-To"] = parent_id
+        existing = (email.get("references") or "").strip()
+        msg["References"] = f"{existing} {parent_id}".strip() if existing else parent_id
+    msg.set_content(text)
+    return base64.urlsafe_b64encode(msg.as_bytes()).decode()
+
+
+class SaveDraftBody(BaseModel):
+    id: str
+    tone: Literal["hivatalos", "kozvetlen"] = "hivatalos"
+    # The explicit confirmation. Not a formality: this is the one call in the whole
+    # agent that changes the visitor's mailbox, so it will not run on a stray click
+    # or a replayed request that happens to hit the endpoint.
+    confirm: bool = False
+
+
+@router.post("/draft/save")
+async def save_draft(request: Request, body: SaveDraftBody):
+    """Write an already-generated reply draft into the visitor's Gmail Drafts.
+
+    Two gates, both required:
+      * the session must hold draft-writing access, which only exists if the
+        visitor ticked the box and Google granted gmail.compose;
+      * `confirm` must be true for this specific email.
+
+    The draft is created, never sent — the visitor opens Gmail and presses Send
+    themselves. SafeGmailProxy refuses every send-type call regardless.
+    """
+    sess = _require(request)
+    if not sess.get("can_draft"):
+        raise HTTPException(
+            status_code=403,
+            detail="Ehhez a munkamenethez nincs vázlatírási engedély. "
+                   "Csatlakozz újra, és pipáld be a vázlatírást.",
+        )
+    if not body.confirm:
+        raise HTTPException(status_code=400, detail="Megerősítés nélkül nem írunk a postafiókba.")
+
+    text = sess["drafts"].get(f"{body.id}:{body.tone}")
+    if not text:
+        raise HTTPException(
+            status_code=409,
+            detail="Ehhez a levélhez még nincs fogalmazvány. Fogalmazd meg előbb.",
+        )
+    email = next((d for d in sess["analyses"] if d.get("id") == body.id), None)
+    if not email:
+        raise HTTPException(status_code=404, detail="Ez a levél nem szerepel a futásban.")
+    if not _reply_recipient(email):
+        raise HTTPException(status_code=422, detail="A levélnek nincs válaszolható feladója.")
+
+    service = SafeGmailProxy(
+        await asyncio.to_thread(build, "gmail", "v1", credentials=sess["creds"])
+    )
+    # The model writes a subject, but Gmail rejects a threadId whose subject does
+    # not look like a reply to the thread, so normalise it here rather than trust it.
+    subject = _reply_subject(text.get("targy") or email.get("subject"))
+    raw = _build_reply_mime(email, sess["email"], subject, text["valasz"])
+    message = {"raw": raw}
+    if email.get("thread_id"):
+        message["threadId"] = email["thread_id"]
+
+    existing_id = sess["saved"].get(body.id)
+    try:
+        if existing_id:
+            # Re-confirming after a tone change updates the same draft rather than
+            # leaving a pile of near-identical ones in the mailbox.
+            created = await asyncio.to_thread(
+                service.users().drafts().update(
+                    userId="me", id=existing_id, body={"message": message}
+                ).execute
+            )
+        else:
+            created = await asyncio.to_thread(
+                service.users().drafts().create(userId="me", body={"message": message}).execute
+            )
+    except PermissionError:
+        raise
+    except Exception as e:  # noqa - a Gmail refusal must not 500 into the browser
+        logger.warning("draft save failed: %s", type(e).__name__)
+        raise HTTPException(
+            status_code=502,
+            detail="A Gmail nem fogadta el a vázlatot. Próbáld újra, vagy másold ki a szöveget.",
+        )
+
+    draft_id = created.get("id") or existing_id
+    sess["saved"][body.id] = draft_id
+    return {
+        "draft_id": draft_id,
+        "updated": bool(existing_id),
+        "to": _reply_recipient(email),
+        "subject": subject,
+        # Deep link to the draft in Gmail, so the visitor can read and send it.
+        "gmail_url": f"https://mail.google.com/mail/u/0/#drafts?compose={draft_id}",
+    }
 
 
 async def run_agent(sid: str):
