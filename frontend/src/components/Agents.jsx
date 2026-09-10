@@ -7,6 +7,7 @@ import { LiquidButton } from "./LiquidButton";
 import { AgentViz } from "./AgentViz";
 import { AgentSim } from "./AgentSim";
 import sims from "./agentSims";
+import { mailto } from "../contact";
 import { useLang } from "../i18n";
 
 export const SLUGS = ["email-rendezo", "erdeklodo-minosito", "belso-admin", "kutatasi-monitor", "ugyfelszolgalat", "tartalom", "webshop", "dokumentum-elemzo", "penzugyi", "toborzas", "it-uzemelteto", "multi-agent"];
@@ -41,7 +42,7 @@ const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote }) 
         <span className="lead">{agent.lead}</span>
       </div>
       <LiquidButton as="a" className="card-quote" data-testid={`agent-quote-${kind}`}
-        href={`mailto:aximbra@gmail.com?subject=${encodeURIComponent(`${quote.subject} – ${agent.title}`)}`}>
+        href={mailto(`${quote.subject} – ${agent.title}`)}>
         {quote.label}
       </LiquidButton>
       {agent.live && (

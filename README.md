@@ -21,6 +21,9 @@ Backend (`backend/.env`):
 
 Frontend (`frontend/.env`):
 - `REACT_APP_BACKEND_URL` — base URL of the backend; all API calls use `${REACT_APP_BACKEND_URL}/api`.
+- `REACT_APP_SITE_URL` — the site's own public origin, used for canonical and `og:url`. Without it those
+  fall back to the origin the page is served from, which is correct but means a staging deploy
+  advertises itself as canonical. Set it once the production domain is live.
 
 ## Live demo guardrails (server-side)
 - Daily cost ceiling: **4 USD/day** (in-memory, resets daily), shared by the demos and the Gmail agent.
@@ -37,6 +40,28 @@ Frontend (`frontend/.env`):
 - Set `REACT_APP_BACKEND_URL` on the frontend service to the backend's public URL.
 - Build the frontend with `yarn build`; serve the static `build/` output.
 - No Vercel configuration is included.
+
+## Contact details
+`frontend/src/contact.js` is the single source of truth for AXIMBRA's email, phone and city. Import from
+there rather than writing an address inline — the site previously carried AXIMBRA's address in some places
+and EPISTEME's (a separate project) in others, which read as two different companies. EPISTEME's own
+number stays in the case study, where it belongs.
+
+## SEO
+`frontend/src/seo.js` sets title, description, canonical, Open Graph, Twitter and JSON-LD per route and per
+language; `public/index.html` holds only the Hungarian defaults for the first paint and for crawlers that
+do not run JS. The four reference demos are `noindex` — they portray invented businesses and must not
+surface in search results or be mistaken for the businesses they depict.
+
+**Still open:** the eight languages all render at the same URL, so there is nothing for `hreflang` to point
+at and only one language can be indexed. Fixing that means language-prefixed routes (`/en/...`), which is a
+routing change, not a metadata one.
+
+## Demo sites are labelled as demos
+Every page under `/demo/` carries a sticky notice saying the business is invented and that nothing typed
+into it is sent or stored (`frontend/src/demos/DemoBar.jsx`). The AEGIS contact form never submits
+anywhere: it validates, requires an explicit demo-consent checkbox, clears itself and says plainly that
+nothing was sent.
 
 ## Media
 Drop `episteme-demo.mp4`, `episteme-poster.jpg`, and `episteme-hivas.mp3` into `frontend/public/media/`. Until then the case-study section shows dashed-border placeholders and works the moment the files appear.

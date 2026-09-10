@@ -1,5 +1,6 @@
 import { Reveal } from "./Reveal";
 import { LiquidButton } from "./LiquidButton";
+import { CONTACT, mailto } from "../contact";
 import { useLang } from "../i18n";
 
 export const Contact = () => {
@@ -12,11 +13,11 @@ export const Contact = () => {
           <h2>{c.heading}</h2>
           <p>{c.para}</p>
           <div className="contact-cta">
-            <LiquidButton as="a" href="mailto:aximbra@gmail.com" data-testid="contact-email">
-              aximbra@gmail.com
+            <LiquidButton as="a" href={mailto()} data-testid="contact-email">
+              {CONTACT.email}
             </LiquidButton>
-            <LiquidButton ghost as="a" href="tel:+18024249852" data-testid="contact-phone">
-              +1 802 424 9852
+            <LiquidButton ghost as="a" href={CONTACT.phoneHref} data-testid="contact-phone">
+              {CONTACT.phone}
             </LiquidButton>
           </div>
           <p className="contact-phone-note" data-testid="contact-phone-note">{c.phoneNote}</p>

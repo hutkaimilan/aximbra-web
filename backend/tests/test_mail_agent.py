@@ -43,6 +43,14 @@ def test_send_is_blocked_at_code_level():
 def test_no_send_scope_requested():
     assert not any("gmail.send" in s for s in mail_agent.GMAIL_SCOPES)
 
+
+def test_only_read_access_is_requested():
+    """The page promises the agent only reads. The grant must say the same:
+    gmail.modify would ask the visitor for write access to their mailbox."""
+    assert "https://www.googleapis.com/auth/gmail.readonly" in mail_agent.GMAIL_SCOPES
+    assert not any("gmail.modify" in s for s in mail_agent.GMAIL_SCOPES)
+    assert not any(s.endswith("/auth/gmail") for s in mail_agent.GMAIL_SCOPES)
+
 def test_agent_never_writes_to_the_mailbox():
     src = open(BACKEND / "mail_agent.py").read()
     for forbidden in (".trash(", ".modify(", "addLabelIds", "STARRED", "drafts()"):

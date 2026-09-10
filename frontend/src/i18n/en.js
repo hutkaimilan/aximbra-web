@@ -1,6 +1,15 @@
-const CALLBAR = "mailto:epistemebudapest@gmail.com?subject=" + encodeURIComponent("How many calls are we missing?");
+import { mailto } from "../contact";
+const CALLBAR = mailto("How many calls are we missing?");
+
+// Per-language search/social copy. Previously every language served the
+// Hungarian, unaccented title and description from index.html.
+const SEO = {
+  title: "AXIMBRA — AI agency in Budapest | Custom AI agents for business",
+  description: "We build custom AI agents that do real work: email triage, lead qualification, phone support. Try the live demos on the site before you talk to us.",
+};
 
 const en = {
+  seo: SEO,
   nav: {
     links: [["Agents", "agentek"], ["Process", "folyamat"], ["Pricing", "arak"], ["Case study", "eset"]],
     contact: "CONTACT",

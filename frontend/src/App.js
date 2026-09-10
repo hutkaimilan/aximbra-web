@@ -12,6 +12,7 @@ import { CaseStudy } from "@/components/CaseStudy";
 import { Contact, Footer } from "@/components/Contact";
 import { References } from "@/components/References";
 import { LanguageProvider, useLang } from "@/i18n";
+import { useDocumentMeta, organizationJsonLd } from "@/seo";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Etterem from "@/demos/Etterem";
 import Szalon from "@/demos/Szalon";
@@ -20,7 +21,14 @@ import Ugyvedi from "@/demos/Ugyvedi";
 import EmailAgent from "@/demos/EmailAgent";
 
 function Site() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  useDocumentMeta({
+    title: t.seo.title,
+    description: t.seo.description,
+    path: "/",
+    lang,
+    jsonLd: organizationJsonLd(t.seo.description),
+  });
   const lenisRef = useRef(null);
   const returningRef = useRef(sessionStorage.getItem("aximbra:return") !== null);
 

@@ -2,13 +2,24 @@ import { useEffect, useState } from "react";
 import "./demos.css";
 import { DemoBar } from "./DemoBar";
 import { useLang } from "../i18n";
+import { useDocumentMeta } from "../seo";
 
 export default function Ugyvedi() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const d = t.demos.ugyvedi;
+  // noindex: an invented business must not surface in search results.
+  useDocumentMeta({ title: d.seo.title, description: d.seo.description,
+    path: "/demo/ugyvedi", lang, noindex: true });
   const L = t.demos.labels;
   const [sent, setSent] = useState(false);
   useEffect(() => { window.scrollTo(0, 0); }, []);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // Deliberately not read, not sent, not stored — see the demo notice.
+    e.currentTarget.reset();
+    setSent(true);
+  };
 
   return (
     <div className="law-page demo-page" data-testid="demo-ugyvedi">
@@ -53,13 +64,34 @@ export default function Ugyvedi() {
         <div className="demo-container">
           <h2 className="law-h2">{d.contactTitle}</h2>
           <p className="law-sub" style={{ fontSize: 18 }}>{d.contactText}</p>
-          <form className="law-form" onSubmit={(e) => { e.preventDefault(); setSent(true); }} data-testid="law-form">
-            <input type="text" placeholder={L.name} required data-testid="law-name" />
-            <input type="email" placeholder={L.email} required data-testid="law-email" />
-            <textarea placeholder={L.message} required data-testid="law-message" />
+          {/* Nothing leaves the browser: this is a demo of a law firm that does not
+              exist, so the submit handler only flips to the confirmation state.
+              The fields still carry name and label attributes — a form a visitor
+              can fill in has to be usable with a screen reader and autofill. */}
+          <form className="law-form" onSubmit={handleSubmit} noValidate={false} data-testid="law-form">
+            <label className="law-field">
+              <span className="law-label">{L.name}</span>
+              <input type="text" name="name" autoComplete="name" placeholder={L.name}
+                required data-testid="law-name" />
+            </label>
+            <label className="law-field">
+              <span className="law-label">{L.email}</span>
+              <input type="email" name="email" autoComplete="email" placeholder={L.email}
+                required data-testid="law-email" />
+            </label>
+            <label className="law-field">
+              <span className="law-label">{L.message}</span>
+              <textarea name="message" placeholder={L.message} required data-testid="law-message" />
+            </label>
+            <label className="law-consent">
+              <input type="checkbox" name="consent" required data-testid="law-consent" />
+              <span>{L.consent}</span>
+            </label>
             <button type="submit" data-testid="law-submit">{L.send}</button>
           </form>
-          {sent && <div className="law-sent" data-testid="law-sent">{L.sent}</div>}
+          {sent && (
+            <div className="law-sent" role="status" data-testid="law-sent">{L.sentDemo}</div>
+          )}
           <div className="law-meta">
             <div><div className="law-ci-l">{L.address}</div><div className="law-ci-v">{d.address}</div></div>
             <div><div className="law-ci-l">{L.phone}</div><div className="law-ci-v">{d.phone}</div></div>

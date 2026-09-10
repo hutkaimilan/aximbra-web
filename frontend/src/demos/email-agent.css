@@ -111,3 +111,43 @@
   .agent-tiles { grid-template-columns: 1fr; }
   .agent-cat-row { grid-template-columns: minmax(90px, 130px) 1fr 28px; }
 }
+
+/* OAuth disclosure — collapsed by default so it does not bury the CTA, but on
+   the page itself rather than behind a link, because it is what a visitor needs
+   in order to decide whether to hand over mailbox access. */
+.agent-disclosure {
+  margin: 18px 0 4px;
+  border: 1px solid rgba(120,200,255,.22);
+  border-radius: 12px;
+  background: rgba(10,18,32,.5);
+}
+.agent-disclosure > summary {
+  cursor: pointer; padding: 13px 16px;
+  font-size: 14px; font-weight: 600; color: #9FD4FF;
+  list-style: none;
+}
+.agent-disclosure > summary::-webkit-details-marker { display: none; }
+.agent-disclosure > summary::before { content: "▸ "; }
+.agent-disclosure[open] > summary::before { content: "▾ "; }
+.agent-disclosure > summary:hover { color: #CDEBFF; }
+.agent-disclosure-body {
+  padding: 2px 18px 16px;
+  font-size: 13.5px; line-height: 1.65; color: #A9B6C8;
+  border-top: 1px solid rgba(120,200,255,.14);
+}
+.agent-disclosure-body h3 {
+  margin: 16px 0 6px;
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #7FC4F5;
+}
+.agent-disclosure-body ul { margin: 0; padding-left: 18px; }
+.agent-disclosure-body li { margin: 4px 0; }
+.agent-disclosure-body code {
+  padding: 1px 5px; border-radius: 4px;
+  background: rgba(120,200,255,.12); color: #CDEBFF;
+  font-size: 12.5px;
+}
+.agent-disclosure-body b { color: #DCE6F2; }
+.agent-disclosure-body a { color: #7FC4F5; }
+@media (max-width: 600px) {
+  .agent-disclosure-body { padding: 2px 14px 14px; font-size: 13px; }
+}

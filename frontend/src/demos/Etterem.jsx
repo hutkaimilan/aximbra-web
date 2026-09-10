@@ -2,12 +2,16 @@ import { useEffect, useState } from "react";
 import "./demos.css";
 import { DemoBar } from "./DemoBar";
 import { useLang } from "../i18n";
+import { useDocumentMeta } from "../seo";
 
 const HERO_IMG = "https://static.prod-images.emergentagent.com/jobs/afbc24ab-458f-4a48-8241-485e9d12f0a0/images/354cd17ee3b81c3009c3856a75adb37795ce66af49f3183eb096f68ab7454cbf.jpeg";
 
 export default function Etterem() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const d = t.demos.etterem;
+  // noindex: an invented business must not surface in search results.
+  useDocumentMeta({ title: d.seo.title, description: d.seo.description,
+    path: "/demo/etterem", lang, noindex: true });
   const L = t.demos.labels;
   const [open, setOpen] = useState(0);
   useEffect(() => { window.scrollTo(0, 0); }, []);

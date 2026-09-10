@@ -34,8 +34,13 @@ SITE_URL = os.environ.get("FRONTEND_URL", "")
 # AGENT_SESSION_KEY only matters if the service ever runs more than one replica.
 _fernet = Fernet((os.environ.get("AGENT_SESSION_KEY") or Fernet.generate_key().decode()).encode())
 
+# gmail.readonly, not gmail.modify. The agent only ever calls users.getProfile,
+# messages.list and messages.get, all of which readonly covers. modify would have
+# made Google's consent screen ask for write access to the visitor's mailbox —
+# access this code does not use, contradicting the read-only promise on the page,
+# and the single biggest reason to refuse the grant.
 GMAIL_SCOPES = [
-    "https://www.googleapis.com/auth/gmail.modify",
+    "https://www.googleapis.com/auth/gmail.readonly",
     "openid",
     "https://www.googleapis.com/auth/userinfo.email",
 ]

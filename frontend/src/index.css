@@ -121,7 +121,7 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
   border-bottom: 1px solid var(--border); }
 .logo { font-family: var(--display); font-weight: 700; font-size: 20px; letter-spacing: .08em;
   display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text);
-  position: relative; z-index: 2; }
+  text-decoration: none; position: relative; z-index: 2; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan);
   box-shadow: 0 0 12px var(--cyan); animation: pulse 1.8s ease-in-out infinite; }
 @keyframes pulse { 0%,100%{ opacity: 1; transform: scale(1);} 50%{ opacity: .4; transform: scale(.7);} }
@@ -408,7 +408,8 @@ video.demo-media, audio.demo-media { width: 100%; border-radius: 16px; margin-bo
 .phone-card { border: 1px solid var(--border); border-radius: 16px; padding: 22px; background: rgba(0,233,255,.04); }
 .phone-card .lbl { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
 .phone-card .num { font-family: var(--display); font-weight: 700; font-size: clamp(24px,3vw,34px); color: var(--cyan);
-  filter: drop-shadow(0 0 16px rgba(0,233,255,.5)); margin: 8px 0; }
+  filter: drop-shadow(0 0 16px rgba(0,233,255,.5)); margin: 8px 0;
+  display: inline-block; text-decoration: none; }
 .phone-card .hint { font-size: 13px; color: var(--dim); line-height: 1.6; }
 .pill-amber { font-family: var(--mono); font-size: 12px; color: var(--amber); padding: 5px 12px; border-radius: 40px;
   border: 1px solid rgba(255,176,32,.4); background: rgba(255,176,32,.08); }
@@ -468,4 +469,18 @@ video.demo-media, audio.demo-media { width: 100%; border-radius: 16px; margin-bo
   *, *::before, *::after { animation-duration: .001s !important; transition-duration: .1s !important; }
   .intro { display: none !important; }
   .reveal { opacity: 1 !important; transform: none !important; }
+}
+
+/* Keyboard focus. The nav links are real anchors now, so they are reachable by
+   Tab — they need a focus ring that is actually visible on the dark ground.
+   :focus-visible, not :focus, so a mouse click does not leave a ring behind. */
+a:focus-visible,
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 3px;
+  border-radius: 4px;
 }

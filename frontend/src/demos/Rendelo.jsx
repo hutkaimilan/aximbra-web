@@ -2,13 +2,17 @@ import { useEffect } from "react";
 import "./demos.css";
 import { DemoBar } from "./DemoBar";
 import { useLang } from "../i18n";
+import { useDocumentMeta } from "../seo";
 import { Stethoscope, Activity, FlaskConical, HeartPulse, Syringe, ClipboardCheck, UserRound } from "lucide-react";
 
 const ICONS = { stethoscope: Stethoscope, activity: Activity, "flask-conical": FlaskConical, "heart-pulse": HeartPulse, syringe: Syringe, "clipboard-check": ClipboardCheck };
 
 export default function Rendelo() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const d = t.demos.rendelo;
+  // noindex: an invented business must not surface in search results.
+  useDocumentMeta({ title: d.seo.title, description: d.seo.description,
+    path: "/demo/rendelo", lang, noindex: true });
   const L = t.demos.labels;
   useEffect(() => { window.scrollTo(0, 0); }, []);
   const mailto = `mailto:${d.email}?subject=${encodeURIComponent(d.cta + " — " + d.brand)}`;
@@ -23,10 +27,6 @@ export default function Rendelo() {
           <p className="med-sub">{d.heroSub}</p>
           <div className="med-cta-row">
             <a className="med-btn" href={mailto}>{d.cta}</a>
-            <div className="med-urgent">
-              <span className="l">{d.urgentLabel}</span>
-              <span className="p">{d.urgentPhone}</span>
-            </div>
           </div>
         </div>
       </section>

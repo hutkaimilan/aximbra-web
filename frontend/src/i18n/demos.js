@@ -2,7 +2,9 @@
 const demos = {
   hu: {
     back: "← Vissza az AXIMBRA-hoz",
-    labels: { address: "Cím", phone: "Telefon", email: "E-mail", hours: "Nyitvatartás", send: "Küldés", name: "Név", message: "Miben segíthetünk?", sent: "Köszönjük! Hamarosan jelentkezünk." },
+    noticeTag: "DEMÓ",
+    noticeText: "Ez egy bemutató oldal, nem valós vállalkozás. A márka, a címek, az árak és a munkatársak kitaláltak; a megadott adatokat nem küldjük el és nem tároljuk. Készítette: AXIMBRA.",
+    labels: { address: "Cím", phone: "Telefon", email: "E-mail", hours: "Nyitvatartás", send: "Küldés", name: "Név", message: "Miben segíthetünk?", sent: "Köszönjük! Hamarosan jelentkezünk.", consent: "Elfogadom, hogy ez egy bemutató űrlap: a beírt adatok nem kerülnek elküldésre és tárolásra.", sentDemo: "Ez egy bemutató — nem küldtünk el semmit, és a beírt adatokat nem tároltuk. Egy valódi oldalon itt futna az AXIMBRA ajánlatkérő agentje." },
     refs: {
       tag: "Referenciák",
       heading: "Négy demó, négy világ",
@@ -18,6 +20,7 @@ const demos = {
       ],
     },
     etterem: {
+      seo: { title: "OLAJFA · étterem — AXIMBRA bemutató oldal", description: "Bemutató weboldal egy kitalált mediterrán étteremnek. Az AXIMBRA készítette, hogy lássa, hogyan épül fel nálunk egy éles vendéglátó oldal." },
       brand: "OLAJFA",
       heroEyebrow: "Belváros · mediterrán konyha",
       heroTitle: "Tűz, füst, olívaolaj.",
@@ -41,6 +44,7 @@ const demos = {
       floating: "Asztalfoglalás",
     },
     szalon: {
+      seo: { title: "FLÓRA · szépségstúdió — AXIMBRA bemutató oldal", description: "Bemutató weboldal egy kitalált szépségstúdiónak. Az AXIMBRA készítette, hogy lássa, hogyan épül fel nálunk egy éles szolgáltatói oldal." },
       brand: "FLÓRA",
       heroEyebrow: "Szépségstúdió · Buda",
       heroTitle: "Törődés, ahogy megérdemled.",
@@ -63,13 +67,12 @@ const demos = {
       email: "hello@flora-demo.hu",
     },
     rendelo: {
+      seo: { title: "MEDINA · rendelő — AXIMBRA bemutató oldal", description: "Bemutató weboldal egy kitalált orvosi rendelőnek. Nem valós egészségügyi szolgáltató: az AXIMBRA készítette szemléltetésként." },
       brand: "MEDINA",
       heroEyebrow: "Magánrendelő · Budapest",
       heroTitle: "Nyugodt, alapos ellátás.",
       heroSub: "Belgyógyászat, ultrahang és laborvizsgálat egy helyen, rövid várakozással, érthető magyarázattal.",
       cta: "Időpontkérés",
-      urgentLabel: "Sürgősségi vonal",
-      urgentPhone: "+36 1 700 0000",
       servicesTitle: "Szolgáltatások",
       services: [
         { icon: "stethoscope", title: "Általános belgyógyászat", desc: "Kivizsgálás, gondozás, tanácsadás" },
@@ -94,6 +97,7 @@ const demos = {
       email: "recepcio@medina-demo.hu",
     },
     ugyvedi: {
+      seo: { title: "AEGIS · ügyvédi iroda — AXIMBRA bemutató oldal", description: "Bemutató weboldal egy kitalált ügyvédi irodának. Nem valós jogi szolgáltató: az AXIMBRA készítette szemléltetésként." },
       brand: "AEGIS",
       heroEyebrow: "Ügyvédi iroda · Budapest",
       heroTitle: "Higgadt jog, biztos kéz.",
@@ -126,7 +130,9 @@ const demos = {
 
   en: {
     back: "← Back to AXIMBRA",
-    labels: { address: "Address", phone: "Phone", email: "Email", hours: "Opening hours", send: "Send", name: "Name", message: "How can we help?", sent: "Thank you! We'll be in touch shortly." },
+    noticeTag: "DEMO",
+    noticeText: "This is a showcase page, not a real business. The brand, addresses, prices and staff are invented; anything you type here is neither sent nor stored. Built by AXIMBRA.",
+    labels: { address: "Address", phone: "Phone", email: "Email", hours: "Opening hours", send: "Send", name: "Name", message: "How can we help?", sent: "Thank you! We'll be in touch shortly.", consent: "I understand this is a demo form: nothing I type is sent or stored.", sentDemo: "This is a demo — nothing was sent and nothing was stored. On a real site, AXIMBRA's intake agent would run here." },
     refs: {
       tag: "References",
       heading: "Four demos, four worlds",
@@ -142,6 +148,7 @@ const demos = {
       ],
     },
     etterem: {
+      seo: { title: "OLAJFA · restaurant — AXIMBRA showcase page", description: "A showcase site for an invented Mediterranean restaurant, built by AXIMBRA to show how a real hospitality site is put together." },
       brand: "OLAJFA",
       heroEyebrow: "City center · Mediterranean kitchen",
       heroTitle: "Fire, smoke, olive oil.",
@@ -165,6 +172,7 @@ const demos = {
       floating: "Book a table",
     },
     szalon: {
+      seo: { title: "FLÓRA · beauty studio — AXIMBRA showcase page", description: "A showcase site for an invented beauty studio, built by AXIMBRA to show how a real service business site is put together." },
       brand: "FLÓRA",
       heroEyebrow: "Beauty studio · Buda",
       heroTitle: "Care, the way you deserve.",
@@ -187,13 +195,12 @@ const demos = {
       email: "hello@flora-demo.hu",
     },
     rendelo: {
+      seo: { title: "MEDINA · clinic — AXIMBRA showcase page", description: "A showcase site for an invented medical practice. Not a real healthcare provider — built by AXIMBRA for illustration." },
       brand: "MEDINA",
       heroEyebrow: "Private clinic · Budapest",
       heroTitle: "Calm, thorough care.",
       heroSub: "Internal medicine, ultrasound and lab tests in one place, with short waits and clear explanations.",
       cta: "Request an appointment",
-      urgentLabel: "Urgent line",
-      urgentPhone: "+36 1 700 0000",
       servicesTitle: "Services",
       services: [
         { icon: "stethoscope", title: "General internal medicine", desc: "Assessment, care, consultation" },
@@ -218,6 +225,7 @@ const demos = {
       email: "reception@medina-demo.hu",
     },
     ugyvedi: {
+      seo: { title: "AEGIS · law firm — AXIMBRA showcase page", description: "A showcase site for an invented law firm. Not a real legal practice — built by AXIMBRA for illustration." },
       brand: "AEGIS",
       heroEyebrow: "Law firm · Budapest",
       heroTitle: "Composed law, a steady hand.",

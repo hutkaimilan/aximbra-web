@@ -39,15 +39,16 @@ export const Nav = ({ scrollTo }) => {
 
   return (
     <nav ref={navRef} className={`nav ${scrolled ? "scrolled" : ""}`} data-testid="main-nav">
-      <div className="logo" data-testid="logo" onClick={() => go("top")}>
+      <a className="logo" data-testid="logo" href="#top"
+         onClick={(e) => { e.preventDefault(); go("top"); }} aria-label="AXIMBRA">
         <span className="dot" /> AXIMBRA
-      </div>
+      </a>
 
       <div className="nav-right">
         <div className="nav-links">
           {t.nav.links.map(([label, id]) => (
-            <a key={id} className="link" data-testid={`nav-${id}`} onClick={() => go(id)} tabIndex={0}
-               onKeyDown={(e) => e.key === "Enter" && go(id)} role="button">{label}</a>
+            <a key={id} className="link" data-testid={`nav-${id}`} href={`#${id}`}
+               onClick={(e) => { e.preventDefault(); go(id); }}>{label}</a>
           ))}
           <a className="btn-callbar" data-testid="nav-callbar" href={t.nav.callbarHref}>{t.nav.callbar}</a>
         </div>
@@ -69,8 +70,8 @@ export const Nav = ({ scrollTo }) => {
 
       <div className={`nav-drawer ${open ? "open" : ""}`} data-testid="nav-drawer" aria-hidden={!open}>
         {t.nav.links.map(([label, id]) => (
-          <a key={id} className="drawer-link" data-testid={`drawer-${id}`} role="button" tabIndex={open ? 0 : -1}
-             onClick={() => go(id)} onKeyDown={(e) => e.key === "Enter" && go(id)}>{label}</a>
+          <a key={id} className="drawer-link" data-testid={`drawer-${id}`} href={`#${id}`}
+             tabIndex={open ? 0 : -1} onClick={(e) => { e.preventDefault(); go(id); }}>{label}</a>
         ))}
         <a className="drawer-link" data-testid="drawer-callbar" href={t.nav.callbarHref} onClick={() => setOpen(false)}>
           {t.nav.callbar}

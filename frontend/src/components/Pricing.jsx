@@ -1,5 +1,6 @@
 import { Reveal } from "./Reveal";
 import { LiquidButton } from "./LiquidButton";
+import { mailto } from "../contact";
 import { useLang } from "../i18n";
 
 export const Pricing = () => {
@@ -15,7 +16,7 @@ export const Pricing = () => {
       <div className="pkg-grid">
         {p.packages.map((pkg, i) => {
           const featured = i === 1;
-          const href = `mailto:aximbra@gmail.com?subject=${encodeURIComponent(`${p.subjectPrefix} – ${pkg.name}`)}`;
+          const href = mailto(`${p.subjectPrefix} – ${pkg.name}`);
           return (
             <Reveal key={i} delay={i * 100}>
               <div className={`pkg-card ${featured ? "featured" : ""}`} data-testid={`pkg-card-${i}`}>

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import "./email-agent.css";
 
+import { useDocumentMeta } from "../seo";
+import { CONTACT, mailto } from "../contact";
 const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api/agent/email`;
 
 const ERRORS = {
@@ -38,6 +40,15 @@ const get = (path) => fetch(`${API}${path}`, {
 });
 
 export default function EmailAgent({ embedded = false }) {
+  // Only the standalone route owns the document title; the homepage embeds the
+  // same component and must keep its own metadata.
+  useDocumentMeta({
+    title: embedded ? "" : "E-mail rendező agent — élő demó | AXIMBRA",
+    description:
+      "Élő demó: az AXIMBRA agentje átfutja a saját postafiókod elmúlt 30 napját, " +
+      "kategorizálja és rangsorolja a leveleket. Csak olvas, semmit nem küld el és nem tárol.",
+    path: "/demo/email-agent",
+  });
   const [status, setStatus] = useState(null);
   const [progress, setProgress] = useState(null);
   const [results, setResults] = useState(null);
@@ -144,6 +155,61 @@ export default function EmailAgent({ embedded = false }) {
               <li><b>Soha nem küld levelet.</b> A küldési jogot nem is kéri.</li>
               <li><b>Semmit nem tárolunk.</b> Az eredmény a böngésződ bezárásáig él.</li>
             </ul>
+
+            {/* The specifics belong here, before the grant — not in a policy page
+                the visitor would have to go looking for. Everything listed is what
+                the code actually does; see backend/mail_agent.py. */}
+            <details className="agent-disclosure" data-testid="agent-disclosure">
+              <summary>Mit kérünk pontosan, és mi történik az adataiddal?</summary>
+              <div className="agent-disclosure-body">
+                <h3>A kért Google-jogosultságok</h3>
+                <ul>
+                  <li>
+                    <code>gmail.readonly</code> — a leveleid olvasása.
+                    Írási jogot nem kérünk: a Google-nál sincs módunk levelet
+                    küldeni, címkézni vagy törölni a nevedben.
+                  </li>
+                  <li><code>userinfo.email</code> és <code>openid</code> — hogy tudjuk, melyik fiókot nézzük.</li>
+                </ul>
+
+                <h3>Mit olvasunk</h3>
+                <ul>
+                  <li>Az elmúlt <b>30 nap</b> legfeljebb <b>15 levele</b>. Semmi régebbi, semmi több.</li>
+                  <li>Feladó, tárgy, dátum és a levél szövege — a mellékleteket nem nyitjuk meg.</li>
+                </ul>
+
+                <h3>Hová kerül</h3>
+                <ul>
+                  <li>
+                    A levél szövegét egyetlen osztályozó hívásban elküldjük az
+                    <b> OpenAI</b> API-jának. Az API-n beküldött adatot a szolgáltató
+                    alapbeállítás szerint nem használja modelltanításra.
+                  </li>
+                  <li>Adatbázisba semmi nem kerül. A futás a szerver memóriájában él.</li>
+                </ul>
+
+                <h3>Meddig él, és hogyan törlöd</h3>
+                <ul>
+                  <li>A munkamenet <b>30 perc</b> után magától lejár.</li>
+                  <li>
+                    A „Kilépés” azonnal törli a futást és a hozzáférést. A lap
+                    bezárása ugyanezt teszi.
+                  </li>
+                  <li>
+                    A jogosultságot a Google-nál bármikor visszavonhatod:{" "}
+                    <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">
+                      myaccount.google.com/permissions
+                    </a>
+                  </li>
+                </ul>
+
+                <h3>Ki kéri</h3>
+                <p>
+                  AXIMBRA · Budapest · <a href={mailto()}>{CONTACT.email}</a> — kérdés
+                  vagy törlési kérés esetén írj, és válaszolunk.
+                </p>
+              </div>
+            </details>
 
             {error && <div className="agent-error">{error}</div>}
             {status.configured === false && (

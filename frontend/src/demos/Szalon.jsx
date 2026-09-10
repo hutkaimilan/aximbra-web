@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import "./demos.css";
 import { DemoBar } from "./DemoBar";
 import { useLang } from "../i18n";
+import { useDocumentMeta } from "../seo";
 
 const GALLERY = [
   "https://static.prod-images.emergentagent.com/jobs/afbc24ab-458f-4a48-8241-485e9d12f0a0/images/3a7f67b4356732a7f3d819b1c595c63f72866c4612b69921b2b7edf92d9a421f.jpeg",
@@ -10,8 +11,11 @@ const GALLERY = [
 ];
 
 export default function Szalon() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const d = t.demos.szalon;
+  // noindex: an invented business must not surface in search results.
+  useDocumentMeta({ title: d.seo.title, description: d.seo.description,
+    path: "/demo/szalon", lang, noindex: true });
   const L = t.demos.labels;
   const [lb, setLb] = useState(null);
   useEffect(() => { window.scrollTo(0, 0); }, []);
