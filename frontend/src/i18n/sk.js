@@ -17,6 +17,7 @@ const sk = {
     callbarHref: CALLBAR,
   },
   hero: {
+    phoneCta: { origin: "Testovacia linka v USA (Twilio) — demo číslo agenta, nie zákaznícka podpora" },
     eyebrow: "Budapešť · AI agentúra",
     h1: ["Nestaviame", "chatboty. Ale", "spolupracovníka."],
     sub: "Staviame AI agentov pre firmy, ktorí vykonávajú konkrétnu prácu — triedia e-maily, kvalifikujú dopyty, dvíhajú telefón. Neodovzdávame demo, ale funkčný systém, ktorý udržiavame nažive.",
@@ -92,6 +93,7 @@ const sk = {
     phoneHint: ["Požiadaj o stôl v akomkoľvek jazyku.", "Denný limit: 20 hovorov."],
   },
   contact: {
+    phoneOrigin: "Testovacia linka v USA (Twilio) — demo číslo agenta, nie zákaznícka podpora. S dopytom napíšte e-mail.",
     heading: "Ktorá úloha ti zožerie týždeň?",
     para: "Napíš to v jednej vete. Do dvoch pracovných dní ti povieme, či sa oplatí postaviť naň agenta — a ak nie, aj to.",
     phoneDisabled: "Telefónny agent — čoskoro",

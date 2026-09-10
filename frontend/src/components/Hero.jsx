@@ -70,6 +70,9 @@ export const Hero = ({ scrollTo }) => {
         <span className="hero-phone-main">
           <span className="hero-phone-num">{CONTACT.phone}</span>
           <span className="hero-phone-note">{h.phoneCta.note}</span>
+          {/* A US number on a Budapest agency's site reads as a mismatch unless it
+              says what it is: the voice agent's test line, not a support desk. */}
+          <span className="hero-phone-origin">{h.phoneCta.origin}</span>
         </span>
       </a>
       <div className="stats">

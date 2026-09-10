@@ -22,7 +22,7 @@ const en = {
     sub: "We build AI agents for Hungarian companies that do one concrete job — sort emails, qualify leads, answer the phone. We don't hand over a demo, but a working system that we keep alive.",
     ctaPrimary: "See the agents",
     ctaGhost: "See it live",
-    phoneCta: { note: "Answered by an AI agent · in Hungarian & English" },
+    phoneCta: { note: "Answered by an AI agent · in Hungarian & English", origin: "US test line (Twilio) — this is the agent's demo number, not a support line" },
     status: { checking: "Checking status…", online: "Live phone agent", offline: "Phone agent unavailable", today: "today", callsUnit: "calls", liveUnit: "active now" },
     stats: [["2–4 weeks", "the first agent"], ["3 languages", "HU · EN · ES"], ["100%", "human approval"]],
   },
@@ -97,6 +97,7 @@ const en = {
     heading: "Which task eats up your week?",
     para: "Write it in one sentence. Within two working days we'll tell you whether it's worth building an agent for it — and if not, that too.",
     phoneNote: "Speaks Hungarian and English · answered by an AI agent",
+    phoneOrigin: "US test line (Twilio) — the agent's demo number, not a support line. For business, email us.",
   },
   footer: {
     left: "AXIMBRA · Budapest · aximbra.hu",

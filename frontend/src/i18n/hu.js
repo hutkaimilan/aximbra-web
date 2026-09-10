@@ -22,7 +22,7 @@ const hu = {
     sub: "Olyan AI agenteket építünk magyar cégeknek, amelyek elvégeznek egy konkrét munkát — leveleket rendeznek, érdeklődőt minősítenek, telefont vesznek fel. Nem demót adunk át, hanem működő rendszert, amit mi tartunk életben.",
     ctaPrimary: "Nézd meg az agenteket",
     ctaGhost: "Működés közben",
-    phoneCta: { note: "Egy AI agent veszi fel · magyarul és angolul is" },
+    phoneCta: { note: "Egy AI agent veszi fel · magyarul és angolul is", origin: "Amerikai tesztvonal (Twilio) — ez az agent demószáma, nem ügyfélszolgálat" },
     status: { checking: "Állapot lekérése…", online: "Élő telefon-agent", offline: "Telefon-agent nem elérhető", today: "ma", callsUnit: "hívás", liveUnit: "aktív most" },
     stats: [["2–4 hét", "az első agent"], ["3 nyelv", "HU · EN · ES"], ["100%", "emberi jóváhagyás"]],
   },
@@ -97,6 +97,7 @@ const hu = {
     heading: "Melyik feladat viszi el a heted?",
     para: "Írd meg egy mondatban. Két munkanapon belül megmondjuk, megéri-e agentet építeni rá — és ha nem, azt is.",
     phoneNote: "Magyarul és angolul is beszél · egy AI agent veszi fel",
+    phoneOrigin: "Amerikai tesztvonal (Twilio) — az agent demószáma, nem ügyfélszolgálat. Ügyben e-mailen írj.",
   },
   footer: {
     left: "AXIMBRA · Budapest · aximbra.hu",

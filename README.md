@@ -13,6 +13,9 @@ Backend (`backend/.env`):
 - `OPENAI_API_KEY` — required for the live demos (Érdeklődő-minősítő, E-mail rendező agent). Never exposed client-side.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AGENT_REDIRECT_URI`, `FRONTEND_URL` — required by the
   in-page Gmail agent (`/api/agent/email/*`). Without them the agent reports itself as unconfigured.
+- `AGENT_PUBLIC` — whether strangers may hand the agent their mailbox. Defaults to `true`; set it to
+  `false` to keep the agent working for your own testing while the page says plainly that it is not open
+  yet. See **Before the Gmail agent goes public** below.
 - `AGENT_SESSION_KEY` — Fernet key for the agent session token. Only needed with more than one replica;
   otherwise a per-process key is generated.
 - `MONGO_URL`, `DB_NAME` — present in template but unused (no database is used by this app).
@@ -46,6 +49,23 @@ Frontend (`frontend/.env`):
 there rather than writing an address inline — the site previously carried AXIMBRA's address in some places
 and EPISTEME's (a separate project) in others, which read as two different companies. EPISTEME's own
 number stays in the case study, where it belongs.
+
+## Before the Gmail agent goes public
+`gmail.readonly` is a Google **restricted** scope. Offering it to the public needs all three of:
+
+1. **A named data controller.** The visitor hands over their mailbox and has to be able to see who is
+   receiving it — a registered company, or an identified natural person. "AXIMBRA · Budapest" is a brand,
+   not an identity.
+2. **A published privacy notice**, reachable from the page, covering what is read, that the text goes to
+   the OpenAI API, the 30-minute retention and how to revoke.
+3. **Google OAuth app verification.** Until the app is verified, visitors get a full-screen "Google hasn't
+   verified this app" warning and the project is capped at 100 users — and if it is still in *testing*
+   mode, only explicitly listed test users can connect at all.
+
+Until those exist, run with `AGENT_PUBLIC=false`. The connect button is then replaced by a short notice
+saying the agent is not open yet and offering a live walkthrough by email, and `/connect` returns 503 —
+the flow is blocked server-side, not merely hidden in the UI, which anyone could bypass by calling the
+endpoint directly.
 
 ## SEO
 `frontend/src/seo.js` sets title, description, canonical, Open Graph, Twitter and JSON-LD per route and per

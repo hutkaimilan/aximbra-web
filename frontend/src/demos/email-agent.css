@@ -151,3 +151,15 @@
 @media (max-width: 600px) {
   .agent-disclosure-body { padding: 2px 14px 14px; font-size: 13px; }
 }
+
+/* Agent not publicly offered yet: a status with a route forward, not an error. */
+.agent-closed {
+  margin: 18px 0 4px; padding: 16px 18px;
+  border: 1px solid rgba(255,176,32,.3); border-radius: 12px;
+  background: rgba(40,28,8,.45);
+  font-size: 14px; line-height: 1.6; color: #D8C9AE;
+}
+.agent-closed p { margin: 0 0 8px; }
+.agent-closed p:last-child { margin-bottom: 0; }
+.agent-closed b { color: #FFD9A0; }
+.agent-closed a { color: #FFB020; }

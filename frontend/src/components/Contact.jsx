@@ -21,6 +21,7 @@ export const Contact = () => {
             </LiquidButton>
           </div>
           <p className="contact-phone-note" data-testid="contact-phone-note">{c.phoneNote}</p>
+          <p className="contact-phone-origin" data-testid="contact-phone-origin">{c.phoneOrigin}</p>
         </div>
       </Reveal>
     </section>

@@ -212,14 +212,32 @@ export default function EmailAgent({ embedded = false }) {
             </details>
 
             {error && <div className="agent-error">{error}</div>}
-            {status.configured === false && (
-              <div className="agent-error">Az agent Google-hozzáférése még nincs beállítva.</div>
-            )}
 
-            <button className="agent-cta" onClick={connect}
-              disabled={connecting || status.configured === false}>
-              {connecting ? <><span className="spin" /> Átirányítás…</> : "Csatlakozás a Google-fiókhoz"}
-            </button>
+            {/* `public === false` is a deliberate setting, not a fault, so it reads
+                as a status with a way forward rather than as an error. */}
+            {status.public === false ? (
+              <div className="agent-closed" data-testid="agent-closed">
+                <p>
+                  <b>Az agent jelenleg nem nyilvános.</b> A Gmail-hozzáférés kérése
+                  előtt közzétesszük az adatkezelési tájékoztatót és a céges adatokat —
+                  addig nem kérünk senkitől postafiók-hozzáférést.
+                </p>
+                <p>
+                  Élőben szívesen megmutatjuk a saját fiókunkon:{" "}
+                  <a href={mailto("Megnézném az e-mail agentet élőben")}>{CONTACT.email}</a>
+                </p>
+              </div>
+            ) : (
+              <>
+                {status.configured === false && (
+                  <div className="agent-error">Az agent Google-hozzáférése még nincs beállítva.</div>
+                )}
+                <button className="agent-cta" onClick={connect}
+                  disabled={connecting || status.configured === false}>
+                  {connecting ? <><span className="spin" /> Átirányítás…</> : "Csatlakozás a Google-fiókhoz"}
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div className="agent-run">

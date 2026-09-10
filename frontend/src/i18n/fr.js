@@ -17,6 +17,7 @@ const fr = {
     callbarHref: CALLBAR,
   },
   hero: {
+    phoneCta: { origin: "Ligne de test aux États-Unis (Twilio) — numéro de démo de l'agent, pas un service client" },
     eyebrow: "Budapest · agence IA",
     h1: ["Nous ne créons pas", "de chatbots. Mais un", "collaborateur."],
     sub: "Nous créons des agents IA pour les entreprises qui accomplissent une tâche concrète — trier les e-mails, qualifier les demandes, répondre au téléphone. Nous ne livrons pas une démo, mais un système qui fonctionne et que nous maintenons en vie.",
@@ -92,6 +93,7 @@ const fr = {
     phoneHint: ["Demandez une table dans n'importe quelle langue.", "Quota quotidien : 20 appels."],
   },
   contact: {
+    phoneOrigin: "Ligne de test aux États-Unis (Twilio) — numéro de démo de l'agent, pas un service client. Pour toute demande, écrivez-nous.",
     heading: "Quelle tâche dévore votre semaine ?",
     para: "Écrivez-la en une phrase. Sous deux jours ouvrés, nous vous dirons s'il vaut la peine de créer un agent pour ça — et sinon, aussi.",
     phoneDisabled: "Agent téléphonique — bientôt",

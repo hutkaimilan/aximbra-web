@@ -17,6 +17,7 @@ const de = {
     callbarHref: CALLBAR,
   },
   hero: {
+    phoneCta: { origin: "US-Testnummer (Twilio) — die Demonummer des Agenten, keine Hotline" },
     eyebrow: "Budapest · KI-Agentur",
     h1: ["Wir bauen keine", "Chatbots. Wir bauen", "Mitarbeiter."],
     sub: "Wir bauen KI-Agenten für Unternehmen, die eine konkrete Aufgabe erledigen — E-Mails sortieren, Anfragen qualifizieren, ans Telefon gehen. Wir übergeben keine Demo, sondern ein funktionierendes System, das wir am Leben halten.",
@@ -92,6 +93,7 @@ const de = {
     phoneHint: ["Bitte um einen Tisch in jeder Sprache.", "Tageslimit: 20 Anrufe."],
   },
   contact: {
+    phoneOrigin: "US-Testnummer (Twilio) — die Demonummer des Agenten, keine Hotline. Für Anfragen bitte per E-Mail.",
     heading: "Welche Aufgabe frisst deine Woche?",
     para: "Schreib es in einem Satz. Innerhalb von zwei Werktagen sagen wir dir, ob sich ein Agent dafür lohnt — und wenn nicht, auch das.",
     phoneDisabled: "Telefon-Agent — demnächst",

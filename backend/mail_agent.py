@@ -30,6 +30,27 @@ GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 GMAIL_REDIRECT_URI = os.environ.get("AGENT_REDIRECT_URI", "")
 SITE_URL = os.environ.get("FRONTEND_URL", "")
 
+# Whether strangers may hand this agent their mailbox.
+#
+# gmail.readonly is a Google *restricted* scope: offering it publicly needs a
+# verified app, a published privacy notice and a named data controller the
+# visitor can identify. Set AGENT_PUBLIC=false to keep the agent reachable for
+# your own testing while the page tells visitors it is not open yet, instead of
+# walking them into Google's "unverified app" warning.
+#
+# Default true so that deploying this change does not silently switch off a
+# running demo; flip it deliberately.
+def _env_flag(name: str, default: bool = True) -> bool:
+    """Read a boolean env var. Anything unset keeps the default, so a typo turns
+    into the safe value rather than silently flipping behaviour."""
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    return raw.strip().lower() not in ("false", "0", "no", "off")
+
+
+AGENT_PUBLIC = _env_flag("AGENT_PUBLIC", default=True)
+
 # No account outlives a visit, so a per-process key is enough. Setting
 # AGENT_SESSION_KEY only matters if the service ever runs more than one replica.
 _fernet = Fernet((os.environ.get("AGENT_SESSION_KEY") or Fernet.generate_key().decode()).encode())
@@ -118,6 +139,11 @@ def _require(request: Request) -> dict:
 
 
 def _flow():
+    if not AGENT_PUBLIC:
+        raise HTTPException(
+            status_code=503,
+            detail="Az e-mail agent jelenleg nem nyilvános. Írj nekünk, és megmutatjuk élőben.",
+        )
     if not (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET and GMAIL_REDIRECT_URI):
         raise HTTPException(status_code=503, detail="Az agent Google-hozzáférése nincs beállítva.")
     return Flow.from_client_config(
@@ -196,6 +222,9 @@ async def status(request: Request):
         "connected": bool(sess),
         "email": sess["email"] if sess else None,
         "configured": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET and GMAIL_REDIRECT_URI),
+        # Distinct from `configured`: credentials can be present while the agent
+        # is deliberately not offered to the public yet.
+        "public": AGENT_PUBLIC,
     }
 
 

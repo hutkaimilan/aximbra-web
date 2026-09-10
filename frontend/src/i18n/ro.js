@@ -17,6 +17,7 @@ const ro = {
     callbarHref: CALLBAR,
   },
   hero: {
+    phoneCta: { origin: "Linie de test din SUA (Twilio) — numărul demo al agentului, nu suport clienți" },
     eyebrow: "Budapesta · agenție AI",
     h1: ["Nu construim", "chatboți. Ci un", "coleg de muncă."],
     sub: "Construim agenți AI pentru companii, care fac o muncă concretă — sortează e-mailuri, califică solicitări, răspund la telefon. Nu predăm o demonstrație, ci un sistem funcțional pe care îl menținem în viață.",
@@ -92,6 +93,7 @@ const ro = {
     phoneHint: ["Cere o masă în orice limbă.", "Cotă zilnică: 20 de apeluri."],
   },
   contact: {
+    phoneOrigin: "Linie de test din SUA (Twilio) — numărul demo al agentului, nu suport clienți. Pentru cereri, scrie-ne.",
     heading: "Ce sarcină îți mănâncă săptămâna?",
     para: "Scrie-o într-o propoziție. În două zile lucrătoare îți spunem dacă merită construit un agent pentru ea — și dacă nu, tot îți spunem.",
     phoneDisabled: "Agent telefonic — în curând",

@@ -97,3 +97,37 @@ def test_classifier_normalises_bad_output(monkeypatch):
     assert out["category"] == "Egyéb"
     assert out["urgency"] == 5
     assert out["needs_reply"] == "nem egyértelmű"
+
+
+def test_status_reports_public_availability():
+    body = c.get("/api/agent/email/status").json()
+    assert "public" in body
+    assert body["public"] is mail_agent.AGENT_PUBLIC
+
+
+def test_connect_refuses_when_not_public(monkeypatch):
+    """With AGENT_PUBLIC off the OAuth flow must not start at all — not merely be
+    hidden in the UI, which anyone can bypass by calling the endpoint."""
+    monkeypatch.setattr(mail_agent, "AGENT_PUBLIC", False)
+    r = c.get("/api/agent/email/connect")
+    assert r.status_code == 503
+    assert "nem nyilvános" in r.json()["detail"]
+
+
+def test_public_flag_parses_env_values():
+    """Tested through the helper, not by reloading the module: a reload would
+    hand the module a new Fernet key and an empty session store, breaking any
+    test that ran after it."""
+    f = mail_agent._env_flag
+    for value in ("false", "FALSE", " False ", "0", "no", "off"):
+        assert f("X", default=True) is True  # unset -> default
+        os.environ["X_FLAG"] = value
+        assert f("X_FLAG", default=True) is False, value
+    for value in ("true", "1", "yes", "anything-else"):
+        os.environ["X_FLAG"] = value
+        assert f("X_FLAG", default=False) is True, value
+    for value in ("", "   "):
+        os.environ["X_FLAG"] = value
+        assert f("X_FLAG", default=False) is False, value
+        assert f("X_FLAG", default=True) is True, value
+    os.environ.pop("X_FLAG", None)
