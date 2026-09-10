@@ -290,10 +290,15 @@ app.include_router(api_router)
 from mail_agent import router as mail_agent_router  # noqa: E402 - after api_router
 app.include_router(mail_agent_router)
 
+_cors_origins = [o.strip() for o in os.environ.get('CORS_ORIGINS', '*').split(',') if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # The agent session travels in the X-Agent-Session header, never a cookie, so
+    # credentialed CORS is not needed. Allowing it together with a wildcard origin
+    # would let any site read a visitor's run; keep it off unless origins are named.
+    allow_credentials='*' not in _cors_origins,
+    allow_origins=_cors_origins,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Session-Id", "X-Agent-Session"],
 )

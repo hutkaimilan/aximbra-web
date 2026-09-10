@@ -48,6 +48,9 @@ LOOKBACK_DAYS = 30
 
 _sessions: dict = {}
 _oauth_states: dict = {}
+# asyncio only holds weak references to running tasks, so a fire-and-forget run
+# can be garbage collected mid-pass. Hold it until it finishes.
+_runs: set = set()
 
 
 # ---------- Never send ----------
@@ -218,10 +221,14 @@ async def callback(code: str = "", state: str = "", error: str = ""):
     try:
         flow = _flow()
         flow.code_verifier = st["code_verifier"]
-        flow.fetch_token(code=code)
+        # google-auth-oauthlib and googleapiclient are synchronous (requests under
+        # the hood). Called inline they would block the whole event loop, stalling
+        # every other request on the site. Hand them to a worker thread instead.
+        await asyncio.to_thread(flow.fetch_token, code=code)
         creds = flow.credentials
-        service = SafeGmailProxy(build("gmail", "v1", credentials=creds))
-        email = service.users().getProfile(userId="me").execute().get("emailAddress", "")
+        service = SafeGmailProxy(await asyncio.to_thread(build, "gmail", "v1", credentials=creds))
+        profile = await asyncio.to_thread(service.users().getProfile(userId="me").execute)
+        email = profile.get("emailAddress", "")
         if not email:
             return RedirectResponse(f"{target}?error=no_email")
         _sweep()
@@ -241,7 +248,9 @@ async def callback(code: str = "", state: str = "", error: str = ""):
         logger.error("agent oauth failed: %s", type(e).__name__)
         return RedirectResponse(f"{target}?error=token_exchange")
     token = _fernet.encrypt(sid.encode()).decode()
-    asyncio.create_task(run_agent(sid))
+    task = asyncio.create_task(run_agent(sid))
+    _runs.add(task)
+    task.add_done_callback(_runs.discard)
     return RedirectResponse(f"{target}?connected=1&s={token}")
 
 
@@ -296,30 +305,44 @@ async def run_agent(sid: str):
     state = sess["state"]
     if state["running"]:
         return
-    service = SafeGmailProxy(build("gmail", "v1", credentials=sess["creds"]))
     state.update({"running": True, "message": "Levelek lekérése…"})
     try:
+        # Every googleapiclient call is synchronous; run it in a worker thread so
+        # a mailbox pass never freezes the rest of the API.
+        service = SafeGmailProxy(
+            await asyncio.to_thread(build, "gmail", "v1", credentials=sess["creds"])
+        )
         after = int((datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS)).timestamp())
-        listing = service.users().messages().list(
-            userId="me", maxResults=MAX_EMAILS, q=f"after:{after}"
-        ).execute()
+        listing = await asyncio.to_thread(
+            service.users().messages().list(
+                userId="me", maxResults=MAX_EMAILS, q=f"after:{after}"
+            ).execute
+        )
         ids = [m["id"] for m in listing.get("messages", [])]
         state["total"] = len(ids)
-        state["message"] = "Feldolgozás folyamatban…"
+        state["message"] = "Feldolgozás folyamatban…" if ids else "Nincs feldolgozható levél az elmúlt 30 napban."
         for mid in ids:
             if sid not in _sessions:  # visitor left mid-run
                 return
             try:
-                full = service.users().messages().get(userId="me", id=mid, format="full").execute()
+                full = await asyncio.to_thread(
+                    service.users().messages().get(userId="me", id=mid, format="full").execute
+                )
                 email = _parse(full)
                 analysis = await classify_one(email)
                 sess["analyses"].append({**email, **analysis})
+            except HTTPException as e:
+                # The shared daily budget is gone — the remaining emails would all
+                # fail the same way, so stop instead of logging 15 identical errors.
+                state["message"] = e.detail
+                return  # the finally below still counts this email as done
             except Exception as e:  # noqa - one bad email must not stop the rest
                 logger.warning("agent email failed: %s", type(e).__name__)
                 state["errors"] += 1
             finally:
                 state["done"] += 1
-        state["message"] = "Kész"
+        if ids:
+            state["message"] = "Kész"
     except Exception as e:  # noqa - a dead background task would leave the page spinning
         logger.exception("agent run failed")
         state["message"] = "Az elemzés megszakadt. Próbáld újra."

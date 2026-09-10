@@ -77,12 +77,15 @@ def test_expired_sessions_swept():
     mail_agent._sweep()
     assert "old" not in mail_agent._sessions and "new" in mail_agent._sessions
 
-def test_classifier_normalises_bad_output():
+def test_classifier_normalises_bad_output(monkeypatch):
+    """monkeypatch, not assignment: a leaked stub would silently disable the
+    real classifier for every test that runs after this one in the same worker."""
     import asyncio
     async def fake(*a, **k):
         return '{"category":"Kitalált","urgency":99,"needs_reply":"talán"}'
-    server._call_llm = fake
-    out = asyncio.get_event_loop().run_until_complete(server.classify_one({"subject":"x","body":"y"}))
+    monkeypatch.setattr(server, "_call_llm", fake)
+    monkeypatch.setitem(server._state, "cost", 0.0)
+    out = asyncio.run(server.classify_one({"subject":"x","body":"y"}))
     assert out["category"] == "Egyéb"
     assert out["urgency"] == 5
     assert out["needs_reply"] == "nem egyértelmű"

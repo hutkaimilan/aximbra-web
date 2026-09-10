@@ -4,20 +4,26 @@ Premium dark, neon AI agency marketing site (Hungarian). React (CRA) frontend + 
 
 ## Stack
 - Frontend: React 19, custom WebGL plasma shader, Lenis smooth scroll, IntersectionObserver reveals.
-- Backend: FastAPI, two demo endpoints (`/api/demo/email`, `/api/demo/lead`) calling an OpenAI model.
+- Backend: FastAPI. Live demo endpoint `/api/demo/lead`, the in-page Gmail agent under
+  `/api/agent/email/*`, and `/api/voice/health` (server-side proxy to the voice service).
 
 ## Environment variables
 
 Backend (`backend/.env`):
-- `OPENAI_API_KEY` — required for the two live demos (E-mail rendező, Érdeklődő-minősítő). Never exposed client-side.
+- `OPENAI_API_KEY` — required for the live demos (Érdeklődő-minősítő, E-mail rendező agent). Never exposed client-side.
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AGENT_REDIRECT_URI`, `FRONTEND_URL` — required by the
+  in-page Gmail agent (`/api/agent/email/*`). Without them the agent reports itself as unconfigured.
+- `AGENT_SESSION_KEY` — Fernet key for the agent session token. Only needed with more than one replica;
+  otherwise a per-process key is generated.
 - `MONGO_URL`, `DB_NAME` — present in template but unused (no database is used by this app).
-- `CORS_ORIGINS` — comma-separated allowed origins (default `*`).
+- `CORS_ORIGINS` — comma-separated allowed origins (default `*`). Credentialed CORS is enabled only when
+  explicit origins are named; the wildcard default runs without it (the session travels in a header).
 
 Frontend (`frontend/.env`):
 - `REACT_APP_BACKEND_URL` — base URL of the backend; all API calls use `${REACT_APP_BACKEND_URL}/api`.
 
 ## Live demo guardrails (server-side)
-- Daily cost ceiling: **4 USD/day** (in-memory, resets daily).
+- Daily cost ceiling: **4 USD/day** (in-memory, resets daily), shared by the demos and the Gmail agent.
 - 8 runs per session, 20 requests per IP per hour, 4000 character input cap.
 - Every model response is validated against a strict Pydantic schema; up to 2 retries, then a graceful Hungarian fallback message.
 
@@ -42,3 +48,18 @@ Four standalone demo sites live under client-side routes: `/demo/etterem`, `/dem
 - Live demo model: defaulted to `gpt-5.4-mini` (cheap, fast classification) via the user's own `OPENAI_API_KEY`. Change in `backend/server.py` if a different model is desired.
 - Cost accounting uses a fixed per-call estimate (`EST_COST_PER_CALL_USD`) since exact token cost is not read back; adjust if precise metering is needed.
 - Rate-limit / cost state is in-memory (per process). On Railway with multiple replicas each replica tracks its own counters; use a shared store (e.g. Redis) if you scale horizontally.
+
+## Tests
+- Backend: `python -m pytest` from `backend/`. The suite is fully offline — the OpenAI call is stubbed, so
+  it needs no API key and spends nothing. It covers validation, schema enforcement, the session/cost
+  limits, the graceful 502/503 paths, and the Gmail agent's read-only guarantees.
+- Frontend: no test suite yet; `yarn build` is the only gate.
+
+## Known external dependencies (migration leftovers)
+The project was migrated off the Emergent platform. Two references to that platform's hosts remain:
+- `src/demos/Etterem.jsx` and `src/demos/Szalon.jsx` load hero images from
+  `static.prod-images.emergentagent.com`. If that CDN disappears, those reference demos show broken
+  images. Self-host the images under `frontend/public/` to remove the dependency.
+- The dev-only `@emergentbase/visual-edits` package was removed from `package.json`: it was pinned to a
+  bare tarball URL (`assets.emergent.sh`), which made every `yarn install` — deploys included — depend on
+  that host staying up. `craco.config.js` already handles its absence (visual editing is simply off).
