@@ -97,24 +97,33 @@ _oauth_states: dict = {}
 _runs: set = set()
 
 
-# ---------- Never send ----------
-# gmail.modify is technically enough to call messages.send, so the guarantee
-# cannot rest on the scope alone. This proxy refuses every send-type call.
+# ---------- Sending is opt-in, per call site ----------
+# The scope cannot carry this guarantee: gmail.compose permits sending, so any
+# code path holding the service object could send. This proxy refuses send by
+# default, and the refusal travels down the chain — a Resource reached through a
+# refusing proxy refuses too. Only a proxy built explicitly with allow_send=True
+# can send, which is exactly one endpoint (/draft/send), reached only after the
+# user confirms that specific message. Everything else — the mailbox pass, the
+# draft save — holds a refusing proxy and physically cannot send.
 class SafeGmailProxy:
-    def __init__(self, target):
+    def __init__(self, target, allow_send: bool = False):
         object.__setattr__(self, "_target", target)
+        object.__setattr__(self, "_allow_send", allow_send)
 
     def __getattr__(self, name):
-        if name == "send":
-            raise PermissionError("TILTOTT Gmail művelet: az agent soha nem küld e-mailt.")
+        allow_send = object.__getattribute__(self, "_allow_send")
+        if name == "send" and not allow_send:
+            raise PermissionError(
+                "TILTOTT Gmail művelet: ez az útvonal nem küldhet e-mailt."
+            )
         attr = getattr(object.__getattribute__(self, "_target"), name)
         if callable(attr) and not isinstance(attr, Resource):
             def wrapped(*args, **kwargs):
                 result = attr(*args, **kwargs)
-                return SafeGmailProxy(result) if isinstance(result, Resource) else result
+                return SafeGmailProxy(result, allow_send) if isinstance(result, Resource) else result
             return wrapped
         if isinstance(attr, Resource):
-            return SafeGmailProxy(attr)
+            return SafeGmailProxy(attr, allow_send)
         return attr
 
 
@@ -335,6 +344,9 @@ async def callback(code: str = "", state: str = "", error: str = ""):
             # Gmail draft ids by email id, so a second confirmation updates the
             # draft it already created instead of littering the mailbox.
             "saved": {},
+            # Message ids of replies actually sent, so one email cannot be
+            # answered twice by a double click or a replayed request.
+            "sent": {},
             # Kept as the live object: the run is in-memory only, and an online
             # grant has no refresh token to rebuild credentials from.
             "creds": creds,
@@ -443,6 +455,20 @@ def _reply_subject(subject: str) -> str:
     return subject if subject[:3].lower() == "re:" else f"Re: {subject}"
 
 
+def _outgoing_body(text: str) -> str:
+    """Strip the on-page AI-draft notice from anything that leaves for Gmail.
+
+    The notice exists to tell the *visitor* the text was machine-written; it is
+    read on the page, before they accept it. Once they have read it and chosen to
+    send or save it, the message is theirs, and shipping a "this is an AI draft"
+    line to their customer would be nonsense — worse, in a saved draft it would
+    sit there waiting to be sent by accident.
+    """
+    from server import AI_NOTICE  # noqa: circular by design, runtime only
+
+    return text.replace(AI_NOTICE, "").rstrip() + "\n"
+
+
 def _build_reply_mime(email: dict, from_addr: str, subject: str, text: str) -> str:
     """RFC 2822 reply, base64url-encoded the way the Gmail API wants it.
 
@@ -512,7 +538,7 @@ async def save_draft(request: Request, body: SaveDraftBody):
     # The model writes a subject, but Gmail rejects a threadId whose subject does
     # not look like a reply to the thread, so normalise it here rather than trust it.
     subject = _reply_subject(text.get("targy") or email.get("subject"))
-    raw = _build_reply_mime(email, sess["email"], subject, text["valasz"])
+    raw = _build_reply_mime(email, sess["email"], subject, _outgoing_body(text["valasz"]))
     message = {"raw": raw}
     if email.get("thread_id"):
         message["threadId"] = email["thread_id"]
@@ -549,6 +575,98 @@ async def save_draft(request: Request, body: SaveDraftBody):
         "subject": subject,
         # Deep link to the draft in Gmail, so the visitor can read and send it.
         "gmail_url": f"https://mail.google.com/mail/u/0/#drafts?compose={draft_id}",
+    }
+
+
+class SendBody(BaseModel):
+    id: str
+    tone: Literal["hivatalos", "kozvetlen"] = "hivatalos"
+    # The final confirmation. Sending cannot be undone, so this is never defaulted
+    # and never inferred from a previous confirmation on the same email.
+    confirm: bool = False
+
+
+@router.post("/draft/send")
+async def send_draft(request: Request, body: SendBody):
+    """Send the reply the user has already read on the page.
+
+    Deliberately built as "save, then send that draft" rather than composing a
+    fresh message: what goes out is byte-for-byte the draft the user confirmed,
+    and it keeps the threading the draft already has. There is no path here that
+    sends text the user has not seen.
+    """
+    sess = _require(request)
+    if not sess.get("can_draft"):
+        raise HTTPException(
+            status_code=403,
+            detail="Ehhez a munkamenethez nincs küldési engedély. "
+                   "Csatlakozz újra, és pipáld be a vázlatírást.",
+        )
+    if not body.confirm:
+        raise HTTPException(status_code=400, detail="Megerősítés nélkül nem küldünk levelet.")
+
+    text = sess["drafts"].get(f"{body.id}:{body.tone}")
+    if not text:
+        raise HTTPException(
+            status_code=409,
+            detail="Ehhez a levélhez még nincs fogalmazvány. Fogalmazd meg előbb.",
+        )
+    if sess["sent"].get(body.id):
+        raise HTTPException(
+            status_code=409,
+            detail="Erre a levélre már küldtünk választ ebben a munkamenetben.",
+        )
+    email = next((d for d in sess["analyses"] if d.get("id") == body.id), None)
+    if not email:
+        raise HTTPException(status_code=404, detail="Ez a levél nem szerepel a futásban.")
+    recipient = _reply_recipient(email)
+    if not recipient:
+        raise HTTPException(status_code=422, detail="A levélnek nincs válaszolható feladója.")
+
+    # The one place in this file that may send. Everything else holds a proxy
+    # that refuses.
+    service = SafeGmailProxy(
+        await asyncio.to_thread(build, "gmail", "v1", credentials=sess["creds"]),
+        allow_send=True,
+    )
+    subject = _reply_subject(text.get("targy") or email.get("subject"))
+    raw = _build_reply_mime(email, sess["email"], subject, _outgoing_body(text["valasz"]))
+    message = {"raw": raw}
+    if email.get("thread_id"):
+        message["threadId"] = email["thread_id"]
+
+    try:
+        draft_id = sess["saved"].get(body.id)
+        if draft_id:
+            await asyncio.to_thread(
+                service.users().drafts().update(
+                    userId="me", id=draft_id, body={"message": message}
+                ).execute
+            )
+        else:
+            created = await asyncio.to_thread(
+                service.users().drafts().create(userId="me", body={"message": message}).execute
+            )
+            draft_id = created.get("id")
+            sess["saved"][body.id] = draft_id
+        sent = await asyncio.to_thread(
+            service.users().drafts().send(userId="me", body={"id": draft_id}).execute
+        )
+    except Exception as e:  # noqa - a Gmail refusal must not 500 into the browser
+        logger.warning("send failed: %s", type(e).__name__)
+        raise HTTPException(
+            status_code=502,
+            detail="A Gmail nem küldte el a levelet. Nézd meg a Vázlatok közt, "
+                   "és onnan küldd el kézzel.",
+        )
+
+    sess["sent"][body.id] = sent.get("id")
+    sess["saved"].pop(body.id, None)  # the draft became a sent message
+    return {
+        "message_id": sent.get("id"),
+        "thread_id": sent.get("threadId"),
+        "to": recipient,
+        "subject": subject,
     }
 
 

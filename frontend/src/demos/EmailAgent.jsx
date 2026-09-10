@@ -72,9 +72,12 @@ const DraftPanel = ({ email, canDraft }) => {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  // "save" and "send" are tracked separately on purpose: confirming a save must
+  // never be mistaken for confirming a send, which cannot be undone.
+  const [confirming, setConfirming] = useState(null); // null | "save" | "send"
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(null);
+  const [sent, setSent] = useState(null);
 
   const write = async (nextTone) => {
     const useTone = nextTone || tone;
@@ -85,7 +88,7 @@ const DraftPanel = ({ email, canDraft }) => {
       // A reworded draft is not the one that was saved; make the visitor confirm
       // again rather than leaving a stale "saved" badge next to new text.
       setSaved(null);
-      setConfirming(false);
+      setConfirming(null);
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -97,7 +100,20 @@ const DraftPanel = ({ email, canDraft }) => {
     setSaving(true); setErr("");
     try {
       setSaved(await post("/draft/save", { id: email.id, tone, confirm: true }));
-      setConfirming(false);
+      setConfirming(null);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const sendNow = async () => {
+    setSaving(true); setErr("");
+    try {
+      setSent(await post("/draft/send", { id: email.id, tone, confirm: true }));
+      setConfirming(null);
+      setSaved(null);
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -154,23 +170,32 @@ const DraftPanel = ({ email, canDraft }) => {
             <button className="agent-draft-copy" onClick={copy}>
               {copied ? "Kimásolva" : "Másolás"}
             </button>
-            {canDraft && !saved && !confirming && (
-              <button className="agent-draft-save" onClick={() => setConfirming(true)}
-                disabled={saving} data-testid={`agent-save-${email.id}`}>
-                Mentés a Gmail vázlatok közé
-              </button>
+            {canDraft && !sent && !confirming && (
+              <>
+                {!saved && (
+                  <button className="agent-draft-save" onClick={() => setConfirming("save")}
+                    disabled={saving} data-testid={`agent-save-${email.id}`}>
+                    Mentés a Gmail vázlatok közé
+                  </button>
+                )}
+                <button className="agent-draft-send" onClick={() => setConfirming("send")}
+                  disabled={saving} data-testid={`agent-send-${email.id}`}>
+                  E-mail elküldése
+                </button>
+              </>
             )}
             <span className="agent-draft-note">
               {canDraft
-                ? "Az agent nem küldi el — a vázlatot te nyitod meg és te küldöd."
+                ? "Küldés előtt még egyszer rákérdezünk — elküldeni csak te tudod."
                 : "Fogalmazvány — az agent nem küldi el, és a fiókodba sem írja be."}
             </span>
           </div>
 
-          {/* The confirmation. Deliberately a second click on a separate control,
-              not a confirm() dialog, so the visitor reads what will happen and to
-              whom before the mailbox is touched. */}
-          {confirming && (
+          {/* Confirmations are a second click on a separate control, not a
+              confirm() dialog, so what will happen and to whom is on screen when
+              the decision is made. Save and send are separate states: confirming
+              one must never send the other. */}
+          {confirming === "save" && (
             <div className="agent-confirm" data-testid={`agent-confirm-${email.id}`}>
               <p>
                 Vázlatot írok a Gmail-fiókodba <b>{email.sender}</b> levelére,
@@ -182,11 +207,47 @@ const DraftPanel = ({ email, canDraft }) => {
                   data-testid={`agent-confirm-yes-${email.id}`}>
                   {saving ? <><span className="spin" /> Mentés…</> : "Megerősítem, mentsd vázlatként"}
                 </button>
-                <button className="agent-confirm-no" onClick={() => setConfirming(false)}
+                <button className="agent-confirm-no" onClick={() => setConfirming(null)}
                   disabled={saving}>
                   Mégsem
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Sending is the one thing here that cannot be undone, so its
+              confirmation looks different, names the recipient and says so. */}
+          {confirming === "send" && (
+            <div className="agent-confirm danger" data-testid={`agent-confirm-send-${email.id}`}>
+              <p>
+                <b>Most tényleg elküldöm ezt a levelet.</b>
+              </p>
+              <ul className="agent-confirm-facts">
+                <li><span>Címzett</span><b>{email.sender}</b></li>
+                <li><span>Tárgy</span><b>{draft.targy}</b></li>
+                <li><span>Feladó</span><b>a te Gmail-fiókod</b></li>
+              </ul>
+              <p className="agent-confirm-warn">
+                Ez nem vonható vissza. Olvasd át a fenti szöveget — a
+                szögletes zárójeles részeket ({"["}így{"]"}) neked kell kitöltened,
+                mielőtt elküldöd.
+              </p>
+              <div className="agent-confirm-row">
+                <button className="agent-confirm-send" onClick={sendNow} disabled={saving}
+                  data-testid={`agent-confirm-send-yes-${email.id}`}>
+                  {saving ? <><span className="spin" /> Küldés…</> : "Igen, küldd el most"}
+                </button>
+                <button className="agent-confirm-no" onClick={() => setConfirming(null)}
+                  disabled={saving}>
+                  Mégsem
+                </button>
+              </div>
+            </div>
+          )}
+
+          {sent && (
+            <div className="agent-sent" data-testid={`agent-sent-${email.id}`}>
+              <b>Elküldve.</b> Címzett: {sent.to} · Tárgy: {sent.subject}
             </div>
           )}
 
@@ -223,6 +284,7 @@ export default function EmailAgent({ embedded = false }) {
   // Off by default, and deliberately not remembered: handing over write access to
   // a mailbox is a decision to take each time, not one to inherit from last visit.
   const [allowDrafts, setAllowDrafts] = useState(false);
+  const [onlyNeedsReply, setOnlyNeedsReply] = useState(false);
   const [openId, setOpenId] = useState(null);
   const timer = useRef(null);
 
@@ -476,10 +538,24 @@ export default function EmailAgent({ embedded = false }) {
                     <div className="k">Feldolgozott levél</div>
                     <div className="v">{results.total}</div>
                   </div>
-                  <div className="agent-tile">
+                  {/* Clickable: filters the list below to the emails this number
+                      counts. Disabled at zero — a filter that yields nothing is a
+                      dead end, not a feature. */}
+                  <button
+                    type="button"
+                    className={`agent-tile agent-tile-btn ${onlyNeedsReply ? "on" : ""}`}
+                    onClick={() => setOnlyNeedsReply((v) => !v)}
+                    disabled={results.needs_reply === 0}
+                    aria-pressed={onlyNeedsReply}
+                    data-testid="agent-tile-needs-reply">
                     <div className="k">Válasz szükséges</div>
                     <div className="v accent">{results.needs_reply}</div>
-                  </div>
+                    {results.needs_reply > 0 && (
+                      <div className="agent-tile-hint">
+                        {onlyNeedsReply ? "Mind a levél mutatása" : "Mutasd ezeket"}
+                      </div>
+                    )}
+                  </button>
                   <div className="agent-tile wide">
                     <div className="k">Legsürgősebb</div>
                     <ul className="agent-top-list">
@@ -505,12 +581,27 @@ export default function EmailAgent({ embedded = false }) {
                     ))}
                 </div>
 
+                {onlyNeedsReply && (
+                  <div className="agent-filter-note" data-testid="agent-filter-note">
+                    Csak a válaszra váró levelek látszanak.{" "}
+                    <button type="button" onClick={() => setOnlyNeedsReply(false)}>
+                      Mutasd mind a {results.total} levelet
+                    </button>
+                  </div>
+                )}
+
                 <div className="agent-list">
-                  {results.analyses.map((e) => {
+                  {results.analyses
+                    .filter((e) => !onlyNeedsReply || e.needs_reply === "igen")
+                    .map((e) => {
                     const u = urgencyOf(e.urgency);
                     const open = openId === e.id;
+                    const needs = e.needs_reply === "igen";
                     return (
-                      <div className={`agent-row ${u.cls}`} key={e.id}>
+                      // `needs` paints the row in the same cyan as the tile's
+                      // number, so the count and the emails it refers to read as
+                      // one thing.
+                      <div className={`agent-row ${u.cls}${needs ? " needs" : ""}`} key={e.id}>
                         <button className="agent-row-head" onClick={() => setOpenId(open ? null : e.id)}>
                           <div className="agent-row-main">
                             <div className="agent-row-from">{e.sender}</div>

@@ -8,6 +8,7 @@ BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 os.environ.setdefault("OPENAI_API_KEY", "sk-test")
 import pytest, server, mail_agent
+from googleapiclient.discovery import Resource
 from fastapi.testclient import TestClient
 c = TestClient(server.app)
 
@@ -152,6 +153,7 @@ def _session_with(analyses):
         "can_draft": False,
         "drafts": {},
         "saved": {},
+        "sent": {},
         "state": mail_agent._new_state(),
         "created_at": datetime.now(timezone.utc),
     }
@@ -289,16 +291,45 @@ def test_bad_model_output_is_a_502_not_a_crash(monkeypatch):
         mail_agent._sessions.pop(sid, None)
 
 
-def test_drafting_never_sends():
-    """Writing a draft is allowed now; sending one never is. The line that must
-    not move is send, in any form — drafts().send() included."""
-    src = open(BACKEND / "mail_agent.py").read()
-    for forbidden in (".send(", "messages().send", "drafts().send", "gmail.send"):
-        assert forbidden not in src, forbidden
-    # the send block is still the code-level guarantee, not just an absent call
+def test_sending_is_refused_by_default_and_down_the_chain():
+    """Sending is now possible, on one confirmed path. Everywhere else the proxy
+    must still refuse — including on a Resource reached through it, or the refusal
+    would only be skin deep."""
     class D: pass
     with pytest.raises(PermissionError):
         _ = mail_agent.SafeGmailProxy(D()).send
+
+    class FakeResource(Resource):
+        def __init__(self):
+            pass
+
+    class Users:
+        def messages(self):
+            return FakeResource()
+
+    # a nested Resource inherits the refusal
+    nested = mail_agent.SafeGmailProxy(Users()).messages()
+    with pytest.raises(PermissionError):
+        _ = nested.send
+    # and an explicitly permitted proxy passes it down
+    permitted = mail_agent.SafeGmailProxy(Users(), allow_send=True).messages()
+    assert permitted is not None
+
+
+def test_only_one_call_site_may_send():
+    """Grepping is the point: a second allow_send=True somewhere else would be a
+    second way to send mail, and this test is what makes that a deliberate act."""
+    src = open(BACKEND / "mail_agent.py").read()
+    # Comment lines are stripped first: the docstring above SafeGmailProxy names
+    # allow_send=True in prose, and counting prose would make this test lie.
+    code = "\n".join(
+        line for line in src.splitlines() if not line.lstrip().startswith("#")
+    )
+    assert code.count("allow_send=True") == 1, "more than one code path can send"
+    # and it lives in the confirmed send endpoint, not somewhere incidental
+    idx = code.index("allow_send=True")
+    enclosing = code.rindex("async def ", 0, idx)
+    assert "async def send_draft" in code[enclosing:enclosing + 40]
 
 
 def test_read_only_is_still_the_default_grant():
@@ -561,3 +592,181 @@ def test_connect_carries_the_draft_choice_into_the_oauth_state(monkeypatch):
     assert seen["with_compose"] is True
     assert mail_agent._oauth_states["state-1"]["with_compose"] is True
     mail_agent._oauth_states.clear()
+
+
+# ---------------- sending ----------------
+class FakeDraftsSend(FakeDrafts):
+    def send(self, userId, body):
+        self.store.append(("send", userId, body["id"]))
+        return _Exec({"id": "sent-1", "threadId": "t99"})
+
+
+class FakeUsersSend(FakeUsers):
+    def __init__(self, store):
+        self._d = FakeDraftsSend(store)
+
+
+class FakeServiceSend(FakeService):
+    def __init__(self, store):
+        self._u = FakeUsersSend(store)
+
+
+@pytest.fixture
+def gmail_send_calls(monkeypatch):
+    calls = []
+    monkeypatch.setattr(mail_agent, "build", lambda *a, **k: FakeServiceSend(calls))
+    monkeypatch.setattr(mail_agent, "SafeGmailProxy", lambda target, allow_send=False: target)
+    return calls
+
+
+def test_send_requires_a_session():
+    r = c.post("/api/agent/email/draft/send", json={"id": "m1", "confirm": True})
+    assert r.status_code == 401
+
+
+def test_send_is_refused_without_the_grant(gmail_send_calls):
+    sid, h = _session_ready_to_save(can_draft=False)
+    try:
+        r = c.post("/api/agent/email/draft/send",
+                   json={"id": "m1", "confirm": True}, headers=h)
+        assert r.status_code == 403
+        assert gmail_send_calls == [], "Gmail was touched without the grant"
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_send_is_refused_without_confirmation(gmail_send_calls):
+    """Sending cannot be undone; an unconfirmed request must never reach Gmail."""
+    sid, h = _session_ready_to_save()
+    try:
+        for payload in ({"id": "m1"}, {"id": "m1", "confirm": False}):
+            r = c.post("/api/agent/email/draft/send", json=payload, headers=h)
+            assert r.status_code == 400, payload
+            assert "Megerősítés nélkül nem küldünk" in r.json()["detail"]
+        assert gmail_send_calls == []
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_send_needs_an_existing_draft(gmail_send_calls):
+    """Nothing is ever sent that the user has not read on the page."""
+    sid, h = _session_with([dict(THREADED)])
+    mail_agent._sessions[sid]["can_draft"] = True
+    try:
+        r = c.post("/api/agent/email/draft/send",
+                   json={"id": "m1", "confirm": True}, headers=h)
+        assert r.status_code == 409
+        assert gmail_send_calls == []
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_confirmed_send_creates_then_sends_that_draft(gmail_send_calls):
+    sid, h = _session_ready_to_save()
+    try:
+        r = c.post("/api/agent/email/draft/send",
+                   json={"id": "m1", "confirm": True}, headers=h)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["message_id"] == "sent-1"
+        assert body["to"] == "a@b.hu"
+        assert body["subject"] == "Re: Árajánlat"
+
+        ops = [call[0] for call in gmail_send_calls]
+        assert ops == ["create", "send"], ops
+        # what is sent is the draft that was built, by id — not a second compose
+        assert gmail_send_calls[1][2] == "draft-1"
+        msg = message_from_bytes(
+            base64.urlsafe_b64decode(gmail_send_calls[0][2]["message"]["raw"]),
+            policy=policy.default,
+        )
+        assert msg["To"] == "a@b.hu"
+        assert msg["In-Reply-To"] == "<orig@pelda.hu>"
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_send_reuses_an_already_saved_draft(gmail_send_calls):
+    """If the user saved first and then sent, the saved draft is updated and sent,
+    not duplicated."""
+    sid, h = _session_ready_to_save()
+    mail_agent._sessions[sid]["saved"]["m1"] = "draft-existing"
+    try:
+        c.post("/api/agent/email/draft/send", json={"id": "m1", "confirm": True}, headers=h)
+        ops = [call[0] for call in gmail_send_calls]
+        assert ops == ["update", "send"], ops
+        assert gmail_send_calls[1][2] == "draft-existing"
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_one_email_cannot_be_answered_twice(gmail_send_calls):
+    """A double click or a replayed request must not send a second reply."""
+    sid, h = _session_ready_to_save()
+    try:
+        first = c.post("/api/agent/email/draft/send",
+                       json={"id": "m1", "confirm": True}, headers=h)
+        assert first.status_code == 200
+        second = c.post("/api/agent/email/draft/send",
+                        json={"id": "m1", "confirm": True}, headers=h)
+        assert second.status_code == 409
+        assert "már küldtünk választ" in second.json()["detail"]
+        assert [call[0] for call in gmail_send_calls].count("send") == 1
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_sent_message_carries_no_ai_draft_notice(gmail_send_calls):
+    """The notice is for the reader of the page, not for the recipient: shipping
+    'this is an AI draft' to a customer would be nonsense."""
+    sid, h = _session_ready_to_save()
+    mail_agent._sessions[sid]["drafts"]["m1:hivatalos"] = {
+        "tone": "hivatalos", "targy": "Árajánlat",
+        "valasz": f"Kedves A!\n\nKöszönjük.\n\n{server.AI_NOTICE}",
+    }
+    try:
+        c.post("/api/agent/email/draft/send", json={"id": "m1", "confirm": True}, headers=h)
+        msg = message_from_bytes(
+            base64.urlsafe_b64decode(gmail_send_calls[0][2]["message"]["raw"]),
+            policy=policy.default,
+        )
+        content = msg.get_content()
+        assert server.AI_NOTICE not in content
+        assert "Köszönjük" in content
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_saved_draft_carries_no_ai_draft_notice_either(gmail_calls):
+    """A saved draft is one click from going out, so it must not carry it either."""
+    sid, h = _session_ready_to_save()
+    mail_agent._sessions[sid]["drafts"]["m1:hivatalos"] = {
+        "tone": "hivatalos", "targy": "Árajánlat",
+        "valasz": f"Kedves A!\n\nKöszönjük.\n\n{server.AI_NOTICE}",
+    }
+    try:
+        c.post("/api/agent/email/draft/save", json={"id": "m1", "confirm": True}, headers=h)
+        msg = message_from_bytes(
+            base64.urlsafe_b64decode(gmail_calls[0][2]["message"]["raw"]),
+            policy=policy.default,
+        )
+        assert server.AI_NOTICE not in msg.get_content()
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_send_failure_is_a_502_and_does_not_mark_it_sent(monkeypatch):
+    class Boom:
+        def users(self):
+            raise RuntimeError("gmail said no")
+    monkeypatch.setattr(mail_agent, "build", lambda *a, **k: Boom())
+    monkeypatch.setattr(mail_agent, "SafeGmailProxy", lambda t, allow_send=False: t)
+    sid, h = _session_ready_to_save()
+    try:
+        r = c.post("/api/agent/email/draft/send",
+                   json={"id": "m1", "confirm": True}, headers=h)
+        assert r.status_code == 502
+        assert "Vázlatok" in r.json()["detail"], "a failed send should point somewhere useful"
+        assert mail_agent._sessions[sid]["sent"] == {}, "a failed send must not block a retry"
+    finally:
+        mail_agent._sessions.pop(sid, None)

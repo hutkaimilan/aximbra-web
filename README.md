@@ -83,12 +83,33 @@ The draft is threaded onto the original conversation: Gmail's `threadId` plus re
 message. Re-confirming after a reword **updates** the same draft instead of leaving near-duplicates, and
 rewording clears the saved badge so it never sits next to text that was not saved.
 
-**It is still never sent.** `SafeGmailProxy` refuses every send-type call — `drafts().send()` included — and
-a test asserts no send call exists in the source. Existing mail is never altered either: no labelling,
-starring, trashing or modifying, also held by a test. Be straight about the trade-off, because the page is:
-Google has **no draft-only scope**, so `gmail.compose` also permits sending. The grant is therefore wider
-than what this code uses, Google's consent screen will say so, and the checkbox text says so too before it
-can be ticked. `gmail.modify` is still never requested — that would allow altering existing mail.
+### Sending
+`POST /draft/send` sends the reply the user has already read, behind the same permission gate plus its own
+final confirmation. It is built as *save the draft, then send that draft* rather than composing a fresh
+message: what goes out is the draft the user confirmed, with the threading it already has, and there is no
+path that sends text nobody has seen.
+
+`SafeGmailProxy` is what keeps this to one path. It refuses `send` by default and the refusal travels down
+the chain — a Resource reached through a refusing proxy refuses too — so the mailbox pass and the draft
+save physically cannot send. Only a proxy built with `allow_send=True` can, and a test asserts there is
+**exactly one** such construction in the file and that it sits inside `send_draft`. Adding a second one is
+therefore a deliberate act that fails the suite.
+
+Other guards: an email already answered in this session returns 409, so a double click or a replayed
+request cannot send twice; a failed send does not mark it sent, so a retry stays possible; and the send
+never happens without `confirm: true`.
+
+Existing mail is still never altered — no labelling, starring, trashing or modifying — held by a test.
+`gmail.modify` is still never requested.
+
+**The AI-draft notice is stripped from anything that reaches Gmail.** It exists to tell the person reading
+the *page* that the text was machine-written, before they accept it. Once they have read it and chosen to
+send or save it, the message is theirs; shipping "this is an AI draft" to their customer would be nonsense,
+and in a saved draft it would sit there waiting to go out by accident.
+
+Be straight about the trade-off, because the page is: Google has **no draft-only scope**, so
+`gmail.compose` covers both drafting and sending. The grant is what makes sending possible at all, Google's
+consent screen says so, and the checkbox text says so before it can be ticked.
 
 ## Before the Gmail agent goes public
 `gmail.readonly` is a Google **restricted** scope. Offering it to the public needs all three of:

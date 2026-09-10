@@ -2,11 +2,15 @@
 
 /* ============ SHARED DEMO BAR ============ */
 .demo-page { min-height: 100vh; }
-[class$="-bar"] { position: fixed; top: 0; left: 0; right: 0; z-index: 50; display: flex; align-items: center;
-  justify-content: space-between; padding: 18px 32px; }
-[class$="-back"] { text-decoration: none; font-size: 14px; letter-spacing: .02em; }
-[class$="-lang"] { font-family: 'Poppins', sans-serif; font-size: 12px; padding: 8px 12px; border-radius: 8px;
-  cursor: pointer; -webkit-appearance: none; appearance: none; }
+/* Named explicitly, never as [class$="-bar"]. Create React App bundles every
+   imported stylesheet into one global sheet, so a suffix selector like that
+   reaches across the whole app: it pinned the email agent's own -bar elements
+   (its draft controls, progress bar and category bars) to the top of the page. */
+.rst-bar, .sln-bar, .med-bar, .law-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between; padding: 18px 32px; }
+.rst-back, .sln-back, .med-back, .law-back { text-decoration: none; font-size: 14px; letter-spacing: .02em; }
+.rst-lang, .sln-lang, .med-lang, .law-lang { font-family: 'Poppins', sans-serif; font-size: 12px;
+  padding: 8px 12px; border-radius: 8px; cursor: pointer; -webkit-appearance: none; appearance: none; }
 .demo-section { padding: clamp(70px, 10vw, 130px) 0; }
 .demo-container { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 28px; }
 
@@ -184,7 +188,8 @@
    The bars are fixed by the shared rule above; inside this wrapper they go back
    into normal flow so the two stack without a hand-tuned offset. */
 .demo-top { position: fixed; top: 0; left: 0; right: 0; z-index: 60; }
-.demo-top > [class$="-bar"] { position: static; }
+.demo-top > .rst-bar, .demo-top > .sln-bar,
+.demo-top > .med-bar, .demo-top > .law-bar { position: static; }
 .demo-notice {
   display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
   padding: 9px 20px;
