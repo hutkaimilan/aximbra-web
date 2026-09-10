@@ -163,3 +163,52 @@
 .agent-closed p:last-child { margin-bottom: 0; }
 .agent-closed b { color: #FFD9A0; }
 .agent-closed a { color: #FFB020; }
+
+/* ---------- Reply draft ---------- */
+.agent-draft { margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(120,200,255,.16); }
+.agent-draft-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.agent-draft-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px; border: 1px solid rgba(120,200,255,.45); border-radius: 8px;
+  background: rgba(120,200,255,.1); color: #CDEBFF;
+  font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  transition: background .2s ease, border-color .2s ease;
+}
+.agent-draft-btn:hover:not(:disabled) { background: rgba(120,200,255,.2); border-color: #7FC4F5; }
+.agent-draft-btn:disabled { opacity: .6; cursor: default; }
+
+.agent-draft-tones { display: inline-flex; border: 1px solid rgba(120,200,255,.22); border-radius: 8px; overflow: hidden; }
+.agent-tone {
+  padding: 9px 14px; border: none; background: transparent; color: #8FA3B8;
+  font-family: inherit; font-size: 12.5px; cursor: pointer; transition: background .2s ease, color .2s ease;
+}
+.agent-tone + .agent-tone { border-left: 1px solid rgba(120,200,255,.22); }
+.agent-tone:hover:not(:disabled) { color: #CDEBFF; }
+.agent-tone.on { background: rgba(120,200,255,.16); color: #CDEBFF; font-weight: 600; }
+.agent-tone:disabled { opacity: .55; cursor: default; }
+
+.agent-draft-err { margin-top: 10px; font-size: 13px; color: #FFB4A8; }
+
+.agent-draft-out { margin-top: 14px; }
+.agent-draft-subj { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; font-size: 14px; color: #DCE6F2; }
+.agent-draft-subj .k { flex: none; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: #7FC4F5; }
+.agent-draft-text {
+  width: 100%; box-sizing: border-box; resize: vertical;
+  padding: 14px; border: 1px solid rgba(120,200,255,.22); border-radius: 10px;
+  background: rgba(6,12,22,.7); color: #C8D4E2;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.65;
+}
+.agent-draft-text:focus { outline: none; border-color: #7FC4F5; }
+.agent-draft-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+.agent-draft-copy {
+  padding: 8px 16px; border: 1px solid rgba(120,200,255,.35); border-radius: 8px;
+  background: transparent; color: #9FD4FF; font-family: inherit; font-size: 13px; cursor: pointer;
+  transition: background .2s ease;
+}
+.agent-draft-copy:hover { background: rgba(120,200,255,.14); }
+.agent-draft-note { font-size: 12px; color: #8FA3B8; }
+@media (max-width: 600px) {
+  .agent-draft-bar { gap: 10px; }
+  .agent-draft-btn, .agent-tone { font-size: 12.5px; }
+  .agent-draft-foot { gap: 10px; }
+}

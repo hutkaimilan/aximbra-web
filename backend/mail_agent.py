@@ -15,7 +15,10 @@ import re
 from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
 
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
 from fastapi.responses import RedirectResponse
 from cryptography.fernet import Fernet
 from google_auth_oauthlib.flow import Flow
@@ -71,6 +74,10 @@ SESSION_TTL_SECONDS = 30 * 60
 MAX_EMAILS = 15
 MAX_SESSIONS = 40
 LOOKBACK_DAYS = 30
+# Drafts are the most expensive call here (longer output than a classification),
+# and they are user-triggered rather than part of the run, so they get their own
+# per-session cap on top of the shared daily ceiling.
+MAX_DRAFTS_PER_SESSION = 6
 
 _sessions: dict = {}
 _oauth_states: dict = {}
@@ -271,6 +278,10 @@ async def callback(code: str = "", state: str = "", error: str = ""):
         sid = os.urandom(16).hex()
         _sessions[sid] = {
             "email": email,
+            # Drafts the visitor asked for, keyed by "<email id>:<tone>" so asking
+            # for the same one twice is free. Dies with the session like everything
+            # else here.
+            "drafts": {},
             # Kept as the live object: the run is in-memory only, and an online
             # grant has no refresh token to rebuild credentials from.
             "creds": creds,
@@ -326,6 +337,44 @@ async def results(request: Request):
         "needs_reply": len([d for d in docs if d.get("needs_reply") == "igen"]),
         "top_urgent": docs[:3],
     }
+
+
+class DraftBody(BaseModel):
+    id: str
+    tone: Literal["hivatalos", "kozvetlen"] = "hivatalos"
+
+
+@router.post("/draft")
+async def draft(request: Request, body: DraftBody):
+    """Write a reply draft for one email from this session's own run.
+
+    Takes an email id, never raw text: the text comes from what this session
+    already read, so the endpoint cannot be used as an open LLM proxy by anyone
+    holding a session token.
+    """
+    from server import draft_one  # noqa: circular by design, runtime only
+
+    sess = _require(request)
+    cache_key = f"{body.id}:{body.tone}"
+    cached = sess["drafts"].get(cache_key)
+    if cached:
+        return {**cached, "cached": True}
+
+    email = next((d for d in sess["analyses"] if d.get("id") == body.id), None)
+    if not email:
+        raise HTTPException(status_code=404, detail="Ez a levél nem szerepel a futásban.")
+
+    # Count distinct drafts, so re-reading a cached one is not charged twice.
+    if len(sess["drafts"]) >= MAX_DRAFTS_PER_SESSION:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Ebben a munkamenetben {MAX_DRAFTS_PER_SESSION} fogalmazvány a keret. "
+                   "Frissítsd az oldalt, vagy írj nekünk.",
+        )
+
+    result = await draft_one(email, body.tone)
+    sess["drafts"][cache_key] = result
+    return {**result, "cached": False}
 
 
 async def run_agent(sid: str):

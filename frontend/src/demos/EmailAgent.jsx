@@ -39,6 +39,110 @@ const get = (path) => fetch(`${API}${path}`, {
   return data;
 });
 
+const post = (path, body) => fetch(`${API}${path}`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    ...(token() ? { "X-Agent-Session": token() } : {}),
+  },
+  body: JSON.stringify(body),
+}).then(async (r) => {
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || "Hiba");
+  return data;
+});
+
+const TONES = [["hivatalos", "Hivatalos"], ["kozvetlen", "Közvetlen"]];
+
+/**
+ * Reply draft for one email.
+ *
+ * Drafting is on demand rather than part of the run: it is the most expensive
+ * call here, and most of a mailbox does not need an answer. Each panel owns its
+ * own state so one email's draft cannot interfere with another's.
+ *
+ * The text stays on the page. Nothing is written to the mailbox and nothing is
+ * sent — copying it out is a deliberate step the visitor takes.
+ */
+const DraftPanel = ({ email }) => {
+  const [tone, setTone] = useState("hivatalos");
+  const [draft, setDraft] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const write = async (nextTone) => {
+    const useTone = nextTone || tone;
+    setBusy(true); setErr(""); setCopied(false);
+    try {
+      setDraft(await post("/draft", { id: email.id, tone: useTone }));
+      setTone(useTone);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copy = async () => {
+    const text = `${draft.targy}\n\n${draft.valasz}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard needs a secure context and permission; select the text instead
+      setErr("A vágólap nem elérhető — jelöld ki a szöveget és másold ki kézzel.");
+    }
+  };
+
+  return (
+    <div className="agent-draft" data-testid={`agent-draft-${email.id}`}>
+      <div className="agent-draft-bar">
+        <button className="agent-draft-btn" onClick={() => write()} disabled={busy}
+          data-testid={`agent-draft-go-${email.id}`}>
+          {busy ? <><span className="spin" /> Fogalmazás…</>
+                : draft ? "Újrafogalmazás" : "Megfogalmazom a választ"}
+        </button>
+        <div className="agent-draft-tones" role="group" aria-label="Hangnem">
+          {TONES.map(([value, label]) => (
+            <button key={value} type="button"
+              className={`agent-tone ${tone === value ? "on" : ""}`}
+              aria-pressed={tone === value}
+              disabled={busy}
+              onClick={() => (draft ? write(value) : setTone(value))}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {err && <div className="agent-draft-err">{err}</div>}
+
+      {draft && (
+        <div className="agent-draft-out">
+          <div className="agent-draft-subj">
+            <span className="k">Tárgy</span>
+            <span>{draft.targy}</span>
+          </div>
+          {/* readOnly, not disabled: the text stays selectable and copyable. */}
+          <textarea className="agent-draft-text" readOnly value={draft.valasz}
+            rows={Math.min(18, draft.valasz.split("\n").length + 2)}
+            data-testid={`agent-draft-text-${email.id}`} />
+          <div className="agent-draft-foot">
+            <button className="agent-draft-copy" onClick={copy}>
+              {copied ? "Kimásolva" : "Másolás"}
+            </button>
+            <span className="agent-draft-note">
+              Fogalmazvány — az agent nem küldi el, és a fiókodba sem írja be.
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function EmailAgent({ embedded = false }) {
   // Only the standalone route owns the document title; the homepage embeds the
   // same component and must keep its own metadata.
@@ -316,6 +420,7 @@ export default function EmailAgent({ embedded = false }) {
                             <p>{e.next_step || "—"}</p>
                             <div className="k">A levél</div>
                             <pre>{e.body || e.snippet || "(üres)"}</pre>
+                            <DraftPanel email={e} />
                           </div>
                         )}
                       </div>

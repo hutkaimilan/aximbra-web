@@ -284,6 +284,91 @@ async def classify_one(email: dict) -> dict:
     }
 
 
+# ---------- Reply drafting (in-page only, never sent) ----------
+AI_NOTICE = "— AI-fogalmazvány, küldés előtt olvasd át. —"
+
+DRAFT_TONES = {
+    "hivatalos": "hivatalos, tisztelettudó, magázódó üzleti hangnem",
+    "kozvetlen": "közvetlen, barátságos, tegező hangnem, de nem bizalmaskodó",
+}
+
+
+class DraftResult(BaseModel):
+    targy: str
+    valasz: str
+
+    @field_validator("targy")
+    @classmethod
+    def _cap_t(cls, v):
+        return v.strip()[:120]
+
+    @field_validator("valasz")
+    @classmethod
+    def _notice(cls, v):
+        # The draft always carries its own notice, even when the model drops it:
+        # the text is meant to be copied out of the page, and it must not arrive in
+        # someone's inbox looking like it was written by a person.
+        v = v.strip()[:4000]
+        return v if AI_NOTICE in v else f"{v}\n\n{AI_NOTICE}"
+
+
+DRAFT_SYS = (
+    "Te egy magyar vállalkozás e-mail-asszisztense vagy. Egyetlen bejövő levelet kapsz, és megírod rá "
+    "a VÁLASZLEVÉL fogalmazványát a címzett helyett. "
+    "KIZÁRÓLAG érvényes JSON objektummal válaszolj, magyarázat nélkül, ezekkel a kulcsokkal: "
+    "targy (a válasz tárgysora, max 120 karakter), valasz (a válaszlevél teljes szövege, megszólítással és aláírással). "
+    "Szabályok: a válasz nyelve egyezzen a bejövő levél nyelvével. Hangnem: {tone}. "
+    "SOHA ne találj ki tényt, árat, határidőt, nevet vagy elérhetőséget: ha egy adat nem derül ki a levélből, "
+    "hagyj a helyén szögletes zárójeles kitöltendő részt, például [dátum] vagy [összeg]. "
+    "Az aláírásba se írj kitalált nevet: ott is [a te neved] szerepeljen. "
+    "Ne ígérj semmit a feladónak, amit a levél nem támaszt alá. "
+    "A valasz mező legvégére külön sorban mindig kerüljön ez a pontos sor: " + AI_NOTICE
+)
+
+
+async def draft_one(email: dict, tone: str = "hivatalos") -> dict:
+    """Write a reply draft for one email. Shares the demos' daily cost ceiling.
+
+    Drafting only: the text is returned to the page for the visitor to read and
+    copy. Nothing is written back to the mailbox and nothing is ever sent — see
+    the send block in mail_agent.SafeGmailProxy.
+    """
+    _reset_if_new_day()
+    if _state["cost"] >= DAILY_COST_CEILING_USD:
+        raise HTTPException(status_code=429, detail="Az agent mára elérte a napi keretét.")
+    if tone not in DRAFT_TONES:
+        tone = "hivatalos"
+    text = (
+        f"Feladó: {email.get('sender', '')}\n"
+        f"Tárgy: {email.get('subject', '')}\n"
+        f"Dátum: {email.get('date', '')}\n\n"
+        f"Levél törzse:\n{(email.get('body') or email.get('snippet') or '')[:6000]}"
+    )
+    system_msg = DRAFT_SYS.format(tone=DRAFT_TONES[tone])
+
+    last_err = None
+    for _ in range(3):  # 1 try + 2 retries, same as the other demos
+        try:
+            raw = await _call_llm(system_msg, text, max_tokens=1100)
+            _state["cost"] += EST_COST_PER_CALL_USD
+            result = DraftResult(**_parse_json(raw))
+            return {"tone": tone, **result.model_dump()}
+        except HTTPException:
+            raise
+        except (json.JSONDecodeError, ValidationError, ValueError) as e:
+            last_err = e
+            continue
+        except Exception as e:  # noqa
+            last_err = e
+            logger.error(f"draft error: {e}")
+            continue
+    logger.warning(f"draft gave up: {last_err}")
+    raise HTTPException(
+        status_code=502,
+        detail="Az agent most nem tudott fogalmazványt írni erre a levélre. Próbáld újra.",
+    )
+
+
 
 app.include_router(api_router)
 

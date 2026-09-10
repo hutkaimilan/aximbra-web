@@ -50,6 +50,25 @@ there rather than writing an address inline — the site previously carried AXIM
 and EPISTEME's (a separate project) in others, which read as two different companies. EPISTEME's own
 number stays in the case study, where it belongs.
 
+## Reply drafting
+The agent classifies the mailbox during the run, and writes a reply draft only when the visitor asks for
+one — the per-email button in an expanded row. Drafting is the most expensive call here (longer output than
+a classification) and most of a mailbox needs no answer, so it is on demand rather than part of the run.
+
+- `POST /api/agent/email/draft` takes `{id, tone}` — an email id **from this session's own run**, never raw
+  text. That keeps a leaked session token from turning the endpoint into a free LLM proxy.
+- `tone` is `hivatalos` or `kozvetlen`; anything else is a 422.
+- Drafts are cached per email *and* tone in the session, so re-opening one costs nothing.
+- `MAX_DRAFTS_PER_SESSION` (6) caps distinct drafts per visitor, on top of the shared daily ceiling.
+- The draft text always ends with an AI-draft notice; the schema appends it even when the model omits it.
+- The prompt forbids inventing facts: unknown values come back as `[dátum]`-style placeholders, and the
+  signature is `[a te neved]` rather than a made-up name.
+
+**The draft never leaves the page.** It is not written to Gmail Drafts and it is not sent — copying it out
+is a step the visitor takes. Writing to the mailbox would need `gmail.compose` or `gmail.modify`, i.e. write
+access, which would contradict the read-only promise on the page; sending is blocked in code by
+`SafeGmailProxy` and guarded by tests.
+
 ## Before the Gmail agent goes public
 `gmail.readonly` is a Google **restricted** scope. Offering it to the public needs all three of:
 
