@@ -100,6 +100,8 @@ const en = {
     phoneOrigin: "US test line (Twilio) — the agent's demo number, not a support line. For business, email us.",
   },
   footer: {
+    imprint: "Imprint",
+    privacy: "Privacy",
     left: "AXIMBRA · Budapest · aximbra.hu",
     right: "EPISTEME is our own in-house demo system, not client work.",
   },

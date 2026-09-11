@@ -99,6 +99,8 @@ const de = {
     phoneDisabled: "Telefon-Agent — demnächst",
   },
   footer: {
+    imprint: "Impressum",
+    privacy: "Datenschutz",
     left: "AXIMBRA · Budapest · aximbra.hu",
     right: "EPISTEME ist unser eigenes Demo-System, keine Kundenarbeit.",
   },

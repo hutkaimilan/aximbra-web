@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Reveal } from "./Reveal";
 import { LiquidButton } from "./LiquidButton";
 import { CONTACT, mailto } from "../contact";
@@ -34,6 +35,12 @@ export const Footer = () => {
     <footer className="footer" data-testid="footer">
       <div className="container">
         <div>{t.footer.left}</div>
+        {/* A jogi oldalak a láblécben vannak, ahol keresni szokás őket — egy
+            tájékoztató, amire nem lehet eljutni, semmit nem old meg. */}
+        <div className="footer-legal">
+          <Link to="/impresszum">{t.footer.imprint}</Link>
+          <Link to="/adatkezeles">{t.footer.privacy}</Link>
+        </div>
         <div>{t.footer.right}</div>
       </div>
     </footer>

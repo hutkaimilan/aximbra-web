@@ -100,6 +100,8 @@ const hu = {
     phoneOrigin: "Amerikai tesztvonal (Twilio) — az agent demószáma, nem ügyfélszolgálat. Ügyben e-mailen írj.",
   },
   footer: {
+    imprint: "Impresszum",
+    privacy: "Adatkezelés",
     left: "AXIMBRA · Budapest · aximbra.hu",
     right: "Az EPISTEME saját fejlesztésű bemutató rendszer, nem ügyfélmunka.",
   },

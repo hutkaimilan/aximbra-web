@@ -1,0 +1,89 @@
+/* Jogi oldalak. Szándékosan csendesebbek a főoldalnál: itt az olvashatóság a
+   feladat, nem a látvány — ezeket valaki azért nyitja meg, hogy elolvassa. */
+.legal-page { min-height: 100vh; background: #04040C; color: var(--text); font-family: var(--body); }
+
+.legal-top {
+  position: sticky; top: 0; z-index: 10;
+  padding: 16px 24px;
+  background: rgba(4,4,12,.82); backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--border);
+}
+.legal-back { color: var(--muted); text-decoration: none; font-size: 14px; transition: color .2s ease; }
+.legal-back:hover { color: var(--cyan); }
+
+.legal-main { max-width: 760px; margin: 0 auto; padding: 44px 20px 90px; }
+
+.legal-main h1 {
+  font-family: var(--display); font-weight: 700;
+  font-size: clamp(28px, 5vw, 42px); margin: 0 0 14px;
+}
+.legal-lead { color: var(--muted); font-size: 16px; line-height: 1.75; margin: 0 0 8px; }
+
+.legal-main section { margin-top: 38px; }
+.legal-main h2 {
+  font-family: var(--display); font-weight: 600;
+  font-size: clamp(19px, 3vw, 23px); margin: 0 0 12px;
+  padding-bottom: 10px; border-bottom: 1px solid var(--border);
+}
+.legal-main h3 {
+  font-size: 15px; font-weight: 600; color: var(--text);
+  margin: 22px 0 8px;
+}
+.legal-main p { color: var(--muted); font-size: 15px; line-height: 1.75; margin: 0 0 12px; }
+.legal-main b { color: var(--text); font-weight: 600; }
+.legal-main a { color: var(--cyan); }
+.legal-main code {
+  padding: 1px 6px; border-radius: 5px;
+  background: rgba(0,233,255,.1); color: #9FE8FF;
+  font-family: var(--mono); font-size: 13px;
+}
+
+.legal-main ul { margin: 0 0 14px; padding-left: 20px; }
+.legal-main li { color: var(--muted); font-size: 15px; line-height: 1.75; margin-bottom: 8px; }
+
+/* Adatsorok: mobilon egymás alá, szélesebb kijelzőn két hasábba. */
+.legal-dl { margin: 0 0 12px; }
+.legal-dl > div {
+  display: grid; grid-template-columns: 170px 1fr; gap: 12px;
+  padding: 9px 0; border-bottom: 1px solid var(--border);
+}
+.legal-dl > div:last-child { border-bottom: none; }
+.legal-dl dt {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--dim); padding-top: 3px;
+}
+.legal-dl dd { margin: 0; font-size: 15px; color: var(--text); word-break: break-word; }
+
+.legal-note {
+  padding: 12px 15px; border: 1px solid var(--border); border-radius: 10px;
+  background: rgba(0,233,255,.03);
+  font-size: 14px !important; line-height: 1.65 !important;
+}
+
+.legal-link { font-size: 15px; text-decoration: none; border-bottom: 1px solid rgba(0,233,255,.4); }
+
+/* Táblázat: a saját görgetőjében, hogy a lap soha ne csússzon el oldalra. */
+.legal-table-wrap { overflow-x: auto; margin-bottom: 12px; }
+.legal-table { width: 100%; border-collapse: collapse; min-width: 480px; }
+.legal-table th, .legal-table td {
+  text-align: left; padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px; line-height: 1.55;
+}
+.legal-table th {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--dim); white-space: nowrap;
+}
+.legal-table td { color: var(--muted); }
+.legal-table td:first-child { color: var(--text); white-space: nowrap; }
+
+.legal-updated {
+  margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--border);
+  font-family: var(--mono); font-size: 12px; color: var(--dim);
+}
+
+@media (max-width: 620px) {
+  .legal-main { padding: 32px 18px 70px; }
+  .legal-dl > div { grid-template-columns: 1fr; gap: 3px; }
+  .legal-main p, .legal-main li { font-size: 14.5px; }
+}

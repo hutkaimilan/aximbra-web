@@ -99,6 +99,8 @@ const ro = {
     phoneDisabled: "Agent telefonic — în curând",
   },
   footer: {
+    imprint: "Informații legale",
+    privacy: "Confidențialitate",
     left: "AXIMBRA · Budapesta · aximbra.hu",
     right: "EPISTEME este propriul nostru sistem demonstrativ, nu muncă pentru client.",
   },

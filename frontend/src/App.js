@@ -19,6 +19,8 @@ import Szalon from "@/demos/Szalon";
 import Rendelo from "@/demos/Rendelo";
 import Ugyvedi from "@/demos/Ugyvedi";
 import EmailAgent from "@/demos/EmailAgent";
+import Impresszum from "@/pages/Impresszum";
+import Adatkezeles from "@/pages/Adatkezeles";
 
 function Site() {
   const { t, lang } = useLang();
@@ -107,6 +109,8 @@ export default function App() {
           <Route path="/demo/rendelo" element={<Rendelo />} />
           <Route path="/demo/ugyvedi" element={<Ugyvedi />} />
           <Route path="/demo/email-agent" element={<EmailAgent />} />
+          <Route path="/impresszum" element={<Impresszum />} />
+          <Route path="/adatkezeles" element={<Adatkezeles />} />
         </Routes>
       </BrowserRouter>
     </LanguageProvider>

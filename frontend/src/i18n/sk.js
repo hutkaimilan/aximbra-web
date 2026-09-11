@@ -99,6 +99,8 @@ const sk = {
     phoneDisabled: "Telefónny agent — čoskoro",
   },
   footer: {
+    imprint: "Právne informácie",
+    privacy: "Ochrana údajov",
     left: "AXIMBRA · Budapešť · aximbra.hu",
     right: "EPISTEME je náš vlastný demo systém, nie klientska práca.",
   },
