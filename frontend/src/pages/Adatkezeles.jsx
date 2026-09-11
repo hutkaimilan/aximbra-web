@@ -4,6 +4,7 @@ import "./legal.css";
 import { CONTACT, mailto } from "../contact";
 import { CONTROLLER, CONTROLLER_ADDRESS, LEGAL_UPDATED, PROCESSORS } from "../legal";
 import { useDocumentMeta } from "../seo";
+import { useLang } from "../i18n";
 
 /**
  * Adatkezelési tájékoztató.
@@ -17,12 +18,16 @@ import { useDocumentMeta } from "../seo";
  * külön szakasz, mert a restricted scope-ok verifikációjához kötelező.
  */
 export default function Adatkezeles() {
+  const { lang } = useLang();
   useDocumentMeta({
     title: "Adatkezelési tájékoztató | AXIMBRA",
     description:
       "Milyen adatokat kezelünk a weboldalon és a bemutató agentekben, mennyi ideig, " +
       "kinek adjuk tovább, és hogyan kérheted a törlésüket.",
     path: "/adatkezeles",
+    lang,
+    // A jogi szöveg csak magyarul létezik.
+    translated: false,
   });
   useEffect(() => { window.scrollTo(0, 0); }, []);
 

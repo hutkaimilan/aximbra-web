@@ -4,13 +4,18 @@ import "./legal.css";
 import { CONTACT, mailto } from "../contact";
 import { CONTROLLER, CONTROLLER_ADDRESS, LEGAL_UPDATED, PROCESSORS } from "../legal";
 import { useDocumentMeta } from "../seo";
+import { useLang } from "../i18n";
 
 export default function Impresszum() {
+  const { lang } = useLang();
   useDocumentMeta({
     title: "Impresszum | AXIMBRA",
     description:
       "Az AXIMBRA üzemeltetőjének adatai: név, székhely, elérhetőség és a tárhelyszolgáltató.",
     path: "/impresszum",
+    lang,
+    // A jogi szöveg csak magyarul létezik.
+    translated: false,
   });
   useEffect(() => { window.scrollTo(0, 0); }, []);
 

@@ -11,7 +11,7 @@ import { Pricing } from "@/components/Pricing";
 import { CaseStudy } from "@/components/CaseStudy";
 import { Contact, Footer } from "@/components/Contact";
 import { References } from "@/components/References";
-import { LanguageProvider, useLang } from "@/i18n";
+import { LanguageProvider, useLang, PREFIXED_LANGS } from "@/i18n";
 import { useDocumentMeta, organizationJsonLd } from "@/seo";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Etterem from "@/demos/Etterem";
@@ -97,22 +97,39 @@ function Site() {
   );
 }
 
+/** Every page, once — then mounted at the root and under each language prefix.
+ *  Listing them twice by hand is how one language quietly ends up missing a page. */
+const PAGES = [
+  { path: "", element: <Site /> },
+  { path: "agent/:slug", element: <Site /> },
+  { path: "demo/etterem", element: <Etterem /> },
+  { path: "demo/szalon", element: <Szalon /> },
+  { path: "demo/rendelo", element: <Rendelo /> },
+  { path: "demo/ugyvedi", element: <Ugyvedi /> },
+  { path: "demo/email-agent", element: <EmailAgent /> },
+  { path: "impresszum", element: <Impresszum /> },
+  { path: "adatkezeles", element: <Adatkezeles /> },
+];
+
 export default function App() {
   return (
-    <LanguageProvider>
-      <BrowserRouter>
+    // The router wraps the provider, not the other way round: the language now
+    // comes from the URL, so the provider has to be able to read it.
+    <BrowserRouter>
+      <LanguageProvider>
         <Routes>
-          <Route path="/" element={<Site />} />
-          <Route path="/agent/:slug" element={<Site />} />
-          <Route path="/demo/etterem" element={<Etterem />} />
-          <Route path="/demo/szalon" element={<Szalon />} />
-          <Route path="/demo/rendelo" element={<Rendelo />} />
-          <Route path="/demo/ugyvedi" element={<Ugyvedi />} />
-          <Route path="/demo/email-agent" element={<EmailAgent />} />
-          <Route path="/impresszum" element={<Impresszum />} />
-          <Route path="/adatkezeles" element={<Adatkezeles />} />
+          {PAGES.map((p) => (
+            <Route key={p.path} path={`/${p.path}`} element={p.element} />
+          ))}
+          {PREFIXED_LANGS.map((code) =>
+            PAGES.map((p) => (
+              <Route key={`${code}/${p.path}`} path={`/${code}/${p.path}`} element={p.element} />
+            ))
+          )}
+          {/* Unknown path: hand it to the homepage rather than a blank screen. */}
+          <Route path="*" element={<Site />} />
         </Routes>
-      </BrowserRouter>
-    </LanguageProvider>
+      </LanguageProvider>
+    </BrowserRouter>
   );
 }

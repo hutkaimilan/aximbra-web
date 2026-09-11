@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import hu from "./hu";
 import en from "./en";
 import de from "./de";
@@ -44,24 +45,47 @@ for (const code of Object.keys(RAW)) {
 const LangCtx = createContext(null);
 const STORAGE_KEY = "aximbra_lang";
 
-export const LanguageProvider = ({ children }) => {
-  const [lang, setLangState] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved && resolved[saved]) return saved;
-    } catch (e) {}
-    return "hu";
-  });
+/** Hungarian is the primary market and owns the bare URLs; the rest are prefixed.
+ *  Keeping /  unprefixed also means no existing link or share ever breaks. */
+export const DEFAULT_LANG = "hu";
+export const PREFIXED_LANGS = LANGS.map(([c]) => c).filter((c) => c !== DEFAULT_LANG);
 
+/** Split "/en/impresszum" into { lang: "en", rest: "/impresszum" }. */
+export function splitLangPath(pathname) {
+  const m = /^\/([a-z]{2})(\/.*)?$/.exec(pathname || "/");
+  if (m && PREFIXED_LANGS.includes(m[1])) {
+    return { lang: m[1], rest: m[2] || "/" };
+  }
+  return { lang: DEFAULT_LANG, rest: pathname || "/" };
+}
+
+/** Build the URL for one page in one language. `rest` is the unprefixed path. */
+export function pathFor(lang, rest = "/") {
+  const clean = rest.startsWith("/") ? rest : `/${rest}`;
+  if (lang === DEFAULT_LANG) return clean;
+  return clean === "/" ? `/${lang}` : `/${lang}${clean}`;
+}
+
+export const LanguageProvider = ({ children }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { lang, rest } = splitLangPath(location.pathname);
+
+  // The URL is the source of truth, not component state: a language has to
+  // survive a reload, a shared link and a crawler, and only the address can do
+  // all three. localStorage is kept as a courtesy for the next bare visit.
   useEffect(() => {
     document.documentElement.lang = lang;
     try { localStorage.setItem(STORAGE_KEY, lang); } catch (e) {}
   }, [lang]);
 
-  const setLang = (l) => { if (resolved[l]) setLangState(l); };
+  const setLang = (next) => {
+    if (!resolved[next] || next === lang) return;
+    navigate(pathFor(next, rest) + location.search, { replace: false });
+  };
 
   return (
-    <LangCtx.Provider value={{ lang, setLang, t: resolved[lang] }}>
+    <LangCtx.Provider value={{ lang, setLang, t: resolved[lang], path: rest }}>
       {children}
     </LangCtx.Provider>
   );

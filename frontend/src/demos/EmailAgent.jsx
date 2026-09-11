@@ -276,6 +276,8 @@ export default function EmailAgent({ embedded = false }) {
       "kategorizálja és rangsorolja a leveleket, és megírja a válaszokat. Alapból csak " +
       "olvas; vázlatot írni vagy levelet küldeni csak külön engedéllyel és megerősítéssel tud.",
     path: "/demo/email-agent",
+    // Az oldal szövege csak magyarul létezik.
+    translated: false,
   });
   const [status, setStatus] = useState(null);
   const [progress, setProgress] = useState(null);
