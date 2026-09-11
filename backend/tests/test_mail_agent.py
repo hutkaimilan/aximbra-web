@@ -1,5 +1,5 @@
 import base64
-import os, sys
+import os, string, sys
 from email import message_from_bytes, policy
 from email.header import decode_header, make_header
 from pathlib import Path
@@ -576,26 +576,91 @@ def test_connect_carries_the_draft_choice_into_the_oauth_state(monkeypatch):
     seen = {}
 
     class FakeFlow:
-        code_verifier = "v"
+        code_verifier = None
 
         def authorization_url(self, **kw):
-            return ("https://accounts.google.com/fake", "state-1")
+            seen["state"] = kw.get("state")
+            return ("https://accounts.google.com/fake", kw.get("state"))
 
     def fake_flow(with_compose=False):
         seen["with_compose"] = with_compose
         return FakeFlow()
 
     monkeypatch.setattr(mail_agent, "_flow", fake_flow)
-    mail_agent._oauth_states.clear()
 
     c.get("/api/agent/email/connect")
     assert seen["with_compose"] is False
-    assert mail_agent._oauth_states["state-1"]["with_compose"] is False
+    # the choice rides in the state itself, so a restart cannot lose it
+    assert mail_agent._unpack_state(seen["state"])["with_compose"] is False
 
     c.get("/api/agent/email/connect?drafts=true")
     assert seen["with_compose"] is True
-    assert mail_agent._oauth_states["state-1"]["with_compose"] is True
-    mail_agent._oauth_states.clear()
+    assert mail_agent._unpack_state(seen["state"])["with_compose"] is True
+
+
+def test_the_oauth_handoff_survives_a_restart():
+    """It used to live in a module-level dict, so a deploy between clicking
+    connect and returning from Google produced "Lejárt a folyamat" for a flow
+    that was seconds old."""
+    verifier = mail_agent._new_code_verifier()
+    state = mail_agent._pack_state(verifier, with_compose=True)
+    # a restart clears every in-memory store; the state must still resolve
+    mail_agent._sessions.clear()
+    out = mail_agent._unpack_state(state)
+    assert out == {"verifier": verifier, "with_compose": True}
+
+
+def test_a_forged_or_tampered_state_is_refused():
+    verifier = mail_agent._new_code_verifier()
+    state = mail_agent._pack_state(verifier, with_compose=False)
+    assert mail_agent._unpack_state("") is None
+    assert mail_agent._unpack_state("hamisitvany") is None
+    assert mail_agent._unpack_state(state[:-4] + "AAAA") is None, "tampering must not verify"
+    assert mail_agent._unpack_state(state) is not None
+
+
+def test_an_expired_state_is_refused(monkeypatch):
+    verifier = mail_agent._new_code_verifier()
+    state = mail_agent._pack_state(verifier, with_compose=False)
+    monkeypatch.setattr(mail_agent, "OAUTH_STATE_TTL_SECONDS", 0)
+    import time
+    time.sleep(1.1)
+    assert mail_agent._unpack_state(state) is None
+
+
+def test_the_state_does_not_expose_the_verifier():
+    """It travels through the visitor's browser and Google's servers."""
+    verifier = mail_agent._new_code_verifier()
+    state = mail_agent._pack_state(verifier, with_compose=True)
+    assert verifier not in state
+    assert "with_compose" not in state
+
+
+def test_code_verifier_shape_matches_what_google_expects():
+    v = mail_agent._new_code_verifier()
+    assert len(v) == 128
+    allowed = set(string.ascii_letters + string.digits + "-._~")
+    assert set(v) <= allowed
+    assert mail_agent._new_code_verifier() != v, "must not be predictable"
+
+
+def test_connect_seals_the_generated_verifier_into_the_state(monkeypatch):
+    """authorization_url only generates a verifier when it is still None, so the
+    one sealed into the state must be the one actually used."""
+    captured = {}
+
+    class FakeFlow:
+        code_verifier = None
+
+        def authorization_url(self, **kw):
+            captured["verifier_at_call"] = self.code_verifier
+            captured["state"] = kw.get("state")
+            return ("https://accounts.google.com/fake", kw.get("state"))
+
+    monkeypatch.setattr(mail_agent, "_flow", lambda with_compose=False: FakeFlow())
+    c.get("/api/agent/email/connect?drafts=true")
+    assert captured["verifier_at_call"], "no verifier was set before the URL was built"
+    assert mail_agent._unpack_state(captured["state"])["verifier"] == captured["verifier_at_call"]
 
 
 # ---------------- sending ----------------

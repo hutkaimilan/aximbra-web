@@ -12,6 +12,8 @@ import json
 import logging
 import os
 import re
+import secrets
+import string
 from datetime import datetime, timezone, timedelta
 from email.message import EmailMessage
 from email.utils import parsedate_to_datetime
@@ -136,7 +138,6 @@ LOOKBACK_DAYS = 30
 MAX_DRAFTS_PER_SESSION = 6
 
 _sessions: dict = {}
-_oauth_states: dict = {}
 # asyncio only holds weak references to running tasks, so a fire-and-forget run
 # can be garbage collected mid-pass. Hold it until it finishes.
 _runs: set = set()
@@ -211,6 +212,48 @@ def _require(request: Request) -> dict:
 
 
 HTTP_TIMEOUT_SECONDS = 30
+
+
+OAUTH_STATE_TTL_SECONDS = 15 * 60
+
+
+def _pack_state(code_verifier: str, with_compose: bool) -> str:
+    """Carry the OAuth handoff in the state parameter instead of server memory.
+
+    It used to live in a module-level dict, which meant any restart between
+    clicking connect and coming back from Google — a deploy, a crash, Railway
+    moving the container — lost it, and the visitor got "Lejárt a folyamat" for
+    something that had not expired at all.
+
+    Encrypted, not merely signed: the PKCE verifier is in here and travels
+    through the visitor's browser. Fernet gives confidentiality, authenticity and
+    the expiry in one, keyed by AGENT_SESSION_KEY, so it survives restarts
+    without anything being stored.
+    """
+    payload = json.dumps({"v": code_verifier, "c": bool(with_compose)}, separators=(",", ":"))
+    return _fernet.encrypt(payload.encode()).decode()
+
+
+def _unpack_state(state: str):
+    """The handoff, or None if it is forged, tampered with, or genuinely old."""
+    if not state:
+        return None
+    try:
+        raw = _fernet.decrypt(state.encode(), ttl=OAUTH_STATE_TTL_SECONDS)
+        data = json.loads(raw.decode())
+        verifier = data.get("v")
+        if not isinstance(verifier, str) or not verifier:
+            return None
+        return {"verifier": verifier, "with_compose": bool(data.get("c"))}
+    except Exception:  # noqa - forged, tampered or expired
+        return None
+
+
+def _new_code_verifier() -> str:
+    """Same shape the library would generate. Made here so it can be sealed into
+    the state before the authorization URL is built."""
+    alphabet = string.ascii_letters + string.digits + "-._~"
+    return "".join(secrets.choice(alphabet) for _ in range(128))
 
 
 def _fresh_http(creds):
@@ -407,17 +450,15 @@ async def connect(drafts: bool = False):
     a mismatch there makes Google reject the exchange.
     """
     flow = _flow(with_compose=drafts)
-    url, state = flow.authorization_url(
-        access_type="online", prompt="consent", include_granted_scopes="false"
+    # Set before authorization_url, which only generates one when it is still
+    # None — so the verifier can be sealed into the state we hand Google.
+    flow.code_verifier = _new_code_verifier()
+    url, _ = flow.authorization_url(
+        access_type="online",
+        prompt="consent",
+        include_granted_scopes="false",
+        state=_pack_state(flow.code_verifier, drafts),
     )
-    _oauth_states[state] = {
-        "code_verifier": flow.code_verifier,
-        "with_compose": drafts,
-        "created_at": datetime.now(timezone.utc),
-    }
-    for key, val in list(_oauth_states.items()):
-        if (datetime.now(timezone.utc) - val["created_at"]).total_seconds() > 900:
-            _oauth_states.pop(key, None)
     return {"auth_url": url}
 
 
@@ -426,12 +467,13 @@ async def callback(code: str = "", state: str = "", error: str = ""):
     target = f"{SITE_URL}/demo/email-agent"
     if error:
         return RedirectResponse(f"{target}?error=access_denied")
-    st = _oauth_states.pop(state, None)
+    st = _unpack_state(state)
     if not st:
+        logger.warning("agent oauth: unusable state (forged, tampered or expired)")
         return RedirectResponse(f"{target}?error=invalid_state")
     try:
-        flow = _flow(with_compose=bool(st.get("with_compose")))
-        flow.code_verifier = st["code_verifier"]
+        flow = _flow(with_compose=st["with_compose"])
+        flow.code_verifier = st["verifier"]
         # google-auth-oauthlib and googleapiclient are synchronous (requests under
         # the hood). Called inline they would block the whole event loop, stalling
         # every other request on the site. Hand them to a worker thread instead.
@@ -452,7 +494,7 @@ async def callback(code: str = "", state: str = "", error: str = ""):
             # untick scopes on the consent screen, so asking is not receiving —
             # and an endpoint that trusted the request would fail later, inside a
             # Gmail call, instead of saying so up front.
-            "can_draft": _granted_compose(creds, requested=bool(st.get("with_compose"))),
+            "can_draft": _granted_compose(creds, requested=st["with_compose"]),
             # Drafts the visitor asked for, keyed by "<email id>:<tone>" so asking
             # for the same one twice is free. Dies with the session like everything
             # else here.
