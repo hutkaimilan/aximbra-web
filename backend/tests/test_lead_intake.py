@@ -128,3 +128,28 @@ def test_password_never_appears_in_the_message(client, monkeypatch):
     client.post("/api/contact", json=VALID)
     _, msg = sent[0]
     assert "titok" not in msg.get_content()
+
+
+def test_the_boot_log_says_whether_the_form_can_send(monkeypatch, caplog):
+    """A naplóból derüljön ki, mi hiányzik — a lapon szándékosan nem látszik.
+
+    Ezt a sort egy valós hiba hívta életre: az SMTP-változók a statikus
+    frontend szolgáltatására kerültek a backend helyett, és kívülről ez
+    pontosan úgy nézett ki, mintha az űrlap meg sem lenne írva.
+    """
+    import logging
+
+    for name in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "LEAD_TO"):
+        monkeypatch.delenv(name, raising=False)
+    with caplog.at_level(logging.INFO):
+        lead_intake.log_contact_config()
+    assert "DISABLED" in caplog.text and "SMTP_HOST" in caplog.text
+
+    caplog.clear()
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.org")
+    monkeypatch.setenv("SMTP_USER", "kuldo@example.org")
+    monkeypatch.setenv("SMTP_PASSWORD", "titok")
+    with caplog.at_level(logging.INFO):
+        lead_intake.log_contact_config()
+    assert "ENABLED" in caplog.text
+    assert "titok" not in caplog.text, "jelszó soha nem kerülhet a naplóba"

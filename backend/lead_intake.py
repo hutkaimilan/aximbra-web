@@ -157,6 +157,32 @@ def _send_sync(cfg: dict, msg: EmailMessage) -> None:
             s.send_message(msg)
 
 
+def log_contact_config() -> None:
+    """Induláskor mondja meg, tud-e levelet küldeni, és ha nem, mi hiányzik.
+
+    A lapon csak annyi látszik, hogy az űrlap nincs ott — ez így helyes, egy
+    látogatónak nem kell tudnia a beállításainkról. A hiányzó darabot viszont
+    valahol ki kell írni, különben a „nem működik" és a „nincs beállítva"
+    ugyanúgy néz ki. A deploy-napló privát, ez a helye.
+
+    Egy változó, ami létezik, de üres, ugyanúgy hiányzik — ezért a jelenlétet
+    nézzük, nem a definiáltságot. Érték soha nem kerül a naplóba: egy SMTP-jelszó
+    egy naplósorban is jelszó.
+    """
+    present = {name: bool(_env(name)) for name in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "LEAD_TO")}
+    if smtp_config() is not None:
+        logger.info("contact form ENABLED (set: %s)", ", ".join(k for k, v in present.items() if v))
+    else:
+        missing = [k for k in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD") if not present[k]]
+        logger.warning(
+            "contact form DISABLED - the page will keep the mailto buttons. Missing: %s",
+            ", ".join(missing) or "(a recipient: LEAD_TO or SMTP_USER)",
+        )
+
+
+log_contact_config()
+
+
 @router.get("/status")
 async def status():
     """A lap ebből tudja, megjelenítheti-e az űrlapot."""
