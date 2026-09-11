@@ -4,10 +4,12 @@ import { DemoBar } from "./DemoBar";
 import { useLang } from "../i18n";
 import { useDocumentMeta } from "../seo";
 
+// Saját kiszolgálású illusztrációk. A korábbi képek egy külső CDN-en voltak,
+// ami megszűnt; SVG, mert a világítódobozban nagyban is élesnek kell maradnia.
 const GALLERY = [
-  "https://static.prod-images.emergentagent.com/jobs/afbc24ab-458f-4a48-8241-485e9d12f0a0/images/3a7f67b4356732a7f3d819b1c595c63f72866c4612b69921b2b7edf92d9a421f.jpeg",
-  "https://static.prod-images.emergentagent.com/jobs/afbc24ab-458f-4a48-8241-485e9d12f0a0/images/ed4387a941bbe7024415b5daa6a3291347e3d6caf4d6e1ddaf29c4afcfbee545.jpeg",
-  "https://static.prod-images.emergentagent.com/jobs/afbc24ab-458f-4a48-8241-485e9d12f0a0/images/dbfeb936d5a7da5f6ad8025e2bc95e590ba7e7172376a6e80c2a87b49dda7cc1.jpeg",
+  "/media/demo/flora-1.svg",
+  "/media/demo/flora-2.svg",
+  "/media/demo/flora-3.svg",
 ];
 
 export default function Szalon() {
@@ -51,15 +53,19 @@ export default function Szalon() {
       <section className="demo-section">
         <div className="demo-container">
           <h2 className="sln-h2">{d.galleryTitle}</h2>
+          {/* Kitalált márka: rajzolt kép mellett ezt ki is kell mondani, nem
+              elég a lap tetején futó demó-sáv. */}
+          <p className="sln-gallery-note">{d.galleryNote}</p>
           <div className="sln-gallery">
             {/* Gomb, nem kattintható kép: egy <img onClick> nem fókuszálható és
                 billentyűzettel meg sem nyitható, tehát a galéria egy része
                 elérhetetlen volt. */}
             {GALLERY.map((g, i) => (
               <button key={i} type="button" className="sln-gallery-item"
-                data-testid={`sln-gallery-${i}`} onClick={() => setLb(g)}
-                aria-label={`${d.brand} — ${i + 1}. kép nagyban`}>
-                <img src={g} alt={`${d.brand} — munkánk ${i + 1}.`} />
+                data-testid={`sln-gallery-${i}`} onClick={() => setLb({ src: g, alt: d.galleryAlt[i] })}
+                aria-label={`${d.galleryAlt[i]} — ${L.enlarge}`}>
+                <img src={g} alt={d.galleryAlt[i]} width="900" height="760"
+                  loading="lazy" decoding="async" />
               </button>
             ))}
           </div>
@@ -89,12 +95,12 @@ export default function Szalon() {
 
       {lb && (
         <div className="sln-lightbox" data-testid="sln-lightbox" role="dialog" aria-modal="true"
-          aria-label={`${d.brand} — kép nagyban`} onClick={() => setLb(null)}>
+          aria-label={`${d.brand} — ${L.enlarge}`} onClick={() => setLb(null)}>
           {/* Saját onClick: eddig csak azért működött, mert az esemény felbugyogott
               a szülőre — egy stopPropagation bárhol a láncban némán elrontotta volna. */}
-          <button className="sln-lb-close" type="button" aria-label="Bezárás"
+          <button className="sln-lb-close" type="button" aria-label={L.close}
             data-testid="sln-lightbox-close" onClick={() => setLb(null)}>×</button>
-          <img src={lb} alt={`${d.brand} — kép nagyban`} onClick={(e) => e.stopPropagation()} />
+          <img src={lb.src} alt={lb.alt} onClick={(e) => e.stopPropagation()} />
         </div>
       )}
     </div>

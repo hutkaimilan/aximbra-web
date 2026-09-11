@@ -4,7 +4,9 @@ import { DemoBar } from "./DemoBar";
 import { useLang } from "../i18n";
 import { useDocumentMeta } from "../seo";
 
-const HERO_IMG = "https://static.prod-images.emergentagent.com/jobs/afbc24ab-458f-4a48-8241-485e9d12f0a0/images/354cd17ee3b81c3009c3856a75adb37795ce66af49f3183eb096f68ab7454cbf.jpeg";
+// Saját kiszolgálású kép. Korábban egy külső CDN-ről jött, ami azóta megszűnt:
+// egy referencia-oldal, ami törött képpel nyílik meg, rosszabb, mint a semmi.
+const HERO_IMG = "/media/demo/olajfa-hero.jpg";
 
 export default function Etterem() {
   const { t, lang } = useLang();
@@ -21,7 +23,7 @@ export default function Etterem() {
     <div className="rst-page demo-page" data-testid="demo-etterem">
       <DemoBar prefix="rst" />
       <section className="rst-hero">
-        <img className="rst-hero-img" src={HERO_IMG} alt={`${d.brand} — a konyha nyílt lángon`} />
+        <img className="rst-hero-img" src={HERO_IMG} alt={d.heroAlt} width="1800" height="1125" />
         <div className="rst-hero-in">
           <div className="rst-eyebrow">{d.heroEyebrow}</div>
           <h1 className="rst-title">{d.brand}</h1>

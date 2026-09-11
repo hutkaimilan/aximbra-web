@@ -83,6 +83,7 @@
 .sln-card-t { font-family: 'Poppins'; font-weight: 600; font-size: 20px; }
 .sln-card-d { color: #5a6b62; margin: 10px 0 16px; line-height: 1.6; font-size: 15px; }
 .sln-card-p { color: #B76E79; font-weight: 500; }
+.sln-gallery-note { margin: -26px 0 26px; color: #6b7c73; font-size: 14px; max-width: 620px; }
 .sln-gallery { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
 @media (max-width: 720px){ .sln-gallery { grid-template-columns: 1fr; } }
 .sln-gallery img { width: 100%; height: 300px; object-fit: cover; border-radius: 26px; display: block;
