@@ -499,7 +499,15 @@ export default function EmailAgent({ embedded = false }) {
                 <h3>Mit olvasunk</h3>
                 <ul>
                   <li>Az elmúlt <b>30 nap</b> legfeljebb <b>50 levele</b>. Semmi régebbi, semmi több.</li>
-                  <li>Feladó, tárgy, dátum és a levél szövege — a mellékleteket nem nyitjuk meg.</li>
+                  <li>Feladó, tárgy, dátum és a levél szövege.</li>
+                  <li>
+                    <b>Csatolmány csak akkor, ha a levél szövege önmagában kevés</b> —
+                    egy „küldöm az anyagot, részletek csatolva” típusú levélnél a lényeg
+                    a dokumentumban van. Ilyenkor levelenként legfeljebb két fájlból
+                    olvassuk ki a <i>szöveget</i> (Word, Excel, PowerPoint, PDF, sima
+                    szöveg; képekből és videókból nem). A fájlt nem tároljuk, csak a
+                    kiolvasott szöveg megy tovább az osztályozáshoz.
+                  </li>
                 </ul>
 
                 <h3>Mit írunk</h3>

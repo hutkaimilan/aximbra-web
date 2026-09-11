@@ -11,4 +11,7 @@ google-api-python-client==2.200.0
 # because httplib2 is not thread-safe and sharing one crashes the process.
 google-auth-httplib2>=0.2.0
 httplib2>=0.22.0
+# melleklet-olvasashoz: tiszta Python, forditas nelkul telepul.
+# A docx/xlsx/pptx stdlib-bel megy (zip+xml), csak a PDF-hez kell konyvtar.
+pypdf>=5.1.0
 cryptography>=42.0.0

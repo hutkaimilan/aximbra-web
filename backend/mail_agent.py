@@ -29,6 +29,8 @@ from google_auth_httplib2 import AuthorizedHttp
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build, Resource
 
+from attachments import MAX_ATTACHMENT_BYTES, extract_text, list_candidates
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/agent/email")
@@ -421,6 +423,9 @@ def _parse(msg):
         "message_id": _header(headers, "Message-Id") or _header(headers, "Message-ID"),
         "references": _header(headers, "References"),
         "reply_to": _header(headers, "Reply-To"),
+        # Csak a jelöltek listája, tartalom nélkül: a letöltés külön lépés, és
+        # csak akkor történik meg, ha a törzs önmagában kevés.
+        "attachments": list_candidates(payload),
     }
 
 
@@ -931,6 +936,64 @@ async def run_sample(sid: str):
         state["running"] = False
 
 
+# A törzs alatta számít "üresnek". Egy „Küldöm az anyagot, részletek csatolva”
+# levél pont ennyi, és pont az a levél, aminél a melléklet a lényeg.
+THIN_BODY_CHARS = 400
+
+
+async def _add_attachment_text(service, sess, email: dict) -> None:
+    """A melléklet szövegét hozzáfűzi a levél törzséhez, ha van értelme.
+
+    Csak akkor tölt le, ha a törzs önmagában kevés — egy rendes levélnél a
+    melléklet letöltése felesleges idő és sávszélesség. Soha nem dob kivételt:
+    egy olvashatatlan csatolmány nem indokolja, hogy a levél kiessen a futásból.
+    """
+    candidates = email.get("attachments") or []
+    if not candidates or len((email.get("body") or "").strip()) >= THIN_BODY_CHARS:
+        return
+
+    pieces = []
+    for att in candidates:
+        try:
+            got = await asyncio.to_thread(
+                service.users().messages().attachments().get(
+                    userId="me", messageId=email["id"], id=att["attachment_id"]
+                ).execute,
+                http=_fresh_http(sess["creds"]),
+            )
+            raw = _decode_attachment(got.get("data", ""))
+            if not raw or len(raw) > MAX_ATTACHMENT_BYTES:
+                continue
+            text = extract_text(att["filename"], att["mime"], raw)
+            if text:
+                pieces.append(f"--- Melléklet: {att['filename']} ---\n{text}")
+            else:
+                # Kimondva, hogy a modell ne tényként kezelje az üres törzset:
+                # a különbség „nincs benne semmi” és „nem tudtuk elolvasni” közt
+                # a javasolt lépést is megváltoztatja.
+                pieces.append(
+                    f"--- Melléklet: {att['filename']} "
+                    f"(a tartalmát nem sikerült szöveggé alakítani) ---"
+                )
+        except Exception as e:  # noqa - egy rossz melléklet ne vigye el a levelet
+            logger.info("attachment fetch failed: %s", type(e).__name__)
+
+    if pieces:
+        body = (email.get("body") or "").strip()
+        email["body"] = (body + "\n\n" + "\n\n".join(pieces)).strip()
+
+
+def _decode_attachment(data: str) -> bytes:
+    if not data:
+        return b""
+    try:
+        raw = data.encode("UTF-8")
+        raw += b"=" * (-len(raw) % 4)
+        return base64.urlsafe_b64decode(raw)
+    except Exception:  # noqa
+        return b""
+
+
 async def run_agent(sid: str):
     """Read-only pass over the visitor's last 30 days. Imported lazily so the
     classifier's OpenAI client is only touched when a run actually starts."""
@@ -984,6 +1047,7 @@ async def run_agent(sid: str):
                         http=_fresh_http(sess["creds"]),
                     )
                     email = _parse(full)
+                    await _add_attachment_text(service, sess, email)
                     analysis = await classify_one(email)
                     sess["analyses"].append({**email, **analysis})
                 except HTTPException as e:

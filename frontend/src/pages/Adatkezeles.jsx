@@ -121,7 +121,17 @@ export default function Adatkezeles() {
           <ul>
             <li>
               <b>Mit olvasunk:</b> az elmúlt <b>30 nap</b> legfeljebb <b>50</b> levelének
-              feladóját, tárgyát, dátumát és szövegét. A csatolmányokat nem nyitjuk meg.
+              feladóját, tárgyát, dátumát és szövegét.
+            </li>
+            <li>
+              <b>Csatolmányok:</b> csak akkor nyitunk meg csatolmányt, ha a levél
+              szövege önmagában kevés — ilyenkor levelenként legfeljebb <b>két</b>
+              fájlból, fájlonként legfeljebb <b>5 MB</b>-ig olvassuk ki a szöveget
+              (Word, Excel, PowerPoint, PDF, sima szöveg és CSV). Képet, videót és
+              egyéb formátumot nem nyitunk meg, és <b>OCR-t nem végzünk</b>: egy
+              szkennelt dokumentumból nem nyerünk ki szöveget. A fájl maga nem kerül
+              sehova; a kiolvasott szöveg a levél szövegével együtt jut el az OpenAI
+              API-jához, és a futással együtt megszűnik.
             </li>
             <li>
               <b>Milyen jogot kérünk:</b> alapesetben csak olvasásit
