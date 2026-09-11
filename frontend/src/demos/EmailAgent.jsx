@@ -295,6 +295,21 @@ export default function EmailAgent({ embedded = false }) {
   const [openId, setOpenId] = useState(null);
   const timer = useRef(null);
   const retry = useRef(null);
+  const pollRef = useRef(() => {});
+  const intervalMs = useRef(0);
+
+  // A futás alatt sűrűbben kérdezünk, mint utána. A levelek egyesével készülnek
+  // el, és a lista már az első kész levéltől nő — háromemberes lekérdezéssel
+  // viszont az első találat is állhat három másodpercig, ami egy húszmásodperces
+  // futásnál az élmény hatoda. A válasz pár száz bájt, ez nem terhelés.
+  const FAST_POLL_MS = 1000;
+  const SLOW_POLL_MS = 3000;
+
+  const restartTimer = useCallback((ms) => {
+    if (timer.current) clearInterval(timer.current);
+    timer.current = setInterval(() => pollRef.current(), ms);
+    intervalMs.current = ms;
+  }, []);
 
   const poll = useCallback(async () => {
     try {
@@ -304,11 +319,20 @@ export default function EmailAgent({ embedded = false }) {
       if (!p.running && timer.current) {
         clearInterval(timer.current);
         timer.current = null;
+        return;
       }
+      // Az első néhány levél után lassítunk: onnantól már van mit nézni.
+      const enough = (r?.total || 0) >= 5;
+      const want = p.running && !enough ? FAST_POLL_MS : SLOW_POLL_MS;
+      if (timer.current && intervalMs.current !== want) restartTimer(want);
     } catch {
       if (timer.current) { clearInterval(timer.current); timer.current = null; }
     }
-  }, []);
+  }, [restartTimer]);
+
+  // A setInterval a saját maga által hivatkozott poll-t fagyasztaná be az első
+  // változatra; ez a ref mindig a friss függvényt adja.
+  useEffect(() => { pollRef.current = poll; }, [poll]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -335,7 +359,7 @@ export default function EmailAgent({ embedded = false }) {
         setStatus(s);
         if (s.connected) {
           poll();
-          timer.current = setInterval(poll, 3000);
+          restartTimer(FAST_POLL_MS);
         }
       } catch {
         if (cancelled) return;
@@ -353,7 +377,7 @@ export default function EmailAgent({ embedded = false }) {
       if (timer.current) clearInterval(timer.current);
       if (retry.current) clearTimeout(retry.current);
     };
-  }, [poll]);
+  }, [poll, restartTimer]);
 
   // Leaving the page ends the run server-side, so returning starts from scratch.
   useEffect(() => {
@@ -376,8 +400,7 @@ export default function EmailAgent({ embedded = false }) {
       const s = await get("/status");
       setStatus(s);
       poll();
-      if (timer.current) clearInterval(timer.current);
-      timer.current = setInterval(poll, 3000);
+      restartTimer(FAST_POLL_MS);
     } catch (e) {
       setError(e.message);
     } finally {

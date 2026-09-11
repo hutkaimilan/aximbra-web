@@ -132,6 +132,9 @@ MAX_EMAILS = 50
 # the knob that trades run time against rate limits and budget overshoot, and 5
 # turns a ~50-call sequential crawl into something a visitor will wait through.
 RUN_CONCURRENCY = 5
+# A példa-postafiók tíz levele egyszerre mehet: fix darabszám, nincs mellette
+# Gmail-kérés, és ez az első, amit a látogató lát a rendszerből.
+SAMPLE_CONCURRENCY = 10
 MAX_SESSIONS = 40
 LOOKBACK_DAYS = 30
 # Drafts are the most expensive call here (longer output than a classification),
@@ -905,7 +908,12 @@ async def run_sample(sid: str):
     emails = sample_emails(datetime.now(timezone.utc))
     state.update({"running": True, "total": len(emails), "message": "Feldolgozás folyamatban…"})
 
-    gate = asyncio.Semaphore(RUN_CONCURRENCY)
+    # A példa-postafiók tíz levél, fix, és nincs mellette Gmail-hívás: itt az
+    # egész futás elfér egy hullámban. Az éles postafiók marad az öt szálon —
+    # ott ötven levél is lehet, és egy ötvenes löket az OpenAI és a Gmail
+    # oldalán is kockázat. Egy első benyomásnál viszont a húsz másodpercnyi
+    # várakozás maga a hiba.
+    gate = asyncio.Semaphore(min(len(emails), SAMPLE_CONCURRENCY))
     halted: dict = {"reason": None}
 
     async def process(email):

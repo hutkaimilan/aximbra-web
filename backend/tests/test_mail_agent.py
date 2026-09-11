@@ -1342,3 +1342,43 @@ def test_sample_is_rate_limited_per_ip(stub_classifier, monkeypatch):
         for sid in made:
             mail_agent._sessions.pop(sid, None)
         server._ip_hits.clear()
+
+
+def test_sample_run_uses_one_wave(monkeypatch):
+    """A példa-postafiók tíz levele egyszerre fusson.
+
+    Öt szálon két hullám lesz belőle, és a látogató első benyomása a
+    kétszeres várakozás. Az éles postafiók ettől külön marad (RUN_CONCURRENCY),
+    mert ott ötven levél is lehet — ezt is állítja a teszt.
+    """
+    import asyncio
+    from datetime import datetime, timezone
+
+    assert mail_agent.SAMPLE_CONCURRENCY >= 10
+    assert mail_agent.RUN_CONCURRENCY == 5, "az éles futás maradjon óvatos"
+
+    peak = {"now": 0, "max": 0}
+
+    async def slow_classify(email):
+        peak["now"] += 1
+        peak["max"] = max(peak["max"], peak["now"])
+        await asyncio.sleep(0.02)
+        peak["now"] -= 1
+        return {"category": "egyeb", "urgency": 1, "needs_reply": "nem", "summary": "x"}
+
+    import server
+    monkeypatch.setattr(server, "classify_one", slow_classify)
+
+    sid = "sample-wave"
+    mail_agent._sessions[sid] = {
+        "creds": None, "email": "peldа@example.com", "analyses": [], "drafts": {},
+        "saved": {}, "sent": {}, "created_at": datetime.now(timezone.utc),
+        "state": {"running": False, "done": 0, "total": 0, "errors": 0, "message": ""},
+        "sample": True, "can_draft": False,
+    }
+    try:
+        asyncio.run(mail_agent.run_sample(sid))
+        assert peak["max"] == 10, f"egy hullám helyett {peak['max']} párhuzamos hívás"
+        assert len(mail_agent._sessions[sid]["analyses"]) == 10
+    finally:
+        mail_agent._sessions.pop(sid, None)
