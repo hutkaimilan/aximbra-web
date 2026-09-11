@@ -488,7 +488,7 @@ export default function EmailAgent({ embedded = false }) {
                   </li>
                   <li><code>userinfo.email</code> és <code>openid</code> — hogy tudjuk, melyik fiókot nézzük.</li>
                   <li>
-                    <code>gmail.compose</code> — <b>csak ha bepipálod a vázlatírást.</b>
+                    <code>gmail.compose</code> — <b>csak ha bepipálod a vázlatírást.</b>{" "}
                     Ettől tud vázlatot tenni a fiókodba. A Google-nak nincs „csak
                     vázlat” jogosultsága, ezért ez küldést is engedne — ez a kód
                     viszont soha nem küld, a küldés kódszinten tiltott. Pipa nélkül
@@ -526,8 +526,8 @@ export default function EmailAgent({ embedded = false }) {
                 <h3>Hová kerül</h3>
                 <ul>
                   <li>
-                    A levél szövegét egyetlen osztályozó hívásban elküldjük az
-                    <b> OpenAI</b> API-jának. Az API-n beküldött adatot a szolgáltató
+                    A levél szövegét egyetlen osztályozó hívásban elküldjük az{" "}
+                    <b>OpenAI</b> API-jának. Az API-n beküldött adatot a szolgáltató
                     alapbeállítás szerint nem használja modelltanításra.
                   </li>
                   <li>Adatbázisba semmi nem kerül. A futás a szerver memóriájában él.</li>

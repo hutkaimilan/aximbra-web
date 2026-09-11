@@ -93,8 +93,8 @@ export default function Adatkezeles() {
           <h2>4. Érdeklődő-minősítő bemutató</h2>
           <p>
             Amit a mezőbe beírsz (legfeljebb 4000 karakter), egyetlen hívásban
-            elküldjük az OpenAI API-jának, és az eredményt visszaadjuk a lapnak.
-            <b> Sem a beírt szöveget, sem az eredményt nem tároljuk</b> — nincs mögötte
+            elküldjük az OpenAI API-jának, és az eredményt visszaadjuk a lapnak.{" "}
+            <b>Sem a beírt szöveget, sem az eredményt nem tároljuk</b> — nincs mögötte
             adatbázis. Jogalap: hozzájárulás (GDPR 6. cikk (1) a)), amit azzal adsz meg,
             hogy elindítod a bemutatót.
           </p>
@@ -125,7 +125,7 @@ export default function Adatkezeles() {
             </li>
             <li>
               <b>Csatolmányok:</b> csak akkor nyitunk meg csatolmányt, ha a levél
-              szövege önmagában kevés — ilyenkor levelenként legfeljebb <b>két</b>
+              szövege önmagában kevés — ilyenkor levelenként legfeljebb <b>két</b>{" "}
               fájlból, fájlonként legfeljebb <b>5 MB</b>-ig olvassuk ki a szöveget
               (Word, Excel, PowerPoint, PDF, sima szöveg és CSV). Képet, videót és
               egyéb formátumot nem nyitunk meg, és <b>OCR-t nem végzünk</b>: egy
@@ -152,8 +152,8 @@ export default function Adatkezeles() {
               elküldjük az OpenAI API-jának. Adatbázisba semmi nem kerül.
             </li>
             <li>
-              <b>Meddig él:</b> a futás a kiszolgáló memóriájában él, és
-              <b> 30 perc</b> után magától lejár. A „Kilépés” gomb és a lap bezárása
+              <b>Meddig él:</b> a futás a kiszolgáló memóriájában él, és{" "}
+              <b>30 perc</b> után magától lejár. A „Kilépés” gomb és a lap bezárása
               azonnal törli.
             </li>
             <li>
@@ -211,7 +211,7 @@ export default function Adatkezeles() {
           </ul>
           <p>
             <b>Hangfelvétel nem készül.</b> Az átirat és az összefoglaló e-mailben
-            eljut az adatkezelőhöz, hogy vissza tudjunk hívni. Legfeljebb <b>2 évig</b>
+            eljut az adatkezelőhöz, hogy vissza tudjunk hívni. Legfeljebb <b>2 évig</b>{" "}
             őrizzük.
             Jogalap: hozzájárulás — a hívás elején az agent tájékoztat róla, és a hívás
             bontásával bármikor megszakíthatod.
@@ -256,8 +256,8 @@ export default function Adatkezeles() {
             <li>és tiltakozhatsz a jogos érdeken alapuló kezelés ellen.</li>
           </ul>
           <p>
-            Írj a <a href={mailto("Adatkezelési kérés")}>{CONTACT.email}</a> címre, és
-            <b> 30 napon belül</b> válaszolunk. A demók többségénél a válasz az lesz,
+            Írj az <a href={mailto("Adatkezelési kérés")}>{CONTACT.email}</a> címre, és{" "}
+            <b>30 napon belül</b> válaszolunk. A demók többségénél a válasz az lesz,
             hogy nincs mit törölni, mert nem tárolunk semmit — de a kérésre akkor is
             érdemben válaszolunk.
           </p>
