@@ -11,6 +11,7 @@ import { Pricing } from "@/components/Pricing";
 import { CaseStudy } from "@/components/CaseStudy";
 import { Contact, Footer } from "@/components/Contact";
 import { References } from "@/components/References";
+import { Founder } from "@/components/Founder";
 import { LanguageProvider, useLang, PREFIXED_LANGS } from "@/i18n";
 import { useDocumentMeta, organizationJsonLd } from "@/seo";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -91,6 +92,7 @@ function Site() {
         <Pricing />
         <CaseStudy />
         <References />
+        <Founder />
         <Contact />
       </main>
       <Footer />

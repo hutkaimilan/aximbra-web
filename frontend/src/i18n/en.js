@@ -95,6 +95,21 @@ const en = {
     agentsText: "That is exactly what the third package means: a booking system, an AI chat or a phone agent built into the site. If the website already exists and you'd rather take a workflow off your hands, that's our other page.",
     agentsLink: "See the agents →",
   },
+  founder: {
+    tag: "Who is behind it",
+    role: "Founder · AXIMBRA is a one-person workshop, not an agency apparatus.",
+    imprint: "Imprint and legal details →",
+    paragraphs: [
+      "AXIMBRA is run by one person: whoever answers the phone also writes the code. That has an upside and a price, and both are worth knowing in advance. The upside is that nothing gets lost in a handover between three people, and you are not paying a project manager to relay what you said to a developer. The price is that few projects fit at a time.",
+      "So I am not promising rapid scale. What I do promise: whatever gets built, I keep alive — and when something breaks, you don't get a support ticket.",
+    ],
+    proof: [
+      "The phone agent runs on a real number and answers right now — it isn't a video of one.",
+      "You can try the email agent on your own mailbox, and its code asks for read-only access.",
+      "The four reference sites belong to invented brands, and each one says so — they are not passed off as client work.",
+      "The privacy notice describes what the code actually does, including the limits of attachment reading.",
+    ],
+  },
   caseStudy: {
     tag: "In action",
     heading: "A calling agent, on a live line",

@@ -95,6 +95,21 @@ const hu = {
     agentsText: "A harmadik csomag pontosan ezt jelenti: foglalási rendszer, AI chat vagy telefonáló agent a weboldalba építve. Ha viszont a weboldal megvan és inkább egy munkafolyamatot vennél le a válladról, az a másik oldalunk.",
     agentsLink: "Nézd meg az agenteket →",
   },
+  founder: {
+    tag: "Ki áll mögötte",
+    role: "Alapító · az AXIMBRA egyszemélyes műhely, nem ügynökségi apparátus.",
+    imprint: "Impresszum és jogi adatok →",
+    paragraphs: [
+      "Az AXIMBRA-t egy ember viszi: aki felveszi a telefont, az írja a kódot is. Ennek van előnye és van ára, és mindkettőt érdemes tudni előre. Az előnye, hogy nincs átadás-átvétel három ember között, és nem kell projektmenedzsert fizetned azért, hogy a fejlesztőhöz eljusson, amit mondtál. Az ára, hogy egyszerre kevés projekt fér be.",
+      "Ezért nem is ígérek gyors bővülést. Amit ígérek: ami elkészül, azt én tartom életben, és ha valami elromlik, nem egy ügyfélszolgálati jegyet kapsz.",
+    ],
+    proof: [
+      "A telefonáló agent valódi számon fut, és most is felveszi — nem videó róla.",
+      "Az e-mail rendező agentet a saját postafiókodon is kipróbálhatod, és a kódja csak olvasási jogot kér.",
+      "A négy referenciaoldal kitalált márkáké, és ezt mindegyik ki is írja — nem adjuk ki őket ügyfélmunkának.",
+      "Az adatkezelési tájékoztató azt írja le, amit a kód tényleg csinál, a mellékletolvasás korlátaival együtt.",
+    ],
+  },
   caseStudy: {
     tag: "Működés közben",
     heading: "Egy telefonáló agent, éles vonalon",
