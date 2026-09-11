@@ -81,10 +81,26 @@ export default function Adatkezeles() {
         <section>
           <h2>3. Kapcsolatfelvétel</h2>
           <p>
-            Az oldalon minden kapcsolatfelvételi gomb a saját levelezőprogramodat
-            nyitja meg. Amit megírsz, e-mailben érkezik hozzánk, és addig őrizzük, amíg
-            az ügy indokolja, legfeljebb <b>2 évig</b>.
-            Jogalap: szerződéskötést megelőző lépések, illetve jogos érdek
+            Kétféleképpen lehet elérni minket, és a kettő nem ugyanazt csinálja.
+          </p>
+          <ul>
+            <li>
+              <b>E-mail- és telefongomb:</b> a saját levelezőprogramodat, illetve a
+              telefonodat nyitja meg. Ilyenkor a weboldal semmit nem lát abból, amit írsz.
+            </li>
+            <li>
+              <b>Ajánlatkérő űrlap:</b> a beírt név, e-mail-cím, opcionálisan a cégnév és
+              az üzenet a kiszolgálónkon keresztül egyetlen e-mailben jut el az
+              adatkezelőhöz. Adatbázisba nem kerül, a kiszolgálón nem tárolódik; a naplóban
+              csak annyi marad, hogy érkezett egy üzenet — a tartalma nem. Az űrlap egy
+              rejtett mezővel és a kitöltés idejével szűri a robotokat; ez nem kerül a
+              levélbe.
+            </li>
+          </ul>
+          <p>
+            Amit így elküldesz, addig őrizzük, amíg az ügy indokolja, legfeljebb{" "}
+            <b>2 évig</b>. Jogalap: az űrlapnál a hozzájárulásod (GDPR 6. cikk (1) a)),
+            a levelezésnél szerződéskötést megelőző lépések, illetve jogos érdek
             (GDPR 6. cikk (1) b) és f)).
           </p>
         </section>

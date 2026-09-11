@@ -15,6 +15,16 @@ Backend (`backend/.env`):
 - `OPENAI_API_KEY` — required for the live demos (Érdeklődő-minősítő, E-mail rendező agent). Never exposed client-side.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AGENT_REDIRECT_URI`, `FRONTEND_URL` — required by the
   in-page Gmail agent (`/api/agent/email/*`). Without them the agent reports itself as unconfigured.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `LEAD_TO`, `LEAD_FROM` — the contact form
+  (`/api/contact`). **Without all of `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` and a recipient the form does
+  not appear at all**: `/api/contact/status` reports `configured: false` and the page keeps the mailto and
+  phone buttons. That is deliberate — a form that says "thanks, we'll be in touch" while the mail goes
+  nowhere loses customers silently. `LEAD_TO` defaults to `SMTP_USER`, `LEAD_FROM` too. Port 465 uses
+  implicit TLS, anything else STARTTLS.
+  With a Gmail account: turn on 2-step verification, create an *app password*
+  (myaccount.google.com/apppasswords), then set `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`,
+  `SMTP_USER=<the address>`, `SMTP_PASSWORD=<the 16-character app password>`. The regular account
+  password will not work, and the app password is not the account password — it can be revoked on its own.
 - `AGENT_PUBLIC` — whether strangers may hand the agent their mailbox. Defaults to `true`; set it to
   `false` to keep the agent working for your own testing while the page says plainly that it is not open
   yet. See **Before the Gmail agent goes public** below.

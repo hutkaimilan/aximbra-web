@@ -508,3 +508,42 @@ textarea:focus-visible,
   border-bottom: 1px solid transparent; transition: color .2s ease, border-color .2s ease;
 }
 .footer-legal a:hover { color: var(--cyan); border-bottom-color: rgba(0,233,255,.4); }
+
+/* ---------- Ajánlatkérő űrlap ----------
+   Akkor jelenik meg, ha a kiszolgáló tud levelet küldeni; egyébként a lap a
+   levelezőprogramos gombokat mutatja, mint eddig. */
+.contact-form { display: grid; gap: 16px; margin: 26px 0 8px; text-align: left; }
+.cf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 620px) { .cf-row { grid-template-columns: 1fr; } }
+.cf-field { display: grid; gap: 7px; }
+.cf-label { font-size: 13px; color: var(--muted); letter-spacing: .02em; }
+.contact-form input[type="text"], .contact-form input[type="email"], .contact-form textarea {
+  width: 100%; box-sizing: border-box; padding: 12px 14px; min-height: 44px;
+  background: rgba(255,255,255,.04); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px;
+  font-family: inherit; font-size: 15px; transition: border-color .2s ease, background .2s ease;
+}
+.contact-form textarea { min-height: 120px; resize: vertical; }
+.contact-form input:focus, .contact-form textarea:focus {
+  outline: none; border-color: var(--cyan); background: rgba(0,233,255,.05);
+}
+.cf-hint { margin: -6px 0 0; font-size: 13px; color: var(--muted); }
+/* A csapdamező a képernyőolvasó és a szem elől is rejtve, de a kitöltő
+   szkriptek számára létező mező. */
+.cf-trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.cf-consent { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--muted); line-height: 1.55; }
+.cf-consent input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--cyan); flex: 0 0 auto; }
+.cf-link { color: var(--cyan); }
+.cf-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.cf-submit {
+  min-height: 48px; padding: 0 30px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--cyan); background: rgba(0,233,255,.12); color: var(--text);
+  font-family: inherit; font-size: 15px; transition: background .2s ease, transform .2s ease;
+}
+.cf-submit:hover:not(:disabled) { background: rgba(0,233,255,.2); transform: translateY(-1px); }
+.cf-submit:disabled { opacity: .6; cursor: default; }
+.cf-error { margin: 0; font-size: 14px; color: #FFB020; }
+.cf-error a { color: #FFB020; }
+.contact-form-sent { margin: 26px 0 8px; font-size: 17px; color: var(--cyan); }
+/* Ha van űrlap, a gombok másodlagosak: legyen látható, melyik a fő út. */
+.contact-cta.secondary { margin-top: 18px; opacity: .85; }
