@@ -254,36 +254,88 @@ def _header(headers, name):
 
 
 def _decode(data):
+    """base64url from Gmail, tolerant of what Gmail actually sends.
+
+    Gmail omits the '=' padding often enough that a strict decode raises
+    binascii.Error — and raising here used to take the whole email out of the
+    run, counted as an unexplained error. Pad it, and never raise: a body we
+    cannot read is an empty body, not a lost email.
+    """
     if not data:
         return ""
-    return base64.urlsafe_b64decode(data.encode("UTF-8")).decode("utf-8", errors="replace")
+    try:
+        raw = data.encode("UTF-8")
+        raw += b"=" * (-len(raw) % 4)
+        return base64.urlsafe_b64decode(raw).decode("utf-8", errors="replace")
+    except Exception as e:  # noqa - malformed part must not sink the message
+        logger.warning("could not decode a message part: %s", type(e).__name__)
+        return ""
+
+
+def _html_to_text(html: str) -> str:
+    t = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", html, flags=re.S | re.I)
+    t = re.sub(r"<br\s*/?>|</p>|</div>|</tr>", "\n", t, flags=re.I)
+    return re.sub(r"[ \t]+", " ", re.sub(r"<[^>]+>", " ", t)).strip()
 
 
 def _body(payload):
-    plain, html = "", ""
+    """Text of the message, plus a structure summary for when there is none.
 
-    def walk(p):
-        nonlocal plain, html
-        mime, body = p.get("mimeType", ""), p.get("body", {})
-        if mime == "text/plain" and body.get("data"):
-            plain += _decode(body["data"])
-        elif mime == "text/html" and body.get("data"):
-            html += _decode(body["data"])
-        for sub in p.get("parts", []) or []:
-            walk(sub)
+    The summary carries mime types and whether each part had inline data — never
+    content. It is the only way to tell, from a log, the difference between an
+    email that is genuinely empty and one whose body we failed to find.
+    """
+    plain, html, other = "", "", ""
+    shape = []
 
-    walk(payload)
+    def walk(p, depth=0):
+        nonlocal plain, html, other
+        # Gmail usually sends a bare "text/plain", but a mimeType carrying
+        # parameters ("text/plain; charset=UTF-8") is valid and used to miss the
+        # equality check entirely, losing the body with no trace.
+        mime = (p.get("mimeType") or "").split(";")[0].strip().lower()
+        body = p.get("body") or {}
+        data = body.get("data")
+        shape.append(
+            f"{'  ' * depth}{mime or '?'}"
+            f"[{'data' if data else ('attachment' if body.get('attachmentId') else 'none')}"
+            f" {body.get('size', 0)}b]"
+        )
+        if data:
+            if mime == "text/plain":
+                plain += _decode(data)
+            elif mime == "text/html":
+                html += _decode(data)
+            elif mime.startswith("text/"):
+                # text/* we do not specifically know (amp-html and friends):
+                # better a last resort than silently nothing.
+                other += _decode(data)
+        for sub in p.get("parts") or []:
+            walk(sub, depth + 1)
+
+    walk(payload or {})
     if plain.strip():
-        return plain.strip()
+        return plain.strip(), shape
     if html.strip():
-        t = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", html, flags=re.S | re.I)
-        return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t)).strip()
-    return ""
+        return _html_to_text(html), shape
+    if other.strip():
+        return _html_to_text(other) if "<" in other else other.strip(), shape
+    return "", shape
 
 
 def _parse(msg):
     payload = msg.get("payload", {})
     headers = payload.get("headers", [])
+    body, shape = _body(payload)
+    snippet = msg.get("snippet", "") or ""
+    if not body.strip() and not snippet.strip():
+        # Both empty is the case worth investigating: Gmail shows a snippet for
+        # anything with content, so this is either a genuinely empty message or a
+        # payload shape the walk did not understand. Structure only, no content.
+        logger.warning(
+            "empty body and snippet for message %s - payload shape: %s",
+            msg.get("id"), " | ".join(shape) or "(no payload)",
+        )
     date_iso = None
     raw_date = _header(headers, "Date")
     if raw_date:
@@ -295,9 +347,9 @@ def _parse(msg):
         "id": msg.get("id"),
         "sender": _header(headers, "From"),
         "subject": _header(headers, "Subject") or "(nincs tárgy)",
-        "snippet": msg.get("snippet", ""),
+        "snippet": snippet,
         "date": date_iso,
-        "body": _body(payload),
+        "body": body,
         # Kept for threading a reply draft onto the original conversation. Without
         # these, a draft lands in Gmail as a brand-new thread and reads as a
         # different message than the one it answers.

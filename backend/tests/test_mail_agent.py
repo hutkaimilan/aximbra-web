@@ -992,3 +992,128 @@ def test_config_values_are_stripped():
     for name in ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "AGENT_REDIRECT_URI", "FRONTEND_URL"):
         line = next(l for l in src.splitlines() if f'os.environ.get("{name}", "")' in l)
         assert line.rstrip().endswith('.strip()'), name
+
+
+# ---------------- message body extraction ----------------
+def _b64(text):
+    """Gmail-style base64url, padding stripped the way Gmail often sends it."""
+    return base64.urlsafe_b64encode(text.encode()).decode().rstrip("=")
+
+
+def _part(mime, text=None, parts=None, attachment=False):
+    body = {}
+    if text is not None:
+        body["data"] = _b64(text)
+        body["size"] = len(text)
+    if attachment:
+        body = {"attachmentId": "att1", "size": 999}
+    p = {"mimeType": mime, "body": body}
+    if parts:
+        p["parts"] = parts
+    return p
+
+
+BODY_TEXT = "Azonnali felszólítás!\n\nTelefonszámla befizetés!"
+
+
+def test_plain_text_body_is_read():
+    text, _ = mail_agent._body(_part("text/plain", BODY_TEXT))
+    assert text == BODY_TEXT
+
+
+def test_unpadded_base64_is_still_decoded():
+    """Gmail routinely omits the '=' padding. Strict decoding raised, which took
+    the whole email out of the run as an unexplained error."""
+    # both padding lengths Gmail can drop: one '=' and two
+    for original in ("Azonnali felszolitas", "Telefonszamla"):
+        data = _b64(original)
+        assert len(data) % 4 != 0, f"{original!r} does not exercise padding"
+        text, _ = mail_agent._body({"mimeType": "text/plain", "body": {"data": data}})
+        assert text == original
+
+
+def test_mime_type_with_parameters_is_not_missed():
+    """'text/plain; charset=UTF-8' is valid and used to fail an equality check,
+    losing the body silently."""
+    text, _ = mail_agent._body(_part('text/plain; charset="UTF-8"', BODY_TEXT))
+    assert text == BODY_TEXT
+    text, _ = mail_agent._body(_part("TEXT/PLAIN", BODY_TEXT))
+    assert text == BODY_TEXT
+
+
+def test_multipart_alternative_prefers_plain_text():
+    payload = _part("multipart/alternative", parts=[
+        _part("text/plain", BODY_TEXT),
+        _part("text/html", f"<p>{BODY_TEXT}</p>"),
+    ])
+    text, _ = mail_agent._body(payload)
+    assert text == BODY_TEXT
+
+
+def test_html_only_message_falls_back_to_stripped_html():
+    payload = _part("multipart/alternative", parts=[
+        _part("text/html", "<div>Azonnali<br>felszólítás</div><script>x=1</script>"),
+    ])
+    text, _ = mail_agent._body(payload)
+    assert "Azonnali" in text and "felszólítás" in text
+    assert "<div>" not in text
+    assert "x=1" not in text, "script contents must not land in the body"
+
+
+def test_nested_multipart_is_walked():
+    payload = _part("multipart/mixed", parts=[
+        _part("multipart/related", parts=[
+            _part("multipart/alternative", parts=[_part("text/plain", BODY_TEXT)]),
+        ]),
+        _part("application/pdf", attachment=True),
+    ])
+    text, _ = mail_agent._body(payload)
+    assert text == BODY_TEXT
+
+
+def test_unknown_text_subtype_is_a_last_resort():
+    payload = _part("multipart/alternative", parts=[_part("text/x-amp-html", "<p>Szia</p>")])
+    text, _ = mail_agent._body(payload)
+    assert "Szia" in text
+
+
+def test_a_broken_part_yields_an_empty_body_not_a_lost_email():
+    payload = {"mimeType": "text/plain", "body": {"data": "!!! nem base64 !!!"}}
+    text, _ = mail_agent._body(payload)
+    assert text == ""  # and crucially: no exception
+
+
+def test_parse_survives_a_body_it_cannot_read():
+    """_parse raising would drop the email from the run entirely."""
+    msg = {"id": "m1", "threadId": "t1", "snippet": "elonezet",
+           "payload": {"mimeType": "text/plain", "body": {"data": "***"},
+                       "headers": [{"name": "From", "value": "a@b.hu"}]}}
+    out = mail_agent._parse(msg)
+    assert out["body"] == ""
+    assert out["snippet"] == "elonezet"
+    assert out["sender"] == "a@b.hu"
+
+
+def test_empty_body_and_snippet_logs_the_payload_shape(caplog):
+    """The case that sent me looking in the wrong place: no way to tell a
+    genuinely empty email from one we failed to parse."""
+    import logging
+    msg = {"id": "m9", "snippet": "  ", "payload": _part("multipart/alternative", parts=[
+        _part("text/plain", attachment=True),
+        _part("text/html", attachment=True),
+    ])}
+    with caplog.at_level(logging.WARNING, logger="mail_agent"):
+        out = mail_agent._parse(msg)
+    assert out["body"] == ""
+    assert "m9" in caplog.text
+    assert "multipart/alternative" in caplog.text
+    assert "attachment" in caplog.text, "the shape must say why there was no text"
+
+
+def test_the_shape_log_never_carries_content(caplog):
+    import logging
+    secret = "SZIGORUAN-TITKOS-TARTALOM"
+    msg = {"id": "m10", "snippet": "", "payload": _part("text/plain", secret)}
+    with caplog.at_level(logging.WARNING, logger="mail_agent"):
+        mail_agent._parse(msg)
+    assert secret not in caplog.text
