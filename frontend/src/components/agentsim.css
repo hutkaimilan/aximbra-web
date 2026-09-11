@@ -57,3 +57,10 @@
 .sim-audit-l { color: var(--muted); padding: 4px 0; border-bottom: 1px solid var(--border); }
 .sim-audit-err { color: #C81FFF; }
 @media (prefers-reduced-motion: reduce) { .agent-sim * { animation: none !important; } }
+
+/* A szimuláció tartalma magyar mintaadat; idegen nyelvű lapon ez enélkül
+   hibának látszana. */
+.sim-sample-note {
+  margin: 0 0 14px; font-size: 12.5px; line-height: 1.5;
+  color: var(--muted, #8a93a6); opacity: .9;
+}

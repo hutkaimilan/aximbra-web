@@ -4,7 +4,7 @@ const demos = {
     back: "← Vissza az AXIMBRA-hoz",
     noticeTag: "DEMÓ",
     noticeText: "Ez egy bemutató oldal, nem valós vállalkozás. A márka, a címek, az árak és a munkatársak kitaláltak; a megadott adatokat nem küldjük el és nem tároljuk. Készítette: AXIMBRA.",
-    labels: { address: "Cím", phone: "Telefon", email: "E-mail", hours: "Nyitvatartás", send: "Küldés", name: "Név", message: "Miben segíthetünk?", sent: "Köszönjük! Hamarosan jelentkezünk.", consent: "Elfogadom, hogy ez egy bemutató űrlap: a beírt adatok nem kerülnek elküldésre és tárolásra.", sentDemo: "Ez egy bemutató — nem küldtünk el semmit, és a beírt adatokat nem tároltuk. Egy valódi oldalon itt futna az AXIMBRA ajánlatkérő agentje.", enlarge: "kép nagyban", close: "Bezárás" },
+    labels: { address: "Cím", phone: "Telefon", email: "E-mail", hours: "Nyitvatartás", send: "Küldés", name: "Név", message: "Miben segíthetünk?", sent: "Köszönjük! Hamarosan jelentkezünk.", consent: "Elfogadom, hogy ez egy bemutató űrlap: a beírt adatok nem kerülnek elküldésre és tárolásra.", sentDemo: "Ez egy bemutató — nem küldtünk el semmit, és a beírt adatokat nem tároltuk. Egy valódi oldalon itt futna az AXIMBRA ajánlatkérő agentje.", enlarge: "kép nagyban", close: "Bezárás", demo: "demó" },
     refs: {
       tag: "Referenciák",
       heading: "Négy demó, négy világ",
@@ -139,7 +139,7 @@ const demos = {
     back: "← Back to AXIMBRA",
     noticeTag: "DEMO",
     noticeText: "This is a showcase page, not a real business. The brand, addresses, prices and staff are invented; anything you type here is neither sent nor stored. Built by AXIMBRA.",
-    labels: { address: "Address", phone: "Phone", email: "Email", hours: "Opening hours", send: "Send", name: "Name", message: "How can we help?", sent: "Thank you! We'll be in touch shortly.", consent: "I understand this is a demo form: nothing I type is sent or stored.", sentDemo: "This is a demo — nothing was sent and nothing was stored. On a real site, AXIMBRA's intake agent would run here.", enlarge: "enlarged", close: "Close" },
+    labels: { address: "Address", phone: "Phone", email: "Email", hours: "Opening hours", send: "Send", name: "Name", message: "How can we help?", sent: "Thank you! We'll be in touch shortly.", consent: "I understand this is a demo form: nothing I type is sent or stored.", sentDemo: "This is a demo — nothing was sent and nothing was stored. On a real site, AXIMBRA's intake agent would run here.", enlarge: "enlarged", close: "Close", demo: "demo" },
     refs: {
       tag: "References",
       heading: "Four demos, four worlds",

@@ -70,7 +70,7 @@ export default function Etterem() {
         </div>
       </section>
 
-      <footer className="rst-footer">© {d.brand} · {d.address} · {L.demo || "demó"}</footer>
+      <footer className="rst-footer">© {d.brand} · {d.address} · {L.demo}</footer>
       <a className="rst-float" href={mailto} data-testid="rst-float">{d.floating}</a>
     </div>
   );

@@ -1,256 +1,596 @@
-// Hardcoded, illustrative Hungarian simulation data. No network, no storage.
+// A szimulációk szerkezete: hány elem, milyen kategóriák, milyen tárgysorok.
+// Nincs hálózat és nincs tárolás.
+//
+// Az elbeszélő szöveg (indítógomb, összegzés, indoklások, audit-napló) NEM itt
+// van, hanem az i18n/sims.js-ben, nyelvenként — azt a látogató olvassa. Ami itt
+// maradt, az a mintalevelek tárgysora és feladója: magyar mintaadat, ahogy a
+// példa postafiók is, és a panel tetején ez ki is van írva.
 const sims = {
-  0: {
-    start: "Reggeli futás indítása",
-    beforeLabel: "levél a közös postafiókban",
+  "0": {
     total: 40,
     items: [
-      { t: "Leállt a rendszer, nem tudunk dolgozni", s: "Dunavár Logisztika", cat: "m" },
-      { t: "Számlán dupla tétel szerepel", s: "Kovács és Társa Kft.", cat: "m" },
-      { t: "Azonnali szállítás kellene holnapra", s: "Pannon Webshop", cat: "m" },
-      { t: "Árajánlat 200 db pólóra", s: "Rendezvény Bt.", cat: "c" },
-      { t: "Együttműködési ajánlat", s: "Marketing Zrt.", cat: "c" },
-      { t: "Számlázási cím módosítása", s: "Tóth Anna", cat: "c" },
-      { t: "Hírlevél leiratkozás", s: "—", cat: "dim" },
-      { t: "Automatikus válasz: szabadságon", s: "—", cat: "dim" },
-      { t: "Reklám: SEO szolgáltatás", s: "—", cat: "dim" },
+      {
+        t: "Leállt a rendszer, nem tudunk dolgozni",
+        s: "Dunavár Logisztika",
+        cat: "m"
+      },
+      {
+        t: "Számlán dupla tétel szerepel",
+        s: "Kovács és Társa Kft.",
+        cat: "m"
+      },
+      {
+        t: "Azonnali szállítás kellene holnapra",
+        s: "Pannon Webshop",
+        cat: "m"
+      },
+      {
+        t: "Árajánlat 200 db pólóra",
+        s: "Rendezvény Bt.",
+        cat: "c"
+      },
+      {
+        t: "Együttműködési ajánlat",
+        s: "Marketing Zrt.",
+        cat: "c"
+      },
+      {
+        t: "Számlázási cím módosítása",
+        s: "Tóth Anna",
+        cat: "c"
+      },
+      {
+        t: "Hírlevél leiratkozás",
+        s: "—",
+        cat: "dim"
+      },
+      {
+        t: "Automatikus válasz: szabadságon",
+        s: "—",
+        cat: "dim"
+      },
+      {
+        t: "Reklám: SEO szolgáltatás",
+        s: "—",
+        cat: "dim"
+      }
     ],
-    afterHead: "3 sürgős levél vár ma reggel",
     picks: [
-      { t: "Leállt a rendszer", reason: "Kiesés — ügyfélszolgálat, 4 órán belül", cat: "m" },
-      { t: "Dupla számlatétel", reason: "Pénzügy — reklamáció", cat: "m" },
-      { t: "Azonnali szállítás", reason: "Értékesítés — sürgős", cat: "m" },
-    ],
-    closing: "A maradék 37 levél nem sürgős.",
+      {
+        t: "Leállt a rendszer",
+        cat: "m"
+      },
+      {
+        t: "Dupla számlatétel",
+        cat: "m"
+      },
+      {
+        t: "Azonnali szállítás",
+        cat: "m"
+      }
+    ]
   },
-  1: {
-    start: "Napi érdeklődők feldolgozása",
-    beforeLabel: "beérkező érdeklődő",
+  "1": {
     total: 12,
     items: [
-      { t: "Könyvelőiroda, 40 fő", s: "Van keret, idén indul, ő dönt", cat: "m" },
-      { t: "Gyártó cég, dokumentum-automatizálás", s: "Döntéshozó, keret rendben", cat: "m" },
-      { t: "Webshop ügyfélszolgálat", s: "Tulajdonos dönt, később", cat: "c" },
-      { t: "Étterem foglalási rendszer", s: "Érdeklődik, nincs időpont", cat: "c" },
-      { t: "Kisvállalkozás, hírlevél", s: "Kis keret", cat: "c" },
-      { t: "Ingatlaniroda, chat", s: "Tájékozódik", cat: "c" },
-      { t: "Egyetemista, szakdolgozat", s: "Nincs cég, ingyen kérné", cat: "dim" },
-      { t: "Ügynökség, viszonteladás", s: "Nem illeszkedik", cat: "dim" },
-      { t: "Álláskeresés", s: "Nem ügyfél", cat: "dim" },
+      {
+        t: "Könyvelőiroda, 40 fő",
+        s: "Van keret, idén indul, ő dönt",
+        cat: "m"
+      },
+      {
+        t: "Gyártó cég, dokumentum-automatizálás",
+        s: "Döntéshozó, keret rendben",
+        cat: "m"
+      },
+      {
+        t: "Webshop ügyfélszolgálat",
+        s: "Tulajdonos dönt, később",
+        cat: "c"
+      },
+      {
+        t: "Étterem foglalási rendszer",
+        s: "Érdeklődik, nincs időpont",
+        cat: "c"
+      },
+      {
+        t: "Kisvállalkozás, hírlevél",
+        s: "Kis keret",
+        cat: "c"
+      },
+      {
+        t: "Ingatlaniroda, chat",
+        s: "Tájékozódik",
+        cat: "c"
+      },
+      {
+        t: "Egyetemista, szakdolgozat",
+        s: "Nincs cég, ingyen kérné",
+        cat: "dim"
+      },
+      {
+        t: "Ügynökség, viszonteladás",
+        s: "Nem illeszkedik",
+        cat: "dim"
+      },
+      {
+        t: "Álláskeresés",
+        s: "Nem ügyfél",
+        cat: "dim"
+      }
     ],
-    afterHead: "2 érdeklődőt hívj fel ma",
     picks: [
-      { t: "Könyvelőiroda, 40 fő", reason: "A — keret, határidő, döntéshozó igazolt", cat: "m" },
-      { t: "Gyártó cég", reason: "A — összetett igény, van büdzsé", cat: "m" },
-    ],
-    closing: "7 érdeklődő automatikus emailt kapott, 3 nem illeszkedik.",
+      {
+        t: "Könyvelőiroda, 40 fő",
+        cat: "m"
+      },
+      {
+        t: "Gyártó cég",
+        cat: "m"
+      }
+    ]
   },
-  3: {
-    start: "Heti figyelés indítása",
-    beforeLabel: "figyelt forrás",
-    total: 6,
-    items: [
-      { t: "Fő versenytárs árlista", s: "+12% áremelés", cat: "m" },
-      { t: "Jogszabály-adatbázis", s: "nincs változás", cat: "dim" },
-      { t: "Közbeszerzési portál", s: "nincs változás", cat: "dim" },
-      { t: "Iparági hírek", s: "nincs változás", cat: "dim" },
-      { t: "Google Cégprofil", s: "nincs változás", cat: "dim" },
-      { t: "Piaci elemzések", s: "nincs változás", cat: "dim" },
-    ],
-    afterHead: "1 dolog történt a héten: a fő versenytárs 12%-kal emelt árat.",
-    picks: [
-      { t: "Fő versenytárs", reason: "Árlista frissült — +12% a fő terméknél", cat: "m" },
-    ],
-    closing: "A többi 5 forráson nem történt semmi — ezért nem szóltunk.",
-  },
-  9: {
-    start: "Pályázatok szűrése",
-    beforeLabel: "önéletrajz egy pozícióra",
-    total: 60,
-    items: [
-      { t: "8 releváns tapasztalat, pontos profil", s: "", cat: "c" },
-      { t: "Erős szakmai háttér", s: "", cat: "c" },
-      { t: "Illeszkedő készségek", s: "", cat: "c" },
-      { t: "Részben illeszkedő", s: "", cat: "c" },
-      { t: "Kevés tapasztalat", s: "", cat: "dim" },
-      { t: "Más szakterület", s: "", cat: "dim" },
-    ],
-    afterHead: "8 jelölt jutott a szűrőn túl",
-    afterBar: "Az agent nem utasít el senkit. A 60-ból mind a 60 megtekinthető, a döntést ember hozza.",
-    picks: [
-      { t: "1. jelölt", reason: "5 év releváns tapasztalat, pontos illeszkedés", cat: "c" },
-      { t: "2. jelölt", reason: "Erős készségek, közeli helyszín", cat: "c" },
-      { t: "3. jelölt", reason: "Vezető szerep a korábbi cégnél", cat: "c" },
-    ],
-    closing: "EU AI Act: audit-napló minden döntésről.",
-  },
-  10: {
-    start: "Éjszakai riasztások feldolgozása",
-    beforeLabel: "log sor éjszaka",
-    total: 2400,
-    items: [
-      { t: "03:12 — szolgáltatás kiesés", s: "web-01", cat: "c" },
-      { t: "04:41 — szolgáltatás kiesés", s: "web-03", cat: "c" },
-      { t: "05:20 — ismeretlen adatbázis-hiba", s: "db-01", cat: "m" },
-      { t: "INFO sorok", s: "rutin", cat: "dim" },
-      { t: "DEBUG sorok", s: "rutin", cat: "dim" },
-      { t: "Health-check", s: "rendben", cat: "dim" },
-    ],
-    afterHead: "2 riasztás automatikusan javítva (szolgáltatás újraindítva, 03:12 és 04:41). 1 riasztás felébresztett — ismeretlen hiba az adatbázisban.",
-    picks: [
-      { t: "03:12 kiesés", reason: "Ismert hiba — szolgáltatás újraindítva", cat: "c" },
-      { t: "04:41 kiesés", reason: "Ismert hiba — szolgáltatás újraindítva", cat: "c" },
-      { t: "DB hiba", reason: "Ismeretlen — ember kell, felébresztett", cat: "m" },
-    ],
-    closing: "Reggel 2400 sor helyett 3 mondat.",
-  },
-  2: {
-    start: "Napi átvezetések indítása",
-    beforeLabel: "átvezetendő tétel",
+  "2": {
     total: 18,
     items: [
-      { t: "Szállítólevél #2043 → számla", s: "Dunavár Logisztika", cat: "c" },
-      { t: "Szállítólevél #2044 → számla", s: "Pannon Webshop", cat: "c" },
-      { t: "Bevételezés → készlet", s: "Raktár A", cat: "c" },
-      { t: "Szállítólevél #2051 → számla", s: "összeg eltér", cat: "a" },
-      { t: "Bevételezés → készlet", s: "Raktár B", cat: "c" },
-      { t: "Szállítólevél #2060 → számla", s: "mennyiség eltér", cat: "a" },
-      { t: "Ismétlődő átvezetések", s: "rutin", cat: "dim" },
+      {
+        t: "Szállítólevél #2043 → számla",
+        s: "Dunavár Logisztika",
+        cat: "c"
+      },
+      {
+        t: "Szállítólevél #2044 → számla",
+        s: "Pannon Webshop",
+        cat: "c"
+      },
+      {
+        t: "Bevételezés → készlet",
+        s: "Raktár A",
+        cat: "c"
+      },
+      {
+        t: "Szállítólevél #2051 → számla",
+        s: "összeg eltér",
+        cat: "a"
+      },
+      {
+        t: "Bevételezés → készlet",
+        s: "Raktár B",
+        cat: "c"
+      },
+      {
+        t: "Szállítólevél #2060 → számla",
+        s: "mennyiség eltér",
+        cat: "a"
+      },
+      {
+        t: "Ismétlődő átvezetések",
+        s: "rutin",
+        cat: "dim"
+      }
     ],
-    afterHead: "16 tétel kész, 2 eltérés.",
     picks: [
-      { t: "Szállítólevél #2051", reason: "Összeg eltér a rendeléstől — ember nézze meg", cat: "a" },
-      { t: "Szállítólevél #2060", reason: "Mennyiség eltér — jóváhagyásra vár", cat: "a" },
-    ],
-    closing: "Ez tegnap 2 óra 40 perc volt.",
+      {
+        t: "Szállítólevél #2051",
+        cat: "a"
+      },
+      {
+        t: "Szállítólevél #2060",
+        cat: "a"
+      }
+    ]
   },
-  4: {
-    start: "Kérdés megválaszolása",
-    beforeLabel: "oldalnyi dokumentum a tudásbázisban",
+  "3": {
+    total: 6,
+    items: [
+      {
+        t: "Fő versenytárs árlista",
+        s: "+12% áremelés",
+        cat: "m"
+      },
+      {
+        t: "Jogszabály-adatbázis",
+        s: "nincs változás",
+        cat: "dim"
+      },
+      {
+        t: "Közbeszerzési portál",
+        s: "nincs változás",
+        cat: "dim"
+      },
+      {
+        t: "Iparági hírek",
+        s: "nincs változás",
+        cat: "dim"
+      },
+      {
+        t: "Google Cégprofil",
+        s: "nincs változás",
+        cat: "dim"
+      },
+      {
+        t: "Piaci elemzések",
+        s: "nincs változás",
+        cat: "dim"
+      }
+    ],
+    picks: [
+      {
+        t: "Fő versenytárs",
+        cat: "m"
+      }
+    ]
+  },
+  "4": {
     total: 340,
     items: [
-      { t: "Kérdés: Meddig érvényes a garancia?", s: "ügyfél", cat: "c" },
-      { t: "Áttekintés: teljes dokumentumtár", s: "340 oldal", cat: "dim" },
-      { t: "Találat: Garancia szabályzat", s: "12. o.", cat: "c" },
-      { t: "Találat: ÁSZF", s: "4. o.", cat: "c" },
-      { t: "Találat: Termékadatlap", s: "2. o.", cat: "c" },
+      {
+        t: "Kérdés: Meddig érvényes a garancia?",
+        s: "ügyfél",
+        cat: "c"
+      },
+      {
+        t: "Áttekintés: teljes dokumentumtár",
+        s: "340 oldal",
+        cat: "dim"
+      },
+      {
+        t: "Találat: Garancia szabályzat",
+        s: "12. o.",
+        cat: "c"
+      },
+      {
+        t: "Találat: ÁSZF",
+        s: "4. o.",
+        cat: "c"
+      },
+      {
+        t: "Találat: Termékadatlap",
+        s: "2. o.",
+        cat: "c"
+      }
     ],
-    afterHead: "24 hónap garancia a vásárlástól — kiterjesztéssel 36 hónap.",
     picks: [
-      { t: "Garancia szabályzat", reason: "Forrás: 12. oldal", cat: "c" },
-      { t: "ÁSZF", reason: "Forrás: 4. oldal", cat: "c" },
-      { t: "Termékadatlap", reason: "Forrás: 2. oldal", cat: "c" },
+      {
+        t: "Garancia szabályzat",
+        cat: "c"
+      },
+      {
+        t: "ÁSZF",
+        cat: "c"
+      },
+      {
+        t: "Termékadatlap",
+        cat: "c"
+      }
     ],
-    afterBar: "Erre nem találtam választ a dokumentumokban — átadom kollégának.",
-    afterBarCat: "a",
-    closing: "Amit nem tud, azt nem találja ki.",
+    afterBarCat: "a"
   },
-  5: {
-    start: "Hírlevél megírása",
-    beforeLabel: "korábbi szöveg hangnem-mintaként",
+  "5": {
     total: 5,
     items: [
-      { t: "Brief: tavaszi akció, −20%", s: "megrendelő", cat: "c" },
-      { t: "Minta: előző hírlevél", s: "hangnem", cat: "dim" },
-      { t: "Minta: termékleírás", s: "hangnem", cat: "dim" },
-      { t: "Minta: közösségi poszt", s: "hangnem", cat: "dim" },
+      {
+        t: "Brief: tavaszi akció, −20%",
+        s: "megrendelő",
+        cat: "c"
+      },
+      {
+        t: "Minta: előző hírlevél",
+        s: "hangnem",
+        cat: "dim"
+      },
+      {
+        t: "Minta: termékleírás",
+        s: "hangnem",
+        cat: "dim"
+      },
+      {
+        t: "Minta: közösségi poszt",
+        s: "hangnem",
+        cat: "dim"
+      }
     ],
-    afterHead: "Kész hírlevél: „Tavasz van — és most 20% kedvezmény jár minden rendelésre…”",
     approve: true,
-    afterBar: "Jóváhagyásra vár",
     afterBarCat: "a",
-    picks: [],
-    closing: "Semmi nem megy ki jóváhagyás nélkül.",
+    picks: []
   },
-  6: {
-    start: "Beszélgetés indítása",
-    beforeLabel: "termék a kosárban, a látogató távozni készül",
+  "6": {
     total: 2,
     items: [
-      { t: "Agent: Segíthetek? Láttam, a futócipőt nézed.", s: "", cat: "c" },
-      { t: "Vevő: Bizonytalan vagyok a méretben.", s: "", cat: "c" },
-      { t: "Agent: 42-es van készleten, ingyenes csere.", s: "készlet OK", cat: "c" },
-      { t: "Agent: A sportzoknit is ajánlom hozzá, −15%.", s: "upsell", cat: "c" },
+      {
+        t: "Agent: Segíthetek? Láttam, a futócipőt nézed.",
+        s: "",
+        cat: "c"
+      },
+      {
+        t: "Vevő: Bizonytalan vagyok a méretben.",
+        s: "",
+        cat: "c"
+      },
+      {
+        t: "Agent: 42-es van készleten, ingyenes csere.",
+        s: "készlet OK",
+        cat: "c"
+      },
+      {
+        t: "Agent: A sportzoknit is ajánlom hozzá, −15%.",
+        s: "upsell",
+        cat: "c"
+      }
     ],
-    afterHead: "Kosárérték: 24 900 Ft → 41 400 Ft.",
     picks: [
-      { t: "Futócipő 42", reason: "Méret megerősítve, készleten", cat: "c" },
-      { t: "Sportzokni csomag", reason: "Kiegészítő ajánlat elfogadva", cat: "c" },
-    ],
-    closing: "Havi 180 ilyen beszélgetés.",
+      {
+        t: "Futócipő 42",
+        cat: "c"
+      },
+      {
+        t: "Sportzokni csomag",
+        cat: "c"
+      }
+    ]
   },
-  7: {
-    start: "Szerződés elemzése",
-    beforeLabel: "oldalas szerződés",
+  "7": {
     total: 14,
     items: [
-      { t: "1–3. oldal: felek, tárgy", s: "", cat: "c" },
-      { t: "4–7. oldal: díjazás", s: "", cat: "c" },
-      { t: "8–11. oldal: felmondás", s: "", cat: "c" },
-      { t: "12–14. oldal: záró rendelkezések", s: "", cat: "c" },
+      {
+        t: "1–3. oldal: felek, tárgy",
+        s: "",
+        cat: "c"
+      },
+      {
+        t: "4–7. oldal: díjazás",
+        s: "",
+        cat: "c"
+      },
+      {
+        t: "8–11. oldal: felmondás",
+        s: "",
+        cat: "c"
+      },
+      {
+        t: "12–14. oldal: záró rendelkezések",
+        s: "",
+        cat: "c"
+      }
     ],
-    afterHead: "14 oldalból 7 kiemelt mező",
     picks: [
-      { t: "Szerződő felek", reason: "Kovács és Társa Kft. — Dunavár Logisztika", cat: "c" },
-      { t: "Összeg", reason: "4 800 000 Ft + áfa / év", cat: "c" },
-      { t: "Időtartam", reason: "12 hónap", cat: "c" },
-      { t: "Felmondási idő", reason: "30 nap", cat: "c" },
-      { t: "Kötbér", reason: "A havidíj kétszerese", cat: "c" },
-      { t: "Illetékesség", reason: "Fővárosi Törvényszék", cat: "c" },
-      { t: "Automatikus megújulás — 30 nap felmondási idő. Naptárba tenni.", reason: "figyelmeztetés", cat: "m" },
-    ],
-    closing: "14 oldal helyett 7 sor.",
+      {
+        t: "Szerződő felek",
+        cat: "c"
+      },
+      {
+        t: "Összeg",
+        cat: "c"
+      },
+      {
+        t: "Időtartam",
+        cat: "c"
+      },
+      {
+        t: "Felmondási idő",
+        cat: "c"
+      },
+      {
+        t: "Kötbér",
+        cat: "c"
+      },
+      {
+        t: "Illetékesség",
+        cat: "c"
+      },
+      {
+        t: "Automatikus megújulás — 30 nap felmondási idő. Naptárba tenni.",
+        cat: "m"
+      }
+    ]
   },
-  8: {
-    start: "Havi tranzakciók elemzése",
-    beforeLabel: "banki tranzakció egy hónapból",
+  "8": {
     total: 240,
     items: [
-      { t: "Bér és járulék", s: "", cat: "c" },
-      { t: "Bérleti díj", s: "", cat: "c" },
-      { t: "Alapanyag", s: "", cat: "c" },
-      { t: "Szoftver-előfizetések", s: "+180%", cat: "m" },
-      { t: "Marketing", s: "", cat: "c" },
-      { t: "Egyéb", s: "", cat: "dim" },
+      {
+        t: "Bér és járulék",
+        s: "",
+        cat: "c"
+      },
+      {
+        t: "Bérleti díj",
+        s: "",
+        cat: "c"
+      },
+      {
+        t: "Alapanyag",
+        s: "",
+        cat: "c"
+      },
+      {
+        t: "Szoftver-előfizetések",
+        s: "+180%",
+        cat: "m"
+      },
+      {
+        t: "Marketing",
+        s: "",
+        cat: "c"
+      },
+      {
+        t: "Egyéb",
+        s: "",
+        cat: "dim"
+      }
     ],
-    afterHead: "Egy kategória kiugrik",
-    afterBar: "Szoftver-előfizetések: +180% az előző hónaphoz képest.",
     afterBarCat: "m",
     picks: [
-      { t: "Új CRM licenc", reason: "+ 240 000 Ft", cat: "m" },
-      { t: "Analitika eszköz", reason: "+ 96 000 Ft", cat: "m" },
-      { t: "Projektmenedzsment — dupla számlázás", reason: "+ 60 000 Ft, gyanús", cat: "m" },
-    ],
-    closing: "Minden szám mögött ott a forrássor.",
+      {
+        t: "Új CRM licenc",
+        cat: "m"
+      },
+      {
+        t: "Analitika eszköz",
+        cat: "m"
+      },
+      {
+        t: "Projektmenedzsment — dupla számlázás",
+        cat: "m"
+      }
+    ]
   },
-  11: {
-    start: "Ajánlatkérés feldolgozása",
-    beforeLabel: "lépés a folyamatban",
+  "9": {
+    total: 60,
+    items: [
+      {
+        t: "8 releváns tapasztalat, pontos profil",
+        s: "",
+        cat: "c"
+      },
+      {
+        t: "Erős szakmai háttér",
+        s: "",
+        cat: "c"
+      },
+      {
+        t: "Illeszkedő készségek",
+        s: "",
+        cat: "c"
+      },
+      {
+        t: "Részben illeszkedő",
+        s: "",
+        cat: "c"
+      },
+      {
+        t: "Kevés tapasztalat",
+        s: "",
+        cat: "dim"
+      },
+      {
+        t: "Más szakterület",
+        s: "",
+        cat: "dim"
+      }
+    ],
+    picks: [
+      {
+        t: "1. jelölt",
+        cat: "c"
+      },
+      {
+        t: "2. jelölt",
+        cat: "c"
+      },
+      {
+        t: "3. jelölt",
+        cat: "c"
+      }
+    ]
+  },
+  "10": {
+    total: 2400,
+    items: [
+      {
+        t: "03:12 — szolgáltatás kiesés",
+        s: "web-01",
+        cat: "c"
+      },
+      {
+        t: "04:41 — szolgáltatás kiesés",
+        s: "web-03",
+        cat: "c"
+      },
+      {
+        t: "05:20 — ismeretlen adatbázis-hiba",
+        s: "db-01",
+        cat: "m"
+      },
+      {
+        t: "INFO sorok",
+        s: "rutin",
+        cat: "dim"
+      },
+      {
+        t: "DEBUG sorok",
+        s: "rutin",
+        cat: "dim"
+      },
+      {
+        t: "Health-check",
+        s: "rendben",
+        cat: "dim"
+      }
+    ],
+    picks: [
+      {
+        t: "03:12 kiesés",
+        cat: "c"
+      },
+      {
+        t: "04:41 kiesés",
+        cat: "c"
+      },
+      {
+        t: "DB hiba",
+        cat: "m"
+      }
+    ]
+  },
+  "11": {
     total: 8,
     items: [
-      { t: "Beérkezés", s: "Ajánlatkérés: 500 db egyedi doboz", cat: "c" },
-      { t: "Dokumentum-elemző", s: "Kinyert: mennyiség, méret, határidő", cat: "c" },
-      { t: "Pénzügyi ellenőrzés", s: "Anyagköltség + munkadíj kalkulálva", cat: "c" },
-      { t: "Ajánlatíró", s: "Ajánlat: nettó 1 250 000 Ft", cat: "c" },
-      { t: "Független ellenőr ⟲ VISSZAKÜLDVE", s: "rossz ÁFA-kulcs (20% → 27%)", cat: "m" },
-      { t: "Ajánlatíró (javítás)", s: "ÁFA javítva: 27%", cat: "c" },
-      { t: "Emberi jóváhagyás", s: "Jóváhagyva", cat: "a" },
-      { t: "Kiküldés", s: "Ajánlat elküldve az ügyfélnek", cat: "c" },
+      {
+        t: "Beérkezés",
+        s: "Ajánlatkérés: 500 db egyedi doboz",
+        cat: "c"
+      },
+      {
+        t: "Dokumentum-elemző",
+        s: "Kinyert: mennyiség, méret, határidő",
+        cat: "c"
+      },
+      {
+        t: "Pénzügyi ellenőrzés",
+        s: "Anyagköltség + munkadíj kalkulálva",
+        cat: "c"
+      },
+      {
+        t: "Ajánlatíró",
+        s: "Ajánlat: nettó 1 250 000 Ft",
+        cat: "c"
+      },
+      {
+        t: "Független ellenőr ⟲ VISSZAKÜLDVE",
+        s: "rossz ÁFA-kulcs (20% → 27%)",
+        cat: "m"
+      },
+      {
+        t: "Ajánlatíró (javítás)",
+        s: "ÁFA javítva: 27%",
+        cat: "c"
+      },
+      {
+        t: "Emberi jóváhagyás",
+        s: "Jóváhagyva",
+        cat: "a"
+      },
+      {
+        t: "Kiküldés",
+        s: "Ajánlat elküldve az ügyfélnek",
+        cat: "c"
+      }
     ],
-    afterHead: "Kész ajánlat: 1 587 500 Ft (bruttó)",
-    audit: [
-      "09:00:02 — Beérkezés",
-      "09:00:05 — Dokumentum-elemző",
-      "09:00:09 — Pénzügyi ellenőrzés",
-      "09:00:12 — Ajánlatíró (nettó 1 250 000 Ft)",
-      "09:00:14 — Független ellenőr: HIBA, rossz ÁFA-kulcs, visszaküldve",
-      "09:00:17 — Ajánlatíró: ÁFA javítva (27%)",
-      "09:00:19 — Emberi jóváhagyás",
-      "09:00:20 — Kiküldés",
-    ],
-    picks: [],
-    closing: "Az ellenőrzést nem az végzi, aki írta.",
-  },
+    picks: []
+  }
 };
+
+/** A szerkezet és a felület nyelvén lévő szöveg egyben.
+ *  Az indoklások sorrendje kötött: az i18n reasons[i] a picks[i]-hez tartozik. */
+export function simFor(kind, text) {
+  const base = sims[kind];
+  if (!base) return null;
+  if (!text) return base;
+  const merged = { ...base, ...text };
+  if (base.picks) {
+    merged.picks = base.picks.map((p, i) => ({ ...p, reason: (text.reasons || [])[i] || '' }));
+  }
+  return merged;
+}
 
 export default sims;

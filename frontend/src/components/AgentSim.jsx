@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { useLang } from "../i18n";
 import "./agentsim.css";
 
 const CAT = { m: "sim-m", c: "sim-c", a: "sim-a", dim: "sim-dim" };
 
 export const AgentSim = ({ data, slug }) => {
+  const { t } = useLang();
+  const L = t.agentsSection;
   const [phase, setPhase] = useState("idle"); // idle | running | done
   const [prog, setProg] = useState(0);        // revealed item count
   const [count, setCount] = useState(0);       // ticking counter
@@ -51,9 +54,12 @@ export const AgentSim = ({ data, slug }) => {
 
   return (
     <div ref={rootRef} className={`agent-sim ${vis ? "sim-vis" : ""}`} data-testid="agent-sim">
+      {/* A szimuláció levelei magyar mintaadatok, mint a példa postafiók. Egy
+          idegen nyelvű lapon ez magyarázat nélkül hibának látszik. */}
+      <div className="sim-sample-note" data-testid="sim-sample-note">{L.sampleNote}</div>
       {slug && (
         <button className="sim-copy" data-testid="sim-copy" onClick={copyLink}>
-          {copied ? "Link másolva ✓" : "🔗 Link másolása"}
+          {copied ? L.copied : L.copy}
         </button>
       )}
       {phase === "idle" && (
@@ -80,7 +86,7 @@ export const AgentSim = ({ data, slug }) => {
               </div>
             ))}
           </div>
-          <button className="sim-btn skip" data-testid="sim-skip" onClick={finish}>Ugrás a végére →</button>
+          <button className="sim-btn skip" data-testid="sim-skip" onClick={finish}>{L.skip}</button>
         </div>
       )}
 
@@ -90,10 +96,10 @@ export const AgentSim = ({ data, slug }) => {
           {data.afterBar && <div className={`sim-bar ${data.afterBarCat === "m" ? "sim-m" : "sim-a"}`} data-testid="sim-bar">{data.afterBar}</div>}
           {data.approve && (
             <div className="sim-approve">
-              <button className="sim-btn go" data-testid="sim-approve" onClick={() => setAppr("ok")}>Jóváhagyom</button>
-              <button className="sim-btn skip" data-testid="sim-rewrite" onClick={() => setAppr("rw")}>Átíratom</button>
-              {appr === "ok" && <span className="sim-appr-msg">Jóváhagyva — kimegy.</span>}
-              {appr === "rw" && <span className="sim-appr-msg">Átírásra visszaküldve.</span>}
+              <button className="sim-btn go" data-testid="sim-approve" onClick={() => setAppr("ok")}>{L.approve}</button>
+              <button className="sim-btn skip" data-testid="sim-rewrite" onClick={() => setAppr("rw")}>{L.rewrite}</button>
+              {appr === "ok" && <span className="sim-appr-msg">{L.approved}</span>}
+              {appr === "rw" && <span className="sim-appr-msg">{L.rewritten}</span>}
             </div>
           )}
           {data.picks && data.picks.length > 0 && (
@@ -114,7 +120,7 @@ export const AgentSim = ({ data, slug }) => {
             </div>
           )}
           <div className="sim-closing" data-testid="sim-closing">{data.closing}</div>
-          <button className="sim-btn again" data-testid="sim-again" onClick={reset}>↻ Újra</button>
+          <button className="sim-btn again" data-testid="sim-again" onClick={reset}>{L.again}</button>
         </div>
       )}
     </div>

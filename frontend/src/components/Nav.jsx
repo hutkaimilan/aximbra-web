@@ -69,7 +69,7 @@ export const Nav = ({ scrollTo }) => {
         </LiquidButton>
 
         <button className={`nav-burger ${open ? "open" : ""}`} data-testid="nav-burger"
-          aria-label="Menü" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          aria-label={t.nav.menu} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           <span /><span /><span />
         </button>
       </div>

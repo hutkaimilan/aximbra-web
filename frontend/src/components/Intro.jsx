@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLang } from "../i18n";
 
 const LETTERS = "AXIMBRA".split("");
 
@@ -15,6 +16,7 @@ const markIntroSeen = () => {
 };
 
 export const Intro = ({ skip }) => {
+  const { t } = useLang();
   // Read once, on mount: re-reading during the run would hide it mid-animation.
   const [suppressed] = useState(() => skip || hasSeenIntro());
   const [hide, setHide] = useState(false);
@@ -41,7 +43,7 @@ export const Intro = ({ skip }) => {
         ))}
       </div>
       <div className="intro-line" />
-      <div className="intro-cap">AI AGENTEK · BUDAPEST</div>
+      <div className="intro-cap">{t.nav.intro}</div>
     </div>
   );
 };

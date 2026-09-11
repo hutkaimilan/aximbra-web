@@ -6,14 +6,14 @@ import EmailAgent from "@/demos/EmailAgent";
 import { LiquidButton } from "./LiquidButton";
 import { AgentViz } from "./AgentViz";
 import { AgentSim } from "./AgentSim";
-import sims from "./agentSims";
+import { simFor } from "./agentSims";
 import { mailto } from "../contact";
 import { useLang } from "../i18n";
 
 export const SLUGS = ["email-rendezo", "erdeklodo-minosito", "belso-admin", "kutatasi-monitor", "ugyfelszolgalat", "tartalom", "webshop", "dokumentum-elemzo", "penzugyi", "toborzas", "it-uzemelteto", "multi-agent"];
 
-const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote }) => {
-  const simData = sims[kind];
+const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote, simText }) => {
+  const simData = simFor(kind, simText);
   const slug = SLUGS[kind];
   const onMove = (e) => {
     if (open) return;
@@ -56,7 +56,7 @@ const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote }) 
       {simData && agent.demo !== "email" && (
         <div className="card-try">
           <LiquidButton ghost data-testid={`agent-sim-btn-${kind}`} onClick={onSim}>
-            {simOn ? "Bezárás" : "Nézd meg működés közben"}
+            {simOn ? labels.tryClose : labels.simOpen}
           </LiquidButton>
           {simOn && <AgentSim data={simData} slug={slug} />}
         </div>
@@ -100,7 +100,7 @@ export const Agents = () => {
       <div className="grid">
         {t.agents.slice(0, showAll ? undefined : VISIBLE_AT_FIRST).map((a, i) => (
           <Reveal key={a.demo || i} delay={(i % 3) * 90} className={(open === a.demo || simOpen === i) ? "span-all" : ""}>
-            <TiltCard agent={a} labels={s} kind={i}
+            <TiltCard agent={a} labels={s} kind={i} simText={t.sims[i]}
               quote={{ label: t.pricing.cta, subject: t.pricing.subjectPrefix }}
               open={open === a.demo}
               onToggle={() => { setSimOpen(null); setOpen(open === a.demo ? null : a.demo); }}
