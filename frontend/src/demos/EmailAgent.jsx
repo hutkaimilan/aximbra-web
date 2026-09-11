@@ -288,6 +288,7 @@ export default function EmailAgent({ embedded = false }) {
   const [onlyNeedsReply, setOnlyNeedsReply] = useState(false);
   const [openId, setOpenId] = useState(null);
   const timer = useRef(null);
+  const retry = useRef(null);
 
   const poll = useCallback(async () => {
     try {
@@ -313,14 +314,39 @@ export default function EmailAgent({ embedded = false }) {
       // Drop the token from the address bar so it is not shared or bookmarked.
       window.history.replaceState({}, "", window.location.pathname);
     }
-    get("/status").then((s) => {
-      setStatus(s);
-      if (s.connected) {
-        poll();
-        timer.current = setInterval(poll, 3000);
+    let cancelled = false;
+
+    // A failed status call used to render as "configured: false", which printed
+    // "Az agent Google-hozzáférése nincs beállítva" — a confident claim about the
+    // server's configuration made from a request that never arrived. The common
+    // cause is the API restarting during a deploy, which resolves itself in
+    // seconds, so retry a few times and then say what is actually known: the
+    // agent could not be reached.
+    const load = async (attempt = 0) => {
+      try {
+        const s = await get("/status");
+        if (cancelled) return;
+        setStatus(s);
+        if (s.connected) {
+          poll();
+          timer.current = setInterval(poll, 3000);
+        }
+      } catch {
+        if (cancelled) return;
+        if (attempt < 3) {
+          retry.current = setTimeout(() => load(attempt + 1), 1500 * (attempt + 1));
+          return;
+        }
+        setStatus({ unreachable: true });
       }
-    }).catch(() => setStatus({ connected: false, configured: false }));
-    return () => { if (timer.current) clearInterval(timer.current); };
+    };
+    load();
+
+    return () => {
+      cancelled = true;
+      if (timer.current) clearInterval(timer.current);
+      if (retry.current) clearTimeout(retry.current);
+    };
   }, [poll]);
 
   // Leaving the page ends the run server-side, so returning starts from scratch.
@@ -375,6 +401,25 @@ export default function EmailAgent({ embedded = false }) {
       <main className="agent-main">
         {!status ? (
           <div className="agent-center"><span className="spin" /></div>
+        ) : status.unreachable ? (
+          /* What is actually known: the request did not arrive. Saying anything
+             about the server's configuration from here would be a guess. */
+          <div className="agent-intro">
+            {!embedded && <h1>E-mail rendező agent</h1>}
+            <div className="agent-closed" data-testid="agent-unreachable">
+              <p>
+                <b>Az agent most nem érhető el.</b> Nem tudtuk elérni a
+                kiszolgálót — ez általában néhány másodperces frissítés, amíg új
+                verzió indul.
+              </p>
+              <p>
+                <button type="button" className="agent-retry"
+                  onClick={() => window.location.reload()}>
+                  Próbáld újra
+                </button>
+              </p>
+            </div>
+          </div>
         ) : !status.connected ? (
           <div className="agent-intro">
             {!embedded && <h1>E-mail rendező agent</h1>}

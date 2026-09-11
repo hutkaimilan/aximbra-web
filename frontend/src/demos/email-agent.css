@@ -31,7 +31,9 @@
   font-family: var(--body); font-size: 15px; font-weight: 600; color: #04040C;
   background: var(--cyan); border: none; border-radius: 40px; padding: 14px 26px; cursor: pointer;
   transition: filter .2s ease, opacity .2s ease; }
-.agent-cta:hover { filter: brightness(1.12); }
+/* not(:disabled): a button that brightens under the cursor reads as clickable,
+   which is exactly the wrong signal when it is disabled. */
+.agent-cta:hover:not(:disabled) { filter: brightness(1.12); }
 .agent-cta:disabled { opacity: .55; cursor: not-allowed; }
 .agent-cta.ghost { margin-top: 34px; background: transparent; color: var(--muted);
   border: 1px solid var(--border); }
@@ -351,3 +353,11 @@
   font-size: 13.5px; line-height: 1.6; color: #BFE6CC;
 }
 .agent-sent b { color: #8FE6AE; }
+
+.agent-retry {
+  margin-top: 4px; padding: 9px 18px;
+  border: 1px solid rgba(255,176,32,.5); border-radius: 8px;
+  background: rgba(255,176,32,.14); color: #FFD9A0;
+  font-family: inherit; font-size: 13.5px; cursor: pointer; transition: background .2s ease;
+}
+.agent-retry:hover { background: rgba(255,176,32,.24); }
