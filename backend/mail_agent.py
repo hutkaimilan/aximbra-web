@@ -18,10 +18,12 @@ from email.utils import parsedate_to_datetime
 
 from typing import Literal
 
+import httplib2
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse
 from cryptography.fernet import Fernet
+from google_auth_httplib2 import AuthorizedHttp
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build, Resource
 
@@ -206,6 +208,25 @@ def _require(request: Request) -> dict:
     if not sess:
         raise HTTPException(status_code=401, detail="Nincs aktív munkamenet. Csatlakozz újra.")
     return sess
+
+
+HTTP_TIMEOUT_SECONDS = 30
+
+
+def _fresh_http(creds):
+    """A private HTTP connection for one Gmail call.
+
+    google-api-python-client is built on httplib2, which is **not thread-safe**:
+    the `http` object a service is built with owns a connection, and two threads
+    using it at once corrupt its state. Not an exception — a hard crash of the
+    whole process, which takes every in-memory session with it and drops the
+    visitor back on the connect screen with no explanation.
+
+    The service object itself is fine to share; only the transport is not. So the
+    Gmail calls that run in worker threads pass their own http to execute(),
+    which is the documented way to use this client from more than one thread.
+    """
+    return AuthorizedHttp(creds, http=httplib2.Http(timeout=HTTP_TIMEOUT_SECONDS))
 
 
 def _granted_compose(creds, requested: bool) -> bool:
@@ -787,7 +808,8 @@ async def run_agent(sid: str):
         listing = await asyncio.to_thread(
             service.users().messages().list(
                 userId="me", maxResults=MAX_EMAILS, q=f"after:{after}"
-            ).execute
+            ).execute,
+            http=_fresh_http(sess["creds"]),
         )
         ids = [m["id"] for m in listing.get("messages", [])]
         state["total"] = len(ids)
@@ -810,8 +832,11 @@ async def run_agent(sid: str):
                 if halted["reason"] or sid not in _sessions:
                     return
                 try:
+                    # Its own connection: this runs in a worker thread alongside
+                    # RUN_CONCURRENCY - 1 others, and httplib2 cannot be shared.
                     full = await asyncio.to_thread(
-                        service.users().messages().get(userId="me", id=mid, format="full").execute
+                        service.users().messages().get(userId="me", id=mid, format="full").execute,
+                        http=_fresh_http(sess["creds"]),
                     )
                     email = _parse(full)
                     analysis = await classify_one(email)

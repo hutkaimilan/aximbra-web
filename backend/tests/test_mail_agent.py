@@ -9,6 +9,7 @@ sys.path.insert(0, str(BACKEND))
 os.environ.setdefault("OPENAI_API_KEY", "sk-test")
 import pytest, server, mail_agent
 from googleapiclient.discovery import Resource
+from google_auth_httplib2 import AuthorizedHttp
 from fastapi.testclient import TestClient
 c = TestClient(server.app)
 
@@ -360,10 +361,13 @@ class FakeDrafts:
 
 
 class _Exec:
-    def __init__(self, result):
+    def __init__(self, result, seen_http=None):
         self._r = result
+        self._seen = seen_http
 
-    def execute(self):
+    def execute(self, http=None, **kw):
+        if self._seen is not None:
+            self._seen.append(http)
         return self._r
 
 
@@ -803,7 +807,8 @@ class RunFakeService:
 
     def list(self, userId, maxResults, q):
         self._t["max_results"] = maxResults
-        return _Exec({"messages": [{"id": i} for i in self._ids[:maxResults]]})
+        return _Exec({"messages": [{"id": i} for i in self._ids[:maxResults]]},
+                     self._t.setdefault("https", []))
 
     def get(self, userId, id, format):
         return _Exec({
@@ -811,7 +816,7 @@ class RunFakeService:
             "payload": {"headers": [{"name": "From", "value": f"{id}@x.hu"},
                                     {"name": "Subject", "value": f"Tárgy {id}"}],
                         "mimeType": "text/plain", "body": {}},
-        })
+        }, self._t.setdefault("https", []))
 
 
 def _install_run_stubs(monkeypatch, ids, classify):
@@ -1117,3 +1122,35 @@ def test_the_shape_log_never_carries_content(caplog):
     with caplog.at_level(logging.WARNING, logger="mail_agent"):
         mail_agent._parse(msg)
     assert secret not in caplog.text
+
+
+def test_every_threaded_gmail_call_gets_its_own_connection(monkeypatch):
+    """httplib2 is not thread-safe. Sharing one connection across the run's worker
+    threads does not raise — it crashes the interpreter, taking every in-memory
+    session with it, which looks to the visitor like being dumped back on the
+    connect screen for no reason."""
+    import asyncio
+    ids = [f"m{i}" for i in range(12)]
+
+    async def classify(email):
+        await asyncio.sleep(0)
+        return {"category": "Egyéb", "urgency": 1, "needs_reply": "nem",
+                "urgency_reason": "", "deadline": "", "summary": "", "next_step": ""}
+
+    tracker = _install_run_stubs(monkeypatch, ids, classify)
+    sid = _run_session(ids)
+    try:
+        asyncio.run(mail_agent.run_agent(sid))
+        seen = tracker["https"]
+        assert len(seen) == len(ids) + 1, "list + one get per email"
+        assert all(h is not None for h in seen), "a call reused the service's shared http"
+        assert len({id(h) for h in seen}) == len(seen), "two calls shared one connection"
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_fresh_http_is_authorised_and_has_a_timeout():
+    class Creds: pass
+    http = mail_agent._fresh_http(Creds())
+    assert isinstance(http, AuthorizedHttp)
+    assert http.http.timeout == mail_agent.HTTP_TIMEOUT_SECONDS, "a hung call would wedge a worker"
