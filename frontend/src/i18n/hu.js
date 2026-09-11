@@ -11,7 +11,7 @@ const SEO = {
 const hu = {
   seo: SEO,
   nav: {
-    links: [["Agentek", "agentek"], ["Folyamat", "folyamat"], ["Árak", "arak"], ["Esettanulmány", "eset"]],
+    links: [["Agentek", "agentek"], ["Folyamat", "folyamat"], ["Weboldal", "weboldal", "/weboldal"], ["Esettanulmány", "eset"]],
     contact: "KAPCSOLAT",
     callbar: "Hány hívást hagy megválaszolatlanul a helye?",
     callbarHref: CALLBAR,
@@ -32,6 +32,7 @@ const hu = {
     sub: "Mindegyik ugyanabból a modulkészletből épül, ezért a második mindig gyorsabb, mint az első. Az élő jelöléssel ellátottakat kipróbálhatod — valódi modell fut mögötte.",
     tryOpen: "Próbáld ki élőben ↓",
     tryClose: "Bezárás",
+    showAll: "Mutasd a további {n} agentet →",
   },
   agents: [
     { title: "E-mail rendező", badge: "Élő", live: true, demo: "email", desc: "Beolvassa a beérkező leveleket, kategóriába sorolja, sürgősséget állapít meg, és megmondja, kihez tartozik.", price: "150–400 eFt", lead: "2–4 hét" },
@@ -68,11 +69,31 @@ const hu = {
     popular: "Legnépszerűbb",
     cta: "Ajánlatot kérek",
     subjectPrefix: "Ajánlatkérés",
+    bandCta: "Weboldal-csomagok →",
     packages: [
       { name: "Egyoldalas bemutatkozó", price: "120 000 Ft", features: ["egyoldalas, mobilra optimalizált oldal", "kapcsolat, nyitvatartás, Google Maps", "3–5 nap alatt kész"] },
       { name: "Több oldalas üzleti", price: "290 000 Ft", features: ["több aloldal, galéria, kapcsolati űrlap", "alap SEO és Google-indexelés", "1–2 hét alatt kész"] },
       { name: "Egyedi / AI-integrált", price: "900 000 Ft-tól", features: ["foglalási rendszer vagy AI chat / hangügynök", "egyedi funkciók igény szerint", "ajánlat alapján, egyeztetett határidővel"] },
     ],
+  },
+  webPage: {
+    seo: {
+      title: "Weboldalkészítés — AXIMBRA",
+      description: "Weboldal-csomagok árral és határidővel: egyoldalas bemutatkozótól az AI-integrált egyedi fejlesztésig. Budapest.",
+    },
+    lead: "Kétféle munkát végzünk, és a kettő nem ugyanaz. Az AI agentek egy konkrét feladatot vesznek át; a weboldal az, ahol a cégedet megtalálják. Ezen az oldalon az utóbbi.",
+    includedTitle: "Ami minden csomagban benne van",
+    included: [
+      "Mobilra tervezve, nem mobilra összenyomva — a forgalom többsége telefonról érkezik.",
+      "Valódi szöveggel adjuk át, nem kitöltő szöveggel; ha nincs kész tartalom, megírjuk.",
+      "Mérhető sebesség: a lap akkor is használható marad, ha lassú a hálózat.",
+      "Kereshetőség: cím, leírás, strukturált adat és sitemap, nem utólag ráaggatva.",
+      "Impresszum és adatkezelési tájékoztató, ami arról szól, amit az oldal tényleg csinál.",
+      "Átadás után is elérhetők vagyunk; a javítás nem új projekt.",
+    ],
+    agentsTitle: "És ha agent is kell rá?",
+    agentsText: "A harmadik csomag pontosan ezt jelenti: foglalási rendszer, AI chat vagy telefonáló agent a weboldalba építve. Ha viszont a weboldal megvan és inkább egy munkafolyamatot vennél le a válladról, az a másik oldalunk.",
+    agentsLink: "Nézd meg az agenteket →",
   },
   caseStudy: {
     tag: "Működés közben",

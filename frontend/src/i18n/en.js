@@ -11,7 +11,7 @@ const SEO = {
 const en = {
   seo: SEO,
   nav: {
-    links: [["Agents", "agentek"], ["Process", "folyamat"], ["Pricing", "arak"], ["Case study", "eset"]],
+    links: [["Agents", "agentek"], ["Process", "folyamat"], ["Websites", "weboldal", "/weboldal"], ["Case study", "eset"]],
     contact: "CONTACT",
     callbar: "How many calls does your venue miss?",
     callbarHref: CALLBAR,
@@ -32,6 +32,7 @@ const en = {
     sub: "Each is built from the same module set, so the second is always faster than the first. You can try the ones marked live — a real model runs behind them.",
     tryOpen: "Try it live ↓",
     tryClose: "Close",
+    showAll: "Show the other {n} agents →",
   },
   agents: [
     { title: "Email sorter", badge: "Live", live: true, demo: "email", desc: "Reads incoming emails, sorts them into categories, assesses urgency, and tells you who they belong to.", price: "150–400 eFt", lead: "2–4 weeks" },
@@ -68,11 +69,31 @@ const en = {
     popular: "Most popular",
     cta: "Request a quote",
     subjectPrefix: "Quote request",
+    bandCta: "Website packages →",
     packages: [
       { name: "One-page presence", price: "120 000 Ft", features: ["single-page, mobile-optimized site", "contact, opening hours, Google Maps", "ready in 3–5 days"] },
       { name: "Multi-page business", price: "290 000 Ft", features: ["multiple subpages, gallery, contact form", "basic SEO and Google indexing", "ready in 1–2 weeks"] },
       { name: "Custom / AI-integrated", price: "from 900 000 Ft", features: ["booking system or AI chat / voice agent", "custom features on request", "quote-based, with an agreed deadline"] },
     ],
+  },
+  webPage: {
+    seo: {
+      title: "Website design and development — AXIMBRA",
+      description: "Website packages with prices and deadlines: from a one-page presence to custom, AI-integrated development. Budapest.",
+    },
+    lead: "We do two different kinds of work. AI agents take over one concrete task; a website is where your company gets found. This page is about the latter.",
+    includedTitle: "In every package",
+    included: [
+      "Designed for the phone, not squeezed onto it — most traffic arrives from mobile.",
+      "Handed over with real copy, not placeholder text; if the content isn't ready, we write it.",
+      "Measured speed: the page stays usable on a slow network.",
+      "Findable: title, description, structured data and a sitemap — not bolted on afterwards.",
+      "An imprint and a privacy notice that describe what the site actually does.",
+      "We're still reachable after handover; a fix is not a new project.",
+    ],
+    agentsTitle: "What if it needs an agent too?",
+    agentsText: "That is exactly what the third package means: a booking system, an AI chat or a phone agent built into the site. If the website already exists and you'd rather take a workflow off your hands, that's our other page.",
+    agentsLink: "See the agents →",
   },
   caseStudy: {
     tag: "In action",

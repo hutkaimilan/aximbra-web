@@ -11,7 +11,7 @@ const SEO = {
 const es = {
   seo: SEO,
   nav: {
-    links: [["Agentes", "agentek"], ["Proceso", "folyamat"], ["Precios", "arak"], ["Caso práctico", "eset"]],
+    links: [["Agentes", "agentek"], ["Proceso", "folyamat"], ["Sitios web", "weboldal", "/weboldal"], ["Caso práctico", "eset"]],
     contact: "CONTACTO",
     callbar: "¿Cuántas llamadas pierde tu local?",
     callbarHref: CALLBAR,

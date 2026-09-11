@@ -11,7 +11,7 @@ const SEO = {
 const fr = {
   seo: SEO,
   nav: {
-    links: [["Agents", "agentek"], ["Processus", "folyamat"], ["Tarifs", "arak"], ["Étude de cas", "eset"]],
+    links: [["Agents", "agentek"], ["Processus", "folyamat"], ["Sites web", "weboldal", "/weboldal"], ["Étude de cas", "eset"]],
     contact: "CONTACT",
     callbar: "Combien d'appels votre établissement manque-t-il ?",
     callbarHref: CALLBAR,

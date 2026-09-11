@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- A /demo/ referenciaoldalak szandekosan hianyoznak: kitalalt vallalkozasokat
+<!-- GENERALT FAJL. Ne kezzel szerkeszd: python3 tools/sitemap/generate.py (a "write" kapcsoloval)
+     A /demo/ referenciaoldalak szandekosan hianyoznak: kitalalt vallalkozasokat
      mutatnak es futasidoben noindex-ek.
      Csak a lefordított oldalak szerepelnek minden nyelven. Amelyiknek a szovege
      csak magyarul letezik (agent, jogi oldalak), az egyetlen URL-lel szerepel -
@@ -109,6 +110,110 @@
     <xhtml:link rel="alternate" hreflang="sk" href="https://aximbra.hu/sk"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://aximbra.hu/"/>
     <changefreq>weekly</changefreq><priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://aximbra.hu/weboldal</loc>
+    <xhtml:link rel="alternate" hreflang="hu" href="https://aximbra.hu/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://aximbra.hu/en/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://aximbra.hu/de/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://aximbra.hu/es/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://aximbra.hu/fr/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://aximbra.hu/it/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://aximbra.hu/ro/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="sk" href="https://aximbra.hu/sk/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://aximbra.hu/weboldal"/>
+    <changefreq>monthly</changefreq><priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://aximbra.hu/en/weboldal</loc>
+    <xhtml:link rel="alternate" hreflang="hu" href="https://aximbra.hu/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://aximbra.hu/en/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://aximbra.hu/de/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://aximbra.hu/es/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://aximbra.hu/fr/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://aximbra.hu/it/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://aximbra.hu/ro/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="sk" href="https://aximbra.hu/sk/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://aximbra.hu/weboldal"/>
+    <changefreq>monthly</changefreq><priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://aximbra.hu/de/weboldal</loc>
+    <xhtml:link rel="alternate" hreflang="hu" href="https://aximbra.hu/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://aximbra.hu/en/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://aximbra.hu/de/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://aximbra.hu/es/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://aximbra.hu/fr/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://aximbra.hu/it/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://aximbra.hu/ro/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="sk" href="https://aximbra.hu/sk/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://aximbra.hu/weboldal"/>
+    <changefreq>monthly</changefreq><priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://aximbra.hu/es/weboldal</loc>
+    <xhtml:link rel="alternate" hreflang="hu" href="https://aximbra.hu/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://aximbra.hu/en/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://aximbra.hu/de/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://aximbra.hu/es/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://aximbra.hu/fr/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://aximbra.hu/it/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://aximbra.hu/ro/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="sk" href="https://aximbra.hu/sk/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://aximbra.hu/weboldal"/>
+    <changefreq>monthly</changefreq><priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://aximbra.hu/fr/weboldal</loc>
+    <xhtml:link rel="alternate" hreflang="hu" href="https://aximbra.hu/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://aximbra.hu/en/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://aximbra.hu/de/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://aximbra.hu/es/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://aximbra.hu/fr/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://aximbra.hu/it/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://aximbra.hu/ro/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="sk" href="https://aximbra.hu/sk/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://aximbra.hu/weboldal"/>
+    <changefreq>monthly</changefreq><priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://aximbra.hu/it/weboldal</loc>
+    <xhtml:link rel="alternate" hreflang="hu" href="https://aximbra.hu/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://aximbra.hu/en/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://aximbra.hu/de/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://aximbra.hu/es/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://aximbra.hu/fr/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://aximbra.hu/it/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://aximbra.hu/ro/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="sk" href="https://aximbra.hu/sk/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://aximbra.hu/weboldal"/>
+    <changefreq>monthly</changefreq><priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://aximbra.hu/ro/weboldal</loc>
+    <xhtml:link rel="alternate" hreflang="hu" href="https://aximbra.hu/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://aximbra.hu/en/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://aximbra.hu/de/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://aximbra.hu/es/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://aximbra.hu/fr/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://aximbra.hu/it/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://aximbra.hu/ro/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="sk" href="https://aximbra.hu/sk/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://aximbra.hu/weboldal"/>
+    <changefreq>monthly</changefreq><priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://aximbra.hu/sk/weboldal</loc>
+    <xhtml:link rel="alternate" hreflang="hu" href="https://aximbra.hu/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://aximbra.hu/en/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://aximbra.hu/de/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://aximbra.hu/es/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://aximbra.hu/fr/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://aximbra.hu/it/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://aximbra.hu/ro/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="sk" href="https://aximbra.hu/sk/weboldal"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://aximbra.hu/weboldal"/>
+    <changefreq>monthly</changefreq><priority>0.7</priority>
   </url>
   <url>
     <loc>https://aximbra.hu/demo/email-agent</loc>

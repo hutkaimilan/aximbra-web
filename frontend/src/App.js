@@ -21,6 +21,7 @@ import Ugyvedi from "@/demos/Ugyvedi";
 import EmailAgent from "@/demos/EmailAgent";
 import Impresszum from "@/pages/Impresszum";
 import Adatkezeles from "@/pages/Adatkezeles";
+import Weboldal from "@/pages/Weboldal";
 
 function Site() {
   const { t, lang } = useLang();
@@ -107,6 +108,7 @@ const PAGES = [
   { path: "demo/rendelo", element: <Rendelo /> },
   { path: "demo/ugyvedi", element: <Ugyvedi /> },
   { path: "demo/email-agent", element: <EmailAgent /> },
+  { path: "weboldal", element: <Weboldal /> },
   { path: "impresszum", element: <Impresszum /> },
   { path: "adatkezeles", element: <Adatkezeles /> },
 ];

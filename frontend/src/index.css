@@ -547,3 +547,12 @@ textarea:focus-visible,
 .contact-form-sent { margin: 26px 0 8px; font-size: 17px; color: var(--cyan); }
 /* Ha van űrlap, a gombok másodlagosak: legyen látható, melyik a fő út. */
 .contact-cta.secondary { margin-top: 18px; opacity: .85; }
+
+/* A „még hat agent" gomb. */
+.agents-more { display: flex; justify-content: center; margin-top: 30px; }
+.agents-more-btn {
+  min-height: 46px; padding: 0 26px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--text);
+  font-family: inherit; font-size: 15px; transition: border-color .2s ease, background .2s ease;
+}
+.agents-more-btn:hover { border-color: var(--cyan); background: rgba(0,233,255,.07); }

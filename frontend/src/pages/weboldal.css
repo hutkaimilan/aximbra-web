@@ -1,0 +1,15 @@
+/* A weboldal-oldal a jogi oldalak elrendezését használja, csak szélesebben:
+   a csomagrács három hasábot kér. */
+.web-page .legal-main { max-width: 1120px; }
+.web-main .pkg-grid { margin: 34px 0 10px; }
+.web-block { margin-top: 46px; }
+.web-block h2 { margin-bottom: 12px; }
+
+/* A főoldalon maradó sáv. */
+.web-band {
+  display: flex; align-items: center; justify-content: space-between; gap: 28px;
+  flex-wrap: wrap; padding: 34px; border: 1px solid var(--border); border-radius: 18px;
+  background: rgba(255,255,255,.02);
+}
+.web-band-h { margin: 10px 0 8px; font-size: clamp(22px, 3vw, 30px); }
+.web-band-sub { margin: 0; color: var(--muted); max-width: 560px; line-height: 1.7; }

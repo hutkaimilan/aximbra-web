@@ -65,15 +65,24 @@ const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote }) 
   );
 };
 
+/** Ennyi látszik elsőre. A tizenkét kártya telefonon több képernyőnyi görgetés
+ *  azelőtt, hogy az olvasó bármi mást látott volna a lapból; a többi egy
+ *  gombnyomásra ott van. Külön oldal helyett azért kinyitható, mert az
+ *  /agent/:slug hivatkozásoknak akkor is működniük kell, ha olyan kártyára
+ *  mutatnak, ami alapból rejtve van. */
+const VISIBLE_AT_FIRST = 6;
+
 export const Agents = () => {
   const { t } = useLang();
   const [open, setOpen] = useState(null);
   const [simOpen, setSimOpen] = useState(null);
+  const [showAll, setShowAll] = useState(false);
   const { slug } = useParams();
   useEffect(() => {
     if (!slug) return;
     const idx = SLUGS.indexOf(slug);
     if (idx < 0) return;
+    if (idx >= VISIBLE_AT_FIRST) setShowAll(true);
     setOpen(null); setSimOpen(idx);
     const tid = setTimeout(() => {
       document.getElementById(`agent-${slug}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -89,7 +98,7 @@ export const Agents = () => {
         <p className="sub">{s.sub}</p>
       </Reveal>
       <div className="grid">
-        {t.agents.map((a, i) => (
+        {t.agents.slice(0, showAll ? undefined : VISIBLE_AT_FIRST).map((a, i) => (
           <Reveal key={a.demo || i} delay={(i % 3) * 90} className={(open === a.demo || simOpen === i) ? "span-all" : ""}>
             <TiltCard agent={a} labels={s} kind={i}
               quote={{ label: t.pricing.cta, subject: t.pricing.subjectPrefix }}
@@ -100,6 +109,14 @@ export const Agents = () => {
           </Reveal>
         ))}
       </div>
+      {!showAll && t.agents.length > VISIBLE_AT_FIRST && (
+        <div className="agents-more">
+          <button type="button" className="agents-more-btn" data-testid="agents-show-all"
+            onClick={() => setShowAll(true)}>
+            {s.showAll.replace("{n}", String(t.agents.length - VISIBLE_AT_FIRST))}
+          </button>
+        </div>
+      )}
     </section>
   );
 };

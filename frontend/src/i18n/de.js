@@ -11,7 +11,7 @@ const SEO = {
 const de = {
   seo: SEO,
   nav: {
-    links: [["Agenten", "agentek"], ["Ablauf", "folyamat"], ["Preise", "arak"], ["Fallstudie", "eset"]],
+    links: [["Agenten", "agentek"], ["Ablauf", "folyamat"], ["Website", "weboldal", "/weboldal"], ["Fallstudie", "eset"]],
     contact: "KONTAKT",
     callbar: "Wie viele Anrufe verpasst Ihr Betrieb?",
     callbarHref: CALLBAR,

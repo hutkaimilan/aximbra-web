@@ -11,7 +11,7 @@ const SEO = {
 const ro = {
   seo: SEO,
   nav: {
-    links: [["Agenți", "agentek"], ["Proces", "folyamat"], ["Prețuri", "arak"], ["Studiu de caz", "eset"]],
+    links: [["Agenți", "agentek"], ["Proces", "folyamat"], ["Site web", "weboldal", "/weboldal"], ["Studiu de caz", "eset"]],
     contact: "CONTACT",
     callbar: "Câte apeluri pierde localul tău?",
     callbarHref: CALLBAR,

@@ -11,7 +11,7 @@ const SEO = {
 const sk = {
   seo: SEO,
   nav: {
-    links: [["Agenti", "agentek"], ["Postup", "folyamat"], ["Ceny", "arak"], ["Prípadová štúdia", "eset"]],
+    links: [["Agenti", "agentek"], ["Postup", "folyamat"], ["Webstránky", "weboldal", "/weboldal"], ["Prípadová štúdia", "eset"]],
     contact: "KONTAKT",
     callbar: "Koľko hovorov zmešká vaša prevádzka?",
     callbarHref: CALLBAR,

@@ -1,40 +1,61 @@
+import { Link } from "react-router-dom";
 import { Reveal } from "./Reveal";
 import { LiquidButton } from "./LiquidButton";
 import { mailto } from "../contact";
-import { useLang } from "../i18n";
+import { useLang, pathFor } from "../i18n";
 
-export const Pricing = () => {
+/** A csomagok rácsa. A főoldalról a /weboldal oldalra költözött: egy AI-agent
+ *  ügynökség főoldalának közepén három weboldalcsomag azt kérdezteti az
+ *  olvasóval, hogy végül is mit árulunk. */
+export const PricingPackages = () => {
   const { t } = useLang();
   const p = t.pricing;
   return (
-    <section className="container" id="arak" data-testid="pricing-section">
+    <div className="pkg-grid">
+      {p.packages.map((pkg, i) => {
+        const featured = i === 1;
+        const href = mailto(`${p.subjectPrefix} – ${pkg.name}`);
+        return (
+          <Reveal key={i} delay={i * 100}>
+            <div className={`pkg-card ${featured ? "featured" : ""}`} data-testid={`pkg-card-${i}`}>
+              {featured && <div className="pkg-badge" data-testid="pkg-popular">{p.popular}</div>}
+              <div className="pkg-name">{pkg.name}</div>
+              <div className="pkg-price">{pkg.price}</div>
+              <div className="pkg-net">{p.netNote}</div>
+              <ul className="pkg-features">
+                {pkg.features.map((f, j) => <li key={j}>{f}</li>)}
+              </ul>
+              <LiquidButton as="a" href={href} ghost={!featured} className="pkg-btn" data-testid={`pkg-cta-${i}`}>
+                {p.cta}
+              </LiquidButton>
+            </div>
+          </Reveal>
+        );
+      })}
+    </div>
+  );
+};
+
+/** Ami a főoldalon marad: egy sáv, ami kimondja, hogy weboldalt is készítünk,
+ *  és átvisz oda. Az árak nem tűnnek el, csak nem szakítják félbe az agentekről
+ *  szóló gondolatmenetet. */
+export const Pricing = () => {
+  const { t, lang } = useLang();
+  const p = t.pricing;
+  return (
+    <section className="container" id="weboldal-sav" data-testid="pricing-teaser">
       <Reveal>
-        <span className="tag">{p.tag}</span>
-        <h2 className="h-sec">{p.heading}</h2>
-        <p className="sub">{p.sub}</p>
+        <div className="web-band">
+          <div>
+            <span className="tag">{p.tag}</span>
+            <h2 className="web-band-h">{p.heading}</h2>
+            <p className="web-band-sub">{p.sub}</p>
+          </div>
+          <LiquidButton as={Link} to={pathFor(lang, "/weboldal")} data-testid="pricing-to-page">
+            {p.bandCta}
+          </LiquidButton>
+        </div>
       </Reveal>
-      <div className="pkg-grid">
-        {p.packages.map((pkg, i) => {
-          const featured = i === 1;
-          const href = mailto(`${p.subjectPrefix} – ${pkg.name}`);
-          return (
-            <Reveal key={i} delay={i * 100}>
-              <div className={`pkg-card ${featured ? "featured" : ""}`} data-testid={`pkg-card-${i}`}>
-                {featured && <div className="pkg-badge" data-testid="pkg-popular">{p.popular}</div>}
-                <div className="pkg-name">{pkg.name}</div>
-                <div className="pkg-price">{pkg.price}</div>
-                <div className="pkg-net">{p.netNote}</div>
-                <ul className="pkg-features">
-                  {pkg.features.map((f, j) => <li key={j}>{f}</li>)}
-                </ul>
-                <LiquidButton as="a" href={href} ghost={!featured} className="pkg-btn" data-testid={`pkg-cta-${i}`}>
-                  {p.cta}
-                </LiquidButton>
-              </div>
-            </Reveal>
-          );
-        })}
-      </div>
     </section>
   );
 };

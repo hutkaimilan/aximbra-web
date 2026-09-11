@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { LiquidButton } from "./LiquidButton";
-import { useLang, LANGS } from "../i18n";
+import { Link } from "react-router-dom";
+import { useLang, LANGS, pathFor } from "../i18n";
 
 export const Nav = ({ scrollTo }) => {
   const { t, lang, setLang } = useLang();
@@ -46,10 +47,15 @@ export const Nav = ({ scrollTo }) => {
 
       <div className="nav-right">
         <div className="nav-links">
-          {t.nav.links.map(([label, id]) => (
+          {/* A harmadik elem egy útvonal: az a menüpont nem a lapon belülre
+              ugrik, hanem másik oldalra visz — a nyelvi előtagot megtartva. */}
+          {t.nav.links.map(([label, id, route]) => (route ? (
+            <Link key={id} className="link" data-testid={`nav-${id}`}
+                  to={pathFor(lang, route)} onClick={() => setOpen(false)}>{label}</Link>
+          ) : (
             <a key={id} className="link" data-testid={`nav-${id}`} href={`#${id}`}
                onClick={(e) => { e.preventDefault(); go(id); }}>{label}</a>
-          ))}
+          )))}
           <a className="btn-callbar" data-testid="nav-callbar" href={t.nav.callbarHref}>{t.nav.callbar}</a>
         </div>
 
@@ -69,10 +75,14 @@ export const Nav = ({ scrollTo }) => {
       </div>
 
       <div className={`nav-drawer ${open ? "open" : ""}`} data-testid="nav-drawer" aria-hidden={!open}>
-        {t.nav.links.map(([label, id]) => (
+        {t.nav.links.map(([label, id, route]) => (route ? (
+          <Link key={id} className="drawer-link" data-testid={`drawer-${id}`}
+                to={pathFor(lang, route)} tabIndex={open ? 0 : -1}
+                onClick={() => setOpen(false)}>{label}</Link>
+        ) : (
           <a key={id} className="drawer-link" data-testid={`drawer-${id}`} href={`#${id}`}
              tabIndex={open ? 0 : -1} onClick={(e) => { e.preventDefault(); go(id); }}>{label}</a>
-        ))}
+        )))}
         <a className="drawer-link" data-testid="drawer-callbar" href={t.nav.callbarHref} onClick={() => setOpen(false)}>
           {t.nav.callbar}
         </a>
