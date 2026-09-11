@@ -104,7 +104,9 @@ def test_classifier_normalises_bad_output(monkeypatch):
     monkeypatch.setattr(server, "_call_llm", fake)
     monkeypatch.setitem(server._state, "cost", 0.0)
     out = asyncio.run(server.classify_one({"subject":"x","body":"y"}))
-    assert out["category"] == "Egyéb"
+    # A kategória kulcs lett, hogy nyolc nyelven ugyanaz maradjon; a
+    # feliratot a felület adja hozzá.
+    assert out["category"] == "other"
     assert out["urgency"] == 5
     assert out["needs_reply"] == "nem egyértelmű"
 
@@ -164,7 +166,7 @@ def _session_with(analyses):
 
 
 EMAIL = {"id": "m1", "sender": "a@b.hu", "subject": "Árajánlat", "body": "Kérek árajánlatot.",
-         "date": None, "category": "Üzleti lehetőség", "needs_reply": "igen"}
+         "date": None, "category": "opportunity", "needs_reply": "igen"}
 
 
 @pytest.fixture
@@ -608,7 +610,7 @@ def test_the_oauth_handoff_survives_a_restart():
     # a restart clears every in-memory store; the state must still resolve
     mail_agent._sessions.clear()
     out = mail_agent._unpack_state(state)
-    assert out == {"verifier": verifier, "with_compose": True}
+    assert out == {"verifier": verifier, "with_compose": True, "lang": "hu"}
 
 
 def test_a_forged_or_tampered_state_is_refused():
@@ -890,11 +892,11 @@ def _install_run_stubs(monkeypatch, ids, classify):
     monkeypatch.setattr(mail_agent, "build", lambda *a, **k: RunFakeService(ids, tracker))
     monkeypatch.setattr(mail_agent, "SafeGmailProxy", lambda t, allow_send=False: t)
 
-    async def wrapped(email):
+    async def wrapped(email, lang="hu"):
         tracker["live"] += 1
         tracker["peak"] = max(tracker["peak"], tracker["live"])
         try:
-            return await classify(email)
+            return await classify(email, lang)
         finally:
             tracker["live"] -= 1
 
@@ -906,9 +908,9 @@ def test_a_full_run_classifies_every_email(monkeypatch):
     import asyncio
     ids = [f"m{i}" for i in range(50)]
 
-    async def classify(email):
+    async def classify(email, lang='hu'):
         await asyncio.sleep(0)
-        return {"category": "Egyéb", "urgency": 1, "needs_reply": "nem",
+        return {"category": "other", "urgency": 1, "needs_reply": "nem",
                 "urgency_reason": "", "deadline": "", "summary": "", "next_step": ""}
 
     tracker = _install_run_stubs(monkeypatch, ids, classify)
@@ -933,9 +935,9 @@ def test_the_run_is_concurrent_but_bounded(monkeypatch):
     import asyncio
     ids = [f"m{i}" for i in range(50)]
 
-    async def classify(email):
+    async def classify(email, lang='hu'):
         await asyncio.sleep(0.01)  # long enough for overlap to show
-        return {"category": "Egyéb", "urgency": 1, "needs_reply": "nem",
+        return {"category": "other", "urgency": 1, "needs_reply": "nem",
                 "urgency_reason": "", "deadline": "", "summary": "", "next_step": ""}
 
     tracker = _install_run_stubs(monkeypatch, ids, classify)
@@ -952,10 +954,10 @@ def test_one_bad_email_does_not_stop_the_rest(monkeypatch):
     import asyncio
     ids = [f"m{i}" for i in range(10)]
 
-    async def classify(email):
+    async def classify(email, lang='hu'):
         if email["sender"].startswith("m3"):
             raise RuntimeError("boom")
-        return {"category": "Egyéb", "urgency": 1, "needs_reply": "nem",
+        return {"category": "other", "urgency": 1, "needs_reply": "nem",
                 "urgency_reason": "", "deadline": "", "summary": "", "next_step": ""}
 
     _install_run_stubs(monkeypatch, ids, classify)
@@ -978,11 +980,11 @@ def test_hitting_the_budget_halts_the_run_once(monkeypatch):
     ids = [f"m{i}" for i in range(50)]
     attempts = {"n": 0}
 
-    async def classify(email):
+    async def classify(email, lang='hu'):
         attempts["n"] += 1
         if attempts["n"] > 3:
             raise HTTPException(status_code=429, detail="Az agent mára elérte a napi keretét.")
-        return {"category": "Egyéb", "urgency": 1, "needs_reply": "nem",
+        return {"category": "other", "urgency": 1, "needs_reply": "nem",
                 "urgency_reason": "", "deadline": "", "summary": "", "next_step": ""}
 
     _install_run_stubs(monkeypatch, ids, classify)
@@ -1004,10 +1006,10 @@ def test_a_visitor_leaving_mid_run_stops_the_work(monkeypatch):
     ids = [f"m{i}" for i in range(50)]
     sid = _run_session(ids)
 
-    async def classify(email):
+    async def classify(email, lang='hu'):
         # drop the session as soon as the first email is classified
         mail_agent._sessions.pop(sid, None)
-        return {"category": "Egyéb", "urgency": 1, "needs_reply": "nem",
+        return {"category": "other", "urgency": 1, "needs_reply": "nem",
                 "urgency_reason": "", "deadline": "", "summary": "", "next_step": ""}
 
     tracker = _install_run_stubs(monkeypatch, ids, classify)
@@ -1198,9 +1200,9 @@ def test_every_threaded_gmail_call_gets_its_own_connection(monkeypatch):
     import asyncio
     ids = [f"m{i}" for i in range(12)]
 
-    async def classify(email):
+    async def classify(email, lang='hu'):
         await asyncio.sleep(0)
-        return {"category": "Egyéb", "urgency": 1, "needs_reply": "nem",
+        return {"category": "other", "urgency": 1, "needs_reply": "nem",
                 "urgency_reason": "", "deadline": "", "summary": "", "next_step": ""}
 
     tracker = _install_run_stubs(monkeypatch, ids, classify)
@@ -1227,9 +1229,9 @@ def test_fresh_http_is_authorised_and_has_a_timeout():
 def stub_classifier(monkeypatch):
     seen = []
 
-    async def fake(email):
+    async def fake(email, lang="hu"):
         seen.append(email)
-        return {"category": "Egyéb", "urgency": 3, "needs_reply": "igen",
+        return {"category": "other", "urgency": 3, "needs_reply": "igen",
                 "urgency_reason": "ok", "deadline": "", "summary": "ossz", "next_step": "lepes"}
 
     monkeypatch.setattr(server, "classify_one", fake)
@@ -1359,12 +1361,12 @@ def test_sample_run_uses_one_wave(monkeypatch):
 
     peak = {"now": 0, "max": 0}
 
-    async def slow_classify(email):
+    async def slow_classify(email, lang='hu'):
         peak["now"] += 1
         peak["max"] = max(peak["max"], peak["now"])
         await asyncio.sleep(0.02)
         peak["now"] -= 1
-        return {"category": "egyeb", "urgency": 1, "needs_reply": "nem", "summary": "x"}
+        return {"category": "other", "urgency": 1, "needs_reply": "nem", "summary": "x"}
 
     import server
     monkeypatch.setattr(server, "classify_one", slow_classify)
@@ -1382,3 +1384,89 @@ def test_sample_run_uses_one_wave(monkeypatch):
         assert len(mail_agent._sessions[sid]["analyses"]) == 10
     finally:
         mail_agent._sessions.pop(sid, None)
+
+
+# ---------------------------------------------------------------- nyelvek ---
+# Az oldal nyolc nyelven fut. A futás kimenete — összefoglaló, indoklás,
+# javasolt lépés — a felület nyelvén kell hogy készüljön, különben a német
+# látogató magyar mondatokat kap a saját postafiókjáról.
+
+
+def test_the_run_language_reaches_the_classifier(monkeypatch):
+    import asyncio
+    from datetime import datetime, timezone
+    seen = {}
+
+    async def fake(email, lang="hu"):
+        seen["lang"] = lang
+        return {"category": "other", "urgency": 1, "needs_reply": "nem",
+                "urgency_reason": "", "deadline": "", "summary": "", "next_step": ""}
+
+    monkeypatch.setattr(server, "classify_one", fake)
+    sid = "lang-run"
+    mail_agent._sessions[sid] = {
+        "creds": None, "email": "p@example.com", "analyses": [], "drafts": {}, "saved": {},
+        "sent": {}, "created_at": datetime.now(timezone.utc), "state": mail_agent._new_state(),
+        "sample": True, "can_draft": False, "lang": "de",
+    }
+    try:
+        asyncio.run(mail_agent.run_sample(sid))
+        assert seen["lang"] == "de"
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_an_unknown_language_falls_back_instead_of_failing():
+    """Egy elgépelt nyelvkód nem indok arra, hogy egy demó megálljon."""
+    assert mail_agent._safe_lang("de") == "de"
+    assert mail_agent._safe_lang("klingon") == "hu"
+    assert mail_agent._safe_lang(None) == "hu"
+    assert mail_agent._safe_lang("") == "hu"
+
+
+def test_the_language_survives_the_oauth_round_trip():
+    state = mail_agent._pack_state("verifier-123", True, "fr")
+    assert mail_agent._unpack_state(state)["lang"] == "fr"
+    # Ismeretlen kód a csomagolásnál is magyarra esik vissza.
+    state = mail_agent._pack_state("verifier-123", False, "xx")
+    assert mail_agent._unpack_state(state)["lang"] == "hu"
+
+
+def test_every_language_of_the_ai_notice_is_stripped_before_sending():
+    """A fogalmazvány nyelve és a felületé nem feltétlenül ugyanaz.
+
+    Egy bent felejtett „AI draft" sor az ügyfél postafiókjában derülne ki, ezért
+    a kimenő szövegből mindegyik nyelvi változatot ki kell szedni, nem csak az
+    aktuálisat.
+    """
+    for lang, notice in server.AI_NOTICES.items():
+        body = mail_agent._outgoing_body(f"Kedves A!\n\nKöszönjük.\n\n{notice}")
+        assert notice not in body, lang
+        assert "Köszönjük." in body
+
+
+def test_the_draft_notice_is_written_in_the_interface_language(monkeypatch):
+    import asyncio
+
+    async def fake_llm(system_msg, user_text, max_tokens=600):
+        assert server.AI_NOTICES["es"] in system_msg, "a promptba a felület nyelve kerüljön"
+        return '{"targy":"Asunto","valasz":"Hola,\\n\\nGracias."}'
+
+    monkeypatch.setattr(server, "_call_llm", fake_llm)
+    monkeypatch.setitem(server._state, "cost", 0.0)
+    out = asyncio.run(server.draft_one({"subject": "x", "body": "Hola"}, "hivatalos", "es"))
+    assert out["valasz"].rstrip().endswith(server.AI_NOTICES["es"])
+
+
+def test_the_classifier_prompt_names_the_language(monkeypatch):
+    import asyncio
+    seen = {}
+
+    async def fake_llm(system_msg, user_text, max_tokens=600):
+        seen["sys"] = system_msg
+        return '{"category":"other","urgency":1,"needs_reply":"nem"}'
+
+    monkeypatch.setattr(server, "_call_llm", fake_llm)
+    monkeypatch.setitem(server._state, "cost", 0.0)
+    asyncio.run(server.classify_one({"subject": "x", "body": "y"}, "sk"))
+    assert "po slovensky" in seen["sys"]

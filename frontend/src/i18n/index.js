@@ -9,6 +9,7 @@ import it from "./it";
 import ro from "./ro";
 import sk from "./sk";
 import demos from "./demos";
+import agent from "./agent";
 
 export const LANGS = [
   ["hu", "Magyar"], ["en", "English"], ["de", "Deutsch"], ["es", "Español"],
@@ -39,6 +40,7 @@ const resolved = {};
 for (const code of Object.keys(RAW)) {
   const r = merge(merge(hu, en), RAW[code]);
   r.demos = merge(merge(demos.hu, demos.en), demos[code] || {});
+  r.agent = merge(merge(agent.hu, agent.en || {}), agent[code] || {});
   resolved[code] = r;
 }
 

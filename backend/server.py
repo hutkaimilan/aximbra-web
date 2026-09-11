@@ -243,30 +243,47 @@ async def demo_lead(request: Request, body: DemoRequest):
     return await _run_demo(request, body, LEAD_SYS, LeadResult)
 
 
-AGENT_SYS = (
-    "Te egy magyar e-mail-osztályozó vagy. Egyetlen bejövő e-mailt kapsz. "
-    "KIZÁRÓLAG érvényes JSON objektummal válaszolj, magyarázat nélkül, ezekkel a kulcsokkal: "
-    "category (PONTOSAN egy: Ügyfél – kérdés|Ügyfél – panasz|Üzleti lehetőség|Számla / pénzügy|"
-    "Hatóság / hivatalos|Szolgáltatói értesítés|Hírlevél / marketing|Spam / kéretlen|Egyéb), "
-    "urgency (egész szám 1-5, 5 = ma kell rá válaszolni), "
-    "urgency_reason (egy mondat magyarul), "
-    "needs_reply (igen|nem|nem egyértelmű), "
-    "deadline (ha szerepel dátum vagy határidő a levélben, idézd; ha nincs, üres string), "
-    "summary (egyetlen mondat magyarul arról, mit akar a feladó, akkor is magyarul, ha a levél más nyelvű), "
-    "next_step (konkrét javasolt következő lépés, ne általánosság). "
-    "SOHA ne találj ki adatot: ami nem derül ki, az maradjon üres. "
-    "A tárgymezőből ne következtess a szándékra, a levél törzsét olvasd. "
-    "Automatikus választ (out of office, no-reply) soha ne minősíts ügyfélkérdésnek."
-)
-
+# Nyolc nyelven fut az oldal, tehát nyolc nyelven kell a kimenet is. A
+# kategória viszont NEM fordítás kérdése: kulcsot kérünk a modelltől, és a
+# feliratot a felület adja hozzá. Így egy új nyelv nem érinti a kiszolgálót,
+# és az érvényesítés sem egy lefordítható szövegre épül.
 AGENT_CATEGORIES = {
-    "Ügyfél – kérdés", "Ügyfél – panasz", "Üzleti lehetőség", "Számla / pénzügy",
-    "Hatóság / hivatalos", "Szolgáltatói értesítés", "Hírlevél / marketing",
-    "Spam / kéretlen", "Egyéb",
+    "customer_question", "customer_complaint", "opportunity", "invoice",
+    "authority", "provider_notice", "newsletter", "spam", "other",
+}
+
+AGENT_LANG_NAMES = {
+    "hu": "magyarul", "en": "in English", "de": "auf Deutsch", "es": "en español",
+    "fr": "en français", "it": "in italiano", "ro": "în română", "sk": "po slovensky",
 }
 
 
-async def classify_one(email: dict) -> dict:
+def agent_sys(lang: str = "hu") -> str:
+    """Az osztályozó rendszerüzenete a felület nyelvén."""
+    in_lang = AGENT_LANG_NAMES.get(lang, AGENT_LANG_NAMES["hu"])
+    return (
+        "You are an email triage assistant. You receive a single incoming email. "
+        "Reply with a VALID JSON object ONLY, no explanation, with these keys: "
+        "category (EXACTLY one of: customer_question|customer_complaint|opportunity|invoice|"
+        "authority|provider_notice|newsletter|spam|other), "
+        "urgency (integer 1-5, where 5 means it must be answered today), "
+        f"urgency_reason (one sentence, written {in_lang}), "
+        "needs_reply (igen|nem|nem egyértelmű), "
+        "deadline (quote the date or deadline if the email states one, otherwise an empty string), "
+        f"summary (one sentence written {in_lang} about what the sender wants — "
+        f"{in_lang} even when the email itself is in another language), "
+        f"next_step (a concrete suggested next step, written {in_lang}, never a generality). "
+        "NEVER invent data: what is not in the email stays empty. "
+        "Do not infer intent from the subject line; read the body. "
+        "Never classify an automatic reply (out of office, no-reply) as a customer question."
+    )
+
+# Visszafelé kompatibilis név: a magyar változat.
+AGENT_SYS = agent_sys("hu")
+
+
+
+async def classify_one(email: dict, lang: str = "hu") -> dict:
     """One classification for the in-page email agent. Shares the demos' daily
     cost ceiling so a long mailbox cannot run up an unbounded bill."""
     _reset_if_new_day()
@@ -278,13 +295,13 @@ async def classify_one(email: dict) -> dict:
         f"Dátum: {email.get('date', '')}\n\n"
         f"Levél törzse:\n{(email.get('body') or email.get('snippet') or '')[:6000]}"
     )
-    raw = await _call_llm(AGENT_SYS, text, max_tokens=700)
+    raw = await _call_llm(agent_sys(lang), text, max_tokens=700)
     _state["cost"] += EST_COST_PER_CALL_USD
     data = _parse_json(raw)
 
     category = data.get("category")
     if category not in AGENT_CATEGORIES:
-        category = "Egyéb"
+        category = "other"
     try:
         urgency = max(1, min(5, int(data.get("urgency", 1))))
     except Exception:  # noqa
@@ -304,7 +321,24 @@ async def classify_one(email: dict) -> dict:
 
 
 # ---------- Reply drafting (in-page only, never sent) ----------
-AI_NOTICE = "— AI-fogalmazvány, küldés előtt olvasd át. —"
+# A jelzés a lapon olvasandó, a felület nyelvén. Küldés és mentés előtt a
+# mail_agent kiszedi, tehát az ügyfélhez soha nem jut ki — ezért kell az ÖSSZES
+# nyelvi változatot ismerni ott is, nem csak az aktuálisat.
+AI_NOTICES = {
+    "hu": "— AI-fogalmazvány, küldés előtt olvasd át. —",
+    "en": "— AI draft, read it through before sending. —",
+    "de": "— KI-Entwurf, vor dem Senden bitte durchlesen. —",
+    "es": "— Borrador de IA, léelo antes de enviarlo. —",
+    "fr": "— Brouillon généré par IA, à relire avant envoi. —",
+    "it": "— Bozza generata dall'IA, rileggila prima di inviarla. —",
+    "ro": "— Ciornă generată de AI, citește-o înainte de trimitere. —",
+    "sk": "— Návrh od AI, pred odoslaním si ho prečítaj. —",
+}
+AI_NOTICE = AI_NOTICES["hu"]
+
+
+def ai_notice(lang: str = "hu") -> str:
+    return AI_NOTICES.get(lang, AI_NOTICES["hu"])
 
 DRAFT_TONES = {
     "hivatalos": "hivatalos, tisztelettudó, magázódó üzleti hangnem",
@@ -323,29 +357,40 @@ class DraftResult(BaseModel):
 
     @field_validator("valasz")
     @classmethod
-    def _notice(cls, v):
-        # The draft always carries its own notice, even when the model drops it:
-        # the text is meant to be copied out of the page, and it must not arrive in
-        # someone's inbox looking like it was written by a person.
-        v = v.strip()[:4000]
-        return v if AI_NOTICE in v else f"{v}\n\n{AI_NOTICE}"
+    def _cap_v(cls, v):
+        return v.strip()[:4000]
 
 
-DRAFT_SYS = (
-    "Te egy magyar vállalkozás e-mail-asszisztense vagy. Egyetlen bejövő levelet kapsz, és megírod rá "
-    "a VÁLASZLEVÉL fogalmazványát a címzett helyett. "
-    "KIZÁRÓLAG érvényes JSON objektummal válaszolj, magyarázat nélkül, ezekkel a kulcsokkal: "
-    "targy (a válasz tárgysora, max 120 karakter), valasz (a válaszlevél teljes szövege, megszólítással és aláírással). "
-    "Szabályok: a válasz nyelve egyezzen a bejövő levél nyelvével. Hangnem: {tone}. "
-    "SOHA ne találj ki tényt, árat, határidőt, nevet vagy elérhetőséget: ha egy adat nem derül ki a levélből, "
-    "hagyj a helyén szögletes zárójeles kitöltendő részt, például [dátum] vagy [összeg]. "
-    "Az aláírásba se írj kitalált nevet: ott is [a te neved] szerepeljen. "
-    "Ne ígérj semmit a feladónak, amit a levél nem támaszt alá. "
-    "A valasz mező legvégére külön sorban mindig kerüljön ez a pontos sor: " + AI_NOTICE
-)
+def draft_sys(tone: str, lang: str = "hu") -> str:
+    """A fogalmazó rendszerüzenete.
+
+    A válasz nyelve szándékosan NEM a felület nyelve, hanem a bejövő levélé:
+    egy német ügyfélnek németül kell válaszolni akkor is, ha a tulajdonos
+    magyarul nézi a lapot. A lap alján megjelenő jelzés viszont a felület
+    nyelvén szól, mert azt a tulajdonos olvassa.
+    """
+    return (
+        "You are the email assistant of a small business. You receive one incoming email and write "
+        "the DRAFT OF THE REPLY on behalf of the recipient. "
+        "Reply with a VALID JSON object ONLY, no explanation, with these keys: "
+        "targy (the reply's subject line, max 120 characters), "
+        "valasz (the full reply text, with a salutation and a sign-off). "
+        "Rules: the reply MUST be in the same language as the incoming email. "
+        f"Tone: {DRAFT_TONES[tone]}. "
+        "NEVER invent a fact, a price, a deadline, a name or a contact detail: when something is not "
+        "in the email, leave a square-bracketed placeholder in its place, for example [date] or [amount]. "
+        "Do not invent a name in the sign-off either — put a placeholder there too. "
+        "Do not promise the sender anything the email does not support. "
+        "The very last line of the valasz field must always be exactly this line, on its own: "
+        + ai_notice(lang)
+    )
 
 
-async def draft_one(email: dict, tone: str = "hivatalos") -> dict:
+# Visszafelé kompatibilis név.
+DRAFT_SYS = draft_sys("hivatalos", "hu")
+
+
+async def draft_one(email: dict, tone: str = "hivatalos", lang: str = "hu") -> dict:
     """Write a reply draft for one email. Shares the demos' daily cost ceiling.
 
     Drafting only: the text is returned to the page for the visitor to read and
@@ -363,7 +408,7 @@ async def draft_one(email: dict, tone: str = "hivatalos") -> dict:
         f"Dátum: {email.get('date', '')}\n\n"
         f"Levél törzse:\n{(email.get('body') or email.get('snippet') or '')[:6000]}"
     )
-    system_msg = DRAFT_SYS.format(tone=DRAFT_TONES[tone])
+    system_msg = draft_sys(tone, lang)
 
     last_err = None
     for _ in range(3):  # 1 try + 2 retries, same as the other demos
@@ -371,7 +416,13 @@ async def draft_one(email: dict, tone: str = "hivatalos") -> dict:
             raw = await _call_llm(system_msg, text, max_tokens=1100)
             _state["cost"] += EST_COST_PER_CALL_USD
             result = DraftResult(**_parse_json(raw))
-            return {"tone": tone, **result.model_dump()}
+            out = result.model_dump()
+            # A jelzés akkor is odakerül, ha a modell lehagyta: a szöveget a
+            # lapról másolják ki, és nem szabad úgy kinéznie, mintha ember írta
+            # volna. Küldés előtt a mail_agent kiszedi.
+            if not any(n in out["valasz"] for n in AI_NOTICES.values()):
+                out["valasz"] = f"{out['valasz']}\n\n{ai_notice(lang)}"
+            return {"tone": tone, **out}
         except HTTPException:
             raise
         except (json.JSONDecodeError, ValidationError, ValueError) as e:

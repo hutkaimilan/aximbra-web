@@ -222,7 +222,17 @@ HTTP_TIMEOUT_SECONDS = 30
 OAUTH_STATE_TTL_SECONDS = 15 * 60
 
 
-def _pack_state(code_verifier: str, with_compose: bool) -> str:
+# Az oldal nyolc nyelven fut, és a futás kimenete a felület nyelvén készül.
+# A kliens küldi, tehát ellenőrizni kell: ismeretlen kód esetén magyar, nem hiba
+# — egy elgépelt nyelvkód miatt nem áll meg egy demó.
+AGENT_LANGS = ("hu", "en", "de", "es", "fr", "it", "ro", "sk")
+
+
+def _safe_lang(value) -> str:
+    return value if value in AGENT_LANGS else "hu"
+
+
+def _pack_state(code_verifier: str, with_compose: bool, lang: str = "hu") -> str:
     """Carry the OAuth handoff in the state parameter instead of server memory.
 
     It used to live in a module-level dict, which meant any restart between
@@ -235,7 +245,10 @@ def _pack_state(code_verifier: str, with_compose: bool) -> str:
     the expiry in one, keyed by AGENT_SESSION_KEY, so it survives restarts
     without anything being stored.
     """
-    payload = json.dumps({"v": code_verifier, "c": bool(with_compose)}, separators=(",", ":"))
+    payload = json.dumps(
+        {"v": code_verifier, "c": bool(with_compose), "l": _safe_lang(lang)},
+        separators=(",", ":"),
+    )
     return _fernet.encrypt(payload.encode()).decode()
 
 
@@ -249,7 +262,8 @@ def _unpack_state(state: str):
         verifier = data.get("v")
         if not isinstance(verifier, str) or not verifier:
             return None
-        return {"verifier": verifier, "with_compose": bool(data.get("c"))}
+        return {"verifier": verifier, "with_compose": bool(data.get("c")),
+                "lang": _safe_lang(data.get("l"))}
     except Exception:  # noqa - forged, tampered or expired
         return None
 
@@ -453,7 +467,7 @@ async def status(request: Request):
 
 
 @router.get("/connect")
-async def connect(drafts: bool = False):
+async def connect(drafts: bool = False, lang: str = "hu"):
     """`drafts=true` asks Google for draft-writing access as well.
 
     It comes from a box the visitor ticks, never from a default, and it is carried
@@ -468,7 +482,7 @@ async def connect(drafts: bool = False):
         access_type="online",
         prompt="consent",
         include_granted_scopes="false",
-        state=_pack_state(flow.code_verifier, drafts),
+        state=_pack_state(flow.code_verifier, drafts, lang),
     )
     return {"auth_url": url}
 
@@ -501,6 +515,9 @@ async def callback(code: str = "", state: str = "", error: str = ""):
         sid = os.urandom(16).hex()
         _sessions[sid] = {
             "email": email,
+            # A felület nyelve, az OAuth-körön keresztül hozva: az összefoglalók
+            # és a sürgősség-indoklás ezen a nyelven készülnek.
+            "lang": st["lang"],
             # What Google actually granted, not what we asked for. A visitor can
             # untick scopes on the consent screen, so asking is not receiving —
             # and an endpoint that trusted the request would fail later, inside a
@@ -606,7 +623,7 @@ async def draft(request: Request, body: DraftBody):
                    "Frissítsd az oldalt, vagy írj nekünk.",
         )
 
-    result = await draft_one(email, body.tone)
+    result = await draft_one(email, body.tone, sess.get("lang", "hu"))
     sess["drafts"][cache_key] = result
     return {**result, "cached": False}
 
@@ -633,9 +650,14 @@ def _outgoing_body(text: str) -> str:
     line to their customer would be nonsense — worse, in a saved draft it would
     sit there waiting to be sent by accident.
     """
-    from server import AI_NOTICE  # noqa: circular by design, runtime only
+    from server import AI_NOTICES  # noqa: circular by design, runtime only
 
-    return text.replace(AI_NOTICE, "").rstrip() + "\n"
+    # Minden nyelvi változatot: a futás nyelve és a fogalmazvány nyelve nem
+    # feltétlenül ugyanaz, és egy bent felejtett „AI draft" sor pont az ügyfél
+    # postafiókjában derülne ki.
+    for notice in AI_NOTICES.values():
+        text = text.replace(notice, "")
+    return text.rstrip() + "\n"
 
 
 def _build_reply_mime(email: dict, from_addr: str, subject: str, text: str) -> str:
@@ -851,7 +873,7 @@ async def send_draft(request: Request, body: SendBody):
 
 
 @router.post("/sample")
-async def start_sample(request: Request):
+async def start_sample(request: Request, lang: str = "hu"):
     """Start a run over the example inbox — no Google account involved.
 
     The real Gmail path works, but it puts Google's red "unverified app" screen
@@ -876,6 +898,7 @@ async def start_sample(request: Request):
     sid = os.urandom(16).hex()
     _sessions[sid] = {
         "email": "példa@postafiók.hu",
+        "lang": _safe_lang(lang),
         # No credentials at all. Not "unused" — absent, so no code path here can
         # reach a real mailbox even by mistake.
         "creds": None,
@@ -923,7 +946,7 @@ async def run_sample(sid: str):
             if halted["reason"] or sid not in _sessions:
                 return
             try:
-                analysis = await classify_one(email)
+                analysis = await classify_one(email, sess.get("lang", "hu"))
                 sess["analyses"].append({**email, **analysis})
             except HTTPException as e:
                 halted["reason"] = e.detail
@@ -1056,7 +1079,7 @@ async def run_agent(sid: str):
                     )
                     email = _parse(full)
                     await _add_attachment_text(service, sess, email)
-                    analysis = await classify_one(email)
+                    analysis = await classify_one(email, sess.get("lang", "hu"))
                     sess["analyses"].append({**email, **analysis})
                 except HTTPException as e:
                     halted["reason"] = e.detail

@@ -4,24 +4,21 @@ import "./email-agent.css";
 
 import { useDocumentMeta } from "../seo";
 import { CONTACT, mailto } from "../contact";
+import { useLang } from "../i18n";
 const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api/agent/email`;
 
-const ERRORS = {
-  access_denied: "A Google-hozzáférést elutasítottad, vagy megszakadt a folyamat.",
-  invalid_state: "Lejárt a folyamat. Indítsd újra a csatlakozást.",
-  token_exchange: "A Google-lel való egyeztetés nem sikerült. Próbáld újra.",
-  no_email: "A Google nem adta vissza a fiók e-mail címét.",
-  busy: "Most túl sokan próbálják egyszerre. Gyere vissza pár perc múlva.",
-};
-
 const URGENCY = [
-  { min: 5, label: "Azonnali", cls: "u5" },
-  { min: 4, label: "Sürgős", cls: "u4" },
-  { min: 3, label: "Közepes", cls: "u3" },
-  { min: 0, label: "Ráér", cls: "u1" },
+  { min: 5, cls: "u5" },
+  { min: 4, cls: "u4" },
+  { min: 3, cls: "u3" },
+  { min: 0, cls: "u1" },
 ];
 
 const urgencyOf = (n) => URGENCY.find((u) => (n || 0) >= u.min) || URGENCY[3];
+
+/** Egyszerű behelyettesítés: "{n} levél" → "12 levél". */
+const fmt = (template, values) =>
+  Object.entries(values).reduce((out, [k, v]) => out.split(`{${k}}`).join(v), template || "");
 
 // The token arrives in the callback URL and lives in sessionStorage, so it dies
 // with the tab - and a cross-host cookie (which browsers would drop) is avoided.
@@ -35,7 +32,7 @@ const get = (path) => fetch(`${API}${path}`, {
   headers: token() ? { "X-Agent-Session": token() } : {},
 }).then(async (r) => {
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.detail || "Hiba");
+  if (!r.ok) throw new Error(data.detail || "");
   return data;
 });
 
@@ -48,11 +45,11 @@ const post = (path, body) => fetch(`${API}${path}`, {
   body: JSON.stringify(body),
 }).then(async (r) => {
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.detail || "Hiba");
+  if (!r.ok) throw new Error(data.detail || "");
   return data;
 });
 
-const TONES = [["hivatalos", "Hivatalos"], ["kozvetlen", "Közvetlen"]];
+const TONE_KEYS = ["hivatalos", "kozvetlen"];
 
 /**
  * Reply draft for one email.
@@ -67,6 +64,8 @@ const TONES = [["hivatalos", "Hivatalos"], ["kozvetlen", "Közvetlen"]];
  * action in the whole agent that changes the mailbox. Sending is never offered.
  */
 const DraftPanel = ({ email, canDraft }) => {
+  const { t } = useLang();
+  const a = t.agent;
   const [tone, setTone] = useState("hivatalos");
   const [draft, setDraft] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -129,7 +128,7 @@ const DraftPanel = ({ email, canDraft }) => {
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // clipboard needs a secure context and permission; select the text instead
-      setErr("A vágólap nem elérhető — jelöld ki a szöveget és másold ki kézzel.");
+      setErr(a.draft.clipboardError);
     }
   };
 
@@ -138,17 +137,17 @@ const DraftPanel = ({ email, canDraft }) => {
       <div className="agent-draft-bar">
         <button className="agent-draft-btn" onClick={() => write()} disabled={busy}
           data-testid={`agent-draft-go-${email.id}`}>
-          {busy ? <><span className="spin" /> Fogalmazás…</>
-                : draft ? "Újrafogalmazás" : "Megfogalmazom a választ"}
+          {busy ? <><span className="spin" /> {a.draft.writing}</>
+                : draft ? a.draft.rewrite : a.draft.write}
         </button>
-        <div className="agent-draft-tones" role="group" aria-label="Hangnem">
-          {TONES.map(([value, label]) => (
+        <div className="agent-draft-tones" role="group" aria-label={a.tone.group}>
+          {TONE_KEYS.map((value) => (
             <button key={value} type="button"
               className={`agent-tone ${tone === value ? "on" : ""}`}
               aria-pressed={tone === value}
               disabled={busy}
               onClick={() => (draft ? write(value) : setTone(value))}>
-              {label}
+              {a.tone[value]}
             </button>
           ))}
         </div>
@@ -159,7 +158,7 @@ const DraftPanel = ({ email, canDraft }) => {
       {draft && (
         <div className="agent-draft-out">
           <div className="agent-draft-subj">
-            <span className="k">Tárgy</span>
+            <span className="k">{a.draft.subject}</span>
             <span>{draft.targy}</span>
           </div>
           {/* readOnly, not disabled: the text stays selectable and copyable. */}
@@ -168,26 +167,24 @@ const DraftPanel = ({ email, canDraft }) => {
             data-testid={`agent-draft-text-${email.id}`} />
           <div className="agent-draft-foot">
             <button className="agent-draft-copy" onClick={copy}>
-              {copied ? "Kimásolva" : "Másolás"}
+              {copied ? a.draft.copied : a.draft.copy}
             </button>
             {canDraft && !sent && !confirming && (
               <>
                 {!saved && (
                   <button className="agent-draft-save" onClick={() => setConfirming("save")}
                     disabled={saving} data-testid={`agent-save-${email.id}`}>
-                    Mentés a Gmail vázlatok közé
+                    {a.draft.save}
                   </button>
                 )}
                 <button className="agent-draft-send" onClick={() => setConfirming("send")}
                   disabled={saving} data-testid={`agent-send-${email.id}`}>
-                  E-mail elküldése
+                  {a.draft.send}
                 </button>
               </>
             )}
             <span className="agent-draft-note">
-              {canDraft
-                ? "Küldés előtt még egyszer rákérdezünk — elküldeni csak te tudod."
-                : "Fogalmazvány — az agent nem küldi el, és a fiókodba sem írja be."}
+              {canDraft ? a.draft.noteWrite : a.draft.noteRead}
             </span>
           </div>
 
@@ -198,18 +195,17 @@ const DraftPanel = ({ email, canDraft }) => {
           {confirming === "save" && (
             <div className="agent-confirm" data-testid={`agent-confirm-${email.id}`}>
               <p>
-                Vázlatot írok a Gmail-fiókodba <b>{email.sender}</b> levelére,
-                a saját levelezőszálára. <b>Nem küldöm el</b> — a Vázlatok közt
-                találod, és te döntöd el, elküldöd-e.
+                {fmt(a.draft.saveText, { sender: email.sender })}{" "}
+                <b>{a.draft.saveNotSend}</b> {a.draft.saveNotSendRest}
               </p>
               <div className="agent-confirm-row">
                 <button className="agent-confirm-yes" onClick={saveToGmail} disabled={saving}
                   data-testid={`agent-confirm-yes-${email.id}`}>
-                  {saving ? <><span className="spin" /> Mentés…</> : "Megerősítem, mentsd vázlatként"}
+                  {saving ? <><span className="spin" /> {a.draft.saving}</> : a.draft.saveYes}
                 </button>
                 <button className="agent-confirm-no" onClick={() => setConfirming(null)}
                   disabled={saving}>
-                  Mégsem
+                  {a.draft.cancel}
                 </button>
               </div>
             </div>
@@ -220,26 +216,22 @@ const DraftPanel = ({ email, canDraft }) => {
           {confirming === "send" && (
             <div className="agent-confirm danger" data-testid={`agent-confirm-send-${email.id}`}>
               <p>
-                <b>Most tényleg elküldöm ezt a levelet.</b>
+                <b>{a.draft.sendTitle}</b>
               </p>
               <ul className="agent-confirm-facts">
-                <li><span>Címzett</span><b>{email.sender}</b></li>
-                <li><span>Tárgy</span><b>{draft.targy}</b></li>
-                <li><span>Feladó</span><b>a te Gmail-fiókod</b></li>
+                <li><span>{a.draft.to}</span><b>{email.sender}</b></li>
+                <li><span>{a.draft.subject}</span><b>{draft.targy}</b></li>
+                <li><span>{a.draft.from}</span><b>{a.draft.fromValue}</b></li>
               </ul>
-              <p className="agent-confirm-warn">
-                Ez nem vonható vissza. Olvasd át a fenti szöveget — a
-                szögletes zárójeles részeket ({"["}így{"]"}) neked kell kitöltened,
-                mielőtt elküldöd.
-              </p>
+              <p className="agent-confirm-warn">{a.draft.sendWarn}</p>
               <div className="agent-confirm-row">
                 <button className="agent-confirm-send" onClick={sendNow} disabled={saving}
                   data-testid={`agent-confirm-send-yes-${email.id}`}>
-                  {saving ? <><span className="spin" /> Küldés…</> : "Igen, küldd el most"}
+                  {saving ? <><span className="spin" /> {a.draft.sending}</> : a.draft.sendYes}
                 </button>
                 <button className="agent-confirm-no" onClick={() => setConfirming(null)}
                   disabled={saving}>
-                  Mégsem
+                  {a.draft.cancel}
                 </button>
               </div>
             </div>
@@ -247,16 +239,16 @@ const DraftPanel = ({ email, canDraft }) => {
 
           {sent && (
             <div className="agent-sent" data-testid={`agent-sent-${email.id}`}>
-              <b>Elküldve.</b> Címzett: {sent.to} · Tárgy: {sent.subject}
+              <b>{a.draft.sent}</b> {a.draft.to}: {sent.to} · {a.draft.subject}: {sent.subject}
             </div>
           )}
 
           {saved && (
             <div className="agent-saved" data-testid={`agent-saved-${email.id}`}>
-              <b>{saved.updated ? "Vázlat frissítve." : "Vázlat elmentve."}</b>{" "}
-              Címzett: {saved.to}.{" "}
+              <b>{saved.updated ? a.draft.savedUpdated : a.draft.savedNew}</b>{" "}
+              {a.draft.to}: {saved.to}.{" "}
               <a href={saved.gmail_url} target="_blank" rel="noopener noreferrer">
-                Megnyitom a Gmailben
+                {a.draft.openGmail}
               </a>
             </div>
           )}
@@ -267,16 +259,15 @@ const DraftPanel = ({ email, canDraft }) => {
 };
 
 export default function EmailAgent({ embedded = false }) {
+  const { t, lang } = useLang();
+  const a = t.agent;
   // Only the standalone route owns the document title; the homepage embeds the
   // same component and must keep its own metadata.
   useDocumentMeta({
-    title: embedded ? "" : "E-mail rendező agent — élő demó | AXIMBRA",
-    description:
-      "Élő demó: az agent átfutja a postafiókod elmúlt 30 napját, rangsorolja a " +
-      "leveleket és megírja a válaszokat. Alapból csak olvas — küldeni nem tud.",
+    title: embedded ? "" : a.seo.title,
+    description: a.seo.description,
     path: "/demo/email-agent",
-    // Az oldal szövege csak magyarul létezik.
-    translated: false,
+    lang,
   });
   const [status, setStatus] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -337,7 +328,7 @@ export default function EmailAgent({ embedded = false }) {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const err = params.get("error");
-    if (err) setError(ERRORS[err] || "Ismeretlen hiba.");
+    if (err) setError(a.err[err] || a.err.unknown);
     const s = params.get("s");
     if (s) setToken(s);
     if (err || params.get("connected")) {
@@ -377,7 +368,7 @@ export default function EmailAgent({ embedded = false }) {
       if (timer.current) clearInterval(timer.current);
       if (retry.current) clearTimeout(retry.current);
     };
-  }, [poll, restartTimer]);
+  }, [poll, restartTimer, a.err]);
 
   // Leaving the page ends the run server-side, so returning starts from scratch.
   useEffect(() => {
@@ -395,14 +386,14 @@ export default function EmailAgent({ embedded = false }) {
     setStarting(true);
     setError("");
     try {
-      const { session } = await post("/sample", {});
+      const { session } = await post(`/sample?lang=${lang}`, {});
       setToken(session);
       const s = await get("/status");
       setStatus(s);
       poll();
       restartTimer(FAST_POLL_MS);
     } catch (e) {
-      setError(e.message);
+      setError(e.message || a.err.generic);
     } finally {
       setStarting(false);
     }
@@ -414,11 +405,11 @@ export default function EmailAgent({ embedded = false }) {
     try {
       // The wider grant is requested only when the visitor ticked the box. The
       // default path asks Google for read access and nothing else.
-      const d = await get(allowDrafts ? "/connect?drafts=true" : "/connect");
+      const d = await get(`/connect?lang=${lang}${allowDrafts ? "&drafts=true" : ""}`);
       window.location.href = d.auth_url;
     } catch (e) {
       setConnecting(false);
-      setError(e.message);
+      setError(e.message || a.err.generic);
     }
   };
 
@@ -440,7 +431,7 @@ export default function EmailAgent({ embedded = false }) {
         <header className="agent-top">
           <Link to="/" className="agent-back">← AXIMBRA</Link>
           <span className={`agent-pill ${status?.connected ? "on" : ""}`}>
-            {status?.connected ? status.email : "Nincs csatlakozva"}
+            {status?.connected ? status.email : a.notConnected}
           </span>
         </header>
       )}
@@ -452,128 +443,81 @@ export default function EmailAgent({ embedded = false }) {
           /* What is actually known: the request did not arrive. Saying anything
              about the server's configuration from here would be a guess. */
           <div className="agent-intro">
-            {!embedded && <h1>E-mail rendező agent</h1>}
+            {!embedded && <h1>{a.title}</h1>}
             <div className="agent-closed" data-testid="agent-unreachable">
               <p>
-                <b>Az agent most nem érhető el.</b> Nem tudtuk elérni a
-                kiszolgálót — ez általában néhány másodperces frissítés, amíg új
-                verzió indul.
+                <b>{a.unreachable.title}</b> {a.unreachable.body}
               </p>
               <p>
                 <button type="button" className="agent-retry"
                   onClick={() => window.location.reload()}>
-                  Próbáld újra
+                  {a.unreachable.retry}
                 </button>
               </p>
             </div>
           </div>
         ) : !status.connected ? (
           <div className="agent-intro">
-            {!embedded && <h1>E-mail rendező agent</h1>}
-            <p className="agent-lead">
-              Csatlakoztasd a Gmail-fiókod, és az agent végigmegy az elmúlt 30 nap
-              levelein: kategóriába sorolja, sürgősséget állapít meg, és megmondja,
-              melyikre kell válaszolnod. Amelyikre kéred, a választ is megfogalmazza.
-            </p>
+            {!embedded && <h1>{a.title}</h1>}
+            <p className="agent-lead">{a.intro.lead}</p>
 
             <ul className="agent-guarantees">
-              <li>
-                <b>Alapból csak olvas.</b> A lenti pipa nélkül semmit nem ír a
-                fiókodba, és a küldési jogot sem kéri.
-              </li>
-              <li>
-                <b>A meglévő leveleidhez soha nem nyúl.</b> Nem címkéz, nem
-                csillagoz, nem töröl — akkor sem, ha megadod az írási jogot.
-              </li>
-              <li>
-                <b>Írni és küldeni csak a te engedélyeddel.</b> Ha bepipálod,
-                akkor is levelenként külön rákérdezünk, mielőtt vázlatot írna
-                vagy elküldene bármit.
-              </li>
-              <li>
-                <b>Semmit nem tárolunk.</b> A futás <b>30 perc</b> után magától
-                lejár, a lap bezárásával pedig azonnal törlődik.
-              </li>
+              {a.intro.guarantees.map((g, i) => (
+                <li key={i}><b>{g.t}</b> {g.d}</li>
+              ))}
             </ul>
 
             {/* The specifics belong here, before the grant — not in a policy page
                 the visitor would have to go looking for. Everything listed is what
                 the code actually does; see backend/mail_agent.py. */}
             <details className="agent-disclosure" data-testid="agent-disclosure">
-              <summary>Mit kérünk pontosan, és mi történik az adataiddal?</summary>
+              <summary>{a.disclosure.summary}</summary>
               <div className="agent-disclosure-body">
-                <h3>A kért Google-jogosultságok</h3>
+                <h3>{a.disclosure.scopesTitle}</h3>
                 <ul>
+                  <li><code>gmail.readonly</code> — {a.disclosure.scopeRead}</li>
+                  <li><code>userinfo.email</code> + <code>openid</code> — {a.disclosure.scopeIdentity}</li>
                   <li>
-                    <code>gmail.readonly</code> — a leveleid olvasása. Ez mindig
-                    kell, és alapesetben ez az egyetlen jog, amit kérünk.
-                  </li>
-                  <li><code>userinfo.email</code> és <code>openid</code> — hogy tudjuk, melyik fiókot nézzük.</li>
-                  <li>
-                    <code>gmail.compose</code> — <b>csak ha bepipálod a vázlatírást.</b>{" "}
-                    Ettől tud vázlatot tenni a fiókodba. A Google-nak nincs „csak
-                    vázlat” jogosultsága, ezért ez küldést is engedne — ez a kód
-                    viszont soha nem küld, a küldés kódszinten tiltott. Pipa nélkül
-                    ezt a jogot nem is kérjük.
+                    <code>gmail.compose</code> — <b>{a.disclosure.scopeComposeLead}</b>{" "}
+                    {a.disclosure.scopeCompose}
                   </li>
                 </ul>
 
-                <h3>Mit olvasunk</h3>
+                <h3>{a.disclosure.readTitle}</h3>
                 <ul>
-                  <li>Az elmúlt <b>30 nap</b> legfeljebb <b>50 levele</b>. Semmi régebbi, semmi több.</li>
-                  <li>Feladó, tárgy, dátum és a levél szövege.</li>
-                  <li>
-                    <b>Csatolmány csak akkor, ha a levél szövege önmagában kevés</b> —
-                    egy „küldöm az anyagot, részletek csatolva” típusú levélnél a lényeg
-                    a dokumentumban van. Ilyenkor levelenként legfeljebb két fájlból
-                    olvassuk ki a <i>szöveget</i> (Word, Excel, PowerPoint, PDF, sima
-                    szöveg; képekből és videókból nem). A fájlt nem tároljuk, csak a
-                    kiolvasott szöveg megy tovább az osztályozáshoz.
-                  </li>
+                  <li>{a.disclosure.read30}</li>
+                  <li>{a.disclosure.readFields}</li>
+                  <li><b>{a.disclosure.readAttachLead}</b> {a.disclosure.readAttach}</li>
                 </ul>
 
-                <h3>Mit írunk</h3>
+                <h3>{a.disclosure.writeTitle}</h3>
                 <ul>
-                  <li>
-                    Pipa nélkül: <b>semmit</b>. A fogalmazvány a lapon marad, te másolod ki.
-                  </li>
-                  <li>
-                    Vázlatírással: egyetlen dolgot, levelenként, a te külön
-                    megerősítésed után — egy <b>válaszvázlatot</b> a Gmail Vázlatok
-                    közé. Meglévő levelet nem módosítunk: nem címkézünk, nem
-                    csillagozunk, nem törlünk, és <b>nem küldünk el semmit</b>.
-                  </li>
+                  <li>{a.disclosure.writeNoneLead} <b>{a.disclosure.writeNone}</b></li>
+                  <li>{a.disclosure.writeDraft}</li>
                 </ul>
 
-                <h3>Hová kerül</h3>
+                <h3>{a.disclosure.whereTitle}</h3>
                 <ul>
-                  <li>
-                    A levél szövegét egyetlen osztályozó hívásban elküldjük az{" "}
-                    <b>OpenAI</b> API-jának. Az API-n beküldött adatot a szolgáltató
-                    alapbeállítás szerint nem használja modelltanításra.
-                  </li>
-                  <li>Adatbázisba semmi nem kerül. A futás a szerver memóriájában él.</li>
+                  <li>{a.disclosure.whereLlm}</li>
+                  <li>{a.disclosure.whereNoDb}</li>
                 </ul>
 
-                <h3>Meddig él, és hogyan törlöd</h3>
+                <h3>{a.disclosure.lifeTitle}</h3>
                 <ul>
-                  <li>A munkamenet <b>30 perc</b> után magától lejár.</li>
+                  <li>{a.disclosure.life30}</li>
+                  <li>{a.disclosure.lifeExit}</li>
                   <li>
-                    A „Kilépés” azonnal törli a futást és a hozzáférést. A lap
-                    bezárása ugyanezt teszi.
-                  </li>
-                  <li>
-                    A jogosultságot a Google-nál bármikor visszavonhatod:{" "}
+                    {a.disclosure.lifeRevoke}{" "}
                     <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">
                       myaccount.google.com/permissions
                     </a>
                   </li>
                 </ul>
 
-                <h3>Ki kéri</h3>
+                <h3>{a.disclosure.whoTitle}</h3>
                 <p>
-                  AXIMBRA · Budapest · <a href={mailto()}>{CONTACT.email}</a> — kérdés
-                  vagy törlési kérés esetén írj, és válaszolunk.
+                  AXIMBRA · Budapest · <a href={mailto()}>{CONTACT.email}</a>{" "}
+                  {a.disclosure.whoText}
                 </p>
               </div>
             </details>
@@ -584,14 +528,10 @@ export default function EmailAgent({ embedded = false }) {
                 as a status with a way forward rather than as an error. */}
             {status.public === false ? (
               <div className="agent-closed" data-testid="agent-closed">
+                <p><b>{a.closed.title}</b> {a.closed.body}</p>
                 <p>
-                  <b>Az agent jelenleg nem nyilvános.</b> A Gmail-hozzáférés kérése
-                  előtt közzétesszük az adatkezelési tájékoztatót és a céges adatokat —
-                  addig nem kérünk senkitől postafiók-hozzáférést.
-                </p>
-                <p>
-                  Élőben szívesen megmutatjuk a saját fiókunkon:{" "}
-                  <a href={mailto("Megnézném az e-mail agentet élőben")}>{CONTACT.email}</a>
+                  {a.closed.live}{" "}
+                  <a href={mailto(a.closed.liveSubject)}>{CONTACT.email}</a>
                 </p>
               </div>
             ) : !showConnect ? (
@@ -602,23 +542,19 @@ export default function EmailAgent({ embedded = false }) {
                 <button className="agent-cta" onClick={runSample} disabled={starting}
                   data-testid="agent-sample">
                   {starting
-                    ? <><span className="spin" /> Indítás…</>
-                    : "Nézd meg egy példa postafiókon"}
+                    ? <><span className="spin" /> {a.start.starting}</>
+                    : a.start.cta}
                 </button>
-                <p className="agent-start-note">
-                  10 valósághű magyar levél, azonnal, belépés nélkül. Ugyanaz az
-                  agent fut rajtuk, mint egy éles postafiókon — a válaszokat is
-                  megírja.
-                </p>
+                <p className="agent-start-note">{a.start.note}</p>
                 <button type="button" className="agent-start-alt"
                   onClick={() => setShowConnect(true)} data-testid="agent-show-connect">
-                  Inkább a saját Gmail-fiókomon nézném meg →
+                  {a.start.alt}
                 </button>
               </div>
             ) : (
               <>
                 {status.configured === false && (
-                  <div className="agent-error">Az agent Google-hozzáférése még nincs beállítva.</div>
+                  <div className="agent-error">{a.connect.notConfigured}</div>
                 )}
 
                 {/* Straight about what the visitor is walking into. Google shows an
@@ -626,21 +562,11 @@ export default function EmailAgent({ embedded = false }) {
                     passes a security assessment; hiding that would waste their time
                     and look worse when it appears. */}
                 <div className="agent-google-note" data-testid="agent-google-note">
-                  <p>
-                    <b>Amit a Google mutatni fog.</b> Mielőtt beenged, egy piros
-                    „A Google nem ellenőrizte ezt az alkalmazást” képernyő jön. Ez
-                    minden olyan alkalmazásnál megjelenik, amelyik postafiók-hozzáférést
-                    kér és még nem esett át a Google biztonsági átvilágításán — nem a
-                    fiókod állapotáról szól.
-                  </p>
-                  <p>
-                    Továbblépni a <i>Speciális</i> → <i>Tovább…</i> linken lehet.
-                    Ha ez most kényelmetlen, a példa postafiók mindent megmutat
-                    belépés nélkül.
-                  </p>
+                  <p><b>{a.connect.googleTitle}</b> {a.connect.googleBody}</p>
+                  <p>{a.connect.googleHow}</p>
                   <button type="button" className="agent-start-alt"
                     onClick={() => setShowConnect(false)}>
-                    ← Vissza a példa postafiókhoz
+                    {a.connect.back}
                   </button>
                 </div>
 
@@ -653,26 +579,16 @@ export default function EmailAgent({ embedded = false }) {
                     onChange={(e) => setAllowDrafts(e.target.checked)}
                     data-testid="agent-optin-box" />
                   <span>
-                    <b>Írhat vázlatot a postafiókomba.</b> Ha bepipálod, az agent a
-                    megírt választ — a te külön megerősítésed után, levelenként —
-                    beteszi a Gmail <i>Vázlatok</i> közé, a saját levelezőszálára.
-                    Elküldeni akkor is csak te tudod.
-                    <span className="agent-optin-warn">
-                      Fontos: a Google-nak nincs „csak vázlat” jogosultsága, ezért a
-                      beleegyező képernyő küldési jogot is említeni fog. Ez a kód
-                      soha nem küld levelet — a küldés kódszinten tiltott —, de a
-                      jogosultság, amit megadsz, ennél szélesebb. Ha ez nem
-                      kényelmes, hagyd üresen: a fogalmazás pipa nélkül is működik,
-                      csak kimásolni kell.
-                    </span>
+                    <b>{a.connect.optinTitle}</b> {a.connect.optinBody}
+                    <span className="agent-optin-warn">{a.connect.optinWarn}</span>
                   </span>
                 </label>
 
                 <button className="agent-cta" onClick={connect}
                   disabled={connecting || status.configured === false}>
-                  {connecting ? <><span className="spin" /> Átirányítás…</>
-                    : allowDrafts ? "Csatlakozás — olvasás és vázlatírás"
-                    : "Csatlakozás a Google-fiókhoz"}
+                  {connecting ? <><span className="spin" /> {a.connect.redirecting}</>
+                    : allowDrafts ? a.connect.ctaWrite
+                    : a.connect.ctaRead}
                 </button>
               </>
             )}
@@ -683,16 +599,14 @@ export default function EmailAgent({ embedded = false }) {
               /* Said plainly: these results are real agent output on invented
                  mail, and must not read as the visitor's own inbox. */
               <div className="agent-sample-note" data-testid="agent-sample-note">
-                <b>Példa postafiók.</b> A levelek kitaláltak — az osztályozás és a
-                válaszok viszont most készültek, ugyanazzal az agenttel, ami egy
-                éles fiókon futna.
+                <b>{a.run.sampleNoteTitle}</b> {a.run.sampleNote}
               </div>
             )}
             {!done && (
               <div className="agent-progress">
                 <div className="agent-progress-head">
                   <span className="spin" />
-                  <span>{progress?.message || "Indulás…"}</span>
+                  <span>{progress?.message || a.run.starting}</span>
                   {progress?.total ? <span className="agent-count">{progress.done} / {progress.total}</span> : null}
                 </div>
                 <div className="agent-bar"><div className="agent-bar-fill" style={{ width: `${pct}%` }} /></div>
@@ -703,7 +617,7 @@ export default function EmailAgent({ embedded = false }) {
               <>
                 <div className="agent-tiles">
                   <div className="agent-tile">
-                    <div className="k">Feldolgozott levél</div>
+                    <div className="k">{a.run.processed}</div>
                     <div className="v">{results.total}</div>
                   </div>
                   {/* Clickable: filters the list below to the emails this number
@@ -716,16 +630,16 @@ export default function EmailAgent({ embedded = false }) {
                     disabled={results.needs_reply === 0}
                     aria-pressed={onlyNeedsReply}
                     data-testid="agent-tile-needs-reply">
-                    <div className="k">Válasz szükséges</div>
+                    <div className="k">{a.run.needsReply}</div>
                     <div className="v accent">{results.needs_reply}</div>
                     {results.needs_reply > 0 && (
                       <div className="agent-tile-hint">
-                        {onlyNeedsReply ? "Mind a levél mutatása" : "Mutasd ezeket"}
+                        {onlyNeedsReply ? a.run.showAllShort : a.run.showThese}
                       </div>
                     )}
                   </button>
                   <div className="agent-tile wide">
-                    <div className="k">Legsürgősebb</div>
+                    <div className="k">{a.run.mostUrgent}</div>
                     <ul className="agent-top-list">
                       {results.top_urgent.map((e) => (
                         <li key={e.id}><span className={`dot-u ${urgencyOf(e.urgency).cls}`} />{e.subject}</li>
@@ -735,12 +649,12 @@ export default function EmailAgent({ embedded = false }) {
                 </div>
 
                 <div className="agent-cats">
-                  <div className="k">Kategória-megoszlás</div>
+                  <div className="k">{a.run.categories}</div>
                   {Object.entries(results.counts)
                     .sort((a, b) => b[1] - a[1])
                     .map(([cat, n]) => (
                       <div className="agent-cat-row" key={cat}>
-                        <span className="agent-cat-name">{cat}</span>
+                        <span className="agent-cat-name">{a.cat[cat] || cat}</span>
                         <span className="agent-cat-bar">
                           <span style={{ width: `${(n / results.total) * 100}%` }} />
                         </span>
@@ -751,9 +665,9 @@ export default function EmailAgent({ embedded = false }) {
 
                 {onlyNeedsReply && (
                   <div className="agent-filter-note" data-testid="agent-filter-note">
-                    Csak a válaszra váró levelek látszanak.{" "}
+                    {a.run.filterNote}{" "}
                     <button type="button" onClick={() => setOnlyNeedsReply(false)}>
-                      Mutasd mind a {results.total} levelet
+                      {fmt(a.run.showAllN, { n: results.total })}
                     </button>
                   </div>
                 )}
@@ -776,9 +690,9 @@ export default function EmailAgent({ embedded = false }) {
                             <div className="agent-row-subj">{e.subject}</div>
                             <div className="agent-row-sum">{e.summary}</div>
                             <div className="agent-row-tags">
-                              <span className="tag-cat">{e.category}</span>
-                              <span className={`tag-u ${u.cls}`}>{u.label}</span>
-                              {e.needs_reply === "igen" && <span className="tag-reply">Válasz szükséges</span>}
+                              <span className="tag-cat">{a.cat[e.category] || e.category}</span>
+                              <span className={`tag-u ${u.cls}`}>{a.urgency[u.cls]}</span>
+                              {e.needs_reply === "igen" && <span className="tag-reply">{a.run.needsReply}</span>}
                               {e.deadline && <span className="tag-date">{e.deadline}</span>}
                             </div>
                           </div>
@@ -786,12 +700,12 @@ export default function EmailAgent({ embedded = false }) {
                         </button>
                         {open && (
                           <div className="agent-row-body">
-                            <div className="k">Miért ez a sürgősség</div>
+                            <div className="k">{a.run.whyUrgent}</div>
                             <p>{e.urgency_reason || "—"}</p>
-                            <div className="k">Javasolt következő lépés</div>
+                            <div className="k">{a.run.nextStep}</div>
                             <p>{e.next_step || "—"}</p>
-                            <div className="k">A levél</div>
-                            <pre>{e.body || e.snippet || "(üres)"}</pre>
+                            <div className="k">{a.run.theEmail}</div>
+                            <pre>{e.body || e.snippet || a.run.empty}</pre>
                             <DraftPanel email={e} canDraft={status.can_draft === true} />
                           </div>
                         )}
@@ -803,15 +717,13 @@ export default function EmailAgent({ embedded = false }) {
             )}
 
             {done && results?.total === 0 && (
-              <p className="agent-lead">Nem találtunk levelet az elmúlt 30 napból.</p>
+              <p className="agent-lead">{a.run.noEmails}</p>
             )}
 
             <button className="agent-cta ghost" onClick={disconnect}>
-              Kilépés és lecsatlakozás
+              {a.run.logout}
             </button>
-            <p className="agent-foot">
-              A kilépéssel a fiókod azonnal lecsatlakozik, és az elemzés törlődik a szerverről.
-            </p>
+            <p className="agent-foot">{a.run.foot}</p>
           </div>
         )}
       </main>

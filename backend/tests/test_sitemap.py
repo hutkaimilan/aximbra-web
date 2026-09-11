@@ -36,8 +36,11 @@ def test_is_valid_xml_and_every_url_is_absolute():
     assert len(locs) == len(set(locs)), "ismétlődő URL"
 
 
-def test_no_demo_pages_are_listed():
-    """A referencia-demók futásidőben noindex-ek; a sitemapban sincs helyük."""
+def test_only_the_email_agent_demo_is_listed():
+    """A kitalált márkák referencia-oldalai futásidőben noindex-ek, a sitemapban
+    sincs helyük. Az e-mail agent lapja viszont valódi szolgáltatás, és mind a
+    nyolc nyelven létezik, tehát nyolc URL-lel szerepel."""
     root = ET.parse(SITEMAP).getroot()
     demos = [u.find("s:loc", NS).text for u in root if "/demo/" in u.find("s:loc", NS).text]
-    assert demos == ["https://aximbra.hu/demo/email-agent"], demos
+    assert all(d.endswith("/demo/email-agent") for d in demos), demos
+    assert len(demos) == 8, demos

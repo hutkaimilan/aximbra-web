@@ -26,7 +26,7 @@ OUT = pathlib.Path("frontend/public/sitemap.xml")
 ROUTES = [
     ("/", True, "weekly", "1.0"),
     ("/weboldal", True, "monthly", "0.7"),
-    ("/demo/email-agent", False, "monthly", "0.8"),
+    ("/demo/email-agent", True, "monthly", "0.8"),
     ("/impresszum", False, "yearly", "0.3"),
     ("/adatkezeles", False, "yearly", "0.3"),
 ]
