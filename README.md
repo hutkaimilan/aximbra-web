@@ -57,6 +57,33 @@ there rather than writing an address inline — the site previously carried AXIM
 and EPISTEME's (a separate project) in others, which read as two different companies. EPISTEME's own
 number stays in the case study, where it belongs.
 
+## Two ways in: the example inbox, and a real Gmail account
+`POST /api/agent/email/sample` runs the agent over `backend/sample_inbox.py` — ten invented but realistic
+Hungarian business emails — with no Google account involved. It is the **default** entry point, and the
+Gmail connect is one click behind it.
+
+The reason is not squeamishness about OAuth. `gmail.readonly` is a restricted scope, so until the app
+passes Google's security assessment every visitor meets a full-screen red *"Google hasn't verified this
+app"* warning — and a stranger will not hand their mailbox to an agency they met a minute ago regardless.
+The demo's job is to show what the agent does, and the example inbox does that instantly, on a phone, with
+nothing to hand over. The classification and the drafting are the real thing: same prompts, same live model
+calls, same output.
+
+The sample inbox is chosen, not filler: something that needs an answer today, something that only looks
+urgent, an automated notice, a phishing attempt, a newsletter, a missing subject line, and one whose
+substance is in an attachment. An inbox where everything matters would prove nothing about triage, and a
+test asserts the mix stays that way. Dates are stored relative to the run, so nothing ages into obviously
+stale.
+
+A sample session holds `creds: None` — absent, not unused — and `/draft/save` and `/draft/send` both return
+409 on it. The reply text is still written for real; there is simply no mailbox to put it in and no real
+recipient to send to. The run is public and spends model credits, so it carries the same per-IP limit as
+the other demos.
+
+When the visitor does choose the Google route, the page states what Google will show them **before** they
+go, including that the warning is about the app's verification status and not about their account. Hiding
+that would waste their time and look worse when it appeared.
+
 ## Reply drafting
 The agent classifies the mailbox during the run, and writes a reply draft only when the visitor asks for
 one — the per-email button in an expanded row. Drafting is the most expensive call here (longer output than

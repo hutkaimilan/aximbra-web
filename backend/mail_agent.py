@@ -438,6 +438,9 @@ async def status(request: Request):
         # Whether this session may write drafts into the mailbox. False unless the
         # visitor ticked the box *and* Google granted it.
         "can_draft": bool(sess and sess.get("can_draft")),
+        # A run over the example inbox rather than someone's Gmail. The page says
+        # so rather than letting the results pass for the visitor's own mail.
+        "sample": bool(sess and sess.get("sample")),
     }
 
 
@@ -669,6 +672,12 @@ async def save_draft(request: Request, body: SaveDraftBody):
     themselves. SafeGmailProxy refuses every send-type call regardless.
     """
     sess = _require(request)
+    if sess.get("sample"):
+        raise HTTPException(
+            status_code=409,
+            detail="Ez egy példa postafiók — nincs hova menteni. "
+                   "Csatlakoztasd a sajátodat, ha a Gmailedbe szeretnél vázlatot.",
+        )
     if not sess.get("can_draft"):
         raise HTTPException(
             status_code=403,
@@ -754,6 +763,11 @@ async def send_draft(request: Request, body: SendBody):
     sends text the user has not seen.
     """
     sess = _require(request)
+    if sess.get("sample"):
+        raise HTTPException(
+            status_code=409,
+            detail="Ez egy példa postafiók — a címzettek kitaláltak, nincs kinek küldeni.",
+        )
     if not sess.get("can_draft"):
         raise HTTPException(
             status_code=403,
@@ -826,6 +840,95 @@ async def send_draft(request: Request, body: SendBody):
         "to": recipient,
         "subject": subject,
     }
+
+
+@router.post("/sample")
+async def start_sample(request: Request):
+    """Start a run over the example inbox — no Google account involved.
+
+    The real Gmail path works, but it puts Google's red "unverified app" screen
+    in front of every visitor (unavoidable for a restricted scope until the app
+    passes a security assessment), and a stranger will not hand over their
+    mailbox to an agency they met a minute ago anyway. This shows what the agent
+    does, which is the part worth showing, with the same classifier and the same
+    drafter running live.
+
+    Public and it spends model credits, so it carries the same per-IP limit as
+    the other demos.
+    """
+    from server import _check_limits  # noqa: circular by design, runtime only
+
+    ip = request.client.host if request.client else "unknown"
+    _check_limits(request, f"sample:{ip}")
+
+    _sweep()
+    if len(_sessions) >= MAX_SESSIONS:
+        raise HTTPException(status_code=429, detail="Most sokan próbálják egyszerre. Nézz vissza pár perc múlva.")
+
+    sid = os.urandom(16).hex()
+    _sessions[sid] = {
+        "email": "példa@postafiók.hu",
+        # No credentials at all. Not "unused" — absent, so no code path here can
+        # reach a real mailbox even by mistake.
+        "creds": None,
+        "sample": True,
+        "can_draft": False,
+        "drafts": {},
+        "saved": {},
+        "sent": {},
+        "analyses": [],
+        "state": _new_state(),
+        "created_at": datetime.now(timezone.utc),
+    }
+    task = asyncio.create_task(run_sample(sid))
+    _runs.add(task)
+    task.add_done_callback(_runs.discard)
+    return {"session": _fernet.encrypt(sid.encode()).decode()}
+
+
+async def run_sample(sid: str):
+    """Classify the example inbox. Same classifier, same limits, no Gmail."""
+    from server import classify_one  # noqa: circular by design, runtime only
+    from sample_inbox import sample_emails
+
+    sess = _sessions.get(sid)
+    if not sess:
+        return
+    state = sess["state"]
+    if state["running"]:
+        return
+    emails = sample_emails(datetime.now(timezone.utc))
+    state.update({"running": True, "total": len(emails), "message": "Feldolgozás folyamatban…"})
+
+    gate = asyncio.Semaphore(RUN_CONCURRENCY)
+    halted: dict = {"reason": None}
+
+    async def process(email):
+        if halted["reason"] or sid not in _sessions:
+            return
+        async with gate:
+            if halted["reason"] or sid not in _sessions:
+                return
+            try:
+                analysis = await classify_one(email)
+                sess["analyses"].append({**email, **analysis})
+            except HTTPException as e:
+                halted["reason"] = e.detail
+            except Exception as e:  # noqa - one bad email must not stop the rest
+                logger.warning("sample email failed: %s", type(e).__name__)
+                state["errors"] += 1
+            finally:
+                state["done"] += 1
+
+    try:
+        await asyncio.gather(*(process(e) for e in emails))
+        state["message"] = halted["reason"] or "Kész"
+    except Exception:  # noqa - a dead task would leave the page spinning
+        logger.exception("sample run failed")
+        state["message"] = "Az elemzés megszakadt. Próbáld újra."
+        state["errors"] += 1
+    finally:
+        state["running"] = False
 
 
 async def run_agent(sid: str):

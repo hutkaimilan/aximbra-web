@@ -8,6 +8,7 @@ BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 os.environ.setdefault("OPENAI_API_KEY", "sk-test")
 import pytest, server, mail_agent
+import sample_inbox as mail_agent_sample
 from googleapiclient.discovery import Resource
 from google_auth_httplib2 import AuthorizedHttp
 from fastapi.testclient import TestClient
@@ -1219,3 +1220,125 @@ def test_fresh_http_is_authorised_and_has_a_timeout():
     http = mail_agent._fresh_http(Creds())
     assert isinstance(http, AuthorizedHttp)
     assert http.http.timeout == mail_agent.HTTP_TIMEOUT_SECONDS, "a hung call would wedge a worker"
+
+
+# ---------------- sample inbox (no Google account) ----------------
+@pytest.fixture
+def stub_classifier(monkeypatch):
+    seen = []
+
+    async def fake(email):
+        seen.append(email)
+        return {"category": "Egyéb", "urgency": 3, "needs_reply": "igen",
+                "urgency_reason": "ok", "deadline": "", "summary": "ossz", "next_step": "lepes"}
+
+    monkeypatch.setattr(server, "classify_one", fake)
+    monkeypatch.setitem(server._state, "cost", 0.0)
+    server._ip_hits.clear()
+    return seen
+
+
+def _sample_session():
+    """Start a sample run and return (sid, headers)."""
+    r = c.post("/api/agent/email/sample")
+    assert r.status_code == 200, r.text
+    token = r.json()["session"]
+    sid = mail_agent._fernet.decrypt(token.encode()).decode()
+    return sid, {mail_agent.SESSION_HEADER: token}
+
+
+def test_sample_needs_no_google_account(stub_classifier):
+    """The whole point: a visitor sees what the agent does without Google's
+    unverified-app screen, and without handing anyone their mailbox."""
+    sid, h = _sample_session()
+    try:
+        results = c.get("/api/agent/email/results", headers=h).json()
+        assert results["total"] == len(mail_agent_sample.SAMPLE_EMAILS)
+        assert len(stub_classifier) == results["total"], "every sample email was classified"
+        status = c.get("/api/agent/email/status", headers=h).json()
+        assert status["connected"] is True
+        assert status["sample"] is True
+        assert status["can_draft"] is False
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_a_sample_session_holds_no_credentials(stub_classifier):
+    """Absent, not merely unused: no code path can reach a real mailbox from here
+    even by mistake."""
+    sid, _ = _sample_session()
+    try:
+        assert mail_agent._sessions[sid]["creds"] is None
+        assert mail_agent._sessions[sid]["sample"] is True
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_sample_can_still_write_the_reply_text(stub_classifier, stub_draft):
+    """The drafting is real — same model call as on a live mailbox."""
+    sid, h = _sample_session()
+    try:
+        first = c.get("/api/agent/email/results", headers=h).json()["analyses"][0]
+        r = c.post("/api/agent/email/draft", json={"id": first["id"]}, headers=h)
+        assert r.status_code == 200, r.text
+        assert r.json()["valasz"]
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_sample_refuses_to_save_or_send(stub_classifier, stub_draft, gmail_send_calls):
+    """There is no mailbox and the recipients are invented. Both must say so
+    plainly rather than sending the visitor off to reconnect."""
+    sid, h = _sample_session()
+    try:
+        first = c.get("/api/agent/email/results", headers=h).json()["analyses"][0]
+        c.post("/api/agent/email/draft", json={"id": first["id"]}, headers=h)
+        for path in ("/api/agent/email/draft/save", "/api/agent/email/draft/send"):
+            r = c.post(path, json={"id": first["id"], "confirm": True}, headers=h)
+            assert r.status_code == 409, path
+            assert "példa postafiók" in r.json()["detail"], path
+        assert gmail_send_calls == [], "a sample run touched Gmail"
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_sample_dates_are_relative_to_now():
+    """A demo where everything arrived six months ago gives itself away, and
+    urgency is judged on the date."""
+    from datetime import datetime, timezone
+    from sample_inbox import sample_emails
+    now = datetime.now(timezone.utc)
+    emails = sample_emails(now)
+    newest = max(datetime.fromisoformat(e["date"]) for e in emails)
+    oldest = min(datetime.fromisoformat(e["date"]) for e in emails)
+    assert (now - newest).total_seconds() < 60 * 60 * 24
+    assert (now - oldest).days <= mail_agent.LOOKBACK_DAYS
+
+
+def test_the_sample_inbox_is_not_all_urgent():
+    """An inbox where everything matters proves nothing about triage."""
+    from sample_inbox import SAMPLE_EMAILS
+    assert len(SAMPLE_EMAILS) >= 8
+    joined = " ".join(e["body"] for e in SAMPLE_EMAILS).lower()
+    for expected in ("leiratkozás", "automatikus", "ne válaszoljon"):
+        assert expected in joined, f"no low-priority mail in the sample: {expected}"
+    assert any(e.get("attachments") for e in SAMPLE_EMAILS), "no attachment-only case"
+    assert any(not e["subject"] for e in SAMPLE_EMAILS), "no missing-subject case"
+
+
+def test_sample_is_rate_limited_per_ip(stub_classifier, monkeypatch):
+    """Public and it spends model credits on every call."""
+    monkeypatch.setattr(server, "MAX_REQ_PER_IP_HOUR", 3)
+    server._ip_hits.clear()
+    made = []
+    try:
+        for _ in range(3):
+            r = c.post("/api/agent/email/sample")
+            assert r.status_code == 200
+            made.append(mail_agent._fernet.decrypt(r.json()["session"].encode()).decode())
+        r = c.post("/api/agent/email/sample")
+        assert r.status_code == 429
+    finally:
+        for sid in made:
+            mail_agent._sessions.pop(sid, None)
+        server._ip_hits.clear()

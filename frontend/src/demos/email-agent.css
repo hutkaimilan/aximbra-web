@@ -361,3 +361,39 @@
   font-family: inherit; font-size: 13.5px; cursor: pointer; transition: background .2s ease;
 }
 .agent-retry:hover { background: rgba(255,176,32,.24); }
+
+/* ---------- Default way in: the example inbox ---------- */
+.agent-start { margin-top: 4px; }
+.agent-start-note {
+  max-width: 560px; margin: 12px 0 0;
+  font-size: 13.5px; line-height: 1.65; color: var(--muted);
+}
+.agent-start-alt {
+  margin-top: 16px; padding: 0; border: none; background: none;
+  font-family: inherit; font-size: 13.5px; color: var(--cyan); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.agent-start-alt:hover { color: #7fefff; }
+
+/* What Google will show, said before they meet it rather than after. */
+.agent-google-note {
+  margin: 16px 0 18px; padding: 14px 16px;
+  border: 1px solid rgba(255,176,32,.32); border-radius: 12px;
+  background: rgba(40,28,8,.42);
+  font-size: 13.5px; line-height: 1.65; color: #D8C9AE;
+}
+.agent-google-note p { margin: 0 0 10px; }
+.agent-google-note b { color: #FFD9A0; }
+.agent-google-note .agent-start-alt { margin-top: 2px; color: #FFB020; }
+.agent-google-note .agent-start-alt:hover { color: #FFCE62; }
+
+.agent-sample-note {
+  margin-bottom: 18px; padding: 12px 16px;
+  border: 1px solid rgba(155,120,255,.35); border-radius: 12px;
+  background: rgba(24,16,48,.55);
+  font-size: 13.5px; line-height: 1.6; color: #CFC4F0;
+}
+.agent-sample-note b { color: #C4B0FF; }
+@media (max-width: 600px) {
+  .agent-start-note, .agent-google-note, .agent-sample-note { font-size: 13px; }
+}

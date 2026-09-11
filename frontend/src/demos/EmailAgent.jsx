@@ -285,6 +285,11 @@ export default function EmailAgent({ embedded = false }) {
   // Off by default, and deliberately not remembered: handing over write access to
   // a mailbox is a decision to take each time, not one to inherit from last visit.
   const [allowDrafts, setAllowDrafts] = useState(false);
+  const [starting, setStarting] = useState(false);
+  // The Google route is real and works, but it puts an "unverified app" warning
+  // in front of every visitor and asks a stranger for their mailbox. It stays,
+  // one click away, for someone who actually wants it.
+  const [showConnect, setShowConnect] = useState(false);
   const [onlyNeedsReply, setOnlyNeedsReply] = useState(false);
   const [openId, setOpenId] = useState(null);
   const timer = useRef(null);
@@ -360,6 +365,24 @@ export default function EmailAgent({ embedded = false }) {
     window.addEventListener("pagehide", end);
     return () => window.removeEventListener("pagehide", end);
   }, []);
+
+  const runSample = async () => {
+    setStarting(true);
+    setError("");
+    try {
+      const { session } = await post("/sample", {});
+      setToken(session);
+      const s = await get("/status");
+      setStatus(s);
+      poll();
+      if (timer.current) clearInterval(timer.current);
+      timer.current = setInterval(poll, 3000);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setStarting(false);
+    }
+  };
 
   const connect = async () => {
     setConnecting(true);
@@ -539,11 +562,55 @@ export default function EmailAgent({ embedded = false }) {
                   <a href={mailto("Megnézném az e-mail agentet élőben")}>{CONTACT.email}</a>
                 </p>
               </div>
+            ) : !showConnect ? (
+              /* The default way in. No Google account, no consent screen, no
+                 warning — and nothing of the visitor's to hand over. The model
+                 calls behind it are the real ones. */
+              <div className="agent-start">
+                <button className="agent-cta" onClick={runSample} disabled={starting}
+                  data-testid="agent-sample">
+                  {starting
+                    ? <><span className="spin" /> Indítás…</>
+                    : "Nézd meg egy példa postafiókon"}
+                </button>
+                <p className="agent-start-note">
+                  10 valósághű magyar levél, azonnal, belépés nélkül. Ugyanaz az
+                  agent fut rajtuk, mint egy éles postafiókon — a válaszokat is
+                  megírja.
+                </p>
+                <button type="button" className="agent-start-alt"
+                  onClick={() => setShowConnect(true)} data-testid="agent-show-connect">
+                  Inkább a saját Gmail-fiókomon nézném meg →
+                </button>
+              </div>
             ) : (
               <>
                 {status.configured === false && (
                   <div className="agent-error">Az agent Google-hozzáférése még nincs beállítva.</div>
                 )}
+
+                {/* Straight about what the visitor is walking into. Google shows an
+                    "unverified app" warning for a restricted scope until the app
+                    passes a security assessment; hiding that would waste their time
+                    and look worse when it appears. */}
+                <div className="agent-google-note" data-testid="agent-google-note">
+                  <p>
+                    <b>Amit a Google mutatni fog.</b> Mielőtt beenged, egy piros
+                    „A Google nem ellenőrizte ezt az alkalmazást” képernyő jön. Ez
+                    minden olyan alkalmazásnál megjelenik, amelyik postafiók-hozzáférést
+                    kér és még nem esett át a Google biztonsági átvilágításán — nem a
+                    fiókod állapotáról szól.
+                  </p>
+                  <p>
+                    Továbblépni a <i>Speciális</i> → <i>Tovább…</i> linken lehet.
+                    Ha ez most kényelmetlen, a példa postafiók mindent megmutat
+                    belépés nélkül.
+                  </p>
+                  <button type="button" className="agent-start-alt"
+                    onClick={() => setShowConnect(false)}>
+                    ← Vissza a példa postafiókhoz
+                  </button>
+                </div>
 
                 {/* Opt-in for mailbox writing. Unticked by default, and the text
                     says exactly what the wider grant means — including that
@@ -580,6 +647,15 @@ export default function EmailAgent({ embedded = false }) {
           </div>
         ) : (
           <div className="agent-run">
+            {status.sample && (
+              /* Said plainly: these results are real agent output on invented
+                 mail, and must not read as the visitor's own inbox. */
+              <div className="agent-sample-note" data-testid="agent-sample-note">
+                <b>Példa postafiók.</b> A levelek kitaláltak — az osztályozás és a
+                válaszok viszont most készültek, ugyanazzal az agenttel, ami egy
+                éles fiókon futna.
+              </div>
+            )}
             {!done && (
               <div className="agent-progress">
                 <div className="agent-progress-head">
