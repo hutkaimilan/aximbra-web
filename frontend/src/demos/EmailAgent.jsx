@@ -273,7 +273,8 @@ export default function EmailAgent({ embedded = false }) {
     title: embedded ? "" : "E-mail rendező agent — élő demó | AXIMBRA",
     description:
       "Élő demó: az AXIMBRA agentje átfutja a saját postafiókod elmúlt 30 napját, " +
-      "kategorizálja és rangsorolja a leveleket. Csak olvas, semmit nem küld el és nem tárol.",
+      "kategorizálja és rangsorolja a leveleket, és megírja a válaszokat. Alapból csak " +
+      "olvas; vázlatot írni vagy levelet küldeni csak külön engedéllyel és megerősítéssel tud.",
     path: "/demo/email-agent",
   });
   const [status, setStatus] = useState(null);
@@ -380,13 +381,27 @@ export default function EmailAgent({ embedded = false }) {
             <p className="agent-lead">
               Csatlakoztasd a Gmail-fiókod, és az agent végigmegy az elmúlt 30 nap
               levelein: kategóriába sorolja, sürgősséget állapít meg, és megmondja,
-              melyikre kell válaszolnod.
+              melyikre kell válaszolnod. Amelyikre kéred, a választ is megfogalmazza.
             </p>
 
             <ul className="agent-guarantees">
-              <li><b>Csak olvas.</b> Nem címkéz, nem csillagoz, nem töröl a fiókodban.</li>
-              <li><b>Soha nem küld levelet.</b> A küldési jogot nem is kéri.</li>
-              <li><b>Semmit nem tárolunk.</b> Az eredmény a böngésződ bezárásáig él.</li>
+              <li>
+                <b>Alapból csak olvas.</b> A lenti pipa nélkül semmit nem ír a
+                fiókodba, és a küldési jogot sem kéri.
+              </li>
+              <li>
+                <b>A meglévő leveleidhez soha nem nyúl.</b> Nem címkéz, nem
+                csillagoz, nem töröl — akkor sem, ha megadod az írási jogot.
+              </li>
+              <li>
+                <b>Írni és küldeni csak a te engedélyeddel.</b> Ha bepipálod,
+                akkor is levelenként külön rákérdezünk, mielőtt vázlatot írna
+                vagy elküldene bármit.
+              </li>
+              <li>
+                <b>Semmit nem tárolunk.</b> A futás <b>30 perc</b> után magától
+                lejár, a lap bezárásával pedig azonnal törlődik.
+              </li>
             </ul>
 
             {/* The specifics belong here, before the grant — not in a policy page
