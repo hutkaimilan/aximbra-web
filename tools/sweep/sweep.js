@@ -11,9 +11,9 @@ const EXEC = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 
 const ROUTES = [
   '/', '/demo/etterem', '/demo/szalon', '/demo/rendelo', '/demo/ugyvedi',
-  '/demo/email-agent', '/impresszum', '/adatkezeles',
+  '/demo/email-agent', '/impresszum', '/adatkezeles', '/weboldal',
   '/en', '/de', '/es', '/fr', '/it', '/ro', '/sk',
-  '/en/demo/etterem', '/en/demo/rendelo', '/nemletezik',
+  '/en/demo/etterem', '/en/demo/rendelo', '/de/weboldal', '/nemletezik',
 ];
 
 const AUDIT = () => {
@@ -96,7 +96,8 @@ const AUDIT = () => {
     const ctx = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height } });
     await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
     for (const route of ROUTES) {
-      if (viewport.label === 'mobil' && route.length > 4 && !['/', '/demo/etterem', '/demo/email-agent', '/adatkezeles', '/impresszum'].includes(route)) continue;
+      // Telefonon minden útvonal számít: a hibák többsége ott jelenik meg
+      // először, és a nyelvi változatok szövege más hosszúságú.
       const page = await ctx.newPage();
       const errs = [];
       page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push(`konzol: ${m.text().slice(0, 200)}`); });
