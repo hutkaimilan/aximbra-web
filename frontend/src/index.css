@@ -130,7 +130,11 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
 @keyframes pulse { 0%,100%{ opacity: 1; transform: scale(1);} 50%{ opacity: .4; transform: scale(.7);} }
 .nav-right { display: flex; align-items: center; gap: 20px; position: relative; z-index: 2; }
 .nav-links { display: flex; gap: 30px; align-items: center; }
+/* A 24x24 CSS-pixeles érinthető méret a WCAG 2.2 AA minimuma. A 14 px-es
+   szöveg sorboksza ennél alacsonyabb, ezért a linkek maguk kapnak magasságot —
+   a sor közepén, hogy a menü látványa ne változzon. */
 .nav-links a { color: var(--muted); text-decoration: none; font-size: 14px; letter-spacing: .02em;
+  display: inline-flex; align-items: center; min-height: 24px;
   transition: color .25s ease; }
 .nav-links a:hover { color: var(--text); }
 
@@ -500,6 +504,7 @@ textarea:focus-visible,
 .footer-legal { display: flex; gap: 18px; flex-wrap: wrap; }
 .footer-legal a {
   color: var(--muted); text-decoration: none; font-size: 13px;
+  display: inline-flex; align-items: center; min-height: 24px;
   border-bottom: 1px solid transparent; transition: color .2s ease, border-color .2s ease;
 }
 .footer-legal a:hover { color: var(--cyan); border-bottom-color: rgba(0,233,255,.4); }

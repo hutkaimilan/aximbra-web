@@ -8,7 +8,8 @@
   background: rgba(4,4,12,.82); backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--border);
 }
-.legal-back { color: var(--muted); text-decoration: none; font-size: 14px; transition: color .2s ease; }
+.legal-back { color: var(--muted); text-decoration: none; font-size: 14px; transition: color .2s ease;
+  display: inline-flex; align-items: center; min-height: 24px; }
 .legal-back:hover { color: var(--cyan); }
 
 .legal-main { max-width: 760px; margin: 0 auto; padding: 44px 20px 90px; }

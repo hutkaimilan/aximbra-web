@@ -272,9 +272,8 @@ export default function EmailAgent({ embedded = false }) {
   useDocumentMeta({
     title: embedded ? "" : "E-mail rendező agent — élő demó | AXIMBRA",
     description:
-      "Élő demó: az AXIMBRA agentje átfutja a saját postafiókod elmúlt 30 napját, " +
-      "kategorizálja és rangsorolja a leveleket, és megírja a válaszokat. Alapból csak " +
-      "olvas; vázlatot írni vagy levelet küldeni csak külön engedéllyel és megerősítéssel tud.",
+      "Élő demó: az agent átfutja a postafiókod elmúlt 30 napját, rangsorolja a " +
+      "leveleket és megírja a válaszokat. Alapból csak olvas — küldeni nem tud.",
     path: "/demo/email-agent",
     // Az oldal szövege csak magyarul létezik.
     translated: false,
