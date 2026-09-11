@@ -64,15 +64,29 @@ export default function Adatkezeles() {
             Analyticsot, hirdetési pixelt vagy más követőt.
           </p>
           <p>
-            A böngésződ tárolója (localStorage) két apróságot őriz, kizárólag a te
-            gépeden: a kiválasztott nyelvet, és hogy láttad-e már a nyitóanimációt.
-            Ezek nem jutnak el hozzánk.
+            A böngésződ tárolója négy apróságot őriz, kizárólag a te gépeden, és
+            ezek nem jutnak el hozzánk:
           </p>
+          <ul>
+            <li>a kiválasztott nyelv (<code>aximbra_lang</code>),</li>
+            <li>hogy láttad-e már a nyitóanimációt (<code>aximbra:intro-seen</code>),</li>
+            <li>hol tartottál a lapon, amikor egy demóra léptél — hogy visszatérve
+              ugyanoda kerülj (<code>aximbra:return</code>, a fül bezárásáig él),</li>
+            <li>az e-mail agent munkamenet-azonosítója, ha csatlakoztattad a fiókodat
+              (<code>aximbra:agent</code>, szintén a fül bezárásáig).</li>
+          </ul>
           <p>
             A kiszolgáló a visszaélések megelőzése érdekében a bemutató rendszerek
             hívásainál <b>egy órán át</b> a memóriájában tartja a kérés IP-címét és
-            időpontját, hogy az óránkénti korlátot érvényesíteni tudja. Ez sehova nem
-            íródik ki, és egy óra után nyom nélkül elévül.
+            időpontját, hogy az óránkénti korlátot érvényesíteni tudja. Ez adatbázisba
+            nem kerül, és egy óra után nyom nélkül elévül.
+          </p>
+          <p>
+            Ettől függetlenül a <b>tárhelyszolgáltató</b> (Railway) minden kéréshez
+            saját üzemeltetési naplót vezet: ebben szerepel a kérés ideje, a hívott
+            cím, a válasz kódja, a böngésző azonosítója és a kérés IP-címe. Ezt a
+            naplót a szolgáltató kezeli a saját megőrzési ideje szerint; mi olvasni
+            tudjuk hibakereséskor, törölni nem.
             Jogalap: jogos érdek (GDPR 6. cikk (1) f) — a szolgáltatás működőképesen
             tartása és a visszaélés megakadályozása.
           </p>
@@ -169,8 +183,10 @@ export default function Adatkezeles() {
             </li>
             <li>
               <b>Meddig él:</b> a futás a kiszolgáló memóriájában él, és{" "}
-              <b>30 perc</b> után magától lejár. A „Kilépés” gomb és a lap bezárása
-              azonnal törli.
+              <b>30 perc</b> után magától lejár. A „Kilépés” gomb azonnal törli. A lap
+              bezárásakor a böngésző jelez a kiszolgálónak, és a futás ekkor is azonnal
+              törlődik — ha ez a jelzés nem ér célba (megszakadt hálózat, lelőtt
+              böngésző), a 30 perces határidő zárja le.
             </li>
             <li>
               <b>Hogyan vonod vissza:</b> bármikor, nálunk a Kilépés gombbal, a

@@ -26,7 +26,7 @@ const en = {
     ctaGhost: "See it live",
     phoneCta: { note: "Answered by an AI agent · in Hungarian & English", origin: "US test line (Twilio) — this is the agent's demo number, not a support line" },
     status: { checking: "Checking status…", online: "Live phone agent", offline: "Phone agent unavailable", today: "today", callsUnit: "calls", liveUnit: "active now" },
-    stats: [["2–4 weeks", "the first agent"], ["3 languages", "HU · EN · ES"], ["100%", "human approval"]],
+    stats: [["2–4 weeks", "the first agent"], ["3 languages", "the phone agent speaks"], ["100%", "human approval"]],
   },
   agentsSection: {
     tag: "What we build",

@@ -25,7 +25,7 @@ const es = {
     sub: "Creamos agentes de IA para empresas que hacen un trabajo concreto — ordenan correos, califican consultas, atienden el teléfono. No entregamos una demo, sino un sistema que funciona y que mantenemos vivo.",
     ctaPrimary: "Ver los agentes",
     ctaGhost: "Verlo en vivo",
-    stats: [["2–4 semanas", "el primer agente"], ["3 idiomas", "HU · EN · ES"], ["100%", "aprobación humana"]],
+    stats: [["2–4 semanas", "el primer agente"], ["3 idiomas", "habla el agente telefónico"], ["100%", "aprobación humana"]],
   },
   agentsSection: {
     tag: "Lo que construimos",

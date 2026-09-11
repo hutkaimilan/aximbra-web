@@ -25,7 +25,7 @@ const de = {
     sub: "Wir bauen KI-Agenten für Unternehmen, die eine konkrete Aufgabe erledigen — E-Mails sortieren, Anfragen qualifizieren, ans Telefon gehen. Wir übergeben keine Demo, sondern ein funktionierendes System, das wir am Leben halten.",
     ctaPrimary: "Agenten ansehen",
     ctaGhost: "Live erleben",
-    stats: [["2–4 Wochen", "der erste Agent"], ["3 Sprachen", "HU · EN · ES"], ["100%", "menschliche Freigabe"]],
+    stats: [["2–4 Wochen", "der erste Agent"], ["3 Sprachen", "spricht der Telefon-Agent"], ["100%", "menschliche Freigabe"]],
   },
   agentsSection: {
     tag: "Was wir bauen",

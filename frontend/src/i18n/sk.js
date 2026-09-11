@@ -25,7 +25,7 @@ const sk = {
     sub: "Staviame AI agentov pre firmy, ktorí vykonávajú konkrétnu prácu — triedia e-maily, kvalifikujú dopyty, dvíhajú telefón. Neodovzdávame demo, ale funkčný systém, ktorý udržiavame nažive.",
     ctaPrimary: "Pozri agentov",
     ctaGhost: "Pozri naživo",
-    stats: [["2–4 týždne", "prvý agent"], ["3 jazyky", "HU · EN · ES"], ["100%", "ľudské schválenie"]],
+    stats: [["2–4 týždne", "prvý agent"], ["3 jazyky", "hovorí telefónny agent"], ["100%", "ľudské schválenie"]],
   },
   agentsSection: {
     tag: "Čo staviame",

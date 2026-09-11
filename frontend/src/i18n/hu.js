@@ -26,7 +26,7 @@ const hu = {
     ctaGhost: "Működés közben",
     phoneCta: { note: "Egy AI agent veszi fel · magyarul és angolul is", origin: "Amerikai tesztvonal (Twilio) — ez az agent demószáma, nem ügyfélszolgálat" },
     status: { checking: "Állapot lekérése…", online: "Élő telefon-agent", offline: "Telefon-agent nem elérhető", today: "ma", callsUnit: "hívás", liveUnit: "aktív most" },
-    stats: [["2–4 hét", "az első agent"], ["3 nyelv", "HU · EN · ES"], ["100%", "emberi jóváhagyás"]],
+    stats: [["2–4 hét", "az első agent"], ["3 nyelv", "a telefonos agent beszél"], ["100%", "emberi jóváhagyás"]],
   },
   agentsSection: {
     tag: "Amit építünk",

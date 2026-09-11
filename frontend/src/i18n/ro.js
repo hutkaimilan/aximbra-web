@@ -25,7 +25,7 @@ const ro = {
     sub: "Construim agenți AI pentru companii, care fac o muncă concretă — sortează e-mailuri, califică solicitări, răspund la telefon. Nu predăm o demonstrație, ci un sistem funcțional pe care îl menținem în viață.",
     ctaPrimary: "Vezi agenții",
     ctaGhost: "Vezi live",
-    stats: [["2–4 săptămâni", "primul agent"], ["3 limbi", "HU · EN · ES"], ["100%", "aprobare umană"]],
+    stats: [["2–4 săptămâni", "primul agent"], ["3 limbi", "vorbite de agentul telefonic"], ["100%", "aprobare umană"]],
   },
   agentsSection: {
     tag: "Ce construim",
