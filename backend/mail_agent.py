@@ -29,10 +29,49 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/agent/email")
 
-GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
-GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
-GMAIL_REDIRECT_URI = os.environ.get("AGENT_REDIRECT_URI", "")
-SITE_URL = os.environ.get("FRONTEND_URL", "")
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
+GMAIL_REDIRECT_URI = os.environ.get("AGENT_REDIRECT_URI", "").strip()
+SITE_URL = os.environ.get("FRONTEND_URL", "").strip()
+
+
+def _log_agent_config():
+    """Say at boot which agent settings are missing, and how.
+
+    "Az agent Google-hozzáférése nincs beállítva" on the page cannot say which of
+    the four is wrong — it is public, and naming the gaps to strangers is not its
+    job. Without this, a variable that exists but holds an empty string looks
+    identical to one that was never set, and both look like a code fault. The
+    deploy log is private, so the detail belongs here.
+
+    Values are never logged, only whether each is present — a client secret must
+    not end up in a log line.
+    """
+    required = {
+        "GOOGLE_CLIENT_ID": GOOGLE_CLIENT_ID,
+        "GOOGLE_CLIENT_SECRET": GOOGLE_CLIENT_SECRET,
+        "AGENT_REDIRECT_URI": GMAIL_REDIRECT_URI,
+    }
+    missing = [name for name, value in required.items() if not value]
+    # Set-but-empty is the case that reads as "configured" in a dashboard and as
+    # "not configured" here, so it is called out separately.
+    blank = [n for n in missing if os.environ.get(n) is not None]
+    if missing:
+        logger.warning(
+            "email agent NOT configured - missing: %s%s",
+            ", ".join(missing),
+            f" (set but empty: {', '.join(blank)})" if blank else " (not set at all)",
+        )
+    else:
+        logger.info("email agent configured (redirect URI: %s)", GMAIL_REDIRECT_URI)
+    if not SITE_URL:
+        logger.warning(
+            "FRONTEND_URL is empty - the OAuth callback will redirect to '/demo/email-agent' "
+            "with no host, which sends the visitor nowhere useful."
+        )
+
+
+_log_agent_config()
 
 # Whether strangers may hand this agent their mailbox.
 #

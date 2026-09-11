@@ -965,3 +965,30 @@ def test_cost_knobs_are_env_tunable(monkeypatch):
     assert f("X_CEIL", 4.0) == 4.0, "a typo must not take the API down on boot"
     monkeypatch.delenv("X_CEIL", raising=False)
     assert f("X_CEIL", 4.0) == 4.0
+
+
+def test_config_check_names_the_gap_without_leaking_values(monkeypatch, caplog):
+    """A missing setting must be diagnosable from the deploy log — but a client
+    secret must never appear in one."""
+    import logging
+    monkeypatch.setattr(mail_agent, "GOOGLE_CLIENT_ID", "")
+    monkeypatch.setattr(mail_agent, "GOOGLE_CLIENT_SECRET", "titkos-ertek-123")
+    monkeypatch.setattr(mail_agent, "GMAIL_REDIRECT_URI", "https://x/cb")
+    monkeypatch.setattr(mail_agent, "SITE_URL", "https://x")
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "")  # set but empty
+    with caplog.at_level(logging.WARNING, logger="mail_agent"):
+        mail_agent._log_agent_config()
+    text = caplog.text
+    assert "GOOGLE_CLIENT_ID" in text
+    assert "set but empty" in text
+    assert "GOOGLE_CLIENT_SECRET" not in text, "a present setting should not be reported missing"
+    assert "titkos-ertek-123" not in text, "a secret value reached the log"
+
+
+def test_config_values_are_stripped():
+    """A trailing newline in a dashboard variable is invisible and would break the
+    redirect URI match at Google rather than here."""
+    src = open(BACKEND / "mail_agent.py").read()
+    for name in ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "AGENT_REDIRECT_URI", "FRONTEND_URL"):
+        line = next(l for l in src.splitlines() if f'os.environ.get("{name}", "")' in l)
+        assert line.rstrip().endswith('.strip()'), name
