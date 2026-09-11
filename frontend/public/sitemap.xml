@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A /demo/ oldalak szándékosan hiányoznak: kitalált vállalkozásokat mutatnak,
+     és futásidőben noindex-ek. Egy sitemap, ami noindex oldalakat sorol fel,
+     ellentmond önmagának. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://aximbra.hu/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://aximbra.hu/demo/email-agent</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://aximbra.hu/impresszum</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://aximbra.hu/adatkezeles</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+</urlset>

@@ -73,7 +73,11 @@ export function useDocumentMeta({ title, description, path = "/", lang, noindex,
     setMeta('meta[property="og:description"]', "content", description);
     setMeta('meta[property="og:url"]', "content", url);
     if (lang) setMeta('meta[property="og:locale"]', "content", lang);
+    // Absolute, because social scrapers do not resolve relative URLs.
+    const image = ORIGIN ? `${ORIGIN}/media/og-cover.png` : "";
+    setMeta('meta[property="og:image"]', "content", image);
     setMeta('meta[name="twitter:card"]', "content", "summary_large_image");
+    setMeta('meta[name="twitter:image"]', "content", image);
     setMeta('meta[name="twitter:title"]', "content", title);
     setMeta('meta[name="twitter:description"]', "content", description);
 

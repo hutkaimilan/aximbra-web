@@ -220,3 +220,11 @@
   /* undo the shared .law-form input box styling, which is meant for text fields */
   padding: 0; border: none; background: none; appearance: auto; -webkit-appearance: checkbox;
   accent-color: #C9A227; }
+
+/* A galéria elemei gombok, hogy billentyűzettel is megnyithatók legyenek — a
+   gomb alapértelmezett kerete és háttere viszont nem kell ide. */
+.sln-gallery-item {
+  padding: 0; border: none; background: none; cursor: zoom-in;
+  border-radius: 26px; overflow: hidden; display: block; line-height: 0;
+}
+.sln-gallery-item:focus-visible { outline: 3px solid #B76E79; outline-offset: 3px; }

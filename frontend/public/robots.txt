@@ -5,3 +5,5 @@ Allow: /
 # out of search results with a runtime noindex, not with Disallow: a disallowed
 # page is never crawled, so its noindex is never read — which would keep them
 # indexed forever if they ever got picked up.
+
+Sitemap: https://aximbra.hu/sitemap.xml

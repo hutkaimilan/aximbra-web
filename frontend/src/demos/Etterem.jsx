@@ -21,7 +21,7 @@ export default function Etterem() {
     <div className="rst-page demo-page" data-testid="demo-etterem">
       <DemoBar prefix="rst" />
       <section className="rst-hero">
-        <img className="rst-hero-img" src={HERO_IMG} alt="" />
+        <img className="rst-hero-img" src={HERO_IMG} alt={`${d.brand} — a konyha nyílt lángon`} />
         <div className="rst-hero-in">
           <div className="rst-eyebrow">{d.heroEyebrow}</div>
           <h1 className="rst-title">{d.brand}</h1>

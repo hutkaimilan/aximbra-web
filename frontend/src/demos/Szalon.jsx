@@ -52,9 +52,15 @@ export default function Szalon() {
         <div className="demo-container">
           <h2 className="sln-h2">{d.galleryTitle}</h2>
           <div className="sln-gallery">
+            {/* Gomb, nem kattintható kép: egy <img onClick> nem fókuszálható és
+                billentyűzettel meg sem nyitható, tehát a galéria egy része
+                elérhetetlen volt. */}
             {GALLERY.map((g, i) => (
-              <img key={i} src={g} alt="" data-testid={`sln-gallery-${i}`}
-                style={{ cursor: "zoom-in" }} onClick={() => setLb(g)} />
+              <button key={i} type="button" className="sln-gallery-item"
+                data-testid={`sln-gallery-${i}`} onClick={() => setLb(g)}
+                aria-label={`${d.brand} — ${i + 1}. kép nagyban`}>
+                <img src={g} alt={`${d.brand} — munkánk ${i + 1}.`} />
+              </button>
             ))}
           </div>
         </div>
@@ -82,9 +88,13 @@ export default function Szalon() {
       <footer className="sln-footer">© {d.brand} · {d.address}</footer>
 
       {lb && (
-        <div className="sln-lightbox" data-testid="sln-lightbox" onClick={() => setLb(null)}>
-          <button className="sln-lb-close" aria-label="Close" data-testid="sln-lightbox-close">×</button>
-          <img src={lb} alt="" onClick={(e) => e.stopPropagation()} />
+        <div className="sln-lightbox" data-testid="sln-lightbox" role="dialog" aria-modal="true"
+          aria-label={`${d.brand} — kép nagyban`} onClick={() => setLb(null)}>
+          {/* Saját onClick: eddig csak azért működött, mert az esemény felbugyogott
+              a szülőre — egy stopPropagation bárhol a láncban némán elrontotta volna. */}
+          <button className="sln-lb-close" type="button" aria-label="Bezárás"
+            data-testid="sln-lightbox-close" onClick={() => setLb(null)}>×</button>
+          <img src={lb} alt={`${d.brand} — kép nagyban`} onClick={(e) => e.stopPropagation()} />
         </div>
       )}
     </div>
