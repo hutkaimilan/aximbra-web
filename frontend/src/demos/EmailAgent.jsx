@@ -606,7 +606,10 @@ export default function EmailAgent({ embedded = false }) {
               <div className="agent-progress">
                 <div className="agent-progress-head">
                   <span className="spin" />
-                  <span>{progress?.message || a.run.starting}</span>
+                  {/* A kiszolgáló kulcsot küld, a feliratot a lap adja a saját
+                      nyelvén. Ismeretlen kulcsnál a nyers érték marad, hogy egy
+                      új állapot ne tűnjön el némán. */}
+                  <span>{a.run[progress?.message] || progress?.message || a.run.starting}</span>
                   {progress?.total ? <span className="agent-count">{progress.done} / {progress.total}</span> : null}
                 </div>
                 <div className="agent-bar"><div className="agent-bar-fill" style={{ width: `${pct}%` }} /></div>
@@ -642,7 +645,7 @@ export default function EmailAgent({ embedded = false }) {
                     <div className="k">{a.run.mostUrgent}</div>
                     <ul className="agent-top-list">
                       {results.top_urgent.map((e) => (
-                        <li key={e.id}><span className={`dot-u ${urgencyOf(e.urgency).cls}`} />{e.subject}</li>
+                        <li key={e.id}><span className={`dot-u ${urgencyOf(e.urgency).cls}`} />{e.subject || a.run.noSubject}</li>
                       ))}
                     </ul>
                   </div>
@@ -687,7 +690,7 @@ export default function EmailAgent({ embedded = false }) {
                         <button className="agent-row-head" onClick={() => setOpenId(open ? null : e.id)}>
                           <div className="agent-row-main">
                             <div className="agent-row-from">{e.sender}</div>
-                            <div className="agent-row-subj">{e.subject}</div>
+                            <div className="agent-row-subj">{e.subject || a.run.noSubject}</div>
                             <div className="agent-row-sum">{e.summary}</div>
                             <div className="agent-row-tags">
                               <span className="tag-cat">{a.cat[e.category] || e.category}</span>

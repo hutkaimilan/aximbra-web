@@ -127,6 +127,13 @@ const agent = {
     start: {
       cta: "Nézd meg egy példa postafiókon",
       starting: "Indítás…",
+      running: "Feldolgozás folyamatban…",
+      fetching: "Levelek lekérése…",
+      done: "Kész",
+      empty: "Nincs feldolgozható levél az elmúlt 30 napban.",
+      interrupted: "Az elemzés megszakadt. Próbáld újra.",
+      budget: "Az agent mára elérte a napi keretét.",
+      noSubject: "(nincs tárgy)",
       note:
         "10 valósághű magyar levél, azonnal, belépés nélkül. Ugyanaz az agent fut rajtuk, " +
         "mint egy éles postafiókon — a válaszokat is megírja.",
@@ -309,6 +316,13 @@ const agent = {
     start: {
       cta: "See it on an example mailbox",
       starting: "Starting…",
+      running: "Processing…",
+      fetching: "Fetching the emails…",
+      done: "Done",
+      empty: "No emails to process from the last 30 days.",
+      interrupted: "The analysis stopped. Please try again.",
+      budget: "The agent has reached its daily budget.",
+      noSubject: "(no subject)",
       note:
         "10 realistic Hungarian emails, right away, with no sign-in. The same agent runs on them " +
         "as on a live mailbox — it writes the replies too.",
@@ -491,6 +505,13 @@ const agent = {
     start: {
       cta: "An einem Beispiel-Postfach ansehen",
       starting: "Wird gestartet…",
+      running: "Wird verarbeitet…",
+      fetching: "Mails werden abgerufen…",
+      done: "Fertig",
+      empty: "Keine verarbeitbaren Mails aus den letzten 30 Tagen.",
+      interrupted: "Die Analyse wurde abgebrochen. Bitte erneut versuchen.",
+      budget: "Der Agent hat sein Tagesbudget erreicht.",
+      noSubject: "(kein Betreff)",
       note:
         "10 realitätsnahe ungarische Mails, sofort, ohne Anmeldung. Auf ihnen läuft derselbe Agent " +
         "wie auf einem echten Postfach — er schreibt auch die Antworten.",
@@ -676,6 +697,13 @@ const agent = {
     start: {
       cta: "Verlo en un buzón de ejemplo",
       starting: "Iniciando…",
+      running: "Procesando…",
+      fetching: "Descargando los correos…",
+      done: "Listo",
+      empty: "No hay correos que procesar de los últimos 30 días.",
+      interrupted: "El análisis se ha interrumpido. Inténtalo de nuevo.",
+      budget: "El agente ha alcanzado su presupuesto diario.",
+      noSubject: "(sin asunto)",
       note:
         "10 correos húngaros realistas, al instante, sin registrarse. Sobre ellos corre el mismo " +
         "agente que en un buzón real — también escribe las respuestas.",
@@ -861,6 +889,13 @@ const agent = {
     start: {
       cta: "Le voir sur une boîte d'exemple",
       starting: "Démarrage…",
+      running: "Traitement en cours…",
+      fetching: "Récupération des e-mails…",
+      done: "Terminé",
+      empty: "Aucun e-mail à traiter sur les 30 derniers jours.",
+      interrupted: "L'analyse s'est interrompue. Réessayez.",
+      budget: "L'agent a atteint son budget quotidien.",
+      noSubject: "(sans objet)",
       note:
         "10 e-mails hongrois réalistes, tout de suite, sans connexion. Le même agent tourne " +
         "dessus que sur une vraie boîte — il rédige aussi les réponses.",
@@ -1044,6 +1079,13 @@ const agent = {
     start: {
       cta: "Guardalo su una casella di esempio",
       starting: "Avvio…",
+      running: "Elaborazione in corso…",
+      fetching: "Recupero delle e-mail…",
+      done: "Fatto",
+      empty: "Nessuna e-mail da elaborare negli ultimi 30 giorni.",
+      interrupted: "L'analisi si è interrotta. Riprova.",
+      budget: "L'agente ha raggiunto il budget giornaliero.",
+      noSubject: "(senza oggetto)",
       note:
         "10 e-mail ungheresi realistiche, subito, senza accesso. Su di esse gira lo stesso agente " +
         "che girerebbe su una casella vera — scrive anche le risposte.",
@@ -1227,6 +1269,13 @@ const agent = {
     start: {
       cta: "Vezi-l pe o căsuță de exemplu",
       starting: "Pornire…",
+      running: "Se procesează…",
+      fetching: "Se descarcă e-mailurile…",
+      done: "Gata",
+      empty: "Niciun e-mail de procesat din ultimele 30 de zile.",
+      interrupted: "Analiza s-a întrerupt. Încearcă din nou.",
+      budget: "Agentul și-a atins bugetul zilnic.",
+      noSubject: "(fără subiect)",
       note:
         "10 e-mailuri maghiare realiste, imediat, fără autentificare. Pe ele rulează același agent " +
         "ca pe o căsuță reală — scrie și răspunsurile.",
@@ -1409,6 +1458,13 @@ const agent = {
     start: {
       cta: "Pozrite si to na ukážkovej schránke",
       starting: "Spúšťa sa…",
+      running: "Prebieha spracovanie…",
+      fetching: "Načítavajú sa e-maily…",
+      done: "Hotovo",
+      empty: "Za posledných 30 dní nie sú žiadne spracovateľné e-maily.",
+      interrupted: "Analýza sa prerušila. Skúste to znova.",
+      budget: "Agent dosiahol svoj denný rozpočet.",
+      noSubject: "(bez predmetu)",
       note:
         "10 realistických maďarských e-mailov, hneď, bez prihlásenia. Beží na nich ten istý agent " +
         "ako na ostrej schránke — napíše aj odpovede.",

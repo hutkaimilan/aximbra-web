@@ -80,7 +80,7 @@ def test_run_reports_its_own_failure():
     idx = src.find("async def run_agent")
     body = src[idx:]
     assert "except Exception" in body
-    assert 'state["message"] = "Az elemzés megszakadt. Próbáld újra."' in body
+    assert 'state["message"] = "interrupted"' in body
 
 def test_agent_stores_nothing_persistent():
     src = open(BACKEND / "mail_agent.py").read()
@@ -552,7 +552,8 @@ def test_subject_is_normalised_to_a_reply():
     assert f("Re: Árajánlat") == "Re: Árajánlat"
     assert f("RE: Árajánlat") == "RE: Árajánlat"
     assert f("") == "Re:"
-    assert f("(nincs tárgy)") == "Re:"
+    # A „nincs tárgy" feliratot már nem a kiszolgáló teszi a levélre, hanem a
+    # lap írja ki a saját nyelvén, tehát ide sosem jut el.
 
 
 def test_status_reports_draft_permission():
@@ -923,7 +924,7 @@ def test_a_full_run_classifies_every_email(monkeypatch):
         assert sess["state"]["done"] == 50
         assert sess["state"]["errors"] == 0
         assert len(sess["analyses"]) == 50
-        assert sess["state"]["message"] == "Kész"
+        assert sess["state"]["message"] == "done"
         assert sess["state"]["running"] is False
     finally:
         mail_agent._sessions.pop(sid, None)
@@ -967,7 +968,7 @@ def test_one_bad_email_does_not_stop_the_rest(monkeypatch):
         sess = mail_agent._sessions[sid]
         assert sess["state"]["errors"] == 1
         assert len(sess["analyses"]) == 9
-        assert sess["state"]["message"] == "Kész"
+        assert sess["state"]["message"] == "done"
     finally:
         mail_agent._sessions.pop(sid, None)
 
@@ -992,7 +993,7 @@ def test_hitting_the_budget_halts_the_run_once(monkeypatch):
     try:
         asyncio.run(mail_agent.run_agent(sid))
         sess = mail_agent._sessions[sid]
-        assert sess["state"]["message"] == "Az agent mára elérte a napi keretét."
+        assert sess["state"]["message"] == "budget"
         assert sess["state"]["errors"] == 0, "a budget stop is not a per-email error"
         # at most one extra batch gets through before the halt is seen
         assert attempts["n"] <= 3 + mail_agent.RUN_CONCURRENCY, attempts["n"]
@@ -1470,3 +1471,43 @@ def test_the_classifier_prompt_names_the_language(monkeypatch):
     monkeypatch.setitem(server._state, "cost", 0.0)
     asyncio.run(server.classify_one({"subject": "x", "body": "y"}, "sk"))
     assert "po slovensky" in seen["sys"]
+
+
+def test_the_callback_returns_to_the_page_in_the_visitor_s_language():
+    """A Google-kör után ne a magyar lapon kössön ki, aki angolul indult.
+
+    Ez volt az a hiba, amitől a látogató angolról indult, végigment a
+    beleegyezésen, és magyar felületen találta magát a saját postafiókjával.
+    """
+    import mail_agent
+    from fastapi.testclient import TestClient
+    from fastapi import FastAPI
+
+    app = FastAPI()
+    app.include_router(mail_agent.router)
+    client = TestClient(app, follow_redirects=False)
+
+    for lang, expected in (("en", "/en/demo/email-agent"), ("de", "/de/demo/email-agent"),
+                           ("hu", "/demo/email-agent")):
+        state = mail_agent._pack_state("verifier", False, lang)
+        r = client.get(f"/api/agent/email/callback?error=access_denied&state={state}")
+        assert r.status_code in (302, 307), r.status_code
+        assert expected in r.headers["location"], (lang, r.headers["location"])
+        assert "error=access_denied" in r.headers["location"]
+
+
+def test_the_run_state_speaks_in_keys_not_hungarian():
+    """A futás állapotát a lap fordítja; a kiszolgáló kulcsot ad.
+
+    Amíg magyar mondat volt, egy angol lapon is magyarul állt ott, hogy
+    „Feldolgozás folyamatban…".
+    """
+    import pathlib as _pathlib
+
+    import mail_agent
+
+    source = _pathlib.Path(mail_agent.__file__).read_text(encoding="utf-8")
+    body = "\n".join(l for l in source.split("\n")
+                     if 'state["message"]' in l or '"message":' in l)
+    for hungarian in ("Feldolgozás", "Levelek lekérése", "Kész", "megszakadt", "Nincs feldolgozható"):
+        assert hungarian not in body, f"a kiszolgáló magyar állapotüzenetet küld: {hungarian}"

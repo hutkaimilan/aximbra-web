@@ -429,7 +429,8 @@ def _parse(msg):
     return {
         "id": msg.get("id"),
         "sender": _header(headers, "From"),
-        "subject": _header(headers, "Subject") or "(nincs tárgy)",
+        # Üresen hagyjuk: a feliratot a lap adja hozzá a saját nyelvén.
+        "subject": _header(headers, "Subject"),
         "snippet": snippet,
         "date": date_iso,
         "body": body,
@@ -489,7 +490,14 @@ async def connect(drafts: bool = False, lang: str = "hu"):
 
 @router.get("/callback")
 async def callback(code: str = "", state: str = "", error: str = ""):
-    target = f"{SITE_URL}/demo/email-agent"
+    # A nyelvi előtag az OAuth-állapotból jön vissza. Enélkül a látogató a
+    # magyar lapon köt ki, akármelyik nyelven indult — és onnantól magyar
+    # felületen nézi a saját postafiókját.
+    lang_prefix = ""
+    st_early = _unpack_state(state)
+    if st_early and st_early["lang"] != "hu":
+        lang_prefix = f"/{st_early['lang']}"
+    target = f"{SITE_URL}{lang_prefix}/demo/email-agent"
     if error:
         return RedirectResponse(f"{target}?error=access_denied")
     st = _unpack_state(state)
@@ -636,7 +644,7 @@ def _reply_recipient(email: dict) -> str:
 
 def _reply_subject(subject: str) -> str:
     subject = (subject or "").strip()
-    if not subject or subject == "(nincs tárgy)":
+    if not subject:
         return "Re:"
     return subject if subject[:3].lower() == "re:" else f"Re: {subject}"
 
@@ -929,7 +937,7 @@ async def run_sample(sid: str):
     if state["running"]:
         return
     emails = sample_emails(datetime.now(timezone.utc))
-    state.update({"running": True, "total": len(emails), "message": "Feldolgozás folyamatban…"})
+    state.update({"running": True, "total": len(emails), "message": "running"})
 
     # A példa-postafiók tíz levél, fix, és nincs mellette Gmail-hívás: itt az
     # egész futás elfér egy hullámban. Az éles postafiók marad az öt szálon —
@@ -948,8 +956,10 @@ async def run_sample(sid: str):
             try:
                 analysis = await classify_one(email, sess.get("lang", "hu"))
                 sess["analyses"].append({**email, **analysis})
-            except HTTPException as e:
-                halted["reason"] = e.detail
+            except HTTPException:
+                # A megállás oka egységesen a napi keret; a szöveget a lap adja
+                # a saját nyelvén, nem a kiszolgáló.
+                halted["reason"] = "budget"
             except Exception as e:  # noqa - one bad email must not stop the rest
                 logger.warning("sample email failed: %s", type(e).__name__)
                 state["errors"] += 1
@@ -958,10 +968,10 @@ async def run_sample(sid: str):
 
     try:
         await asyncio.gather(*(process(e) for e in emails))
-        state["message"] = halted["reason"] or "Kész"
+        state["message"] = halted["reason"] or "done"
     except Exception:  # noqa - a dead task would leave the page spinning
         logger.exception("sample run failed")
-        state["message"] = "Az elemzés megszakadt. Próbáld újra."
+        state["message"] = "interrupted"
         state["errors"] += 1
     finally:
         state["running"] = False
@@ -1036,7 +1046,7 @@ async def run_agent(sid: str):
     state = sess["state"]
     if state["running"]:
         return
-    state.update({"running": True, "message": "Levelek lekérése…"})
+    state.update({"running": True, "message": "fetching"})
     try:
         # Every googleapiclient call is synchronous; run it in a worker thread so
         # a mailbox pass never freezes the rest of the API.
@@ -1052,7 +1062,7 @@ async def run_agent(sid: str):
         )
         ids = [m["id"] for m in listing.get("messages", [])]
         state["total"] = len(ids)
-        state["message"] = "Feldolgozás folyamatban…" if ids else "Nincs feldolgozható levél az elmúlt 30 napban."
+        state["message"] = "running" if ids else "empty"
         # Fetched and classified a few at a time. Sequentially, a full mailbox
         # would be MAX_EMAILS round trips to Gmail plus MAX_EMAILS model calls,
         # one after another — minutes of staring at a progress bar. The limit is
@@ -1081,8 +1091,10 @@ async def run_agent(sid: str):
                     await _add_attachment_text(service, sess, email)
                     analysis = await classify_one(email, sess.get("lang", "hu"))
                     sess["analyses"].append({**email, **analysis})
-                except HTTPException as e:
-                    halted["reason"] = e.detail
+                except HTTPException:
+                    # A megállás oka egységesen a napi keret; a szöveget a lap adja
+                    # a saját nyelvén, nem a kiszolgáló.
+                    halted["reason"] = "budget"
                 except Exception as e:  # noqa - one bad email must not stop the rest
                     logger.warning("agent email failed: %s", type(e).__name__)
                     state["errors"] += 1
@@ -1094,10 +1106,10 @@ async def run_agent(sid: str):
         if halted["reason"]:
             state["message"] = halted["reason"]
         elif ids:
-            state["message"] = "Kész"
+            state["message"] = "done"
     except Exception as e:  # noqa - a dead background task would leave the page spinning
         logger.exception("agent run failed")
-        state["message"] = "Az elemzés megszakadt. Próbáld újra."
+        state["message"] = "interrupted"
         state["errors"] += 1
     finally:
         state["running"] = False
