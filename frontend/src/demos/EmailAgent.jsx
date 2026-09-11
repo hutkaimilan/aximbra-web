@@ -413,7 +413,7 @@ export default function EmailAgent({ embedded = false }) {
 
                 <h3>Mit olvasunk</h3>
                 <ul>
-                  <li>Az elmúlt <b>30 nap</b> legfeljebb <b>15 levele</b>. Semmi régebbi, semmi több.</li>
+                  <li>Az elmúlt <b>30 nap</b> legfeljebb <b>50 levele</b>. Semmi régebbi, semmi több.</li>
                   <li>Feladó, tárgy, dátum és a levél szövege — a mellékleteket nem nyitjuk meg.</li>
                 </ul>
 

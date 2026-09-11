@@ -770,3 +770,198 @@ def test_send_failure_is_a_502_and_does_not_mark_it_sent(monkeypatch):
         assert mail_agent._sessions[sid]["sent"] == {}, "a failed send must not block a retry"
     finally:
         mail_agent._sessions.pop(sid, None)
+
+
+# ---------------- the run itself ----------------
+def test_reads_fifty_emails():
+    assert mail_agent.MAX_EMAILS == 50
+    src = open(BACKEND / "mail_agent.py").read()
+    assert "maxResults=MAX_EMAILS" in src, "the Gmail query must follow the constant"
+
+
+def _run_session(ids):
+    from datetime import datetime, timezone
+    sid = "run-test"
+    mail_agent._sessions[sid] = {
+        "email": "teszt@example.com", "creds": None, "analyses": [],
+        "can_draft": False, "drafts": {}, "saved": {}, "sent": {},
+        "state": mail_agent._new_state(), "created_at": datetime.now(timezone.utc),
+    }
+    return sid
+
+
+class RunFakeService:
+    """Gmail stub for a whole run: lists ids, returns a message per id."""
+    def __init__(self, ids, tracker):
+        self._ids, self._t = ids, tracker
+
+    def users(self):
+        return self
+
+    def messages(self):
+        return self
+
+    def list(self, userId, maxResults, q):
+        self._t["max_results"] = maxResults
+        return _Exec({"messages": [{"id": i} for i in self._ids[:maxResults]]})
+
+    def get(self, userId, id, format):
+        return _Exec({
+            "id": id, "threadId": f"t{id}", "snippet": "s",
+            "payload": {"headers": [{"name": "From", "value": f"{id}@x.hu"},
+                                    {"name": "Subject", "value": f"Tárgy {id}"}],
+                        "mimeType": "text/plain", "body": {}},
+        })
+
+
+def _install_run_stubs(monkeypatch, ids, classify):
+    tracker = {"max_results": None, "peak": 0, "live": 0}
+    monkeypatch.setattr(mail_agent, "build", lambda *a, **k: RunFakeService(ids, tracker))
+    monkeypatch.setattr(mail_agent, "SafeGmailProxy", lambda t, allow_send=False: t)
+
+    async def wrapped(email):
+        tracker["live"] += 1
+        tracker["peak"] = max(tracker["peak"], tracker["live"])
+        try:
+            return await classify(email)
+        finally:
+            tracker["live"] -= 1
+
+    monkeypatch.setattr(server, "classify_one", wrapped)
+    return tracker
+
+
+def test_a_full_run_classifies_every_email(monkeypatch):
+    import asyncio
+    ids = [f"m{i}" for i in range(50)]
+
+    async def classify(email):
+        await asyncio.sleep(0)
+        return {"category": "Egyéb", "urgency": 1, "needs_reply": "nem",
+                "urgency_reason": "", "deadline": "", "summary": "", "next_step": ""}
+
+    tracker = _install_run_stubs(monkeypatch, ids, classify)
+    sid = _run_session(ids)
+    try:
+        asyncio.run(mail_agent.run_agent(sid))
+        sess = mail_agent._sessions[sid]
+        assert tracker["max_results"] == 50
+        assert sess["state"]["total"] == 50
+        assert sess["state"]["done"] == 50
+        assert sess["state"]["errors"] == 0
+        assert len(sess["analyses"]) == 50
+        assert sess["state"]["message"] == "Kész"
+        assert sess["state"]["running"] is False
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_the_run_is_concurrent_but_bounded(monkeypatch):
+    """Sequentially this would be 50 round trips end to end. Concurrency is the
+    point — but unbounded it would hammer Gmail and OpenAI at once."""
+    import asyncio
+    ids = [f"m{i}" for i in range(50)]
+
+    async def classify(email):
+        await asyncio.sleep(0.01)  # long enough for overlap to show
+        return {"category": "Egyéb", "urgency": 1, "needs_reply": "nem",
+                "urgency_reason": "", "deadline": "", "summary": "", "next_step": ""}
+
+    tracker = _install_run_stubs(monkeypatch, ids, classify)
+    sid = _run_session(ids)
+    try:
+        asyncio.run(mail_agent.run_agent(sid))
+        assert tracker["peak"] > 1, "the run never overlapped — it is still sequential"
+        assert tracker["peak"] <= mail_agent.RUN_CONCURRENCY, tracker["peak"]
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_one_bad_email_does_not_stop_the_rest(monkeypatch):
+    import asyncio
+    ids = [f"m{i}" for i in range(10)]
+
+    async def classify(email):
+        if email["sender"].startswith("m3"):
+            raise RuntimeError("boom")
+        return {"category": "Egyéb", "urgency": 1, "needs_reply": "nem",
+                "urgency_reason": "", "deadline": "", "summary": "", "next_step": ""}
+
+    _install_run_stubs(monkeypatch, ids, classify)
+    sid = _run_session(ids)
+    try:
+        asyncio.run(mail_agent.run_agent(sid))
+        sess = mail_agent._sessions[sid]
+        assert sess["state"]["errors"] == 1
+        assert len(sess["analyses"]) == 9
+        assert sess["state"]["message"] == "Kész"
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_hitting_the_budget_halts_the_run_once(monkeypatch):
+    """Fifty emails must not produce fifty identical budget failures; the run
+    stops and says why, and the count of attempts stays bounded."""
+    import asyncio
+    from fastapi import HTTPException
+    ids = [f"m{i}" for i in range(50)]
+    attempts = {"n": 0}
+
+    async def classify(email):
+        attempts["n"] += 1
+        if attempts["n"] > 3:
+            raise HTTPException(status_code=429, detail="Az agent mára elérte a napi keretét.")
+        return {"category": "Egyéb", "urgency": 1, "needs_reply": "nem",
+                "urgency_reason": "", "deadline": "", "summary": "", "next_step": ""}
+
+    _install_run_stubs(monkeypatch, ids, classify)
+    sid = _run_session(ids)
+    try:
+        asyncio.run(mail_agent.run_agent(sid))
+        sess = mail_agent._sessions[sid]
+        assert sess["state"]["message"] == "Az agent mára elérte a napi keretét."
+        assert sess["state"]["errors"] == 0, "a budget stop is not a per-email error"
+        # at most one extra batch gets through before the halt is seen
+        assert attempts["n"] <= 3 + mail_agent.RUN_CONCURRENCY, attempts["n"]
+        assert sess["state"]["running"] is False
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_a_visitor_leaving_mid_run_stops_the_work(monkeypatch):
+    import asyncio
+    ids = [f"m{i}" for i in range(50)]
+    sid = _run_session(ids)
+
+    async def classify(email):
+        # drop the session as soon as the first email is classified
+        mail_agent._sessions.pop(sid, None)
+        return {"category": "Egyéb", "urgency": 1, "needs_reply": "nem",
+                "urgency_reason": "", "deadline": "", "summary": "", "next_step": ""}
+
+    tracker = _install_run_stubs(monkeypatch, ids, classify)
+    # held directly: the run removes it from _sessions, and the point is what it
+    # stopped doing, not the size of a global dict other tests also write to
+    sess = mail_agent._sessions[sid]
+    try:
+        asyncio.run(mail_agent.run_agent(sid))
+        assert tracker["live"] == 0, "work was still in flight when the run returned"
+        assert sid not in mail_agent._sessions
+        assert len(sess["analyses"]) < len(ids), "the run kept going after the visitor left"
+        assert sess["state"]["running"] is False
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_cost_knobs_are_env_tunable(monkeypatch):
+    """A 50-email run costs ~50x a single call, so the ceiling has to be
+    changeable on the service without a code deploy."""
+    f = server._env_float
+    monkeypatch.setenv("X_CEIL", "12.5")
+    assert f("X_CEIL", 4.0) == 12.5
+    monkeypatch.setenv("X_CEIL", "")
+    assert f("X_CEIL", 4.0) == 4.0
+    monkeypatch.setenv("X_CEIL", "nem szám")
+    assert f("X_CEIL", 4.0) == 4.0, "a typo must not take the API down on boot"
+    monkeypatch.delenv("X_CEIL", raising=False)
+    assert f("X_CEIL", 4.0) == 4.0

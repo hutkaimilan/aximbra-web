@@ -5,7 +5,9 @@ Premium dark, neon AI agency marketing site (Hungarian). React (CRA) frontend + 
 ## Stack
 - Frontend: React 19, custom WebGL plasma shader, Lenis smooth scroll, IntersectionObserver reveals.
 - Backend: FastAPI. Live demo endpoint `/api/demo/lead`, the in-page Gmail agent under
-  `/api/agent/email/*`, and `/api/voice/health` (server-side proxy to the voice service).
+  `/api/agent/email/*`, and `/api/voice/health` (server-side proxy to the voice service). A mailbox pass
+  reads up to `MAX_EMAILS` (50) emails, `RUN_CONCURRENCY` (5) at a time — sequentially it would be 50 Gmail
+  round trips plus 50 model calls end to end.
 
 ## Environment variables
 
@@ -29,7 +31,12 @@ Frontend (`frontend/.env`):
   advertises itself as canonical. Set it once the production domain is live.
 
 ## Live demo guardrails (server-side)
-- Daily cost ceiling: **4 USD/day** (in-memory, resets daily), shared by the demos and the Gmail agent.
+- Daily cost ceiling: **4 USD/day** by default (in-memory, resets daily), shared by the demos and the Gmail
+  agent. Tunable without a deploy via `DEMO_DAILY_CEILING_USD`, and the per-call estimate via
+  `DEMO_EST_COST_PER_CALL_USD`. **Worth doing the sum:** the agent reads up to 50 emails per run, so at the
+  default estimate one run is ~0.50 USD and about eight runs close every demo for the day — the lead
+  qualifier included. The estimate is deliberately conservative and the real spend is expected to be well
+  under it; measure a run, then lower the estimate or raise the ceiling.
 - 8 runs per session, 20 requests per IP per hour, 4000 character input cap.
 - Every model response is validated against a strict Pydantic schema; up to 2 retries, then a graceful Hungarian fallback message.
 
@@ -110,6 +117,29 @@ and in a saved draft it would sit there waiting to go out by accident.
 Be straight about the trade-off, because the page is: Google has **no draft-only scope**, so
 `gmail.compose` covers both drafting and sending. The grant is what makes sending possible at all, Google's
 consent screen says so, and the checkbox text says so before it can be ticked.
+
+## Planned: a scheduled run every 2 hours
+Wanted for the product version ("when the web app is done"), not buildable on the demo's architecture.
+Four things block it, and each one is a design decision rather than a setting:
+
+1. **The grant is deliberately temporary.** `access_type="online"` means Google returns no refresh token, so
+   the credentials die with the visit — by design, and it is why the page can promise nothing outlives the
+   session. An unattended run two hours later needs `access_type="offline"`, which is a different promise to
+   the user and a different consent screen.
+2. **Nothing is stored.** Sessions live in memory with a 30-minute TTL and die on every redeploy. A schedule
+   needs durable, encrypted refresh-token storage, which means a database and a real account per user —
+   the thing the demo deliberately does not have.
+3. **A re-read every 2 hours is the wrong shape.** Twelve runs a day × 50 emails is 600 classifications per
+   user per day, mostly of the same emails over and over. A scheduled run has to be **incremental**: store
+   Gmail's `historyId` (or the last run's timestamp) per user and classify only what arrived since. That is
+   roughly a tenth of the cost and the only version that scales past one user.
+4. **Google verification gets stricter.** Ongoing offline access to a restricted scope for real users is a
+   heavier review than a demo asking for one-shot online access.
+
+Sketch, once accounts exist: a worker (Railway cron, or a loop service) wakes per user, refreshes the token,
+asks Gmail for changes since the stored `historyId`, classifies only those, appends to that user's stored
+results, and updates the marker. Per-user daily caps replace the single shared ceiling, because one shared
+budget across scheduled users empties in minutes.
 
 ## Before the Gmail agent goes public
 `gmail.readonly` is a Google **restricted** scope. Offering it to the public needs all three of:

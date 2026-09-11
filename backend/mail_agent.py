@@ -82,7 +82,11 @@ GMAIL_SCOPES_COMPOSE = [*GMAIL_SCOPES, COMPOSE_SCOPE]
 
 SESSION_HEADER = "X-Agent-Session"
 SESSION_TTL_SECONDS = 30 * 60
-MAX_EMAILS = 15
+MAX_EMAILS = 50
+# How many emails are fetched and classified at once. Deliberately small: it is
+# the knob that trades run time against rate limits and budget overshoot, and 5
+# turns a ~50-call sequential crawl into something a visitor will wait through.
+RUN_CONCURRENCY = 5
 MAX_SESSIONS = 40
 LOOKBACK_DAYS = 30
 # Drafts are the most expensive call here (longer output than a classification),
@@ -697,27 +701,43 @@ async def run_agent(sid: str):
         ids = [m["id"] for m in listing.get("messages", [])]
         state["total"] = len(ids)
         state["message"] = "Feldolgozás folyamatban…" if ids else "Nincs feldolgozható levél az elmúlt 30 napban."
-        for mid in ids:
-            if sid not in _sessions:  # visitor left mid-run
+        # Fetched and classified a few at a time. Sequentially, a full mailbox
+        # would be MAX_EMAILS round trips to Gmail plus MAX_EMAILS model calls,
+        # one after another — minutes of staring at a progress bar. The limit is
+        # small on purpose: it keeps us well inside Gmail and OpenAI rate limits,
+        # and caps how far the shared daily budget can overshoot when several
+        # classifications are already in flight as it runs out.
+        gate = asyncio.Semaphore(RUN_CONCURRENCY)
+        # Set to the budget message by whichever email hits the ceiling first;
+        # the rest then stop instead of logging fifty identical failures.
+        halted: dict = {"reason": None}
+
+        async def process(mid: str):
+            if halted["reason"] or sid not in _sessions:  # ceiling hit, or visitor left
                 return
-            try:
-                full = await asyncio.to_thread(
-                    service.users().messages().get(userId="me", id=mid, format="full").execute
-                )
-                email = _parse(full)
-                analysis = await classify_one(email)
-                sess["analyses"].append({**email, **analysis})
-            except HTTPException as e:
-                # The shared daily budget is gone — the remaining emails would all
-                # fail the same way, so stop instead of logging 15 identical errors.
-                state["message"] = e.detail
-                return  # the finally below still counts this email as done
-            except Exception as e:  # noqa - one bad email must not stop the rest
-                logger.warning("agent email failed: %s", type(e).__name__)
-                state["errors"] += 1
-            finally:
-                state["done"] += 1
-        if ids:
+            async with gate:
+                if halted["reason"] or sid not in _sessions:
+                    return
+                try:
+                    full = await asyncio.to_thread(
+                        service.users().messages().get(userId="me", id=mid, format="full").execute
+                    )
+                    email = _parse(full)
+                    analysis = await classify_one(email)
+                    sess["analyses"].append({**email, **analysis})
+                except HTTPException as e:
+                    halted["reason"] = e.detail
+                except Exception as e:  # noqa - one bad email must not stop the rest
+                    logger.warning("agent email failed: %s", type(e).__name__)
+                    state["errors"] += 1
+                finally:
+                    state["done"] += 1
+
+        # Results arrive out of order; /results sorts by urgency and date anyway.
+        await asyncio.gather(*(process(mid) for mid in ids))
+        if halted["reason"]:
+            state["message"] = halted["reason"]
+        elif ids:
             state["message"] = "Kész"
     except Exception as e:  # noqa - a dead background task would leave the page spinning
         logger.exception("agent run failed")

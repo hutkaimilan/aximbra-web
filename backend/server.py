@@ -22,8 +22,27 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # ---------- Rate limiting / cost ceiling (in-memory, no DB) ----------
-DAILY_COST_CEILING_USD = 4.0
-EST_COST_PER_CALL_USD = 0.01
+def _env_float(name: str, default: float) -> float:
+    """A bad value keeps the default rather than crashing the service on boot:
+    a typo in a dashboard should not take the whole API down."""
+    try:
+        raw = os.environ.get(name, "").strip()
+        return float(raw) if raw else default
+    except ValueError:
+        logger_env = logging.getLogger(__name__)
+        logger_env.warning("ignoring non-numeric %s", name)
+        return default
+
+
+# Both are env-tunable because the mailbox agent now reads up to 50 emails per
+# run: at the default estimate that is ~0.50 USD a run, so the 4 USD/day ceiling
+# closes every demo — the lead qualifier included — after about eight runs.
+# Raise DEMO_DAILY_CEILING_USD on the service rather than editing this file.
+DAILY_COST_CEILING_USD = _env_float("DEMO_DAILY_CEILING_USD", 4.0)
+# A deliberately conservative flat estimate; exact token cost is not read back,
+# so the real spend per call is expected to be well under this. Lower it (and
+# raise the ceiling) once you have measured what a run actually costs.
+EST_COST_PER_CALL_USD = _env_float("DEMO_EST_COST_PER_CALL_USD", 0.01)
 MAX_RUNS_PER_SESSION = 8
 MAX_REQ_PER_IP_HOUR = 20
 MAX_INPUT_CHARS = 4000
