@@ -9,6 +9,21 @@ Premium dark, neon AI agency marketing site (Hungarian). React (CRA) frontend + 
   reads up to `MAX_EMAILS` (50) emails, `RUN_CONCURRENCY` (5) at a time — sequentially it would be 50 Gmail
   round trips plus 50 model calls end to end.
 
+## The demo and the product are not the same thing
+
+The page at `/demo/email-agent` is a demo, and its limits are deliberate: the run
+lives in memory, expires after 30 minutes, and every connection starts from zero.
+The system that is sold is the opposite on purpose — an app or site only the
+customer can reach, with no automatic disconnect, a pass every two hours, and a
+five-month look-back on the first connection. The page says so (`agent.product`
+in `frontend/src/i18n/agent.js`), because a visitor who is not told will read the
+demo's limits as the product's.
+
+**None of that per-customer machinery is in this repository.** It needs accounts,
+stored Google refresh tokens, a database and a scheduler, and it inverts the
+privacy promise this site makes about the demo — so it is built per customer,
+with its own privacy notice, not bolted onto the public demo.
+
 ## Environment variables
 
 Backend (`backend/.env`):

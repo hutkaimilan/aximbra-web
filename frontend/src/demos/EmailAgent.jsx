@@ -28,11 +28,19 @@ const setToken = (v) => {
   try { v ? sessionStorage.setItem(KEY, v) : sessionStorage.removeItem(KEY); } catch { /* private mode */ }
 };
 
+/** A kiszolgáló hibája lehet szöveg vagy `{code}`: a kód a lap nyelvén kap
+ *  feliratot, a szöveg úgy megy tovább, ahogy van. */
+const failure = (detail) => {
+  const err = new Error(typeof detail === "string" ? detail : "");
+  if (detail && typeof detail === "object" && detail.code) err.code = detail.code;
+  return err;
+};
+
 const get = (path) => fetch(`${API}${path}`, {
   headers: token() ? { "X-Agent-Session": token() } : {},
 }).then(async (r) => {
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.detail || "");
+  if (!r.ok) throw failure(data.detail);
   return data;
 });
 
@@ -45,7 +53,7 @@ const post = (path, body) => fetch(`${API}${path}`, {
   body: JSON.stringify(body),
 }).then(async (r) => {
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.detail || "");
+  if (!r.ok) throw failure(data.detail);
   return data;
 });
 
@@ -258,6 +266,64 @@ const DraftPanel = ({ email, canDraft }) => {
   );
 };
 
+
+/**
+ * Keresés a postafiókban.
+ *
+ * A futás az elmúlt 30 nap ötven levelét nézi; a keresés a Gmail saját
+ * keresőjét kérdezi, tehát évekkel korábbi levél is előkerül. A találatokat
+ * szándékosan nem osztályozzuk: az levelenként egy modellhívás, egy kereséstől
+ * pedig azt várja az ember, hogy azonnal meglegyen — a lap ezt ki is írja,
+ * hogy ne tűnjön hiányosságnak.
+ */
+const SearchPanel = ({ onResults, onClear, active }) => {
+  const { t } = useLang();
+  const a = t.agent;
+  const [q, setQ] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const run = async (e) => {
+    e.preventDefault();
+    const query = q.trim();
+    if (query.length < 2 || busy) return;
+    setBusy(true); setErr("");
+    try {
+      const data = await get(`/search?q=${encodeURIComponent(query)}`);
+      onResults(data);
+    } catch (e2) {
+      setErr((e2.code && a.err[e2.code]) || e2.message || a.err.generic);
+      onClear();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clear = () => { setQ(""); setErr(""); onClear(); };
+
+  return (
+    <form className="agent-search" onSubmit={run} role="search" data-testid="agent-search">
+      <label className="agent-search-label" htmlFor="agent-search-input">{a.search.label}</label>
+      <div className="agent-search-row">
+        <input id="agent-search-input" type="search" value={q} autoComplete="off"
+          placeholder={a.search.placeholder} maxLength={120}
+          onChange={(e2) => setQ(e2.target.value)} data-testid="agent-search-input" />
+        <button type="submit" className="agent-search-go"
+          disabled={busy || q.trim().length < 2} data-testid="agent-search-go">
+          {busy ? <><span className="spin" /> {a.search.searching}</> : a.search.button}
+        </button>
+        {active && (
+          <button type="button" className="agent-search-clear" onClick={clear}
+            data-testid="agent-search-clear">
+            {a.search.back}
+          </button>
+        )}
+      </div>
+      {err && <div className="agent-search-err" role="alert" data-testid="agent-search-err">{err}</div>}
+    </form>
+  );
+};
+
 export default function EmailAgent({ embedded = false }) {
   const { t, lang } = useLang();
   const a = t.agent;
@@ -284,6 +350,9 @@ export default function EmailAgent({ embedded = false }) {
   const [showConnect, setShowConnect] = useState(false);
   const [onlyNeedsReply, setOnlyNeedsReply] = useState(false);
   const [openId, setOpenId] = useState(null);
+  // A keresés találatai a futás eredménye helyett jelennek meg, nem mellette:
+  // két lista egymás alatt csak kérdés lenne, hogy melyiket is nézem.
+  const [search, setSearch] = useState(null);
   const timer = useRef(null);
   const retry = useRef(null);
   const pollRef = useRef(() => {});
@@ -467,6 +536,25 @@ export default function EmailAgent({ embedded = false }) {
               ))}
             </ul>
 
+            {/* A demó korlátai szándékosak, és pont az ellenkezőjét mondják annak,
+                amit a megrendelhető rendszer tud. Ha ez nincs kimondva, a látogató
+                a demó korlátait hiszi a termék tulajdonságainak. */}
+            <div className="agent-product" data-testid="agent-product">
+              <h2>{a.product.title}</h2>
+              <p>
+                <b>{a.product.demoLead}</b> {a.product.demoText}
+              </p>
+              <p>
+                <b>{a.product.yoursLead}</b> {a.product.yoursText}
+              </p>
+              <ul>
+                {a.product.points.map((x, i) => <li key={i}>{x}</li>)}
+              </ul>
+              <p>
+                <a href={mailto(a.product.cta)} className="agent-product-cta">{a.product.cta} →</a>
+              </p>
+            </div>
+
             {/* The specifics belong here, before the grant — not in a policy page
                 the visitor would have to go looking for. Everything listed is what
                 the code actually does; see backend/mail_agent.py. */}
@@ -616,7 +704,58 @@ export default function EmailAgent({ embedded = false }) {
               </div>
             )}
 
-            {results && results.total > 0 && (
+            {(results?.total > 0 || search) && (
+              <SearchPanel
+                active={!!search}
+                onResults={(d) => { setSearch(d); setOpenId(null); }}
+                onClear={() => { setSearch(null); setOpenId(null); }} />
+            )}
+
+            {search && (
+              <div className="agent-search-out" data-testid="agent-search-results">
+                <div className="agent-search-head">
+                  {/* Egyes szám külön: „1 results" minden nyelven hibásan szól. */}
+                  {search.total === 1
+                    ? fmt(a.search.results1, { q: search.query })
+                    : search.total > 0
+                      ? fmt(a.search.results, { n: search.total, q: search.query })
+                      : fmt(a.search.none, { q: search.query })}
+                </div>
+                <p className="agent-search-note">{a.search.note}</p>
+                <div className="agent-list">
+                  {search.results.map((e) => {
+                    const open = openId === `s:${e.id}`;
+                    return (
+                      <div className="agent-row" key={e.id} data-testid={`agent-hit-${e.id}`}>
+                        <button className="agent-row-head"
+                          onClick={() => setOpenId(open ? null : `s:${e.id}`)}>
+                          <div className="agent-row-main">
+                            <div className="agent-row-from">{e.sender}</div>
+                            <div className="agent-row-subj">{e.subject || a.run.noSubject}</div>
+                            <div className="agent-row-sum">{e.snippet}</div>
+                          </div>
+                          <span className="agent-row-date">{(e.date || "").slice(0, 10)}</span>
+                        </button>
+                        {open && (
+                          <div className="agent-row-body">
+                            <div className="k">{a.run.theEmail}</div>
+                            <pre>{e.body || e.snippet || a.run.empty}</pre>
+                            {!status.sample && (
+                              <a className="agent-search-open" target="_blank" rel="noopener noreferrer"
+                                href={`https://mail.google.com/mail/u/0/#all/${e.id}`}>
+                                {a.search.openInGmail}
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {!search && results && results.total > 0 && (
               <>
                 <div className="agent-tiles">
                   <div className="agent-tile">

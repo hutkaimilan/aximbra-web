@@ -1511,3 +1511,107 @@ def test_the_run_state_speaks_in_keys_not_hungarian():
                      if 'state["message"]' in l or '"message":' in l)
     for hungarian in ("Feldolgozás", "Levelek lekérése", "Kész", "megszakadt", "Nincs feldolgozható"):
         assert hungarian not in body, f"a kiszolgáló magyar állapotüzenetet küld: {hungarian}"
+
+
+# ------------------------------------------------------------------ keresés ---
+# A futás az elmúlt 30 nap ötven levelét nézi. A keresés a Gmail saját
+# keresőjét kérdezi, tehát régebbi levél is előkerül — ez a különbség a kettő
+# között, és ezt a tesztek is így nézik.
+
+
+class SearchFakeService:
+    """Gmail-csonk kereséshez: rögzíti a lekérdezést, id-ket ad vissza."""
+
+    def __init__(self, ids, tracker):
+        self._ids, self._t = ids, tracker
+
+    def users(self):
+        return self
+
+    def messages(self):
+        return self
+
+    def list(self, userId, maxResults, q):
+        self._t["q"] = q
+        self._t["max_results"] = maxResults
+        return _Exec({"messages": [{"id": i} for i in self._ids[:maxResults]]},
+                     self._t.setdefault("https", []))
+
+    def get(self, userId, id, format, metadataHeaders=None):
+        self._t.setdefault("formats", []).append(format)
+        return _Exec({
+            "id": id, "threadId": f"t{id}", "snippet": f"részlet {id}",
+            "payload": {"headers": [{"name": "From", "value": f"{id}@pelda.hu"},
+                                    {"name": "Subject", "value": f"Neptun {id}"}],
+                        "mimeType": "text/plain", "body": {}},
+        }, self._t.setdefault("https", []))
+
+
+def _search_session(monkeypatch, ids):
+    tracker = {}
+    monkeypatch.setattr(mail_agent, "build", lambda *a, **k: SearchFakeService(ids, tracker))
+    monkeypatch.setattr(mail_agent, "SafeGmailProxy", lambda t, allow_send=False: t)
+    sid, headers = _session_with([])
+    mail_agent._sessions[sid]["creds"] = object()
+    return sid, headers, tracker
+
+
+def test_search_asks_gmail_and_keeps_its_order(monkeypatch):
+    ids = ["b", "a", "c"]
+    sid, headers, tracker = _search_session(monkeypatch, ids)
+    client = c
+    try:
+        r = client.get("/api/agent/email/search?q=neptun", headers=headers)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert tracker["q"] == "neptun", "a beírt szó megy a Gmail keresőjébe"
+        assert [e["id"] for e in body["results"]] == ids, "a Gmail sorrendje a relevancia"
+        assert body["total"] == 3
+        # Fejléc és részlet elég; a teljes törzs huszonöt levélre lassú lenne.
+        assert set(tracker["formats"]) == {"metadata"}
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_search_needs_at_least_two_characters(monkeypatch):
+    sid, headers, _ = _search_session(monkeypatch, ["a"])
+    client = c
+    try:
+        for q in ("", " ", "a"):
+            r = client.get(f"/api/agent/email/search?q={q}", headers=headers)
+            assert r.status_code == 400, q
+            assert r.json()["detail"]["code"] == "search_too_short"
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_search_is_capped_per_session(monkeypatch):
+    sid, headers, _ = _search_session(monkeypatch, ["a"])
+    client = c
+    try:
+        for _ in range(mail_agent.MAX_SEARCHES_PER_SESSION):
+            assert client.get("/api/agent/email/search?q=szamla", headers=headers).status_code == 200
+        r = client.get("/api/agent/email/search?q=szamla", headers=headers)
+        assert r.status_code == 429
+        assert r.json()["detail"]["code"] == "search_limit"
+    finally:
+        mail_agent._sessions.pop(sid, None)
+
+
+def test_search_without_a_session_is_refused():
+    client = c
+    assert client.get("/api/agent/email/search?q=neptun").status_code == 401
+
+
+def test_the_sample_inbox_is_searchable_without_google():
+    """Belépés nélkül is ki lehessen próbálni — ez a demó fő útja."""
+    from datetime import datetime, timezone
+
+    emails = mail_agent_sample.sample_emails(datetime.now(timezone.utc))
+    one = emails[0]
+    word = one["subject"].split()[0].lower()
+    hits = mail_agent._sample_search(emails, word)
+    assert hits, f"a(z) {word!r} szóra legyen találat"
+    assert all(word in " ".join([e["sender"], e["subject"], e["body"]]).lower() for e in hits)
+    # Két szó: mindkettőnek szerepelnie kell, nem elég az egyik.
+    assert mail_agent._sample_search(emails, "neptun kaposzta") == []

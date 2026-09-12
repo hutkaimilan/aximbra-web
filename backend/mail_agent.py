@@ -573,6 +573,93 @@ async def disconnect(request: Request, s: str = ""):
     return {"ok": True}
 
 
+# ---------------------------------------------------------------- keresés ---
+# A futás az elmúlt 30 nap ötven levelét nézi. A keresés ennél többet lát: a
+# Gmail saját keresőjét kérdezi, tehát bármilyen régi levél előkerül — ugyanaz,
+# mintha a Gmailbe írnád be a szót. Osztályozás nincs rajta: az modellhívás
+# levelenként, és egy keresés nem éri meg ennyit; a találat fejléce és a
+# részlete elég ahhoz, hogy megtaláld, amit keresel.
+SEARCH_MAX_RESULTS = 25
+MAX_SEARCHES_PER_SESSION = 30
+SEARCH_MIN_CHARS = 2
+SEARCH_MAX_CHARS = 120
+
+
+def _sample_search(emails: list, query: str) -> list:
+    """Keresés a példa postafiókban. Ugyanazok a mezők, csak hálózat nélkül."""
+    words = [w for w in query.lower().split() if w]
+    hits = []
+    for e in emails:
+        haystack = " ".join([
+            e.get("sender", ""), e.get("subject", ""), e.get("body", ""), e.get("snippet", ""),
+        ]).lower()
+        if all(w in haystack for w in words):
+            hits.append(e)
+    return hits[:SEARCH_MAX_RESULTS]
+
+
+@router.get("/search")
+async def search(request: Request, q: str = ""):
+    """Levélkeresés kulcsszóra, a teljes postafiókban."""
+    sess = _require(request)
+    query = (q or "").strip()[:SEARCH_MAX_CHARS]
+    if len(query) < SEARCH_MIN_CHARS:
+        raise HTTPException(status_code=400, detail={"code": "search_too_short"})
+
+    if sess.get("sample"):
+        from sample_inbox import sample_emails  # noqa: runtime only
+
+        hits = _sample_search(sample_emails(datetime.now(timezone.utc)), query)
+        return {"query": query, "total": len(hits), "results": hits}
+
+    # A keresés Gmail-hívásokba kerül, tehát munkamenetenként korlátos.
+    sess["searches"] = sess.get("searches", 0) + 1
+    if sess["searches"] > MAX_SEARCHES_PER_SESSION:
+        raise HTTPException(status_code=429, detail={"code": "search_limit"})
+
+    service = SafeGmailProxy(
+        await asyncio.to_thread(build, "gmail", "v1", credentials=sess["creds"])
+    )
+    try:
+        listing = await asyncio.to_thread(
+            service.users().messages().list(
+                userId="me", maxResults=SEARCH_MAX_RESULTS, q=query
+            ).execute,
+            http=_fresh_http(sess["creds"]),
+        )
+    except Exception as e:  # noqa - a rossz kereső-kifejezés is ide fut be
+        logger.info("search failed: %s", type(e).__name__)
+        raise HTTPException(status_code=502, detail={"code": "search_failed"})
+
+    ids = [m["id"] for m in listing.get("messages", [])]
+    if not ids:
+        return {"query": query, "total": 0, "results": []}
+
+    # Fejléc és részlet elég; a teljes törzs letöltése huszonöt levélre lassú
+    # lenne, és a keresésnél nem is ez a kérdés.
+    gate = asyncio.Semaphore(RUN_CONCURRENCY)
+    found: dict = {}
+
+    async def fetch(mid: str):
+        async with gate:
+            try:
+                msg = await asyncio.to_thread(
+                    service.users().messages().get(
+                        userId="me", id=mid, format="metadata",
+                        metadataHeaders=["From", "Subject", "Date"],
+                    ).execute,
+                    http=_fresh_http(sess["creds"]),
+                )
+                found[mid] = _parse(msg)
+            except Exception as e:  # noqa - egy hibás találat ne vigye el a többit
+                logger.info("search hit unreadable: %s", type(e).__name__)
+
+    await asyncio.gather(*(fetch(mid) for mid in ids))
+    # A Gmail sorrendjét tartjuk: az a relevancia, amit a kereső adott.
+    results = [found[mid] for mid in ids if mid in found]
+    return {"query": query, "total": len(results), "results": results}
+
+
 @router.get("/progress")
 async def progress(request: Request):
     return _require(request)["state"]

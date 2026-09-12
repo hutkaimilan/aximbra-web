@@ -399,3 +399,47 @@
 @media (max-width: 600px) {
   .agent-start-note, .agent-google-note, .agent-sample-note { font-size: 13px; }
 }
+
+/* ---------- Keresés a postafiókban ---------- */
+.agent-search { margin: 22px 0 6px; display: grid; gap: 8px; }
+.agent-search-label { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.agent-search-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.agent-search input[type="search"] {
+  flex: 1 1 260px; min-height: 44px; padding: 10px 14px; box-sizing: border-box;
+  background: rgba(255,255,255,.04); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px;
+  font-family: inherit; font-size: 15px;
+}
+.agent-search input[type="search"]:focus { outline: none; border-color: var(--cyan); background: rgba(0,233,255,.05); }
+.agent-search-go, .agent-search-clear {
+  min-height: 44px; padding: 0 20px; border-radius: 10px; cursor: pointer;
+  font-family: inherit; font-size: 14px; display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--border); background: transparent; color: var(--text);
+  transition: border-color .2s ease, background .2s ease;
+}
+.agent-search-go { border-color: var(--cyan); background: rgba(0,233,255,.12); }
+.agent-search-go:hover:not(:disabled) { background: rgba(0,233,255,.2); }
+.agent-search-go:disabled { opacity: .5; cursor: default; }
+.agent-search-clear:hover { border-color: var(--cyan); }
+.agent-search-err { font-size: 14px; color: #FFB020; }
+.agent-search-out { margin-top: 18px; }
+.agent-search-head { font-size: 17px; margin-bottom: 6px; }
+.agent-search-note { margin: 0 0 16px; font-size: 13px; color: var(--muted); line-height: 1.6; max-width: 640px; }
+.agent-search-open {
+  display: inline-flex; align-items: center; min-height: 24px;
+  margin-top: 10px; color: var(--cyan); font-size: 14px;
+}
+
+/* ---------- Demó kontra megrendelhető rendszer ---------- */
+.agent-product {
+  margin: 30px 0 6px; padding: 26px 28px;
+  border: 1px solid var(--border); border-radius: 16px;
+  background: rgba(255,255,255,.02);
+}
+.agent-product h2 { margin: 0 0 14px; font-size: clamp(19px, 2.6vw, 24px); }
+.agent-product p { margin: 0 0 14px; color: var(--muted); line-height: 1.75; font-size: 15.5px; }
+.agent-product b { color: var(--text); }
+.agent-product ul { margin: 0 0 14px; padding-left: 22px; list-style: disc; }
+.agent-product li::marker { color: var(--cyan); }
+.agent-product li { color: var(--muted); line-height: 1.7; font-size: 15px; margin-bottom: 8px; }
+.agent-product-cta { display: inline-flex; align-items: center; min-height: 24px; color: var(--cyan); font-size: 15px; }
