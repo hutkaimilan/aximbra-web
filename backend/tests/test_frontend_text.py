@@ -52,3 +52,27 @@ def test_no_words_glued_together_by_jsx(path):
     assert not hits, "A JSX itt elnyeli a szóközt (tegyél a sor végére {\" \"}):\n" + "\n".join(
         f"  {path.name}:{ln}\n    …{a[-70:]}\n  > {b[:70]}…" for ln, a, b in hits
     )
+
+
+# --------------------------------------------------------- olvashatóság ---
+def test_the_cards_are_not_rotated_in_3d():
+    """A kártya ne dőljön meg a kurzor alatt.
+
+    A 14 fokos térbeli forgatás miatt a böngésző egyszer kirajzolta a kártyát
+    egy rétegre, és azt a kész képet döntötte meg — a szöveg pedig
+    újramintázva, homályosan jelent meg, pontosan addig, amíg az ember
+    olvasni akarta. A visszajelzés maradt (fénypont, megemelkedés), csak nem
+    a szöveg torzításával.
+
+    A `will-change: transform` és a `transform-style: preserve-3d` ugyanezt a
+    réteget kényszeríti ki, ezért azok sem térhetnek vissza a kártyára.
+    """
+    agents = (FRONTEND / "components" / "Agents.jsx").read_text(encoding="utf-8")
+    code = "\n".join(l for l in agents.split("\n") if not l.strip().startswith("//"))
+    assert "rotateY(" not in code and "rotateX(" not in code, "a kártya megint térben forog"
+
+    css = (FRONTEND / "index.css").read_text(encoding="utf-8")
+    card_rule = css[css.index(".card { position: relative;"):]
+    card_rule = card_rule[:card_rule.index("}") + 1]
+    for forbidden in ("will-change", "preserve-3d"):
+        assert forbidden not in card_rule, f"{forbidden} visszakerült a .card szabályba"

@@ -15,20 +15,22 @@ export const SLUGS = ["email-rendezo", "erdeklodo-minosito", "belso-admin", "kut
 const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote, simText }) => {
   const simData = simFor(kind, simText);
   const slug = SLUGS[kind];
+  // Csak a fénypont követi az egeret, a kártya nem dől meg.
+  //
+  // A 14 fokos térbeli forgatás miatt a böngésző egyszer kirajzolta a kártyát
+  // egy rétegre, majd azt a képet döntötte meg — a szöveg pedig újramintázva,
+  // homályosan jelent meg, amíg rajta volt a kurzor. Egy effekt, ami
+  // olvashatatlanná teszi a kártyát, nem éri meg.
   const onMove = (e) => {
-    if (open) return;
+    if (open || simOn) return;
     const el = e.currentTarget;
     const r = el.getBoundingClientRect();
-    const px = (e.clientX - r.left) / r.width;
-    const py = (e.clientY - r.top) / r.height;
-    el.style.transform = `rotateY(${(px - 0.5) * 14}deg) rotateX(${(0.5 - py) * 14}deg)`;
-    el.style.setProperty("--mx", `${px * 100}%`);
-    el.style.setProperty("--my", `${py * 100}%`);
+    el.style.setProperty("--mx", `${((e.clientX - r.left) / r.width) * 100}%`);
+    el.style.setProperty("--my", `${((e.clientY - r.top) / r.height) * 100}%`);
   };
-  const reset = (e) => { e.currentTarget.style.transform = "rotateY(0) rotateX(0)"; };
 
   return (
-    <div className="card" id={`agent-${slug}`} data-testid={`agent-card-${agent.demo || agent.title}`} onMouseMove={onMove} onMouseLeave={reset}>
+    <div className="card" id={`agent-${slug}`} data-testid={`agent-card-${agent.demo || agent.title}`} onMouseMove={onMove}>
       <AgentViz kind={kind} />
       <div className="card-head">
         <div className="card-title">{agent.title}</div>
