@@ -153,26 +153,34 @@ def test_the_founder_introduces_himself_in_every_language():
             assert key in founder, f"{code}.js: hiányzik a founder.{key}"
 
 
-def test_the_header_sits_in_the_same_column_as_the_page():
-    """A fejléc tartalma ugyanabban az oszlopban áll, mint a lap szövege.
+def test_the_header_spans_the_screen_with_even_gaps():
+    """A fejléc a teljes képernyőt fogja, egyenletes hézagokkal.
 
-    Széles képernyőn a sáv a teljes szélességet fogta, a lap többi része viszont
-    egy 1200 pixeles oszlopban ül — 1920 pixeles ablakban a logó 332 pixerrel a
-    szöveg bal széle előtt állt. Ezért a sáv háttere maradt teljes szélességű, a
-    tartalma viszont egy `.nav-inner` dobozba került, ugyanazzal a
-    max-szélességgel és belső margóval, mint a `.container`.
+    A logó a bal szélen ül, a kapcsolat-gomb a jobb szélen, a menüpontok pedig
+    egyenletesen oszlanak el közöttük. Ehhez a sáv tartalma egyetlen sorrá van
+    lapítva: a burkolók `display: contents`, így a logó, a négy menüpont, a
+    nyelvválasztó és a gomb mind ugyanannak a sornak a testvérei — csak így lehet
+    MINDEN hézag ugyanakkora. Beágyazott dobozokkal a logó utáni hézagot a külső
+    doboz szabta meg, a menüpontok közöttit a belső: más szám, szemre észrevehető.
+
+    A két szélső elem mellett a hézag szándékosan nagyobb egy kicsivel. Ezt a
+    logó jobb és a gomb bal margója adja, mert a `space-between` a margók
+    levonása után oszt szét — a többi hézag így pontosan egyforma marad.
     """
     nav = (FRONTEND / "components" / "Nav.jsx").read_text(encoding="utf-8")
-    assert 'className="nav-inner"' in nav, "a fejléc tartalma kikerült a tartalomoszlopból"
+    assert 'className="nav-inner"' in nav, "a fejléc belső sávja eltűnt"
 
     css = (FRONTEND / "index.css").read_text(encoding="utf-8")
     inner = css[css.index(".nav-inner {"):]
     inner = inner[:inner.index("}") + 1]
-    container = css[css.index(".container {"):]
-    container = container[:container.index("}") + 1]
-    for prop in ("max-width: 1200px", "margin: 0 auto", "padding: 0 28px"):
-        assert prop in container, f"a .container már nem {prop} — igazítsd hozzá a fejlécet"
-        assert prop in inner, f"a fejléc belső sávjából hiányzik: {prop}"
+    assert "max-width" not in inner, "a fejléc megint egy szűkebb oszlopba van zárva"
+    assert "justify-content: space-between" in inner, "a fejléc elemei nem oszlanak el egyenletesen"
+
+    desktop = css[css.index("@media (min-width: 901px){\n  .nav-right, .nav-links { display: contents; }"):]
+    desktop = desktop[:desktop.index("\n}") + 2]
+    assert "display: contents" in desktop, "a fejléc megint egymásba ágyazott dobozokból áll"
+    assert ".nav-inner > .logo { margin-right:" in desktop, "a logó melletti nagyobb hézag elveszett"
+    assert ".nav-contact-desktop { margin-left:" in desktop, "a gomb melletti nagyobb hézag elveszett"
 
     # A hívás-pirula 334 pixel — annyi, mint a négy menüpont együtt. Ettől lett
     # zsúfolt a sáv, ezért a fejlécből kikerült; a hero-ban és a lenyíló menüben
@@ -180,12 +188,3 @@ def test_the_header_sits_in_the_same_column_as_the_page():
     assert ".nav-links .btn-callbar { display: none; }" in css, \
         "a hívás-pirula visszakerült a menüsorba"
     assert 'data-testid="drawer-callbar"' in nav, "a telefonszám a lenyíló menüből is eltűnt"
-
-    # Asztali gépen a logó, a menüpontok, a nyelvválasztó és a gomb egy sor
-    # testvérei — csak így lehet MINDEN hézag ugyanakkora.
-    desktop = css[css.index("@media (min-width: 901px){\n  .nav-right, .nav-links { display: contents; }"):]
-    desktop = desktop[:desktop.index("\n}") + 2]
-    assert "display: contents" in desktop, "a fejléc megint egymásba ágyazott dobozokból áll"
-    inner_rule = css[css.index(".nav-inner {"):]
-    inner_rule = inner_rule[:inner_rule.index("}") + 1]
-    assert "justify-content: space-between" in inner_rule, "a fejléc elemei nem oszlanak el egyenletesen"
