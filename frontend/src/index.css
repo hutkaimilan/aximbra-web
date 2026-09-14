@@ -133,15 +133,23 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan);
   box-shadow: 0 0 12px var(--cyan); animation: pulse 1.8s ease-in-out infinite; }
 @keyframes pulse { 0%,100%{ opacity: 1; transform: scale(1);} 50%{ opacity: .4; transform: scale(.7);} }
-/* A jobb oldali blokk a logó után MINDEN maradék helyet megkap, a menü pedig
-   azon belül szétosztja magát: az első elem közvetlenül a logó után kezdődik, az
-   utolsó a nyelvválasztóig ér, és a köztük lévő hézagok egyformák. Enélkül a
-   menü egy szoros csomóban ült a sáv jobb szélén, a logó mellett meg üres hely
-   maradt. A `gap` itt alsó korlát: ha nincs mit szétosztani, ennyi marad. */
 .nav-right { display: flex; align-items: center; gap: 24px; position: relative; z-index: 2;
   flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
-.nav-links { display: flex; align-items: center; gap: 24px;
-  flex: 1 1 auto; min-width: 0; justify-content: space-between; }
+.nav-links { display: flex; align-items: center; gap: 24px; min-width: 0; }
+
+/* Asztali gépen a logó, a menüpontok, a nyelvválasztó és a gomb EGY sor
+   testvérei, nem három egymásba ágyazott doboz. A `display: contents` pont ezt
+   csinálja: a burkolók kiesnek a rajzolásból, a gyerekeik a sáv közvetlen
+   elemei lesznek, a `space-between` pedig egyetlen közös hézagot oszt szét
+   mindegyik közé. Enélkül a logó utáni hézagot a külső doboz szabta meg, a
+   menüpontok közöttit a belső — más szám, szemre észrevehető.
+   Mobilon marad a beágyazott szerkezet, mert ott a hamburger a jobb szélen ül. */
+@media (min-width: 901px){
+  .nav-right, .nav-links { display: contents; }
+  .nav-inner { gap: 28px; }
+  .nav-inner > *, .nav-links > * { position: relative; z-index: 2; }
+  .nav-inner > .lang-switch, .lang-select, .nav-contact-desktop { flex: 0 0 auto; }
+}
 /* A 24x24 CSS-pixeles érinthető méret a WCAG 2.2 AA minimuma. A 14 px-es
    szöveg sorboksza ennél alacsonyabb, ezért a linkek maguk kapnak magasságot —
    a sor közepén, hogy a menü látványa ne változzon. */
@@ -178,13 +186,13 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
    ablakban ez tolta le a menüt a képernyőről — 1100 pixeles ablakban az utolsó
    gomb 53 pixerrel a kép szélén kívülre került. A telefonszám nem vész el:
    a hero-ban ott a saját sávja, mobilon pedig a lenyíló menüben. */
-@media (max-width: 1280px){
-  .nav-links .btn-callbar { display: none; }
-  /* A pirula nélkül négy link maradna, és ha azok is szétterülnének a
-     nyelvválasztóig, 147 pixeles hézagok lennének közöttük — az már nem
-     egyenletes menü, hanem ritkás. Itt tehát nem osztunk szét semmit. */
-  .nav-links { flex: 0 0 auto; justify-content: flex-end; gap: 30px; }
-}
+/* A hívás-pirula 334 pixel — egyedül ennyi, mint a négy menüpont együtt. Ettől
+   lett zsúfolt a sáv: hét elem szorongott egy 1144 pixeles sorban, 27 pixeres
+   hézagokkal. Ez nem navigáció, hanem egy kérdés, ezért a fejlécből kikerült.
+   Nem vész el: a hero-ban ott a saját telefonsávja, mobilon pedig a lenyíló
+   menü első eleme. Ha mégis kell ide, rövid formában férne el — nem egy egész
+   mondatként. */
+.nav-links .btn-callbar { display: none; }
 @media (max-width: 900px){
   .nav-links { display: none; }
   .nav-right .nav-contact-desktop { display: none; }

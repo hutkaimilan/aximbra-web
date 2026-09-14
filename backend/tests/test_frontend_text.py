@@ -174,15 +174,18 @@ def test_the_header_sits_in_the_same_column_as_the_page():
         assert prop in container, f"a .container már nem {prop} — igazítsd hozzá a fejlécet"
         assert prop in inner, f"a fejléc belső sávjából hiányzik: {prop}"
 
-    # A hívás-pirula 334 pixel, és szűk ablakban ez tolta le a menüt a képernyőről.
-    narrow = css[css.index("@media (max-width: 1280px){"):]
-    narrow = narrow[:narrow.index("\n}") + 2]
-    assert ".btn-callbar { display: none; }" in narrow, "a hívás-pirula megint ott van szűk ablakban is"
+    # A hívás-pirula 334 pixel — annyi, mint a négy menüpont együtt. Ettől lett
+    # zsúfolt a sáv, ezért a fejlécből kikerült; a hero-ban és a lenyíló menüben
+    # megvan.
+    assert ".nav-links .btn-callbar { display: none; }" in css, \
+        "a hívás-pirula visszakerült a menüsorba"
+    assert 'data-testid="drawer-callbar"' in nav, "a telefonszám a lenyíló menüből is eltűnt"
 
-    # A menü a logótól a nyelvválasztóig ér, egyforma hézagokkal — de csak ott,
-    # ahol a pirula is kifér; nélküle négy link terülne szét 147 pixeles közökkel.
-    links = css[css.index(".nav-links { display: flex;"):]
-    links = links[:links.index("}") + 1]
-    assert "justify-content: space-between" in links and "flex: 1 1 auto" in links, \
-        "a menü megint egy csomóban ül a sáv jobb szélén"
-    assert "justify-content: flex-end" in narrow, "szűk ablakban szétterül a négy menüpont"
+    # Asztali gépen a logó, a menüpontok, a nyelvválasztó és a gomb egy sor
+    # testvérei — csak így lehet MINDEN hézag ugyanakkora.
+    desktop = css[css.index("@media (min-width: 901px){\n  .nav-right, .nav-links { display: contents; }"):]
+    desktop = desktop[:desktop.index("\n}") + 2]
+    assert "display: contents" in desktop, "a fejléc megint egymásba ágyazott dobozokból áll"
+    inner_rule = css[css.index(".nav-inner {"):]
+    inner_rule = inner_rule[:inner_rule.index("}") + 1]
+    assert "justify-content: space-between" in inner_rule, "a fejléc elemei nem oszlanak el egyenletesen"
