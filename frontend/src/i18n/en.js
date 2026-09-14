@@ -58,9 +58,31 @@ const en = {
     { title: "IT operations agent", badge: "Demo", live: false, desc: "Watches logs, classifies alerts, runs the fix for known issues. What it doesn't recognize, it wakes you for.", price: "600 eFt – 2 MFt", lead: "3–6 weeks" },
     { title: "Multi-agent system", badge: "Demo", live: false, desc: "Several agents in one process, with handoffs and checkpoints. Worth it only when the process is genuinely complex.", price: "6–15 MFt", lead: "10–16 weeks" },
   ],
+  proof: {
+    tag: "Before you believe anything",
+    heading: "Three things you can check on this page right now",
+    sub: "A promise cannot be checked; a running system can. These are not recordings of one — they are running now, and they can fail now.",
+    items: [
+      { n: "01", title: "Call the phone agent", desc: "It answers on a real number, in Hungarian and in English. The number is at the top of the page, and the bar also shows today's call count.", cta: "To the top of the page →", to: "top" },
+      { n: "02", title: "Run the email agent on your own mailbox", desc: "With a Google account, read-only. It stores nothing and forgets you after half an hour. If you would rather not connect an account, the sample mailbox shows the same thing.", cta: "To the email agent →", to: "agentek" },
+      { n: "03", title: "Open the four reference sites", desc: "All four belong to invented brands, and each one says so. We don't pass them off as client work, because they are not.", cta: "To the reference sites →", to: "referenciak" },
+    ],
+  },
+  noTricks: {
+    tag: "What we don't do",
+    heading: "One thing separates persuasion from pressure: whether it is true",
+    sub: "If a claim is true, that is persuasion. If it isn't, it is pressure — and it comes out within weeks, usually when it is already expensive for both of us. So you won't find any of this here:",
+    items: [
+      { head: "Countdowns and \"only 2 slots left\"", body: "There aren't that many slots, and if there were, they wouldn't run out at midnight tonight. Taking few projects at a time is a real limit, not a sales device." },
+      { head: "Invented references", body: "The four reference sites belong to invented brands, and each one says so. A wall of logos you cannot phone is not evidence." },
+      { head: "Prices that are only valid today", body: "What the packages say today, they say tomorrow. If something gets more expensive, we say so in advance, not with a countdown." },
+      { head: "Numbers we never measure again", body: "The last step of the process is the re-measurement. Whatever comes out, we tell you — including when it is less than we expected." },
+    ],
+    close: "This is not modesty. On a decision of this size, pressure is the fastest way to make the other side walk away — and whoever says yes under pressure says no at the first invoice.",
+  },
   process: {
     tag: "How we work",
-    heading: "Six steps, one human gate",
+    heading: "Seven steps, one human gate",
     sub: "Most agents are built by agents. What doesn't change: a human is the one who approves — not because the model is bad, but because responsibility can't be delegated.",
     steps: [
       { n: "01", title: "Workflow mapping", desc: "We look at where time goes. We don't ask what you'd like to automate, but which task repeats fifty times a week." },
@@ -69,6 +91,7 @@ const en = {
       { n: "04", title: "Independent review", desc: "Finished work isn't reviewed by whoever wrote it. A separate reviewer runs on it, with empty context and read-only access — so it can't defend its own decisions." },
       { n: "05", title: "Human approval", desc: "Nothing ships without approval. The gate isn't a formality: this is where it turns out if something is technically correct but wrong for the business.", amber: "◆ A human decides, not AI" },
       { n: "06", title: "Handover and operation", desc: "The agent runs on your infrastructure, with your keys. The monthly fee covers supervision and fixes, not access." },
+      { n: "07", title: "Re-measurement", desc: "In the first step we looked at where the time goes. A few weeks after handover we measure the same thing again and tell you what came out — including when it is less than we expected. Without this the whole thing is a good feeling, not a result." },
     ],
   },
   pricing: {

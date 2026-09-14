@@ -7,6 +7,8 @@ import { Nav } from "@/components/Nav";
 import { Hero } from "@/components/Hero";
 import { Agents } from "@/components/Agents";
 import { Process } from "@/components/Process";
+import { Proof } from "@/components/Proof";
+import { NoTricks } from "@/components/NoTricks";
 import { Pricing } from "@/components/Pricing";
 import { CaseStudy } from "@/components/CaseStudy";
 import { Contact, Footer } from "@/components/Contact";
@@ -87,9 +89,11 @@ function Site() {
             {[...t.marquee, ...t.marquee].map((m, i) => <span key={i}>{m}</span>)}
           </div>
         </div>
+        <Proof scrollTo={scrollTo} />
         <Agents />
         <Process />
         <Pricing />
+        <NoTricks />
         <CaseStudy />
         <References />
         <Founder />

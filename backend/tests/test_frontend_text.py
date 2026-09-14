@@ -188,3 +188,39 @@ def test_the_header_spans_the_screen_with_even_gaps():
     assert ".nav-links .btn-callbar { display: none; }" in css, \
         "a hívás-pirula visszakerült a menüsorba"
     assert 'data-testid="drawer-callbar"' in nav, "a telefonszám a lenyíló menüből is eltűnt"
+
+
+def test_the_page_shows_what_can_be_checked_before_it_argues():
+    """A bizonyíték-sáv a nyitány után áll, nem a lap alján.
+
+    A négy ellenőrizhető állítás eddig a készítőt bemutató szakaszban volt, a
+    lap legalján. Aki addig nem jutott el, az csak ígéreteket olvasott. A sáv
+    ezért a nyitány UTÁN, az agentek ELŐTT van — és három feladatot ad, nem
+    három újabb érvet.
+    """
+    app = (FRONTEND.parent / "src" / "App.js").read_text(encoding="utf-8")
+    assert "<Proof scrollTo={scrollTo} />" in app, "a bizonyíték-sáv lekerült a lapról"
+    assert app.index("<Proof") < app.index("<Agents"), "a bizonyíték-sáv az agentek mögé került"
+    assert app.index("<NoTricks") > app.index("<Pricing"), \
+        "az „amit nem csinálunk” az árazás elé került — a nyomásgyakorlás helye utána van"
+
+    for code in ("hu", "en"):
+        text = (FRONTEND / "i18n" / f"{code}.js").read_text(encoding="utf-8")
+        for key in ("proof: {", "noTricks: {"):
+            assert key in text, f"{code}.js: hiányzik a {key}"
+
+
+def test_the_process_ends_with_a_measurement():
+    """A folyamat visszaméréssel zárul.
+
+    Az első lépés felméri, hova megy el az idő; enélkül a hetedik nélkül az
+    egész nyitva marad — soha nem derülne ki, hogy a munka hozott-e valamit.
+    Ez a modell harmadik pillére: felmérés, beavatkozás, majd újra felmérés.
+    """
+    for code, word in (("hu", "Visszamérés"), ("en", "Re-measurement")):
+        text = (FRONTEND / "i18n" / f"{code}.js").read_text(encoding="utf-8")
+        process = text[text.index("  process: {"):]
+        process = process[:process.index("\n  },")]
+        assert '{ n: "07"' in process, f"{code}.js: a folyamat utolsó lépése eltűnt"
+        assert word in process, f"{code}.js: a visszamérés lépése átnevezve"
+        assert process.count('{ n: "') == 7, f"{code}.js: nem hét lépés van"

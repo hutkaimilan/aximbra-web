@@ -58,9 +58,31 @@ const hu = {
     { title: "IT-üzemeltető agent", badge: "Bemutató", live: false, desc: "Logot néz, riasztást osztályoz, ismert hibára lefuttatja a javítást. Amit nem ismer, azzal felébreszt téged.", price: "600 eFt – 2 MFt", lead: "3–6 hét" },
     { title: "Multi-agent rendszer", badge: "Bemutató", live: false, desc: "Több agent egy folyamaton, átadásokkal és ellenőrzési pontokkal. Akkor van értelme, ha a folyamat tényleg összetett.", price: "6–15 MFt", lead: "10–16 hét" },
   ],
+  proof: {
+    tag: "Mielőtt bármit elhiszel",
+    heading: "Három dolog, amit ezen a lapon most ellenőrizhetsz",
+    sub: "Egy ígéretet nem lehet ellenőrizni, egy működő rendszert igen. Ezek nem felvételek róla — most is futnak, és most is elronthatják.",
+    items: [
+      { n: "01", title: "Hívd fel a telefon-agentet", desc: "Valódi számon veszi fel, magyarul és angolul is. A szám a lap tetején van, és a sáv a mai hívások számát is kiírja.", cta: "A lap tetejére →", to: "top" },
+      { n: "02", title: "Futtasd le az e-mail agentet a saját postafiókodon", desc: "Google-fiókkal, csak olvasási joggal. Nem tárol semmit, és fél óra múlva elfelejt. Ha nem akarsz fiókot adni, a mintapostafiók ugyanezt megmutatja.", cta: "Az e-mail agenthez →", to: "agentek" },
+      { n: "03", title: "Nézd meg a négy bemutatóoldalt", desc: "Mind a négy kitalált márkáé, és mindegyik ki is írja magáról. Nem adjuk ki őket ügyfélmunkának, mert nem azok.", cta: "A bemutatóoldalakhoz →", to: "referenciak" },
+    ],
+  },
+  noTricks: {
+    tag: "Amit nem csinálunk",
+    heading: "A meggyőzés és a rábeszélés között egy különbség van: igaz-e",
+    sub: "Ha egy állítás igaz, az meggyőzés. Ha nem igaz, az rábeszélés — és néhány hét múlva úgyis kiderül, általában akkor, amikor már mindkettőnknek drága. Ezért ezen az oldalon nem találsz ilyet:",
+    items: [
+      { head: "Visszaszámlálót és „már csak 2 hely\"-et", body: "Nincs annyi hely, és ha lenne, nem ma éjfélkor fogyna el. Az egyszerre kevés projekt valódi korlát, de nem akciós fogás." },
+      { head: "Kitalált referenciát", body: "A négy bemutatóoldal kitalált márkáké, és mindegyik ki is írja magáról. Egy logófal, amit nem lehet felhívni, nem bizonyíték." },
+      { head: "Árat, ami csak ma érvényes", body: "Ami a csomagoknál ki van írva, az holnap is annyi. Ha valami drágul, azt előre megmondjuk, nem visszaszámlálóval." },
+      { head: "Számot, amit nem mérünk vissza", body: "A folyamat utolsó lépése a visszamérés. Ami kijön, azt akkor is megmondjuk, ha kevesebb, mint amit vártunk." },
+    ],
+    close: "Ez nem szerénység. Egy több milliós döntésnél a nyomás a leggyorsabb út ahhoz, hogy a másik fél kihátráljon — és aki nyomásra mond igent, az az első számlánál mond nemet.",
+  },
   process: {
     tag: "Hogyan dolgozunk",
-    heading: "Hat lépés, egy emberi kapuval",
+    heading: "Hét lépés, egy emberi kapuval",
     sub: "Az agentek nagy részét agentek építik. Ami nem változik: jóváhagyni ember hagy jóvá — nem azért, mert a modell rossz, hanem mert a felelősség nem delegálható.",
     steps: [
       { n: "01", title: "Munkafolyamat feltérképezés", desc: "Megnézzük, hova megy el az idő. Nem azt kérdezzük, mit szeretnél automatizálni, hanem hogy melyik feladat ismétlődik hetente ötvenszer." },
@@ -69,6 +91,7 @@ const hu = {
       { n: "04", title: "Független ellenőrzés", desc: "Az elkészült munkát nem az ellenőrzi, aki írta. Külön ellenőrző fut rá, üres kontextussal, csak olvasási joggal — így nem tudja megvédeni a saját döntéseit." },
       { n: "05", title: "Emberi jóváhagyás", desc: "Semmi nem megy ki jóváhagyás nélkül. A kapu nem formalitás: itt derül ki, ha valami technikailag helyes, de üzletileg rossz.", amber: "◆ Ember dönt, nem AI" },
       { n: "06", title: "Átadás és üzemeltetés", desc: "Az agent a te infrastruktúrádon fut, a te kulcsaiddal. A havidíj a felügyeletet és a javítást fedezi, nem a hozzáférést." },
+      { n: "07", title: "Visszamérés", desc: "Az első lépésben megnéztük, hova megy el az idő. Néhány héttel az átadás után ugyanazt mérjük meg újra, és megmondjuk, mi jött ki — akkor is, ha kevesebb, mint amit vártunk. Enélkül az egész csak jó érzés lenne, nem eredmény." },
     ],
   },
   pricing: {
