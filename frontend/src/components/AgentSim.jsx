@@ -57,7 +57,7 @@ export const AgentSim = ({ data, slug }) => {
       {/* A szimuláció levelei magyar mintaadatok, mint a példa postafiók. Egy
           idegen nyelvű lapon ez magyarázat nélkül hibának látszik. */}
       <div className="sim-sample-note" data-testid="sim-sample-note">{L.sampleNote}</div>
-      {slug && (
+      {slug && slug !== "multi-agent" && (
         <button className="sim-copy" data-testid="sim-copy" onClick={copyLink}>
           {copied ? L.copied : L.copy}
         </button>
