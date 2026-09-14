@@ -106,18 +106,6 @@ const hu = {
     agentsLink: "Nézd meg az agenteket →",
   },
   founder: {
-    bioTag: "Bemutatkozás",
-    bio: [
-      "Húsz éves vagyok, a Budapesti Műszaki és Gazdaságtudományi Egyetem nappali tagozatos hallgatója. Körülbelül egy éve azon dolgozom, hogy az AI-agentek ne bemutatóként, hanem működő üzleti eszközként kerüljenek be a cégekbe.",
-      "Ezt azért írom ki, mert egy több milliós döntésnél jogos kérdés, hogy ki áll a munka mögött. A választ nem az életkor adja meg, hanem az, ami ezen az oldalon már most kipróbálható: a telefonos agent valódi számon veszi fel, az e-mail rendező pedig a saját postafiókodon fut le, csak olvasási joggal.",
-      "Amit hosszabb távon építek, az egy olyan szolgáltatás, amely a vállalati AI-agent igények lehető legszélesebb körét fedi le — előbb Közép-Európában, majd azon túl. Az ok egyszerű: a növekvő és nagyvállalatok ma olyan multinacionális szereplőkkel versenyeznek, amelyek az AI-t évek óta aktívan használják. Ez a különbség csökkenthető, és a munkám erről szól.",
-    ],
-    facts: [
-      ["20", "éves"],
-      ["BME", "nappali tagozat"],
-      ["~1 év", "AI-agentek építése"],
-      ["Közép-Európa", "az első piac"],
-    ],
     tag: "Ki áll mögötte",
     role: "Alapító · az AXIMBRA egyszemélyes műhely, nem ügynökségi apparátus.",
     imprint: "Impresszum és jogi adatok →",
@@ -130,6 +118,18 @@ const hu = {
       "Az e-mail rendező agentet a saját postafiókodon is kipróbálhatod, és a kódja csak olvasási jogot kér.",
       "A négy referenciaoldal kitalált márkáké, és ezt mindegyik ki is írja — nem adjuk ki őket ügyfélmunkának.",
       "Az adatkezelési tájékoztató azt írja le, amit a kód tényleg csinál, a mellékletolvasás korlátaival együtt.",
+    ],
+    bioTag: "Bemutatkozás",
+    bio: [
+      "Húsz éves vagyok, a Budapesti Műszaki és Gazdaságtudományi Egyetem nappali tagozatos hallgatója. Körülbelül egy éve azon dolgozom, hogy az AI-agentek ne bemutatóként, hanem működő üzleti eszközként kerüljenek be a cégekbe.",
+      "Ezt azért írom ki, mert egy több milliós döntésnél jogos kérdés, hogy ki áll a munka mögött. A választ nem az életkor adja meg, hanem az, ami ezen az oldalon már most kipróbálható: a telefonos agent valódi számon veszi fel, az e-mail rendező pedig a saját postafiókodon fut le, csak olvasási joggal.",
+      "Amit hosszabb távon építek, az egy olyan szolgáltatás, amely a vállalati AI-agent igények lehető legszélesebb körét fedi le — előbb Közép-Európában, majd azon túl. Az ok egyszerű: a növekvő és nagyvállalatok ma olyan multinacionális szereplőkkel versenyeznek, amelyek az AI-t évek óta aktívan használják. Ez a különbség csökkenthető, és a munkám erről szól.",
+    ],
+    facts: [
+      ["20", "éves"],
+      ["BME", "nappali tagozat"],
+      ["~1 év", "AI-agentek építése"],
+      ["Közép-Európa", "az első piac"],
     ],
   },
   caseStudy: {
