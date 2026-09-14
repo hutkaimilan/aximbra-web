@@ -3,12 +3,7 @@ import { Reveal } from "./Reveal";
 import { CONTROLLER } from "../legal";
 import { useLang, pathFor } from "../i18n";
 
-/** Ki áll az AXIMBRA mögött.
- *
- *  Ez a szakasz szándékosan nem önéletrajz, és szándékosan nincs benne egyetlen
- *  olyan állítás sem, amit az oldalról ne lehetne ellenőrizni. Egy több milliós
- *  döntésnél az számít, hogy ki felel a munkáért és mi az, amit már el lehet
- *  érni — nem az, hogy hány év tapasztalatot írunk le magunkról. */
+/** Az alapító bemutatkozása és az AXIMBRA célja, a megadott életrajzi adatokkal. */
 export const Founder = () => {
   const { t, lang } = useLang();
   const f = t.founder;
