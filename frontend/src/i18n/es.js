@@ -34,8 +34,6 @@ const es = {
     tryOpen: "Pruébalo en vivo ↓",
     tryClose: "Cerrar",
     simOpen: "Verlo en acción",
-    copy: "🔗 Copiar enlace",
-    copied: "Enlace copiado ✓",
     skip: "Ir al final →",
     approve: "Aprobar",
     rewrite: "Pedir que lo reescriba",

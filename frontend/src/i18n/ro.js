@@ -34,8 +34,6 @@ const ro = {
     tryOpen: "Încearcă live ↓",
     tryClose: "Închide",
     simOpen: "Vezi-l în acțiune",
-    copy: "🔗 Copiază linkul",
-    copied: "Link copiat ✓",
     skip: "Sari la final →",
     approve: "Aprob",
     rewrite: "Cer o rescriere",

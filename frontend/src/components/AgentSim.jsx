@@ -4,7 +4,7 @@ import "./agentsim.css";
 
 const CAT = { m: "sim-m", c: "sim-c", a: "sim-a", dim: "sim-dim" };
 
-export const AgentSim = ({ data, slug }) => {
+export const AgentSim = ({ data }) => {
   const { t } = useLang();
   const L = t.agentsSection;
   const [phase, setPhase] = useState("idle"); // idle | running | done
@@ -12,12 +12,6 @@ export const AgentSim = ({ data, slug }) => {
   const [count, setCount] = useState(0);       // ticking counter
   const [vis, setVis] = useState(true);
   const [appr, setAppr] = useState(null);
-  const [copied, setCopied] = useState(false);
-  const copyLink = () => {
-    const url = `${window.location.origin}/agent/${slug}`;
-    try { navigator.clipboard.writeText(url); } catch (e) {}
-    setCopied(true); setTimeout(() => setCopied(false), 2000);
-  };
   const timers = useRef([]);
   const rootRef = useRef(null);
   const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -57,11 +51,6 @@ export const AgentSim = ({ data, slug }) => {
       {/* A szimuláció levelei magyar mintaadatok, mint a példa postafiók. Egy
           idegen nyelvű lapon ez magyarázat nélkül hibának látszik. */}
       <div className="sim-sample-note" data-testid="sim-sample-note">{L.sampleNote}</div>
-      {slug && (
-        <button className="sim-copy" data-testid="sim-copy" onClick={copyLink}>
-          {copied ? L.copied : L.copy}
-        </button>
-      )}
       {phase === "idle" && (
         <div className="sim-before">
           <div className="sim-head"><span className="sim-big">{data.total}</span> {data.beforeLabel}</div>

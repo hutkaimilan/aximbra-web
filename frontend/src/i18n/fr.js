@@ -34,8 +34,6 @@ const fr = {
     tryOpen: "Essayer en direct ↓",
     tryClose: "Fermer",
     simOpen: "Le voir en action",
-    copy: "🔗 Copier le lien",
-    copied: "Lien copié ✓",
     skip: "Aller à la fin →",
     approve: "Valider",
     rewrite: "Demander une réécriture",

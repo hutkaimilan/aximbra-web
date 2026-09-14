@@ -76,3 +76,78 @@ def test_the_cards_are_not_rotated_in_3d():
     card_rule = card_rule[:card_rule.index("}") + 1]
     for forbidden in ("will-change", "preserve-3d"):
         assert forbidden not in card_rule, f"{forbidden} visszakerült a .card szabályba"
+
+
+# A szövegdobozokat hoverkor nem toljuk el `transform`-mal. Azok a dobozok,
+# amelyeken `backdrop-filter` van, saját rétegre kerülnek; egy kész réteget a
+# böngésző nem rajzol újra, csak eltol. Ha az eltolás nem egész eszközpixel —
+# 125%-os Windows-nagyításnál a -3px épp 3,75 —, akkor a kész képet mintázza
+# újra, és a szöveg elmosódik. A `scale()` ugyanezt csinálja minden
+# nagyításnál. Az emelést ezért `position: relative` + `top` adja.
+STYLESHEETS = ("index.css", "components/agentsim.css")
+
+# Csak a szöveget hordozó dobozok. A tisztán dekoratív rétegeken (.liquid a
+# gomb alatt, a pulzáló pont) a transform maradhat: nincs rajtuk betű.
+TEXT_BOXES = (".card", ".btn", ".ref-card", ".pkg-card", ".hero-phone", ".sim-btn", ".cf-submit")
+DECORATIVE = (".liquid", ".glow", ".ref-dot", ".dot")
+
+
+def _hover_rules():
+    for name in STYLESHEETS:
+        css = (FRONTEND / name).read_text(encoding="utf-8")
+        for block in css.split("}"):
+            head, _, body = block.rpartition("{")
+            if not head:
+                continue
+            selector = head.split("\n")[-1].strip()
+            if ":hover" not in selector and ":active" not in selector:
+                continue
+            yield name, selector, body
+
+
+def test_hover_does_not_resample_text():
+    offenders = []
+    for name, selector, body in _hover_rules():
+        if any(d in selector for d in DECORATIVE):
+            continue
+        if not any(b in selector for b in TEXT_BOXES):
+            continue
+        if "transform" in body:
+            offenders.append(f"{name}: {selector} -> {body.strip()[:70]}")
+    assert not offenders, (
+        "Hoverkor `transform` került egy szövegdobozra — ettől lesz homályos a "
+        "betű a kurzor alatt. Használj `position: relative` + `top` emelést:\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+def test_no_fractional_scale_anywhere_on_a_text_box():
+    """A `scale(1.02)` minden nagyításnál újramintázza a szöveget."""
+    offenders = []
+    for name, selector, body in _hover_rules():
+        if "scale(" in body:
+            offenders.append(f"{name}: {selector} -> {body.strip()[:70]}")
+    assert not offenders, "Hoverkor nagyítás:\n  " + "\n  ".join(offenders)
+
+
+def test_the_simulation_has_no_copy_link_button():
+    """A „Link másolása" gomb lekerült a kártyáról; ne szivárogjon vissza."""
+    sim = (FRONTEND / "components" / "AgentSim.jsx").read_text(encoding="utf-8")
+    assert "sim-copy" not in sim and "clipboard" not in sim, "visszakerült a link-másoló gomb"
+    css = (FRONTEND / "components" / "agentsim.css").read_text(encoding="utf-8")
+    assert ".sim-copy" not in css, "a .sim-copy szabály itt maradt"
+
+
+def test_the_founder_introduces_himself_in_every_language():
+    """A bemutatkozás magyarul és angolul is megvan.
+
+    A többi nyelv az angolra esik vissza, tehát ha az angol hiányzik, a német
+    lapon magyar szöveg jelenne meg — pontosan az a hiba, ami az agentnél már
+    egyszer kiment élesbe.
+    """
+    for code in ("hu", "en"):
+        text = (FRONTEND / "i18n" / f"{code}.js").read_text(encoding="utf-8")
+        founder = text[text.index("founder: {"):]
+        founder = founder[:founder.index("\n  }")]
+        for key in ("bioTag:", "bio:", "facts:"):
+            assert key in founder, f"{code}.js: hiányzik a founder.{key}"

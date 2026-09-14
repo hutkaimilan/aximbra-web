@@ -60,7 +60,7 @@ const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote, si
           <LiquidButton ghost data-testid={`agent-sim-btn-${kind}`} onClick={onSim}>
             {simOn ? labels.tryClose : labels.simOpen}
           </LiquidButton>
-          {simOn && <AgentSim data={simData} slug={slug} />}
+          {simOn && <AgentSim data={simData} />}
         </div>
       )}
     </div>

@@ -35,8 +35,6 @@ const en = {
     tryOpen: "Try it live ↓",
     tryClose: "Close",
     simOpen: "See it in action",
-    copy: "🔗 Copy link",
-    copied: "Link copied ✓",
     skip: "Skip to the end →",
     approve: "Approve",
     rewrite: "Ask for a rewrite",
@@ -108,6 +106,18 @@ const en = {
     agentsLink: "See the agents →",
   },
   founder: {
+    bioTag: "About me",
+    bio: [
+      "I am twenty, a full-time student at the Budapest University of Technology and Economics. For about a year my work has been to get AI agents into companies as working business tools rather than demonstrations.",
+      "I state this plainly because on a decision of this size it is fair to ask who stands behind the work. The answer is not my age — it is what you can already test on this page: the phone agent answers on a real number, and the email organiser runs on your own mailbox with read-only access.",
+      "What I am building toward is a service covering the widest possible range of corporate AI-agent needs — first in Central Europe, then beyond it. The reason is straightforward: growing and large companies now compete with multinationals that have been using AI actively for years. That gap can be narrowed, and narrowing it is what my work is about.",
+    ],
+    facts: [
+      ["20", "years old"],
+      ["BME", "full-time student"],
+      ["~1 year", "building AI agents"],
+      ["Central Europe", "the first market"],
+    ],
     tag: "Who is behind it",
     role: "Founder · AXIMBRA is a one-person workshop, not an agency apparatus.",
     imprint: "Imprint and legal details →",

@@ -34,8 +34,6 @@ const de = {
     tryOpen: "Live ausprobieren ↓",
     tryClose: "Schließen",
     simOpen: "In Aktion ansehen",
-    copy: "🔗 Link kopieren",
-    copied: "Link kopiert ✓",
     skip: "Zum Ende springen →",
     approve: "Freigeben",
     rewrite: "Neu schreiben lassen",

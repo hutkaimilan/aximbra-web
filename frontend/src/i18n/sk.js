@@ -34,8 +34,6 @@ const sk = {
     tryOpen: "Vyskúšať naživo ↓",
     tryClose: "Zavrieť",
     simOpen: "Pozrite si to v akcii",
-    copy: "🔗 Kopírovať odkaz",
-    copied: "Odkaz skopírovaný ✓",
     skip: "Preskočiť na koniec →",
     approve: "Schvaľujem",
     rewrite: "Žiadam prepísať",
