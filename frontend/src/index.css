@@ -337,6 +337,16 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
 @media (max-width: 980px){ .grid { grid-template-columns: repeat(2,1fr); } }
 @media (max-width: 640px){ .grid { grid-template-columns: 1fr; } }
 .span-all { grid-column: 1 / -1; }
+/* Egy sorban a kártyák egyforma magasak, és az árszint, az ajánlatkérő gomb és
+   a próbagombok egy vonalban állnak.
+   Minden kártya egy `Reveal` burkolóban ül, az pedig a rács eleme — a kártya
+   maga nem nyúlt vele, ezért ért véget hol itt, hol ott, attól függően, milyen
+   hosszú a leírás és hány gomb van alatta. A burkoló ezért flex, a kártya pedig
+   kitölti. A tartalom felülre igazodik, a maradék hely az utolsó gomb ALATT
+   marad — így az árválasztó vonal és az ajánlatkérő gomb egy vonalban áll, és
+   csak az a kártya nyúlik lejjebb, amelyik eggyel több gombot kínál. */
+.grid > * { display: flex; }
+.grid > * > .card { flex: 1 1 auto; min-width: 0; }
 /* Két különböző dolog teszi homályossá a szöveget a kurzor alatt, és mindkettőt
    ki kell venni.
 
@@ -356,7 +366,7 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
    A visszajelzés mind megmaradt: a fénypont követi az egeret, a keret felizzik,
    az árnyék erősödik, és a kártya megemelkedik. */
 .card { position: relative; padding: 28px; border-radius: 20px; border: 1px solid var(--border);
-  isolation: isolate; top: 0;
+  isolation: isolate; top: 0; display: flex; flex-direction: column;
   transition: top .25s ease, border-color .3s ease, box-shadow .3s ease; overflow: hidden; }
 .card::after { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
   background: var(--panel); -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px);
@@ -377,7 +387,14 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
 .badge.live { color: var(--cyan); border: 1px solid rgba(0,233,255,.4); background: rgba(0,233,255,.08); }
 .badge.demo { color: var(--dim); border: 1px solid var(--border); }
 .badge .dot { width: 6px; height: 6px; }
-.card-desc { color: var(--muted); font-size: 14.5px; line-height: 1.65; margin-bottom: 20px; }
+/* A leírás négy sornyi helyet foglal akkor is, ha háromból kijön. Enélkül az
+   árválasztó vonal kártyánként más magasságban állna, és egy sorban három
+   különböző szinten futó vonal az, ami rendetlennek látszik. Négy sor azért,
+   mert a tizenkét leírás nyolc nyelven és minden rácsszélességen legfeljebb
+   ennyi — mérve, nem becsülve. Nem vágjuk el a szöveget: ha valami mégis
+   hosszabb, az a kártya lejjebb tolja a vonalát, de nem veszik el belőle semmi. */
+.card-desc { color: var(--muted); font-size: 14.5px; line-height: 1.65; margin-bottom: 20px;
+  flex: 0 0 auto; min-height: calc(4 * 1.65em); }
 .card-meta { display: flex; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 16px;
   font-family: var(--mono); font-size: 12px; }
 .card-meta .price { color: var(--text); } .card-meta .lead { color: var(--dim); }
