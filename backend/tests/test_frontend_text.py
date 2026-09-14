@@ -175,5 +175,14 @@ def test_the_header_sits_in_the_same_column_as_the_page():
         assert prop in inner, f"a fejléc belső sávjából hiányzik: {prop}"
 
     # A hívás-pirula 334 pixel, és szűk ablakban ez tolta le a menüt a képernyőről.
-    assert "@media (max-width: 1280px){ .nav-links .btn-callbar { display: none; } }" in css, \
-        "a hívás-pirula megint ott van szűk ablakban is"
+    narrow = css[css.index("@media (max-width: 1280px){"):]
+    narrow = narrow[:narrow.index("\n}") + 2]
+    assert ".btn-callbar { display: none; }" in narrow, "a hívás-pirula megint ott van szűk ablakban is"
+
+    # A menü a logótól a nyelvválasztóig ér, egyforma hézagokkal — de csak ott,
+    # ahol a pirula is kifér; nélküle négy link terülne szét 147 pixeles közökkel.
+    links = css[css.index(".nav-links { display: flex;"):]
+    links = links[:links.index("}") + 1]
+    assert "justify-content: space-between" in links and "flex: 1 1 auto" in links, \
+        "a menü megint egy csomóban ül a sáv jobb szélén"
+    assert "justify-content: flex-end" in narrow, "szűk ablakban szétterül a négy menüpont"

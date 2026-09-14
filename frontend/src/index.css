@@ -133,8 +133,15 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan);
   box-shadow: 0 0 12px var(--cyan); animation: pulse 1.8s ease-in-out infinite; }
 @keyframes pulse { 0%,100%{ opacity: 1; transform: scale(1);} 50%{ opacity: .4; transform: scale(.7);} }
-.nav-right { display: flex; align-items: center; gap: 20px; position: relative; z-index: 2; min-width: 0; }
-.nav-links { display: flex; gap: 30px; align-items: center; }
+/* A jobb oldali blokk a logó után MINDEN maradék helyet megkap, a menü pedig
+   azon belül szétosztja magát: az első elem közvetlenül a logó után kezdődik, az
+   utolsó a nyelvválasztóig ér, és a köztük lévő hézagok egyformák. Enélkül a
+   menü egy szoros csomóban ült a sáv jobb szélén, a logó mellett meg üres hely
+   maradt. A `gap` itt alsó korlát: ha nincs mit szétosztani, ennyi marad. */
+.nav-right { display: flex; align-items: center; gap: 24px; position: relative; z-index: 2;
+  flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
+.nav-links { display: flex; align-items: center; gap: 24px;
+  flex: 1 1 auto; min-width: 0; justify-content: space-between; }
 /* A 24x24 CSS-pixeles érinthető méret a WCAG 2.2 AA minimuma. A 14 px-es
    szöveg sorboksza ennél alacsonyabb, ezért a linkek maguk kapnak magasságot —
    a sor közepén, hogy a menü látványa ne változzon. */
@@ -171,7 +178,13 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
    ablakban ez tolta le a menüt a képernyőről — 1100 pixeles ablakban az utolsó
    gomb 53 pixerrel a kép szélén kívülre került. A telefonszám nem vész el:
    a hero-ban ott a saját sávja, mobilon pedig a lenyíló menüben. */
-@media (max-width: 1280px){ .nav-links .btn-callbar { display: none; } }
+@media (max-width: 1280px){
+  .nav-links .btn-callbar { display: none; }
+  /* A pirula nélkül négy link maradna, és ha azok is szétterülnének a
+     nyelvválasztóig, 147 pixeles hézagok lennének közöttük — az már nem
+     egyenletes menü, hanem ritkás. Itt tehát nem osztunk szét semmit. */
+  .nav-links { flex: 0 0 auto; justify-content: flex-end; gap: 30px; }
+}
 @media (max-width: 900px){
   .nav-links { display: none; }
   .nav-right .nav-contact-desktop { display: none; }
@@ -202,7 +215,9 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
 /* ===== HEADER CALL-BAR + LANG SWITCH ===== */
 .btn-callbar { font-family: var(--body); font-size: 13px; color: var(--muted); text-decoration: none;
   padding: 10px 16px; border: 1px solid var(--border); border-radius: 40px; background: var(--panel);
-  backdrop-filter: blur(12px); transition: color .25s ease, border-color .25s ease, box-shadow .25s ease; white-space: nowrap; }
+  backdrop-filter: blur(12px); transition: color .25s ease, border-color .25s ease, box-shadow .25s ease; white-space: nowrap;
+  flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.nav-links a:not(.btn-callbar) { flex: 0 0 auto; }
 .btn-callbar:hover { color: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 18px rgba(0,233,255,.2); }
 .lang-switch { display: inline-flex; border: 1px solid var(--border); border-radius: 40px; overflow: hidden; background: var(--panel); backdrop-filter: blur(12px); }
 .lang-switch button { font-family: var(--mono); font-size: 12px; letter-spacing: .06em; padding: 8px 13px;
