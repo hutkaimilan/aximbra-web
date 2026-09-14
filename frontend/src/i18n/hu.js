@@ -109,11 +109,11 @@ const hu = {
   },
   founder: {
     tag: "Ki áll mögötte",
-    role: "Alapító · az AXIMBRA egyszemélyes műhely, nem ügynökségi apparátus.",
+    role: "Az AXIMBRA alapítója · BME-hallgató",
     imprint: "Impresszum és jogi adatok →",
     paragraphs: [
-      "Az AXIMBRA-t egy ember viszi: aki felveszi a telefont, az írja a kódot is. Ennek van előnye és van ára, és mindkettőt érdemes tudni előre. Az előnye, hogy nincs átadás-átvétel három ember között, és nem kell projektmenedzsert fizetned azért, hogy a fejlesztőhöz eljusson, amit mondtál. Az ára, hogy egyszerre kevés projekt fér be.",
-      "Ezért nem is ígérek gyors bővülést. Amit ígérek: ami elkészül, azt én tartom életben, és ha valami elromlik, nem egy ügyfélszolgálati jegyet kapsz.",
+      "20 éves vagyok, a Budapesti Műszaki és Gazdaságtudományi Egyetem nappali tagozatos hallgatója. Közel egy éve foglalkozom AI-vállalkozás építésével.",
+      "Az AXIMBRA-val olyan szolgáltatást építek, amely a vállalati AI-agent igények minél szélesebb körére kínál megoldást. Elsőként Közép-Európában szeretnék jelen lenni, hosszú távon pedig globálisan terjeszkedni. Célom, hogy növekvő és nagyvállalatoknak segítsek hatékonyabban működni és erősíteni versenyképességüket az AI-t már aktívan használó multinacionális cégekkel szemben.",
     ],
     proof: [
       "A telefonáló agent valódi számon fut, és most is felveszi — nem videó róla.",
