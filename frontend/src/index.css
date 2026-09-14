@@ -116,19 +116,24 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
   -webkit-background-clip: text; background-clip: text; color: transparent; }
 
 /* ===== NAV ===== */
+/* A sáv háttere a teljes szélességet fogja, a TARTALMA viszont ugyanabban az
+   1200 pixeles oszlopban ül, mint a lap többi része. Enélkül egy széles
+   képernyőn a logó 332 pixerrel a szöveg bal széle előtt állt, a gomb ugyanennyivel
+   a jobb széle után — a fejléc szemre nem ugyanahhoz a laphoz tartozott. */
 .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 22px 28px; transition: padding .4s ease, background .4s ease, backdrop-filter .4s ease, border-color .4s ease;
+  padding: 22px 0; transition: padding .4s ease, background .4s ease, backdrop-filter .4s ease, border-color .4s ease;
   border-bottom: 1px solid transparent; }
-.nav.scrolled { padding: 12px 28px; background: rgba(4,4,12,.6); backdrop-filter: blur(18px);
+.nav.scrolled { padding: 12px 0; background: rgba(4,4,12,.6); backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--border); }
+.nav-inner { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 28px;
+  display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .logo { font-family: var(--display); font-weight: 700; font-size: 20px; letter-spacing: .08em;
   display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text);
   text-decoration: none; position: relative; z-index: 2; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan);
   box-shadow: 0 0 12px var(--cyan); animation: pulse 1.8s ease-in-out infinite; }
 @keyframes pulse { 0%,100%{ opacity: 1; transform: scale(1);} 50%{ opacity: .4; transform: scale(.7);} }
-.nav-right { display: flex; align-items: center; gap: 20px; position: relative; z-index: 2; }
+.nav-right { display: flex; align-items: center; gap: 20px; position: relative; z-index: 2; min-width: 0; }
 .nav-links { display: flex; gap: 30px; align-items: center; }
 /* A 24x24 CSS-pixeles érinthető méret a WCAG 2.2 AA minimuma. A 14 px-es
    szöveg sorboksza ennél alacsonyabb, ezért a linkek maguk kapnak magasságot —
@@ -162,6 +167,11 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
 .drawer-link:hover { color: var(--cyan); }
 .drawer-contact.btn { margin-top: 18px; width: 100%; justify-content: center; }
 @media (min-width: 901px){ .nav-drawer { display: none; } }
+/* A hívás-pirula egyedül 334 pixel, és nem navigáció, hanem egy kérdés. Szűk
+   ablakban ez tolta le a menüt a képernyőről — 1100 pixeles ablakban az utolsó
+   gomb 53 pixerrel a kép szélén kívülre került. A telefonszám nem vész el:
+   a hero-ban ott a saját sávja, mobilon pedig a lenyíló menüben. */
+@media (max-width: 1280px){ .nav-links .btn-callbar { display: none; } }
 @media (max-width: 900px){
   .nav-links { display: none; }
   .nav-right .nav-contact-desktop { display: none; }

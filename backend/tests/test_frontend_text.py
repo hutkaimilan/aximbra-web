@@ -151,3 +151,29 @@ def test_the_founder_introduces_himself_in_every_language():
         founder = founder[:founder.index("\n  }")]
         for key in ("bioTag:", "bio:", "facts:"):
             assert key in founder, f"{code}.js: hiányzik a founder.{key}"
+
+
+def test_the_header_sits_in_the_same_column_as_the_page():
+    """A fejléc tartalma ugyanabban az oszlopban áll, mint a lap szövege.
+
+    Széles képernyőn a sáv a teljes szélességet fogta, a lap többi része viszont
+    egy 1200 pixeles oszlopban ül — 1920 pixeles ablakban a logó 332 pixerrel a
+    szöveg bal széle előtt állt. Ezért a sáv háttere maradt teljes szélességű, a
+    tartalma viszont egy `.nav-inner` dobozba került, ugyanazzal a
+    max-szélességgel és belső margóval, mint a `.container`.
+    """
+    nav = (FRONTEND / "components" / "Nav.jsx").read_text(encoding="utf-8")
+    assert 'className="nav-inner"' in nav, "a fejléc tartalma kikerült a tartalomoszlopból"
+
+    css = (FRONTEND / "index.css").read_text(encoding="utf-8")
+    inner = css[css.index(".nav-inner {"):]
+    inner = inner[:inner.index("}") + 1]
+    container = css[css.index(".container {"):]
+    container = container[:container.index("}") + 1]
+    for prop in ("max-width: 1200px", "margin: 0 auto", "padding: 0 28px"):
+        assert prop in container, f"a .container már nem {prop} — igazítsd hozzá a fejlécet"
+        assert prop in inner, f"a fejléc belső sávjából hiányzik: {prop}"
+
+    # A hívás-pirula 334 pixel, és szűk ablakban ez tolta le a menüt a képernyőről.
+    assert "@media (max-width: 1280px){ .nav-links .btn-callbar { display: none; } }" in css, \
+        "a hívás-pirula megint ott van szűk ablakban is"

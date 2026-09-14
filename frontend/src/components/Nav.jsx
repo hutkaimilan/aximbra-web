@@ -40,38 +40,40 @@ export const Nav = ({ scrollTo }) => {
 
   return (
     <nav ref={navRef} className={`nav ${scrolled ? "scrolled" : ""}`} data-testid="main-nav">
-      <a className="logo" data-testid="logo" href="#top"
-         onClick={(e) => { e.preventDefault(); go("top"); }} aria-label="AXIMBRA">
-        <span className="dot" /> AXIMBRA
-      </a>
+      <div className="nav-inner">
+        <a className="logo" data-testid="logo" href="#top"
+           onClick={(e) => { e.preventDefault(); go("top"); }} aria-label="AXIMBRA">
+          <span className="dot" /> AXIMBRA
+        </a>
 
-      <div className="nav-right">
-        <div className="nav-links">
-          {/* A harmadik elem egy útvonal: az a menüpont nem a lapon belülre
-              ugrik, hanem másik oldalra visz — a nyelvi előtagot megtartva. */}
-          {t.nav.links.map(([label, id, route]) => (route ? (
-            <Link key={id} className="link" data-testid={`nav-${id}`}
-                  to={pathFor(lang, route)} onClick={() => setOpen(false)}>{label}</Link>
-          ) : (
-            <a key={id} className="link" data-testid={`nav-${id}`} href={`#${id}`}
-               onClick={(e) => { e.preventDefault(); go(id); }}>{label}</a>
-          )))}
-          <a className="btn-callbar" data-testid="nav-callbar" href={t.nav.callbarHref}>{t.nav.callbar}</a>
+        <div className="nav-right">
+          <div className="nav-links">
+            {/* A harmadik elem egy útvonal: az a menüpont nem a lapon belülre
+                ugrik, hanem másik oldalra visz — a nyelvi előtagot megtartva. */}
+            {t.nav.links.map(([label, id, route]) => (route ? (
+              <Link key={id} className="link" data-testid={`nav-${id}`}
+                    to={pathFor(lang, route)} onClick={() => setOpen(false)}>{label}</Link>
+            ) : (
+              <a key={id} className="link" data-testid={`nav-${id}`} href={`#${id}`}
+                 onClick={(e) => { e.preventDefault(); go(id); }}>{label}</a>
+            )))}
+            <a className="btn-callbar" data-testid="nav-callbar" href={t.nav.callbarHref}>{t.nav.callbar}</a>
+          </div>
+
+          <select className="lang-select" data-testid="lang-select" value={lang}
+            onChange={(e) => setLang(e.target.value)} aria-label="Language">
+            {LANGS.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+          </select>
+
+          <LiquidButton className="btn-nav nav-contact-desktop" data-testid="nav-contact" onClick={() => go("kapcsolat")}>
+            {t.nav.contact}
+          </LiquidButton>
+
+          <button className={`nav-burger ${open ? "open" : ""}`} data-testid="nav-burger"
+            aria-label={t.nav.menu} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+            <span /><span /><span />
+          </button>
         </div>
-
-        <select className="lang-select" data-testid="lang-select" value={lang}
-          onChange={(e) => setLang(e.target.value)} aria-label="Language">
-          {LANGS.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
-        </select>
-
-        <LiquidButton className="btn-nav nav-contact-desktop" data-testid="nav-contact" onClick={() => go("kapcsolat")}>
-          {t.nav.contact}
-        </LiquidButton>
-
-        <button className={`nav-burger ${open ? "open" : ""}`} data-testid="nav-burger"
-          aria-label={t.nav.menu} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          <span /><span /><span />
-        </button>
       </div>
 
       <div className={`nav-drawer ${open ? "open" : ""}`} data-testid="nav-drawer" aria-hidden={!open}>
