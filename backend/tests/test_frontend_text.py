@@ -261,3 +261,31 @@ def test_the_objections_are_raised_before_the_visitor_raises_them():
     jsx = (FRONTEND / "components" / "Objections.jsx").read_text(encoding="utf-8")
     assert "useState(0)" in jsx, "az első válasz már nem nyitva indul"
     assert "aria-expanded" in jsx and "aria-controls" in jsx, "a harmonika nem jelzi az állapotát"
+
+
+def test_the_footer_says_who_stands_behind_the_site():
+    """A lábléc megmondja, ki áll az oldal mögött.
+
+    A Stanford háromévnyi, több mint 4500 emberrel végzett hitelességi
+    vizsgálatából négy irányelv szól ide: látszódjon, hogy valódi szervezet áll
+    mögötte, legyen könnyű kapcsolatba lépni, legyen nevesített felelős, és
+    legyen könnyű ellenőrizni az állításokat. A lábléc eddig ennyi volt:
+    „AXIMBRA · Budapest · aximbra.hu”.
+
+    Az adatok a legal.js-ből és a contact.js-ből jönnek, nem beírva: ugyanaz a
+    név és cím áll itt, mint az impresszumban.
+    """
+    footer = (FRONTEND / "components" / "Contact.jsx").read_text(encoding="utf-8")
+    body = footer[footer.index("export const Footer"):]
+    for needed in ("CONTROLLER.name", "CONTROLLER.addressLine", "CONTROLLER.postcode",
+                   "CONTACT.email", "CONTACT.phoneHref"):
+        assert needed in body, f"a láblécből hiányzik: {needed}"
+    assert "pathFor(lang," in body, "a jogi hivatkozások elvesztik a nyelvi előtagot"
+
+    # Amíg nincs adószám, a lábléc ne állítson róla semmit — a „bejegyzés
+    # alatt” is állítás lenne.
+    assert "CONTROLLER.taxNumber &&" in body, "a lábléc adószám nélkül is mond valamit az adószámról"
+    for code in ("hu", "en"):
+        text = (FRONTEND / "i18n" / f"{code}.js").read_text(encoding="utf-8")
+        assert "taxMissing" not in text, f"{code}.js: visszakerült a kitalált adószám-állítás"
+        assert "footerId: {" in text, f"{code}.js: hiányzik a lábléc azonosító blokkja"

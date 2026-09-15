@@ -225,6 +225,15 @@ const en = {
       or: "or call:",
     },
   },
+  footerId: {
+    who: "Who stands behind it",
+    reach: "Contact",
+    legalTag: "Legal",
+    person: "private individual · not a company",
+    taxLabel: "Tax number",
+    phoneNote: "demo number of the AI phone agent",
+    replyNote: "I answer email within one working day. If no answer arrives, that is a fault — write again.",
+  },
   footer: {
     imprint: "Imprint",
     privacy: "Privacy",

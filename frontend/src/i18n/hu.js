@@ -225,6 +225,15 @@ const hu = {
       or: "vagy hívj:",
     },
   },
+  footerId: {
+    who: "Aki mögötte áll",
+    reach: "Elérhetőség",
+    legalTag: "Jogi",
+    person: "természetes személy · nem gazdasági társaság",
+    taxLabel: "Adószám",
+    phoneNote: "az AI telefon-agent demószáma",
+    replyNote: "E-mailre egy munkanapon belül válaszolok. Ha nem érkezik válasz, az hiba — írj rá újra.",
+  },
   footer: {
     imprint: "Impresszum",
     privacy: "Adatkezelés",
