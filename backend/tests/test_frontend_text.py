@@ -224,3 +224,40 @@ def test_the_process_ends_with_a_measurement():
         assert '{ n: "07"' in process, f"{code}.js: a folyamat utolsó lépése eltűnt"
         assert word in process, f"{code}.js: a visszamérés lépése átnevezve"
         assert process.count('{ n: "') == 7, f"{code}.js: nem hét lépés van"
+
+
+def test_the_evidence_comes_before_the_price():
+    """A bizonyíték az ár ELŐTT áll.
+
+    Eddig fordítva volt: az árazás az esettanulmány és a referenciák előtt
+    állt, tehát a látogatónak a költséget azelőtt kellett mérlegelnie, hogy
+    bármit látott volna abból, amiért fizetne. A sorrend itt nem stílus,
+    hanem az, hogy mihez tud viszonyítani.
+    """
+    app = (FRONTEND.parent / "src" / "App.js").read_text(encoding="utf-8")
+    order = ["<Proof", "<Agents", "<CaseStudy", "<References", "<Objections",
+             "<Process", "<Founder", "<Pricing", "<NoTricks", "<FirstStep", "<Contact"]
+    seen = [app.index(tag) for tag in order]
+    assert seen == sorted(seen), (
+        "felborult a szakaszok sorrendje — a várt: " + " → ".join(t[1:] for t in order)
+    )
+
+
+def test_the_objections_are_raised_before_the_visitor_raises_them():
+    """A kifogások a látogató helyett, előre.
+
+    A retorika legrégebbi ismert fogása: az ellenérvet te hozod fel, mielőtt a
+    másik megtenné. A negyedik kérdés — „mi van, ha egy év múlva abbahagyod” —
+    szándékosan bent van: egy húszéves, egyszemélyes műhelynél ez a legnagyobb
+    ki nem mondott ellenvetés, és kihagyni nem azt jelenti, hogy nem merül fel.
+    """
+    for code in ("hu", "en"):
+        text = (FRONTEND / "i18n" / f"{code}.js").read_text(encoding="utf-8")
+        block = text[text.index("  objections: {"):]
+        block = block[:block.index("\n  },")]
+        assert block.count("{ q:") == 7, f"{code}.js: nem hét ellenvetés van"
+        assert "firstStep: {" in text, f"{code}.js: hiányzik a legkisebb első lépés"
+
+    jsx = (FRONTEND / "components" / "Objections.jsx").read_text(encoding="utf-8")
+    assert "useState(0)" in jsx, "az első válasz már nem nyitva indul"
+    assert "aria-expanded" in jsx and "aria-controls" in jsx, "a harmonika nem jelzi az állapotát"

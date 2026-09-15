@@ -9,6 +9,8 @@ import { Agents } from "@/components/Agents";
 import { Process } from "@/components/Process";
 import { Proof } from "@/components/Proof";
 import { NoTricks } from "@/components/NoTricks";
+import { Objections } from "@/components/Objections";
+import { FirstStep } from "@/components/FirstStep";
 import { Pricing } from "@/components/Pricing";
 import { CaseStudy } from "@/components/CaseStudy";
 import { Contact, Footer } from "@/components/Contact";
@@ -89,14 +91,24 @@ function Site() {
             {[...t.marquee, ...t.marquee].map((m, i) => <span key={i}>{m}</span>)}
           </div>
         </div>
+        {/* A sorrend nem ízlés kérdése. Előbb az, amit a látogató ELLENŐRIZNI
+            tud, aztán amit kap, aztán a bizonyíték, hogy működik, és csak ezek
+            után az ár. Eddig fordítva volt: az árazás a két bizonyító szakasz
+            ELŐTT állt, tehát a költséget azelőtt kellett mérlegelni, hogy
+            bármit látott volna belőle. Az ellenvetések közvetlenül a bizonyíték
+            után jönnek, mert ott fogalmazódnak meg; a folyamat és a készítő
+            utánuk válaszol rájuk, az ár pedig a legvégén áll, amikor már van
+            mihez viszonyítani. */}
         <Proof scrollTo={scrollTo} />
         <Agents />
-        <Process />
-        <Pricing />
-        <NoTricks />
         <CaseStudy />
         <References />
+        <Objections />
+        <Process />
         <Founder />
+        <Pricing />
+        <NoTricks />
+        <FirstStep />
         <Contact />
       </main>
       <Footer />

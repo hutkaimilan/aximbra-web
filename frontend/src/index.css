@@ -738,3 +738,53 @@ textarea:focus-visible,
   .notricks li { padding-left: 20px; }
   .notricks-close { padding-left: 20px; }
 }
+
+/* ===== ELLENVETÉSEK (beoltás) ===== */
+/* Harmonika, nem kártyarács: hét hosszú válasz egyszerre kinyitva fal lenne,
+   és a látogató egyiket sem olvasná el. A kérdés mindig látszik — az a
+   lényeg, hogy magára ismerjen benne —, a válasz egy kattintásra van. */
+.obj-list { margin-top: 56px; border-top: 1px solid var(--border); }
+.obj { border-bottom: 1px solid var(--border); }
+.obj h3 { margin: 0; font-size: inherit; font-weight: inherit; }
+.obj-q {
+  width: 100%; display: flex; align-items: flex-start; gap: 16px; text-align: left;
+  padding: 22px 0; background: transparent; border: 0; cursor: pointer; color: var(--text);
+  font-family: var(--display); font-weight: 600; font-size: 17.5px; line-height: 1.45;
+}
+.obj-q:hover .obj-text { color: var(--cyan); }
+.obj-q:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.obj-mark {
+  flex: 0 0 auto; width: 26px; height: 26px; margin-top: 1px; border-radius: 50%;
+  border: 1px solid var(--border); color: var(--cyan); display: inline-flex;
+  align-items: center; justify-content: center; font-family: var(--mono); font-size: 15px;
+  line-height: 1; transition: border-color .25s ease, background .25s ease;
+}
+.obj-open .obj-mark { border-color: var(--cyan); background: rgba(0,233,255,.08); }
+.obj-text { transition: color .25s ease; }
+.obj-a { padding: 0 0 24px 42px; }
+.obj-a p { margin: 0; color: var(--muted); font-size: 15.5px; line-height: 1.8; max-width: 70ch; }
+@media (max-width: 640px) {
+  .obj-q { font-size: 16px; gap: 12px; }
+  .obj-a { padding-left: 38px; }
+}
+
+/* ===== AZ ELSŐ LÉPÉS ===== */
+.first-step {
+  display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; align-items: start;
+  padding: 38px; border: 1px solid var(--border); border-radius: 18px;
+  background: rgba(255,255,255,.02);
+}
+@media (max-width: 860px) { .first-step { grid-template-columns: 1fr; gap: 26px; padding: 26px; } }
+.first-step-h {
+  font-family: var(--display); font-weight: 600; font-size: clamp(22px, 3.2vw, 32px);
+  line-height: 1.18; margin: 12px 0 14px; text-wrap: balance;
+}
+.first-step-body { margin: 0; color: var(--muted); font-size: 16.5px; line-height: 1.8; max-width: 56ch; }
+.first-step-points { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.first-step-points li {
+  position: relative; padding-left: 26px; color: var(--text); font-size: 15px; line-height: 1.7;
+}
+.first-step-points li::before {
+  content: "✓"; position: absolute; left: 0; top: 0; color: var(--cyan);
+  font-family: var(--mono); font-size: 13px;
+}
