@@ -1329,6 +1329,31 @@ def test_the_sample_inbox_is_not_all_urgent():
     assert any(not e["subject"] for e in SAMPLE_EMAILS), "no missing-subject case"
 
 
+def test_the_classifier_is_told_how_to_recognise_phishing():
+    """Live, the sample's scam mail came out as the most urgent customer
+    complaint. The rules that prevent that must stay in every language."""
+    for lang in server.AGENT_LANG_NAMES:
+        prompt = server.agent_sys(lang).lower()
+        assert "phishing" in prompt, lang
+        assert "not how loudly" in prompt, lang
+        assert "never a customer complaint" in prompt, lang
+
+
+def test_spam_is_never_urgent_and_never_needs_a_reply(monkeypatch):
+    """Even when the model gets the category right but scores urgency by how
+    loud the email is."""
+    import asyncio
+
+    async def fake_llm(system, text, max_tokens=0):
+        return '{"category": "spam", "urgency": 5, "needs_reply": "igen"}'
+
+    monkeypatch.setattr(server, "_call_llm", fake_llm)
+    out = asyncio.run(server.classify_one({"subject": "AZONNALI", "body": "fizess"}))
+    assert out["category"] == "spam"
+    assert out["urgency"] == 1
+    assert out["needs_reply"] == "nem"
+
+
 def test_sample_is_rate_limited_per_ip(stub_classifier, monkeypatch):
     """Public and it spends model credits on every call."""
     monkeypatch.setattr(server, "MAX_REQ_PER_IP_HOUR", 3)

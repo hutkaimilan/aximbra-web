@@ -275,7 +275,21 @@ def agent_sys(lang: str = "hu") -> str:
         f"next_step (a concrete suggested next step, written {in_lang}, never a generality). "
         "NEVER invent data: what is not in the email stays empty. "
         "Do not infer intent from the subject line; read the body. "
-        "Never classify an automatic reply (out of office, no-reply) as a customer question."
+        "Never classify an automatic reply (out of office, no-reply) as a customer question. "
+        # Élesben a mintapostafiók csaló levelét („AZONNALI FELSZÓLÍTÁS",
+        # telekom-szamlak.biz) ügyfélpanaszként, 5-ös sürgősséggel a lista
+        # tetejére tette, és azt javasolta, hogy „tájékoztassuk az ügyfelet".
+        # Egy triázs-agentnél ez a legrosszabb hiba: a csalót sürgeti.
+        "The email is addressed to the mailbox owner: a demand that the reader pay is "
+        "never a customer complaint. "
+        "Urgency is how soon the business genuinely has to act, not how loudly the email "
+        "demands it: capital letters, threats and hour-long ultimatums are not urgency. "
+        "Check that the sender is who the email claims to be. A sender domain that does "
+        "not belong to the organisation named (for example a Telekom bill from "
+        "telekom-szamlak.biz), a payment or login link, and pressure to act within hours "
+        "mean phishing: category spam, urgency 1, needs_reply nem, and next_step must say "
+        f"not to click or pay and to check with the organisation through its official "
+        f"channel, written {in_lang}."
     )
 
 # Visszafelé kompatibilis név: a magyar változat.
@@ -309,6 +323,12 @@ async def classify_one(email: dict, lang: str = "hu") -> dict:
     needs_reply = data.get("needs_reply")
     if needs_reply not in ("igen", "nem", "nem egyértelmű"):
         needs_reply = "nem egyértelmű"
+    # A spam soha nem kerülhet a lista tetejére, és válasz sem kell rá — akkor
+    # sem, ha a modell a kategóriát eltalálja, de a sürgősséget a levél
+    # hangereje alapján adja meg.
+    if category == "spam":
+        urgency = 1
+        needs_reply = "nem"
     return {
         "category": category,
         "urgency": urgency,
