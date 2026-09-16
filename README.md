@@ -40,6 +40,13 @@ Backend (`backend/.env`):
   (myaccount.google.com/apppasswords), then set `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`,
   `SMTP_USER=<the address>`, `SMTP_PASSWORD=<the 16-character app password>`. The regular account
   password will not work, and the app password is not the account password — it can be revoked on its own.
+  **On Railway below the Pro plan outbound SMTP is blocked**, so this path cannot deliver there. The API
+  probes the SMTP port at boot and keeps the form hidden if it is closed (the log says so).
+- `RESEND_API_KEY`, `RESEND_FROM`, `LEAD_TO` — the contact form over Resend's HTTPS API, which works on
+  every Railway plan and **takes precedence over SMTP** when the key is set. Without a verified domain
+  Resend only delivers to the Resend account's own address, so `LEAD_TO` must be that address.
+  `RESEND_FROM` defaults to `AXIMBRA <onboarding@resend.dev>`. The voice agent already holds a key and
+  its owner's address (`RESEND_API_KEY`, `NOTIFY_EMAIL` on `aximbra-voice`).
 - `AGENT_PUBLIC` — whether strangers may hand the agent their mailbox. Defaults to `true`; set it to
   `false` to keep the agent working for your own testing while the page says plainly that it is not open
   yet. See **Before the Gmail agent goes public** below.
