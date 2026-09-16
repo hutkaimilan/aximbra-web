@@ -24,7 +24,7 @@ const hu = {
     sub: "Olyan AI agenteket építünk magyar cégeknek, amelyek elvégeznek egy konkrét munkát — leveleket rendeznek, érdeklődőt minősítenek, telefont vesznek fel. Nem demót adunk át, hanem működő rendszert, amit mi tartunk életben.",
     ctaPrimary: "Nézd meg az agenteket",
     ctaGhost: "Működés közben",
-    phoneCta: { note: "Egy AI agent veszi fel · magyarul és angolul is", origin: "Amerikai tesztvonal (Twilio) — ez az agent demószáma, nem ügyfélszolgálat" },
+    phoneCta: { badge: "HÍVJ", note: "Magyar számról én veszem fel · ha nem érek rá, az AI agent", origin: "Amerikai szám (Twilio) — külföldi számról az AI agent fogadja, angolul" },
     status: { checking: "Állapot lekérése…", online: "Élő telefon-agent", offline: "Telefon-agent nem elérhető", today: "ma", callsUnit: "hívás", liveUnit: "aktív most" },
     stats: [["2–4 hét", "az első agent"], ["3 nyelv", "a telefonos agent beszél"], ["100%", "emberi jóváhagyás"]],
   },
@@ -63,7 +63,7 @@ const hu = {
     heading: "Három dolog, amit ezen a lapon most ellenőrizhetsz",
     sub: "Egy ígéretet nem lehet ellenőrizni, egy működő rendszert igen. Ezek nem felvételek róla — most is futnak, és most is elronthatják.",
     items: [
-      { n: "01", title: "Hívd fel a telefon-agentet", desc: "Valódi számon veszi fel, magyarul és angolul is. A szám a lap tetején van, és a sáv a mai hívások számát is kiírja.", cta: "A lap tetejére →", to: "top" },
+      { n: "01", title: "Hívd fel az étterem AI-recepciósát", desc: "A bemutató étterem valódi számán egy agent veszi fel, magyarul, angolul és spanyolul is. Kérj asztalt, és nézd meg, mit kezd vele. A szám az esettanulmánynál van.", cta: "Az esettanulmányhoz →", to: "eset" },
       { n: "02", title: "Futtasd le az e-mail agentet a saját postafiókodon", desc: "Google-fiókkal, csak olvasási joggal. Nem tárol semmit, és fél óra múlva elfelejt. Ha nem akarsz fiókot adni, a mintapostafiók ugyanezt megmutatja.", cta: "Az e-mail agenthez →", to: "agentek" },
       { n: "03", title: "Nézd meg a négy bemutatóoldalt", desc: "Mind a négy kitalált márkáé, és mindegyik ki is írja magáról. Nem adjuk ki őket ügyfélmunkának, mert nem azok.", cta: "A bemutatóoldalakhoz →", to: "referenciak" },
     ],
@@ -208,8 +208,8 @@ const hu = {
   contact: {
     heading: "Melyik feladat viszi el a heted?",
     para: "Írd meg egy mondatban. Két munkanapon belül megmondjuk, megéri-e agentet építeni rá — és ha nem, azt is.",
-    phoneNote: "Magyarul és angolul is beszél · egy AI agent veszi fel",
-    phoneOrigin: "Amerikai tesztvonal (Twilio) — az agent demószáma, nem ügyfélszolgálat. Ügyben e-mailen írj.",
+    phoneNote: "Magyar számról hívva engem ér el · külföldi számról az AI agent veszi fel",
+    phoneOrigin: "Amerikai szám (Twilio). Ha nem veszem fel, az AI agent fogadja a hívást, és e-mailben megkapom, amit mondtál.",
     form: {
       name: "Neved",
       email: "E-mail-cím",
@@ -231,7 +231,7 @@ const hu = {
     legalTag: "Jogi",
     person: "természetes személy · nem gazdasági társaság",
     taxLabel: "Adószám",
-    phoneNote: "az AI telefon-agent demószáma",
+    phoneNote: "magyar számról engem ér el, külföldiről az AI agentet",
     replyNote: "E-mailre egy munkanapon belül válaszolok. Ha nem érkezik válasz, az hiba — írj rá újra.",
   },
   footer: {

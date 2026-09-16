@@ -66,12 +66,15 @@ export const Hero = ({ scrollTo }) => {
         <LiquidButton ghost data-testid="hero-ghost" onClick={() => scrollTo("eset")}>{h.ctaGhost}</LiquidButton>
       </div>
       <a className="hero-phone" href={CONTACT.phoneHref} data-testid="hero-phone">
-        <span className="hero-phone-live" aria-hidden="true"><span className="dot" /> AI</span>
+        {/* The badge follows the language: calls from Hungarian numbers ring the
+            owner (voice-agent/src/routing.ts), so on the Hungarian page an "AI"
+            badge would promise something most visitors won't get. */}
+        <span className="hero-phone-live" aria-hidden="true"><span className="dot" /> {h.phoneCta.badge}</span>
         <span className="hero-phone-main">
           <span className="hero-phone-num">{CONTACT.phone}</span>
           <span className="hero-phone-note">{h.phoneCta.note}</span>
           {/* A US number on a Budapest agency's site reads as a mismatch unless it
-              says what it is: the voice agent's test line, not a support desk. */}
+              says what it is and who picks up. */}
           <span className="hero-phone-origin">{h.phoneCta.origin}</span>
         </span>
       </a>

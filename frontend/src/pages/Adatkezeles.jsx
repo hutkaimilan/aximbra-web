@@ -231,11 +231,22 @@ export default function Adatkezeles() {
         </section>
 
         <section>
-          <h2>7. Telefonos agent</h2>
+          <h2>7. Telefonhívás</h2>
           <p>
-            Ha felhívod az oldalon szereplő bemutató telefonszámot, a hívást egy AI agent
-            fogadja. Ilyenkor kezeljük:
+            Az oldalon szereplő telefonszámon a hívószámod dönti el, ki veszi fel:
           </p>
+          <ul>
+            <li>
+              <b>magyar (+36-os) számról</b> a hívás az adatkezelő mobiljára kapcsolódik.
+              Ilyenkor nem készül átirat és összefoglaló; a hívószámod és a hívás
+              időpontja a Twilio hívásnaplójába és a szerver naplójába kerül;
+            </li>
+            <li>
+              <b>más ország számáról</b>, rejtett számról, vagy ha az adatkezelő nem veszi
+              fel, a hívást egy AI agent fogadja.
+            </li>
+          </ul>
+          <p>Ha az AI agent fogadja a hívást, kezeljük:</p>
           <ul>
             <li>a hívószámodat, a hívás időpontját és hosszát,</li>
             <li>a beszélgetés szöveges átiratát,</li>

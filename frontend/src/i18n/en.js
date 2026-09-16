@@ -24,7 +24,7 @@ const en = {
     sub: "We build AI agents for Hungarian companies that do one concrete job — sort emails, qualify leads, answer the phone. We don't hand over a demo, but a working system that we keep alive.",
     ctaPrimary: "See the agents",
     ctaGhost: "See it live",
-    phoneCta: { note: "Answered by an AI agent · in Hungarian & English", origin: "US test line (Twilio) — this is the agent's demo number, not a support line" },
+    phoneCta: { badge: "AI", note: "Answered by an AI agent · in English & Hungarian", origin: "US number (Twilio) — calls from Hungarian numbers ring through to me" },
     status: { checking: "Checking status…", online: "Live phone agent", offline: "Phone agent unavailable", today: "today", callsUnit: "calls", liveUnit: "active now" },
     stats: [["2–4 weeks", "the first agent"], ["3 languages", "the phone agent speaks"], ["100%", "human approval"]],
   },
@@ -208,8 +208,8 @@ const en = {
   contact: {
     heading: "Which task eats up your week?",
     para: "Write it in one sentence. Within two working days we'll tell you whether it's worth building an agent for it — and if not, that too.",
-    phoneNote: "Speaks Hungarian and English · answered by an AI agent",
-    phoneOrigin: "US test line (Twilio) — the agent's demo number, not a support line. For business, email us.",
+    phoneNote: "Answered by an AI agent, in English · calls from Hungarian numbers reach me",
+    phoneOrigin: "US number (Twilio). Calls from non-Hungarian numbers go to the AI agent, and I get what you said by email.",
     form: {
       name: "Your name",
       email: "Email address",
@@ -231,7 +231,7 @@ const en = {
     legalTag: "Legal",
     person: "private individual · not a company",
     taxLabel: "Tax number",
-    phoneNote: "demo number of the AI phone agent",
+    phoneNote: "AI phone agent · Hungarian numbers reach me directly",
     replyNote: "I answer email within one working day. If no answer arrives, that is a fault — write again.",
   },
   footer: {

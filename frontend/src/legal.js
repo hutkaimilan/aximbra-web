@@ -24,7 +24,7 @@ export const CONTROLLER_ADDRESS =
   `${CONTROLLER.postcode} ${CONTROLLER.city}, ${CONTROLLER.addressLine}, ${CONTROLLER.country}`;
 
 /** A tájékoztató hatálybalépése. Frissítsd, ha érdemi változás történik. */
-export const LEGAL_UPDATED = "2026. szeptember 11.";
+export const LEGAL_UPDATED = "2026. szeptember 16.";
 
 /** Adatfeldolgozók — mind a kódból, nem emlékezetből. */
 export const PROCESSORS = [
@@ -45,7 +45,7 @@ export const PROCESSORS = [
   },
   {
     name: "Twilio Inc.",
-    role: "Telefonhívás-kezelés a bemutató telefonszámhoz",
+    role: "Az oldalon szereplő telefonszám: hívásfogadás és átkapcsolás",
     where: "Egyesült Államok",
   },
   {

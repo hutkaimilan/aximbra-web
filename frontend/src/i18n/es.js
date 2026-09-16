@@ -19,7 +19,7 @@ const es = {
     intro: "AGENTES DE IA · BUDAPEST",
   },
   hero: {
-    phoneCta: { origin: "Línea de prueba en EE. UU. (Twilio) — número de demo del agente, no atención al cliente" },
+    phoneCta: { origin: "Número de EE. UU. (Twilio) — las llamadas de números no húngaros las atiende el agente de IA" },
     eyebrow: "Budapest · agencia de IA",
     h1: ["No creamos", "chatbots. Creamos un", "compañero de trabajo."],
     sub: "Creamos agentes de IA para empresas que hacen un trabajo concreto — ordenan correos, califican consultas, atienden el teléfono. No entregamos una demo, sino un sistema que funciona y que mantenemos vivo.",
@@ -103,7 +103,7 @@ const es = {
     phoneHint: ["Pide mesa en cualquier idioma.", "Cupo diario: 20 llamadas."],
   },
   contact: {
-    phoneOrigin: "Línea de prueba en EE. UU. (Twilio) — número de demo del agente, no atención al cliente. Para consultas, escríbenos.",
+    phoneOrigin: "Número de EE. UU. (Twilio). Las llamadas de números no húngaros las atiende el agente de IA: empieza en inglés y cambia al español si le hablas en español.",
     heading: "¿Qué tarea te consume la semana?",
     para: "Escríbelo en una frase. En dos días laborables te decimos si merece la pena construir un agente para ello — y si no, también.",
     phoneDisabled: "Agente telefónico — próximamente",
