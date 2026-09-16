@@ -13,6 +13,7 @@
  */
 
 import type { CallFacts } from './llm.js';
+import type { Lang } from './routing.js';
 
 /**
  * A koszones.
@@ -37,6 +38,37 @@ export const TIME_LIMIT_MESSAGE =
   'Sajnos itt le kell zárnom a hívást, mert ez egy bemutató vonal. ' +
   'Írjon nyugodtan az aximbra kukac gmail pont com címre, és ott folytatjuk. ' +
   'Köszönöm a hívást, viszonthallásra!';
+
+/**
+ * Az angol változat a külföldi számról érkező hívásoknak (lásd routing.ts).
+ * Ugyanaz a három mondat, ugyanazzal a szereppel.
+ */
+export const GREETING_EN =
+  'Aximbra, hello! Just so you know, anything you tell us is kept confidential ' +
+  'and used only to prepare an offer. How can I help you?';
+
+export const FAILURE_MESSAGE_EN =
+  'Sorry, the line dropped for a moment. Could you say that again, please?';
+
+export const TIME_LIMIT_MESSAGE_EN =
+  'I am afraid I have to end the call here, because this is a demo line. ' +
+  'Feel free to email us at aximbra at gmail dot com, and we will continue there. ' +
+  'Thank you for calling, goodbye!';
+
+export function lines(lang: Lang): { greeting: string; failure: string; timeLimit: string } {
+  return lang === 'en'
+    ? { greeting: GREETING_EN, failure: FAILURE_MESSAGE_EN, timeLimit: TIME_LIMIT_MESSAGE_EN }
+    : { greeting: GREETING, failure: FAILURE_MESSAGE, timeLimit: TIME_LIMIT_MESSAGE };
+}
+
+/**
+ * Az angolul indult hívás jelzése a modellnek. Nélküle a magyar rendszerprompt
+ * magyar válaszra húzza, pedig a köszönés angolul hangzott el.
+ */
+const ENGLISH_CALL_BLOCK = `# NYELV
+Ezt a hívást angolul köszöntötted, mert külföldi számról jött. Angolul beszélj, amíg a hívó nem vált más nyelvre. A lenti szabályok angolul is érvényesek: a számokat betűvel mondd ("two hundred ninety thousand forints"), az e-mail címet így: "aximbra at gmail dot com".
+
+`;
 
 export const SYSTEM_PROMPT_BASE = `Te az AXIMBRA telefonos munkatársa vagy. Telefonon beszélsz, élőben.
 
@@ -235,8 +267,11 @@ export function buildSystemPrompt(
   projects: number,
   facts?: CallFacts,
   callerNumber = '',
+  lang: Lang = 'hu',
 ): string {
-  const head = facts ? buildFactsBlock(facts, callerNumber) : '';
+  const head =
+    (lang === 'en' ? ENGLISH_CALL_BLOCK : '') +
+    (facts ? buildFactsBlock(facts, callerNumber) : '');
   const base = head + SYSTEM_PROMPT_BASE;
   if (projects <= 0) return base;
   return (

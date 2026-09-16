@@ -64,6 +64,10 @@ export interface Env {
   ttsLanguage: string;
   /** Hany projekt van jelenleg folyamatban. Ez szabja meg a hataridosavot. */
   currentProjects: number;
+  /** Ide kapcsoljuk a magyar (+36) hivasokat, E.164 alakban. Ures = nincs atkapcsolas. */
+  ownerPhone: string;
+  /** Ennyi masodpercig cseng a tulajdonos telefonja, mielott az agent atveszi. */
+  ownerRingSeconds: number;
 }
 
 let cached: Env | null = null;
@@ -77,6 +81,16 @@ export function env(): Env {
   const resendApiKey = optional('RESEND_API_KEY', '');
   const twilioAccountSid = optional('TWILIO_ACCOUNT_SID', '');
   const twilioSmsFrom = optional('TWILIO_SMS_FROM', '+18024249852');
+
+  // A szam a Railway valtozojaba kerul, nem a kodba: a repo nyilvanos.
+  const ownerRaw = optional('OWNER_PHONE', '').replace(/[\s().-]/g, '');
+  const ownerPhone = /^\+[1-9]\d{6,14}$/.test(ownerRaw) ? ownerRaw : '';
+  if (ownerRaw !== '' && ownerPhone === '') {
+    console.warn(
+      '[env] OWNER_PHONE ervenytelen (+36301234567 alakban kell), ' +
+        'az atkapcsolas KI van kapcsolva.',
+    );
+  }
 
   const built: Env = {
     port: intOption('PORT', 8080, 1, 65535),
@@ -119,6 +133,11 @@ export function env(): Env {
     // Adatbazis helyett ez a legolcsobb megoldas egyetlen szamra, ami
     // havonta ha ketszer valtozik.
     currentProjects: intOption('CURRENT_PROJECTS', 0, 0, 50),
+
+    ownerPhone,
+    // Husz masodperc alatt a legtobb mobil meg nem kapcsol hangpostara, es a
+    // hivo sem teszi le addig.
+    ownerRingSeconds: intOption('OWNER_RING_SECONDS', 20, 5, 60),
   };
 
   cached = built;
@@ -136,6 +155,13 @@ export function env(): Env {
       '[env] Hivas-osszefoglalo email KI van kapcsolva ' +
         '(NOTIFY_EMAIL vagy RESEND_API_KEY hianyzik). ' +
         'Az osszefoglalo ilyenkor csak a logba kerul.',
+    );
+  }
+
+  if (built.ownerPhone === '') {
+    console.warn(
+      '[env] Atkapcsolas KI van kapcsolva (OWNER_PHONE hianyzik). ' +
+        'A magyar hivasokat is az agent fogadja.',
     );
   }
 

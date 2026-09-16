@@ -8,9 +8,12 @@
 
 import twilio from 'twilio';
 import { env } from './env.js';
+import type { Lang } from './routing.js';
 
-const CONTACT_MESSAGE =
-  'AXIMBRA - koszonjuk a hivast! Irjon nekunk: aximbra@gmail.com';
+const CONTACT_MESSAGE: Record<Lang, string> = {
+  hu: 'AXIMBRA - koszonjuk a hivast! Irjon nekunk: aximbra@gmail.com',
+  en: 'AXIMBRA - thank you for calling! Write to us: aximbra@gmail.com',
+};
 
 /** Egyszeru E.164 ellenorzes: + jel es 8-15 szamjegy. */
 function looksLikeE164(value: string): boolean {
@@ -27,7 +30,7 @@ function twilioClient(): ReturnType<typeof twilio> {
   return client;
 }
 
-export async function sendContactSms(to: string): Promise<void> {
+export async function sendContactSms(to: string, lang: Lang = 'hu'): Promise<void> {
   const cfg = env();
 
   if (!cfg.smsEnabled) return;
@@ -41,7 +44,7 @@ export async function sendContactSms(to: string): Promise<void> {
     const message = await twilioClient().messages.create({
       to,
       from: cfg.twilioSmsFrom,
-      body: CONTACT_MESSAGE,
+      body: CONTACT_MESSAGE[lang],
     });
     console.log(`[sms] elkuldve to=${to} sid=${message.sid}`);
   } catch (err) {

@@ -1,9 +1,12 @@
 /**
  * AXIMBRA telefonos agent.
  *
- * Ket vegpont:
- *   POST /twiml  - Twilio webhook. Eldonti, fogadjuk-e a hivast, es
- *                  visszaadja a ConversationRelay konfiguraciot.
+ * Vegpontok:
+ *   POST /twiml  - Twilio webhook. Eldonti, ki fogadja a hivast (routing.ts):
+ *                  magyar szamnal a tulajdonos, kulonben az agent.
+ *   POST /twiml/screen, /twiml/screen-done, /twiml/owner-done
+ *                - az atkapcsolas lepesei: szures a tulajdonos telefonjan, es
+ *                  az agent, ha nem fogadta.
  *   WS   /relay  - a beszelgetes maga. A Twilio ide kuldi a leiratot,
  *                  es innen varja a kimondando szoveget.
  *
@@ -31,12 +34,22 @@ import { sendSummary } from './email.js';
 import { sendContactSms } from './sms.js';
 import { handleTestRoute, handleTestRelay } from './testAgent.js';
 import {
-  GREETING,
   FAILURE_MESSAGE,
-  TIME_LIMIT_MESSAGE,
   FACTS_PROMPT,
   buildSystemPrompt,
+  lines,
 } from './prompt.js';
+import {
+  routeCall,
+  isCallSid,
+  ownerDialTwiml,
+  screenTwiml,
+  screenDoneTwiml,
+  takeAccepted,
+  HANGUP_TWIML,
+  type Lang,
+} from './routing.js';
+import { escapeXml } from './xml.js';
 
 const cfg = env();
 
@@ -44,29 +57,34 @@ const cfg = env();
 /* TwiML                                                               */
 /* ------------------------------------------------------------------ */
 
-function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
+/** Az angol hang rogzitett; a magyar a Railway valtozokbol jon (env.ts). */
+const EN_VOICE = {
+  language: 'en-US',
+  ttsProvider: 'Google',
+  ttsVoice: 'en-US-Wavenet-F',
+  sayVoice: 'Google.en-US-Wavenet-F',
+};
 
-function relayTwiml(host: string): string {
+function relayTwiml(host: string, lang: Lang): string {
   // A <Language> gyerekelemek nyelvenkent adjak meg a hangot es a
-  // felismerest. Ket nyelv van felveve: magyar az alap, angol pedig azert,
-  // hogy a hivas kozbeni nyelvvaltas ne ervenytelen konfiguraciora fusson.
+  // felismerest. Mindket nyelv mindig fel van veve, hogy a hivas kozbeni
+  // nyelvvaltas ne ervenytelen konfiguraciora fusson; a `lang` csak azt
+  // donti el, melyiken kezdunk.
+  const start =
+    lang === 'en'
+      ? { language: EN_VOICE.language, ttsProvider: EN_VOICE.ttsProvider, voice: EN_VOICE.ttsVoice }
+      : { language: 'hu-HU', ttsProvider: cfg.ttsProvider, voice: cfg.ttsVoice };
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
     <ConversationRelay
-      url="wss://${escapeXml(host)}/relay"
-      welcomeGreeting="${escapeXml(GREETING)}"
-      language="hu-HU"
+      url="wss://${escapeXml(host)}/relay?lang=${lang}"
+      welcomeGreeting="${escapeXml(lines(lang).greeting)}"
+      language="${escapeXml(start.language)}"
       hints="Aximbra,AI ügynökség,agent,automatizálás,e-mail rendező,érdeklődő minősítő,árajánlat,elérhetőség"
-      ttsProvider="${escapeXml(cfg.ttsProvider)}"
-      voice="${escapeXml(cfg.ttsVoice)}"
+      ttsProvider="${escapeXml(start.ttsProvider)}"
+      voice="${escapeXml(start.voice)}"
       interruptible="speech"
       interruptSensitivity="${escapeXml(process.env['INTERRUPT_SENSITIVITY'] ?? 'low')}"
       speechTimeout="${escapeXml(process.env['SPEECH_TIMEOUT'] ?? '1500')}"
@@ -74,11 +92,26 @@ function relayTwiml(host: string): string {
       welcomeGreetingInterruptible="none"
       reportInputDuringAgentSpeech="none">
       <Language code="hu-HU" ttsProvider="${escapeXml(cfg.ttsProvider)}" voice="${escapeXml(cfg.ttsVoice)}" />
-      <Language code="en-US" ttsProvider="Google" voice="en-US-Wavenet-F" />
+      <Language code="${EN_VOICE.language}" ttsProvider="${EN_VOICE.ttsProvider}" voice="${EN_VOICE.ttsVoice}" />
     </ConversationRelay>
   </Connect>
 </Response>`;
 }
+
+const REJECT_MESSAGES: Record<Lang, Record<'daily' | 'concurrent', string>> = {
+  hu: {
+    concurrent:
+      'Köszönjük a hívást. Jelenleg minden vonalunk foglalt, kérjük, próbálja újra néhány perc múlva. Viszonthallásra!',
+    daily:
+      'Köszönjük a hívást. A bemutató vonal mai kerete betelt. Kérjük, írjon nekünk az aximbra kukac gmail pont com címre, vagy próbálja meg holnap. Viszonthallásra!',
+  },
+  en: {
+    concurrent:
+      'Thank you for calling. All our lines are busy right now, please try again in a few minutes. Goodbye!',
+    daily:
+      "Thank you for calling. Today's limit for this demo line has been reached. Please email us at aximbra at gmail dot com, or try again tomorrow. Goodbye!",
+  },
+};
 
 /**
  * Elutasito valasz.
@@ -86,17 +119,90 @@ function relayTwiml(host: string): string {
  * Szandekosan beszelunk, nem <Reject>-elunk: egy foglalt jelzes egy
  * marketingoldalon szereplo szamnal ugy hangzik, mintha a ceg nem letezne.
  */
-function rejectTwiml(reason: 'daily' | 'concurrent'): string {
-  const message =
-    reason === 'concurrent'
-      ? 'Köszönjük a hívást. Jelenleg minden vonalunk foglalt, kérjük, próbálja újra néhány perc múlva. Viszonthallásra!'
-      : 'Köszönjük a hívást. A bemutató vonal mai kerete betelt. Kérjük, írjon nekünk az aximbra kukac gmail pont com címre, vagy próbálja meg holnap. Viszonthallásra!';
+function rejectTwiml(reason: 'daily' | 'concurrent', lang: Lang): string {
+  const voice = lang === 'en' ? EN_VOICE.sayVoice : cfg.sayVoice;
+  const language = lang === 'en' ? EN_VOICE.language : cfg.ttsLanguage;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="${escapeXml(cfg.sayVoice)}" language="${escapeXml(cfg.ttsLanguage)}">${escapeXml(message)}</Say>
+  <Say voice="${escapeXml(voice)}" language="${escapeXml(language)}">${escapeXml(REJECT_MESSAGES[lang][reason])}</Say>
   <Hangup/>
 </Response>`;
+}
+
+/** Az agenthez kapcsolas, a napi es egyideju keret ellenorzesevel. */
+function agentTwiml(host: string, lang: Lang, from: string): string {
+  const verdict = admitCall();
+
+  if (!verdict.allowed) {
+    console.log(
+      `[http] hivas elutasitva (${verdict.reason}) from=${from} ` +
+        `${verdict.count}/${verdict.limit}`,
+    );
+    return rejectTwiml(verdict.reason, lang);
+  }
+
+  console.log(
+    `[http] hivas elfogadva lang=${lang} from=${from} ${verdict.count}/${verdict.limit}`,
+  );
+  return relayTwiml(host, lang);
+}
+
+/** A Twilio altal hivott utvonalak. Mind alairt POST. */
+const TWIML_PATHS = new Set(['/twiml', '/twiml/screen', '/twiml/screen-done', '/twiml/owner-done']);
+
+function twimlFor(
+  path: string,
+  params: URLSearchParams,
+  query: URLSearchParams,
+  host: string,
+): string {
+  const from = params.get('From') ?? '<ismeretlen>';
+
+  switch (path) {
+    case '/twiml': {
+      const route = routeCall(params.get('From'), cfg.ownerPhone);
+      const callSid = params.get('CallSid') ?? '';
+
+      // Azonosito nelkul nem tudnank kovetni, fogadta-e a hivast - ilyenkor
+      // inkabb az agent veszi fel, mint hogy a hivo elveszjen.
+      if (route.to === 'owner' && isCallSid(callSid)) {
+        console.log(`[http] atkapcsolas a tulajdonoshoz from=${from}`);
+        return ownerDialTwiml({
+          host,
+          ownerPhone: cfg.ownerPhone,
+          ringSeconds: cfg.ownerRingSeconds,
+          callSid,
+          calledNumber: params.get('To') ?? '',
+        });
+      }
+      return agentTwiml(host, route.to === 'agent' ? route.lang : 'hu', from);
+    }
+
+    case '/twiml/screen':
+      return screenTwiml(host, query.get('parent') ?? '', cfg.sayVoice, cfg.ttsLanguage);
+
+    case '/twiml/screen-done':
+      return screenDoneTwiml(params.get('Digits') ?? '', query.get('parent') ?? '');
+
+    case '/twiml/owner-done': {
+      if (takeAccepted(params.get('CallSid') ?? '')) return HANGUP_TWIML;
+
+      // A hivo letette, mig csengett: nincs kit az agenthez kapcsolni, es a
+      // napi keretbol sem vonunk le erte.
+      const status = params.get('CallStatus') ?? '';
+      if (status === 'completed' || status === 'canceled') return HANGUP_TWIML;
+
+      console.log(
+        `[http] a tulajdonos nem fogadta (${params.get('DialCallStatus') ?? '?'}), ` +
+          `agent veszi at from=${from}`,
+      );
+      return agentTwiml(host, 'hu', from);
+    }
+
+    default:
+      return HANGUP_TWIML;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -183,7 +289,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (req.method === 'POST' && path === '/twiml') {
+  if (req.method === 'POST' && TWIML_PATHS.has(path)) {
     void (async () => {
       try {
         const raw = await readBody(req);
@@ -197,39 +303,25 @@ const server = http.createServer((req, res) => {
         }
 
         if (cfg.validateSignature) {
+          // A Twilio a teljes URL-t irja ala, a query stringgel egyutt - a
+          // szuresi lepesek a hivas azonositojat ott viszik tovabb.
           const ok = validTwilioSignature(
             req.headers['x-twilio-signature'] as string | undefined,
-            `https://${cfg.publicHostname}/twiml`,
+            `https://${cfg.publicHostname}${rawUrl}`,
             params,
           );
           if (!ok) {
-            console.warn('[http] ervenytelen Twilio alairas, elutasitva');
+            console.warn(`[http] ervenytelen Twilio alairas (${path}), elutasitva`);
             res.writeHead(403, { 'content-type': 'text/plain' });
             res.end('forbidden');
             return;
           }
         }
 
-        const verdict = admitCall();
-        const from = params.get('From') ?? '<ismeretlen>';
-
-        if (!verdict.allowed) {
-          console.log(
-            `[http] hivas elutasitva (${verdict.reason}) from=${from} ` +
-              `${verdict.count}/${verdict.limit}`,
-          );
-          res.writeHead(200, { 'content-type': 'text/xml' });
-          res.end(rejectTwiml(verdict.reason));
-          return;
-        }
-
-        console.log(
-          `[http] hivas elfogadva from=${from} ${verdict.count}/${verdict.limit}`,
-        );
         res.writeHead(200, { 'content-type': 'text/xml' });
-        res.end(relayTwiml(host));
+        res.end(twimlFor(path, params, query, host));
       } catch (err) {
-        console.error('[http] /twiml hiba:', err);
+        console.error(`[http] ${path} hiba:`, err);
         res.writeHead(500, { 'content-type': 'text/xml' });
         res.end(
           `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${escapeXml(cfg.sayVoice)}" language="${escapeXml(cfg.ttsLanguage)}">${escapeXml(FAILURE_MESSAGE)}</Say><Hangup/></Response>`,
@@ -302,14 +394,19 @@ interface Session {
   extracting: boolean;
 }
 
-wss.on('connection', (ws: WebSocket) => {
+wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
   callStarted();
+
+  // A nyelvet a relayTwiml teszi az URL-be: a routing ott mar eldontotte.
+  const relayQuery = new URLSearchParams((req.url ?? '').split('?')[1] ?? '');
+  const lang: Lang = relayQuery.get('lang') === 'en' ? 'en' : 'hu';
+  const say = lines(lang);
 
   const s: Session = {
     // A welcomeGreeting-et a Twilio mondja ki, nem mi. Ha nem tesszuk be a
     // tortenetbe, a modell nem tud rola, hogy mar koszontunk - es az elso
     // valaszaban ujra bemutatkozik. Pontosan ez tortent elesben.
-    history: [{ role: 'assistant', content: GREETING }],
+    history: [{ role: 'assistant', content: say.greeting }],
     from: '<ismeretlen>',
     callSid: '<ismeretlen>',
     startedAt: Date.now(),
@@ -339,7 +436,7 @@ wss.on('connection', (ws: WebSocket) => {
     try {
       const full = await replyStream(
         s.history,
-        buildSystemPrompt(cfg.currentProjects, s.facts, s.from),
+        buildSystemPrompt(cfg.currentProjects, s.facts, s.from, lang),
         (delta) => {
           s.streamed += delta;
           send(delta, false);
@@ -365,8 +462,8 @@ wss.on('connection', (ws: WebSocket) => {
         send('', true);
         s.history.push({ role: 'assistant', content: s.streamed.trim() });
       } else {
-        send(FAILURE_MESSAGE, true);
-        s.history.push({ role: 'assistant', content: FAILURE_MESSAGE });
+        send(say.failure, true);
+        s.history.push({ role: 'assistant', content: say.failure });
       }
     } finally {
       s.speaking = false;
@@ -434,7 +531,7 @@ wss.on('connection', (ws: WebSocket) => {
     // Ha eppen beszelunk, elobb elvagjuk - kulonben ket szoveg keveredne.
     s.abort?.abort();
     s.queue.length = 0;
-    send(TIME_LIMIT_MESSAGE, true);
+    send(say.timeLimit, true);
     setTimeout(() => {
       if (ws.readyState === ws.OPEN) ws.close(1000, 'time limit');
     }, 6_000);
@@ -531,7 +628,7 @@ wss.on('connection', (ws: WebSocket) => {
         console.error('[ws] osszefoglalo kuldes hiba:', err);
       }
       try {
-        await sendContactSms(s.from);
+        await sendContactSms(s.from, lang);
       } catch (err) {
         console.error('[ws] SMS kuldes hiba:', err);
       }
@@ -549,7 +646,8 @@ server.listen(cfg.port, '0.0.0.0', () => {
   console.log(`[start] AXIMBRA voice agent fut a ${cfg.port} porton`);
   console.log(
     `[start] napi keret=${cfg.maxCallsPerDay} hivashossz=${cfg.maxCallSeconds}s ` +
-      `modell=${cfg.model} alairas-ellenorzes=${cfg.validateSignature}`,
+      `modell=${cfg.model} alairas-ellenorzes=${cfg.validateSignature} ` +
+      `atkapcsolas=${cfg.ownerPhone !== ''}`,
   );
 });
 

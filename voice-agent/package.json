@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
+    "test": "tsc -p tsconfig.json && node --test dist/*.test.js",
     "dev": "tsc -w -p tsconfig.json"
   },
   "dependencies": {
