@@ -28,7 +28,8 @@ def offenders():
     """
     out = []
     for path in sorted(SRC.rglob("*.jsx")):
-        rel = str(path.relative_to(SRC))
+        # as_posix: Windowson a str() visszaperrel adna, es a HU_ONLY nem illeszkedne.
+        rel = path.relative_to(SRC).as_posix()
         if rel in HU_ONLY or rel.startswith("i18n/"):
             continue
         in_block = False
