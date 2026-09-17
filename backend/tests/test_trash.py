@@ -25,17 +25,17 @@ def _session(docs, can_trash=True, sample=False):
 
 
 def test_only_newsletter_and_spam_count_as_unimportant():
-    assert mail_agent._is_trashable({"category": "Hírlevél / marketing"})
-    assert mail_agent._is_trashable({"category": "Spam / kéretlen"})
-    for keep in ("Ügyfél – kérdés", "Számla / pénzügy", "Üzleti lehetőség",
-                 "Hatóság / hivatalos", "Szolgáltatói értesítés", "Egyéb"):
+    assert mail_agent._is_trashable({"category": "newsletter"})
+    assert mail_agent._is_trashable({"category": "spam"})
+    for keep in ("customer_question", "invoice", "opportunity",
+                 "authority", "provider_notice", "other"):
         assert not mail_agent._is_trashable({"category": keep}), keep
 
 
 def test_a_crafted_request_cannot_trash_important_mail():
     sid, h = _session([
-        {"id": "invoice", "category": "Számla / pénzügy"},
-        {"id": "junk", "category": "Hírlevél / marketing"},
+        {"id": "invoice", "category": "invoice"},
+        {"id": "junk", "category": "newsletter"},
     ], sample=True)
     r = c.post("/api/agent/email/trash", json={"ids": ["invoice"], "confirm": True}, headers=h)
     assert r.status_code == 200
@@ -45,21 +45,21 @@ def test_a_crafted_request_cannot_trash_important_mail():
 
 
 def test_ids_outside_the_run_are_refused():
-    sid, h = _session([{"id": "mine", "category": "Spam / kéretlen"}], sample=True)
+    sid, h = _session([{"id": "mine", "category": "spam"}], sample=True)
     r = c.post("/api/agent/email/trash", json={"ids": ["not-mine"], "confirm": True}, headers=h)
     assert r.json()["trashed"] == 0 and r.json()["refused"] == 1
     mail_agent._sessions.pop(sid, None)
 
 
 def test_without_confirmation_nothing_is_trashed():
-    sid, h = _session([{"id": "j", "category": "Spam / kéretlen"}], sample=True)
+    sid, h = _session([{"id": "j", "category": "spam"}], sample=True)
     assert c.post("/api/agent/email/trash", json={"ids": ["j"]}, headers=h).status_code == 400
     assert mail_agent._sessions[sid]["analyses"][0].get("trashed") is None
     mail_agent._sessions.pop(sid, None)
 
 
 def test_without_the_grant_a_real_mailbox_is_refused():
-    sid, h = _session([{"id": "j", "category": "Spam / kéretlen"}], can_trash=False)
+    sid, h = _session([{"id": "j", "category": "spam"}], can_trash=False)
     r = c.post("/api/agent/email/trash", json={"ids": ["j"], "confirm": True}, headers=h)
     assert r.status_code == 403
     mail_agent._sessions.pop(sid, None)
@@ -70,7 +70,7 @@ def test_trash_needs_a_session():
 
 
 def test_the_sample_mailbox_can_be_tidied_without_gmail():
-    sid, h = _session([{"id": "j", "category": "Hírlevél / marketing"}], sample=True)
+    sid, h = _session([{"id": "j", "category": "newsletter"}], sample=True)
     r = c.post("/api/agent/email/trash", json={"ids": ["j"], "confirm": True}, headers=h)
     assert r.json()["trashed"] == 1
     assert mail_agent._sessions[sid]["analyses"][0]["trashed"] is True
@@ -79,15 +79,15 @@ def test_the_sample_mailbox_can_be_tidied_without_gmail():
 
 def test_trashed_mail_leaves_the_results():
     sid, h = _session([
-        {"id": "gone", "category": "Spam / kéretlen", "trashed": True},
-        {"id": "here", "category": "Ügyfél – kérdés", "needs_reply": "igen"},
+        {"id": "gone", "category": "spam", "trashed": True},
+        {"id": "here", "category": "customer_question", "needs_reply": "igen"},
     ], sample=True)
     body = c.get("/api/agent/email/results", headers=h).json()
     assert [d["id"] for d in body["analyses"]] == ["here"]
     assert body["trashed"] == 1 and body["total"] == 2
     # A kategória-diagram is a listát követi: egy oszlop, ami alatta már nem
     # látható levelet számol, csak ellentmondana annak, ami a lapon van.
-    assert body["counts"] == {"Ügyfél – kérdés": 1}
+    assert body["counts"] == {"customer_question": 1}
     mail_agent._sessions.pop(sid, None)
 
 
@@ -113,3 +113,10 @@ def test_nothing_is_ever_deleted_permanently():
     assert "batchDelete" not in src
     assert ".delete(" not in src
     assert ".trash(" in src
+
+
+def test_trashable_categories_are_keys_the_classifier_actually_returns():
+    """Élesben üres volt a kidobható lista: a halmaz a magyar feliratokat
+    sorolta, az osztályozó viszont kulcsot ad vissza. Ez a teszt a kettőt köti össze."""
+    assert mail_agent.TRASHABLE_CATEGORIES <= server.AGENT_CATEGORIES
+    assert mail_agent.TRASHABLE_CATEGORIES == {"newsletter", "spam"}

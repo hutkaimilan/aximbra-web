@@ -132,7 +132,12 @@ MODIFY_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
 
 # Only these two categories may ever be trashed. Anything the classifier put
 # elsewhere stays out of reach of the button, whatever the browser asks for.
-TRASHABLE_CATEGORIES = {"Hírlevél / marketing", "Spam / kéretlen"}
+#
+# These are the classifier's keys (server.AGENT_CATEGORIES), not the labels the
+# page shows. The first version listed the Hungarian labels, which no analysis
+# ever carries, so the trashable list was always empty and the cleanup button
+# never appeared - on a real mailbox with five newsletters and three spam mails.
+TRASHABLE_CATEGORIES = {"newsletter", "spam"}
 
 
 def _scopes_for(with_compose: bool, with_modify: bool) -> list:
