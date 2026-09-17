@@ -179,13 +179,25 @@ function AdatkezelesHu({ lang }) {
               ezen felül a <code>gmail.compose</code> jogot is. A Google-nak nincs „csak
               vázlat” jogosultsága, ezért ez a jog önmagában küldést is lehetővé tenne —
               a rendszer viszont soha nem küld magától: küldeni csak akkor küld, ha egy
-              adott levélnél te külön megerősíted.
+              adott levélnél te külön megerősíted. Ha a takarítást pipálod be, a{" "}
+              <code>gmail.modify</code> jogot is kérjük: egy meglévő levél áthelyezéséhez
+              az olvasás nem elég.
             </li>
             <li>
               <b>Mit írunk:</b> pipa nélkül semmit. Vázlatírással levelenként, mindig a te
               külön megerősítésed után: egy válaszvázlatot a Gmail Vázlatok közé, és ha azt
-              is megerősíted, ennek a vázlatnak az elküldését. Meglévő leveleidhez soha nem
-              nyúlunk — nem címkézünk, nem csillagozunk, nem törlünk.
+              is megerősíted, ennek a vázlatnak az elküldését.
+            </li>
+            <li>
+              <b>Mit mozgatunk:</b> pipa nélkül semmit. A takarítással is csak azokat a
+              leveleket, amelyeket az agent hírlevélnek vagy kéretlen levélnek sorolt be —
+              hogy melyik ilyen, azt a kiszolgáló dönti el a most futó elemzés alapján,
+              tehát más levél a gombbal nem érhető el. Az áthelyezés mindig a te
+              kattintásodra történik, tömeges törlésnél külön megerősítéssel. A levelek a
+              Gmail Kukájába kerülnek (<code>users.messages.trash</code>), ahonnan a Gmail
+              30 napig visszaállítja őket — véglegesen (<code>delete</code>,{" "}
+              <code>batchDelete</code>) semmit nem törlünk. Címkét nem adunk és nem
+              csillagozunk.
             </li>
             <li>
               <b>Hová kerül:</b> a levelek szövegét osztályozásonként egy-egy hívásban

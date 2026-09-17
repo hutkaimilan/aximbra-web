@@ -111,11 +111,17 @@ https://console.cloud.google.com/auth/branding
 https://console.cloud.google.com/auth/audience → a **Publishing status**
 legyen **In production**, a **User type** **External**.
 
-https://console.cloud.google.com/auth/scopes (Data Access) → **Add or remove scopes** → legyen bent pontosan ez a négy:
+https://console.cloud.google.com/auth/scopes (Data Access) → **Add or remove scopes** → legyen bent pontosan ez az öt:
 - `.../auth/gmail.readonly`
 - `.../auth/gmail.compose`
+- `.../auth/gmail.modify`
 - `openid`
 - `.../auth/userinfo.email`
+
+**Ezt most kézzel be kell tenni.** A `gmail.modify` új: enélkül, aki a
+csatlakozásnál bepipálja a takarítást, hibát kap a Google-tól, mert olyan
+jogot kérünk, amit a beleegyező képernyőn nem hirdettünk meg. A pipa nélküli
+(csak olvasás) és a vázlatíró út enélkül is működik.
 
 A jogosultságok indoklását és a videó linkjét a Google a beadáskor kéri — a
 szövegek lent vannak, csak be kell másolni őket.
@@ -157,8 +163,8 @@ attachments per email when the body alone is not enough — and shows each one w
 a category (for example customer complaint, invoice, authority notice, spam), an
 urgency score and a suggested next step. A narrower scope is not sufficient:
 gmail.metadata does not include message bodies, which the classification needs,
-and gmail.labels gives no message content. The agent never labels, modifies or
-deletes existing mail. The data lives only in server memory for a single session
+and gmail.labels gives no message content. With this scope alone the agent only
+reads; it never modifies existing mail. The data lives only in server memory for a single session
 that ends after 30 minutes or when the user logs out; it is not stored in a
 database, not used for advertising and not used to train AI models.
 
@@ -173,6 +179,23 @@ draft sent. Google offers no drafts-only scope, and gmail.send cannot create or
 update drafts, so gmail.compose is the narrowest scope that supports saving a
 reply as a draft. The app never sends anything without the user's confirmation
 for that specific email.
+
+## Scope justification — `gmail.modify`
+
+Requested only when the user ticks "tidy up" on the connect screen; the box is
+unticked by default, and it is separate from the drafting box. After the agent
+has categorised the user's recent mail, it marks the messages it classified as
+newsletters or unsolicited mail, and offers a button that moves those - and only
+those - to the user's Gmail Trash. The eligible set is decided on the server from
+the categories of the run the user is looking at, so no other message can be
+reached; bulk deletion asks for a confirmation on the page first. The app only
+ever calls users.messages.trash, never users.messages.delete or batchDelete, so
+every message stays recoverable in the user's Trash for the period Gmail
+provides. A narrower scope is not sufficient: gmail.readonly cannot move a
+message, gmail.compose only creates drafts and cannot touch an existing message's
+labels, and Google offers no trash-only scope. The app never moves anything
+without the user clicking for that specific message or confirming the bulk
+action.
 
 ## How the app uses Google user data (short description)
 
@@ -190,8 +213,8 @@ used for advertising. Privacy notice: https://aximbra.hu/en/adatkezeles
    Scroll to section **6. Limited use of Google user data** and pause.
 2. Open `https://aximbra.hu/en/demo/email-agent`. Click the link under the sample
    button to connect a real Google account.
-3. Tick the **write drafts** box, so the consent screen shows both Gmail
-   permissions. Pause on the Limited Use statement under the button.
+3. Tick the **write drafts** and the **tidy up** boxes, so the consent screen
+   shows all three Gmail permissions. Pause on the Limited Use statement under the button.
 4. Click **Connect — read and write drafts**. Choose the Google account.
 5. If the "unverified app" warning appears: **Advanced** → continue.
 6. On the consent screen, click once into the browser's address bar so the full
@@ -204,5 +227,9 @@ used for advertising. Privacy notice: https://aximbra.hu/en/adatkezeles
    it is threaded to the original. *(This shows gmail.compose.)*
 9. Back on the site, confirm **send** for that draft. In Gmail open **Sent** and
    show the message.
+9b. Scroll to the **Unimportant mail** block. Show that only newsletters and junk
+   carry the mark, click **Trash** on one of them, then use **Delete all** and
+   confirm. Open Gmail → **Trash** and show the messages sitting there,
+   recoverable. *(This shows gmail.modify.)*
 10. On the site click **Log out and disconnect**. Open
     `https://myaccount.google.com/permissions` and show that access can be removed there.

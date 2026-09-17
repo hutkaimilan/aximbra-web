@@ -88,7 +88,7 @@ const agent = {
         "válaszolnod. Amelyikre kéred, a választ is megfogalmazza.",
       guarantees: [
         { t: "Alapból csak olvas.", d: "A lenti pipa nélkül semmit nem ír a fiókodba, és a küldési jogot sem kéri." },
-        { t: "A meglévő leveleidhez soha nem nyúl.", d: "Nem címkéz, nem csillagoz, nem töröl — akkor sem, ha megadod az írási jogot." },
+        { t: "A meglévő leveleidhez csak a te kattintásodra nyúl.", d: "Külön pipa után a hírleveleket és a kéretlen leveleket a Kukába teheted egy gombbal — mást soha, és mindig te kattintasz. A Gmail a Kukából 30 napig visszaállítja őket; véglegesen semmit nem törlünk." },
         { t: "Írni és küldeni csak a te engedélyeddel.", d: "Ha bepipálod, akkor is levelenként külön rákérdezünk, mielőtt vázlatot írna vagy elküldene bármit." },
         { t: "Semmit nem tárolunk.", d: "A futás 30 perc után magától lejár. A lap bezárásakor a böngésző jelez, és azonnal törlődik — ha a jelzés nem ér célba, marad a 30 perces határidő." },
       ],
@@ -315,7 +315,7 @@ const agent = {
         "answer. For the ones you pick, it writes the reply too.",
       guarantees: [
         { t: "Read-only by default.", d: "Without the checkbox below it writes nothing into your account and does not ask for send access." },
-        { t: "It never touches your existing mail.", d: "No labels, no stars, no deleting — not even with write access granted." },
+        { t: "It touches your existing mail only when you click.", d: "With a separate tick you can move newsletters and junk to Trash with one button — nothing else, ever, and you always click. Gmail keeps anything in Trash recoverable for about 30 days; nothing is deleted for good." },
         { t: "Writing and sending only with your permission.", d: "Even with the box ticked, we ask separately for each email before it writes a draft or sends anything." },
         { t: "We store nothing.", d: "The run expires by itself after 30 minutes. Closing the page signals the server and deletes it at once — and if that signal does not arrive, the 30-minute limit still ends it." },
       ],
@@ -542,7 +542,7 @@ const agent = {
         "Antwort brauchen. Für die von Ihnen gewählten formuliert er die Antwort gleich mit.",
       guarantees: [
         { t: "Standardmäßig nur lesend.", d: "Ohne das Häkchen unten schreibt er nichts in Ihr Konto und fragt auch kein Senderecht an." },
-        { t: "Ihre vorhandenen Mails rührt er nie an.", d: "Kein Labeln, kein Markieren, kein Löschen — auch nicht mit Schreibrecht." },
+        { t: "Vorhandene Mails rührt er nur auf Ihren Klick an.", d: "Mit einem eigenen Häkchen verschieben Sie Newsletter und Werbung per Knopf in den Papierkorb — sonst nichts, und geklickt wird immer von Ihnen. Aus dem Papierkorb stellt Gmail sie rund 30 Tage lang wieder her; endgültig gelöscht wird nichts." },
         { t: "Schreiben und Senden nur mit Ihrer Erlaubnis.", d: "Auch mit Häkchen fragen wir pro E-Mail einzeln nach, bevor ein Entwurf entsteht oder etwas rausgeht." },
         { t: "Wir speichern nichts.", d: "Der Lauf verfällt nach 30 Minuten von selbst. Beim Schließen der Seite meldet der Browser das und er wird sofort gelöscht — kommt die Meldung nicht an, bleibt die 30-Minuten-Frist." },
       ],
@@ -771,7 +771,7 @@ const agent = {
         "los que elijas, redacta también la respuesta.",
       guarantees: [
         { t: "Por defecto solo lee.", d: "Sin la casilla de abajo no escribe nada en tu cuenta ni pide permiso de envío." },
-        { t: "Nunca toca tus correos existentes.", d: "No etiqueta, no destaca, no borra — ni siquiera con permiso de escritura." },
+        { t: "Solo toca tus correos existentes cuando haces clic.", d: "Con una casilla aparte puedes mover boletines y correo basura a la Papelera con un botón — nada más, y siempre haces clic tú. Gmail los conserva recuperables unos 30 días; no se borra nada de forma definitiva." },
         { t: "Escribir y enviar solo con tu permiso.", d: "Incluso con la casilla marcada preguntamos por separado en cada correo antes de escribir un borrador o enviar nada." },
         { t: "No almacenamos nada.", d: "La ejecución caduca sola a los 30 minutos. Al cerrar la página el navegador avisa y se borra al instante — y si ese aviso no llega, queda el límite de 30 minutos." },
       ],
@@ -998,7 +998,7 @@ const agent = {
         "Pour ceux que vous choisissez, il rédige aussi la réponse.",
       guarantees: [
         { t: "En lecture seule par défaut.", d: "Sans la case ci-dessous, il n'écrit rien dans votre compte et ne demande pas le droit d'envoi." },
-        { t: "Il ne touche jamais à vos messages existants.", d: "Pas de libellé, pas d'étoile, pas de suppression — même avec le droit d'écriture." },
+        { t: "Il ne touche à vos messages existants que si vous cliquez.", d: "Avec une case distincte, vous envoyez newsletters et courriers indésirables à la Corbeille en un bouton — rien d'autre, et c'est toujours vous qui cliquez. Gmail les garde récupérables une trentaine de jours ; rien n'est supprimé définitivement." },
         { t: "Écrire et envoyer seulement avec votre accord.", d: "Même la case cochée, nous redemandons message par message avant d'écrire un brouillon ou d'envoyer quoi que ce soit." },
         { t: "Nous ne stockons rien.", d: "L'exécution expire d'elle-même au bout de 30 minutes. À la fermeture de la page, le navigateur prévient et elle est supprimée aussitôt — si ce signal n'arrive pas, la limite de 30 minutes s'applique." },
       ],
@@ -1225,7 +1225,7 @@ const agent = {
         "quelli che scegli, scrive anche la risposta.",
       guarantees: [
         { t: "Di base legge soltanto.", d: "Senza la casella qui sotto non scrive nulla nel tuo account e non chiede il permesso di invio." },
-        { t: "Non tocca mai la posta esistente.", d: "Niente etichette, niente stelle, niente cancellazioni — nemmeno con il permesso di scrittura." },
+        { t: "Tocca la posta esistente solo se clicchi tu.", d: "Con una spunta a parte puoi mandare newsletter e posta indesiderata nel Cestino con un pulsante — nient'altro, e a cliccare sei sempre tu. Gmail le tiene recuperabili per circa 30 giorni; non viene eliminato nulla in modo definitivo." },
         { t: "Scrive e invia solo con il tuo permesso.", d: "Anche con la casella spuntata chiediamo conferma per ogni singolo messaggio prima di scrivere una bozza o inviare qualcosa." },
         { t: "Non conserviamo nulla.", d: "L'esecuzione scade da sola dopo 30 minuti. Chiudendo la pagina il browser lo segnala e viene cancellata subito — se il segnale non arriva, resta il limite di 30 minuti." },
       ],
@@ -1454,7 +1454,7 @@ const agent = {
         "cele alese, scrie și răspunsul.",
       guarantees: [
         { t: "Implicit doar citește.", d: "Fără bifa de mai jos nu scrie nimic în contul tău și nu cere nici dreptul de trimitere." },
-        { t: "Nu se atinge niciodată de mesajele existente.", d: "Fără etichete, fără stele, fără ștergeri — nici măcar cu drept de scriere." },
+        { t: "Se atinge de mesajele existente doar la clicul tău.", d: "Cu o bifă separată poți trimite buletinele informative și mesajele nesolicitate în Coșul de gunoi cu un buton — nimic altceva, și tu ești cel care dă clic. Gmail le păstrează recuperabile circa 30 de zile; nimic nu se șterge definitiv." },
         { t: "Scrie și trimite doar cu permisiunea ta.", d: "Chiar și cu bifa pusă întrebăm separat la fiecare mesaj înainte să scrie o ciornă sau să trimită ceva." },
         { t: "Nu stocăm nimic.", d: "Rularea expiră singură după 30 de minute. La închiderea paginii browserul anunță serverul și se șterge imediat — dacă semnalul nu ajunge, rămâne limita de 30 de minute." },
       ],
@@ -1681,7 +1681,7 @@ const agent = {
         "ktoré vyberiete, napíše aj odpoveď.",
       guarantees: [
         { t: "Predvolene iba číta.", d: "Bez zaškrtnutia nižšie nezapíše do vášho účtu nič a nežiada ani právo na odosielanie." },
-        { t: "Existujúcej pošty sa nikdy nedotkne.", d: "Žiadne štítky, žiadne hviezdičky, žiadne mazanie — ani s právom na zápis." },
+        { t: "Existujúcej pošty sa dotkne len na váš klik.", d: "Po samostatnom zaškrtnutí presuniete newslettery a nevyžiadanú poštu do Koša jedným tlačidlom — nič iné, a klikáte vždy vy. Gmail ich z Koša obnoví ešte asi 30 dní; natrvalo sa nemaže nič." },
         { t: "Písať a odosielať len s vaším súhlasom.", d: "Aj so zaškrtnutím sa pri každej správe pýtame zvlášť, kým napíše koncept alebo niečo odošle." },
         { t: "Nič neukladáme.", d: "Beh sám vyprší po 30 minútach. Pri zatvorení stránky to prehliadač ohlási a beh sa hneď zmaže — ak sa hlásenie nedoručí, platí 30-minútový limit." },
       ],

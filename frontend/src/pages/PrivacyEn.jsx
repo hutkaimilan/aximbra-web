@@ -167,13 +167,24 @@ export default function PrivacyEn({ lang }) {
               (<code>gmail.readonly</code>). If you separately tick draft writing, also{" "}
               <code>gmail.compose</code>. Google has no "drafts only" permission, so this
               permission would in itself also allow sending — but the system never sends on
-              its own: it only sends when you separately confirm it for a specific email.
+              its own: it only sends when you separately confirm it for a specific email. If
+              you tick the cleanup box, we also ask for <code>gmail.modify</code>: reading is
+              not enough to move an existing message.
             </li>
             <li>
               <b>What we write:</b> without the tick, nothing. With draft writing, for one
               email at a time and always after your separate confirmation: a reply draft in
-              your Gmail Drafts, and — if you confirm that too — sending that draft. We never
-              touch your existing emails — no labelling, no starring, no deleting.
+              your Gmail Drafts, and — if you confirm that too — sending that draft.
+            </li>
+            <li>
+              <b>What we move:</b> without the tick, nothing. Even with cleanup, only the
+              messages the agent classified as newsletters or unsolicited mail — which ones
+              those are is decided by the server from the analysis currently open, so no
+              other message can be reached by the button. Moving always happens on your
+              click, with a separate confirmation for bulk deletion. Messages go to your
+              Gmail Trash (<code>users.messages.trash</code>), where Gmail keeps them
+              recoverable for about 30 days — we never delete anything permanently
+              (<code>delete</code>, <code>batchDelete</code>). We do not label or star.
             </li>
             <li>
               <b>Where it goes:</b> the text of the emails is sent to the OpenAI API, one call
