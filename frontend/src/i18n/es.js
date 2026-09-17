@@ -19,7 +19,7 @@ const es = {
     intro: "AGENTES DE IA · BUDAPEST",
   },
   hero: {
-    phoneCta: { origin: "Número de EE. UU. (Twilio) — las llamadas de números no húngaros las atiende el agente de IA" },
+    phoneCta: { badge: "IA", note: "Atendida por un agente de IA · en inglés y húngaro", origin: "Número de EE. UU. (Twilio) — las llamadas de números no húngaros las atiende el agente de IA" },
     eyebrow: "Budapest · agencia de IA",
     h1: ["No creamos", "chatbots. Creamos un", "compañero de trabajo."],
     sub: "Creamos agentes de IA para empresas que hacen un trabajo concreto — ordenan correos, califican consultas, atienden el teléfono. No entregamos una demo, sino un sistema que funciona y que mantenemos vivo.",

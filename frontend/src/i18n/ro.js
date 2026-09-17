@@ -19,7 +19,7 @@ const ro = {
     intro: "AGENȚI AI · BUDAPESTA",
   },
   hero: {
-    phoneCta: { origin: "Număr din SUA (Twilio) — apelurile de pe numere din afara Ungariei le preia agentul AI" },
+    phoneCta: { badge: "AI", note: "Preluat de un agent AI · în engleză și maghiară", origin: "Număr din SUA (Twilio) — apelurile de pe numere din afara Ungariei le preia agentul AI" },
     eyebrow: "Budapesta · agenție AI",
     h1: ["Nu construim", "chatboți. Ci un", "coleg de muncă."],
     sub: "Construim agenți AI pentru companii, care fac o muncă concretă — sortează e-mailuri, califică solicitări, răspund la telefon. Nu predăm o demonstrație, ci un sistem funcțional pe care îl menținem în viață.",

@@ -19,7 +19,7 @@ const de = {
     intro: "KI-AGENTEN · BUDAPEST",
   },
   hero: {
-    phoneCta: { origin: "US-Nummer (Twilio) — Anrufe von nicht-ungarischen Nummern nimmt der KI-Agent an" },
+    phoneCta: { badge: "AI", note: "Wird von einem KI-Agenten angenommen · auf Englisch und Ungarisch", origin: "US-Nummer (Twilio) — Anrufe von nicht-ungarischen Nummern nimmt der KI-Agent an" },
     eyebrow: "Budapest · KI-Agentur",
     h1: ["Wir bauen keine", "Chatbots. Wir bauen", "Mitarbeiter."],
     sub: "Wir bauen KI-Agenten für Unternehmen, die eine konkrete Aufgabe erledigen — E-Mails sortieren, Anfragen qualifizieren, ans Telefon gehen. Wir übergeben keine Demo, sondern ein funktionierendes System, das wir am Leben halten.",
