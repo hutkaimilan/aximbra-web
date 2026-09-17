@@ -112,10 +112,10 @@ _fernet = Fernet((os.environ.get("AGENT_SESSION_KEY") or Fernet.generate_key().d
 #
 # COMPOSE adds gmail.compose, which is what Gmail requires to put a draft in
 # someone's mailbox. Be clear-eyed about it: Google has no draft-only scope, so
-# gmail.compose also *permits* sending, and the consent screen says so. This code
-# never sends — SafeGmailProxy refuses every send-type call and a test holds that
-# line — but the grant is wider than what we use, and the page states that in
-# those words before the box can be ticked.
+# gmail.compose also permits sending, and the consent screen says so. Sending
+# happens in exactly one place — /draft/send, on a draft the visitor confirmed
+# for that one email — and every other Gmail call goes through a proxy that
+# refuses send outright. The page states this before the box can be ticked.
 GMAIL_SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "openid",
@@ -836,8 +836,9 @@ async def save_draft(request: Request, body: SaveDraftBody):
         visitor ticked the box and Google granted gmail.compose;
       * `confirm` must be true for this specific email.
 
-    The draft is created, never sent — the visitor opens Gmail and presses Send
-    themselves. SafeGmailProxy refuses every send-type call regardless.
+    This endpoint only creates the draft; the visitor opens Gmail and presses
+    Send, or confirms it separately at /draft/send. The proxy built here refuses
+    every send-type call, so nothing leaves the mailbox on this path.
     """
     sess = _require(request)
     if sess.get("sample"):
