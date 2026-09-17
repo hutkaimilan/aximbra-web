@@ -75,13 +75,22 @@ function relayTwiml(host: string, lang: Lang): string {
       ? { language: EN_VOICE.language, ttsProvider: EN_VOICE.ttsProvider, voice: EN_VOICE.ttsVoice }
       : { language: 'hu-HU', ttsProvider: cfg.ttsProvider, voice: cfg.ttsVoice };
 
+  // A `language` attributum EGYSZERRE allitana a TTS-t es a felismerest -
+  // ez tette tonkre elesben a +36-tal nem kezdodo, de magyarul beszelo
+  // hivo hivasat: a felismero angolra allt, es az egesz beszelgetes
+  // ertelmezhetetlen szoveget irt at (lasd a teszt-agent 2026-09-17-i
+  // felvetelet). A ket beallitas KULON kell: a koszones es a hang
+  // igazodhat a hivo szamahoz, a felismeres viszont MINDIG magyar marad,
+  // mert nincs megbizhato automatikus nyelvfelismeres beallitva (ahhoz
+  // Deepgram + ElevenLabs kellene, itt Google fut).
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
     <ConversationRelay
       url="wss://${escapeXml(host)}/relay?lang=${lang}"
       welcomeGreeting="${escapeXml(lines(lang).greeting)}"
-      language="${escapeXml(start.language)}"
+      ttsLanguage="${escapeXml(start.language)}"
+      transcriptionLanguage="hu-HU"
       hints="Aximbra,AI ügynökség,agent,automatizálás,e-mail rendező,érdeklődő minősítő,árajánlat,elérhetőség"
       ttsProvider="${escapeXml(start.ttsProvider)}"
       voice="${escapeXml(start.voice)}"
