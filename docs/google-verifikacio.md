@@ -1,0 +1,208 @@
+# Google-jóváhagyás a Gmail-bekötéshez — lépésről lépésre
+
+Amíg a Google nem hagyja jóvá az alkalmazást, minden látogató a piros
+„A Google nem ellenőrizte ezt az alkalmazást” képernyőt látja, és összesen
+legfeljebb 100 felhasználó csatlakozhat. Ez kódból nem tüntethető el.
+
+**Mennyi idő:** a te részed kb. 1–2 óra, több napra elosztva. A Google
+átnézése hetekig tarthat.
+**Mennyibe kerül:** a Google jóváhagyása ingyenes, de a Gmail-olvasáshoz évente
+kötelező egy független biztonsági vizsgálat (CASA). Ezt egy elfogadott labor
+végzi, és te fizeted: nagyságrendileg évi néhány száz, akár ezer-kétezer dollár.
+A pontos szintet és árat a Google e-mailben közli a beadás után.
+
+A lépések sorrendje számít. Mindegyik után elég nekem annyit írnod, hogy „kész”.
+
+---
+
+## Amit már megcsináltam
+
+- **Angol adatkezelési tájékoztató:** https://aximbra.hu/en/adatkezeles
+  (a magyar marad az irányadó, az angol lap ki is írja).
+- **A Google-adatok korlátozott felhasználásáról szóló nyilatkozat** a
+  tájékoztató 6. pontjában, és most már a bekötés gombja alatt is, mind a 8
+  nyelven, linkkel a tájékoztatóra.
+- **Egyértelmű mondat arról, hogy az OpenAI az API-n kapott adattal nem tanít
+  modellt** — a Google ellenőrei ezt kérdezik a legtöbbször.
+
+---
+
+## 1. lépés — `api.aximbra.hu` a Railway-en és a Cloudflare-en (kb. 10 perc)
+
+Miért: a Gmail-belépés után a Google egy `…up.railway.app` címre küldi vissza a
+látogatót. A Google csak olyan címet fogad el, amelyről igazolod, hogy a tiéd —
+ezért kell a saját `aximbra.hu` alá költöztetni.
+
+**Railway:**
+1. Nyisd meg: https://railway.com/project/b568b02b-0610-47da-967a-12ef5bcf6e7d/service/1c739e18-26aa-48f3-9b9e-e18534091f6c/settings?environmentId=bd933f1e-b0e0-4afc-88c2-5e43856d82fc
+2. **Networking** → **Public Networking** → **+ Custom Domain**
+3. Írd be: `api.aximbra.hu` → ha portot kér, válaszd azt, amit felajánl → **Add**
+4. A Railway két rekordot mutat: egy **CNAME**-et és egy **TXT**-t. Hagyd nyitva ezt a fület.
+
+**Cloudflare:**
+1. https://dash.cloudflare.com → **aximbra.hu** → **DNS** → **Records**
+2. **Add record** → Type: **CNAME** → Name: `api` → Target: amit a Railway a CNAME-hez írt →
+   **Proxy status: kapcsold KI (szürke felhő, „DNS only”)** → **Save**
+3. **Add record** → Type: **TXT** → Name: `_railway-verify.api` → Content: amit a Railway a
+   TXT-hez írt → **Save**
+
+A proxyt azért kell kikapcsolni, mert a négynapos domainhibát pont a bekapcsolt
+narancssárga felhő okozta.
+
+Pár perc múlva a Railway-en zöld pipa jelenik meg a domain mellett. Írd meg, és
+ellenőrzöm.
+
+*(Megjegyzés: a Railway segédje korábban tévedésből létrehozott egy felesleges
+`aximbra-api-production-cfea.up.railway.app` címet is. Nem árt semminek, a
+Networking alatt a kuka ikonnal törölhető.)*
+
+---
+
+## 2. lépés — a domain igazolása a Google Search Console-ban (kb. 5 perc)
+
+Ugyanazzal a Google-fiókkal csináld, amelyik a Google Cloud projekt tulajdonosa
+(a piros képernyőn ez állt fejlesztőként: `hutkaimilan11@gmail.com`).
+
+1. https://search.google.com/search-console → bal fent a tulajdonságválasztó →
+   **Tulajdon hozzáadása**
+2. A bal oldali **Domain** dobozba írd: `aximbra.hu` → **Folytatás**
+3. A Google ad egy `google-site-verification=…` kezdetű szöveget → **másold ki**
+4. Cloudflare → aximbra.hu → DNS → **Add record** → Type: **TXT** → Name: `@` →
+   Content: a kimásolt szöveg → **Save**
+5. Vissza a Search Console-ba → **Ellenőrzés**. Ha elsőre nem sikerül, várj 10 percet, és próbáld újra.
+
+---
+
+## 3. lépés — az új visszatérési cím beállítása (kb. 5 perc)
+
+Csak az 1. lépés zöld pipája után.
+
+**Google Cloud:**
+1. https://console.cloud.google.com/apis/credentials (felül a jó projekt legyen kiválasztva)
+2. **OAuth 2.0 Client IDs** alatt kattints a klienst nevére
+3. **Authorized redirect URIs** → **+ Add URI** →
+   `https://api.aximbra.hu/api/agent/email/callback` → **Save**
+   (A régit még ne töröld.)
+
+**Railway** — `aximbra-api` → **Variables**:
+- `AGENT_REDIRECT_URI` → írd át erre: `https://api.aximbra.hu/api/agent/email/callback` → pipa → **Deploy**
+
+Szólj, és kipróbálom, hogy a bekötés működik-e az új címmel.
+
+---
+
+## 4. lépés — az alkalmazás adatai a Google-nél (kb. 15 perc)
+
+https://console.cloud.google.com/auth/branding
+
+| Mező | Érték |
+|---|---|
+| App name | `AXIMBRA` |
+| User support email | `aximbra@gmail.com` (ha a listában nincs, a saját címed) |
+| App logo | hagyd üresen — logóval lassabb az átnézés |
+| Application home page | `https://aximbra.hu/en/demo/email-agent` |
+| Application privacy policy link | `https://aximbra.hu/en/adatkezeles` |
+| Application terms of service link | hagyd üresen |
+| Authorized domains | `aximbra.hu` |
+| Developer contact information | `aximbra@gmail.com` |
+
+→ **Save**
+
+https://console.cloud.google.com/auth/audience → a **Publishing status**
+legyen **In production**, a **User type** **External**.
+
+https://console.cloud.google.com/auth/scopes (Data Access) → **Add or remove scopes** → legyen bent pontosan ez a négy:
+- `.../auth/gmail.readonly`
+- `.../auth/gmail.compose`
+- `openid`
+- `.../auth/userinfo.email`
+
+A jogosultságok indoklását és a videó linkjét a Google a beadáskor kéri — a
+szövegek lent vannak, csak be kell másolni őket.
+
+---
+
+## 5. lépés — a demóvideó (kb. 20 perc)
+
+Beszélni nem kell, csak lassan végigkattintani. A felület legyen **angolul**.
+
+**Felvétel:** Windowson **Win + Alt + R** indítja és állítja le a felvételt (Xbox Game Bar),
+a videó a **Videók → Rögzítések** mappába kerül.
+**Feltöltés:** YouTube → **Létrehozás → Videó feltöltése** → láthatóság: **Nem nyilvános (Unlisted)**.
+
+A forgatókönyv lent van angolul (**Demo video script**). Minden képernyőnél
+várj 3–4 másodpercet, hogy a Google ellenőre el tudja olvasni.
+
+---
+
+## 6. lépés — beadás
+
+https://console.cloud.google.com/auth/verification → **Prepare for verification**
+→ a kérdéseknél másold be a lenti angol szövegeket és a YouTube-linket → **Submit**.
+
+Utána a Google e-mailben jelentkezik (a `hutkaimilan11@gmail.com` címre). Ha kérdeznek,
+küldd át nekem a levelet, és megírom a választ. A biztonsági vizsgálatról (CASA)
+is ők írnak, a labor kiválasztásában segítek.
+
+---
+
+# Bemásolható angol szövegek
+
+## Scope justification — `gmail.readonly`
+
+AXIMBRA's email triage agent reads the user's recent emails to sort them on the
+page. When the user connects their account, it reads at most 50 messages from the
+last 30 days — sender, subject, date and body, plus the text of up to two
+attachments per email when the body alone is not enough — and shows each one with
+a category (for example customer complaint, invoice, authority notice, spam), an
+urgency score and a suggested next step. A narrower scope is not sufficient:
+gmail.metadata does not include message bodies, which the classification needs,
+and gmail.labels gives no message content. The agent never labels, modifies or
+deletes existing mail. The data lives only in server memory for a single session
+that ends after 30 minutes or when the user logs out; it is not stored in a
+database, not used for advertising and not used to train AI models.
+
+## Scope justification — `gmail.compose`
+
+Requested only when the user ticks "write drafts" on the connect screen; the box
+is unticked by default. For an email the user selects, the agent writes a reply
+that the user reads on the page first. After a separate confirmation that names
+the recipient, that reply is saved into the user's Gmail Drafts, threaded onto
+the original conversation; only after a further explicit confirmation is that same
+draft sent. Google offers no drafts-only scope, and gmail.send cannot create or
+update drafts, so gmail.compose is the narrowest scope that supports saving a
+reply as a draft. The app never sends anything without the user's confirmation
+for that specific email.
+
+## How the app uses Google user data (short description)
+
+AXIMBRA is a Budapest-based AI agent studio. Its email triage agent helps a user
+see which emails need attention first: it categorises and ranks the user's recent
+Gmail messages on the page and, on request, drafts replies. Email content is sent
+to the OpenAI API only to produce this categorisation and the drafts shown to the
+user; under OpenAI's API terms it is not used to train models. Nothing is stored
+beyond the 30-minute session, no human reads the data, and it is never sold or
+used for advertising. Privacy notice: https://aximbra.hu/en/adatkezeles
+
+## Demo video script
+
+1. Open `https://aximbra.hu/en`. Scroll down to the footer and click **Privacy**.
+   Scroll to section **6. Limited use of Google user data** and pause.
+2. Open `https://aximbra.hu/en/demo/email-agent`. Click the link under the sample
+   button to connect a real Google account.
+3. Tick the **write drafts** box, so the consent screen shows both Gmail
+   permissions. Pause on the Limited Use statement under the button.
+4. Click **Connect — read and write drafts**. Choose the Google account.
+5. If the "unverified app" warning appears: **Advanced** → continue.
+6. On the consent screen, click once into the browser's address bar so the full
+   URL with `client_id` is visible, pause, then tick the permissions and click
+   **Continue**.
+7. Back on the site: wait for the run to finish. Scroll slowly through the list —
+   category, urgency and next step of each email. *(This shows gmail.readonly.)*
+8. Open one email, click **draft a reply**, read it, then confirm **save to Gmail
+   Drafts**. Open Gmail in a new tab → **Drafts** → open the saved reply to show
+   it is threaded to the original. *(This shows gmail.compose.)*
+9. Back on the site, confirm **send** for that draft. In Gmail open **Sent** and
+   show the message.
+10. On the site click **Log out and disconnect**. Open
+    `https://myaccount.google.com/permissions` and show that access can be removed there.

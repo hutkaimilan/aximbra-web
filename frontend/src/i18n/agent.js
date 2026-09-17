@@ -113,10 +113,7 @@ const agent = {
       scopeRead: "a leveleid olvasása. Ez mindig kell, és alapesetben ez az egyetlen jog, amit kérünk.",
       scopeIdentity: "hogy tudjuk, melyik fiókot nézzük.",
       scopeComposeLead: "csak ha bepipálod a vázlatírást.",
-      scopeCompose:
-        "Ettől tud vázlatot tenni a fiókodba. A Google-nak nincs „csak vázlat” jogosultsága, " +
-        "ezért ez küldést is engedne — ez a kód viszont soha nem küld, a küldés kódszinten " +
-        "tiltott. Pipa nélkül ezt a jogot nem is kérjük.",
+      scopeCompose: "Ettől tud vázlatot tenni a fiókodba, és ettől tudja elküldeni a választ, ha az adott levélnél külön megerősíted. A Google-nak nincs „csak vázlat” jogosultsága. Magától soha nem küld: küldés csak a te külön megerősítésedre történik. Pipa nélkül ezt a jogot nem is kérjük.",
       readTitle: "Mit olvasunk",
       read30: "Az elmúlt 30 nap legfeljebb 50 levele. Semmi régebbi, semmi több.",
       readFields: "Feladó, tárgy, dátum és a levél szövege.",
@@ -129,10 +126,7 @@ const agent = {
       writeTitle: "Mit írunk",
       writeNoneLead: "Pipa nélkül:",
       writeNone: "semmit. A fogalmazvány a lapon marad, te másolod ki.",
-      writeDraft:
-        "Vázlatírással: egyetlen dolgot, levelenként, a te külön megerősítésed után — egy " +
-        "válaszvázlatot a Gmail Vázlatok közé. Meglévő levelet nem módosítunk: nem címkézünk, " +
-        "nem csillagozunk, nem törlünk, és nem küldünk el semmit.",
+      writeDraft: "Vázlatírással, levelenként és mindig a te külön megerősítésed után: egy válaszvázlatot a Gmail Vázlatok közé, és ha azt is megerősíted, ennek a vázlatnak az elküldését. Meglévő levelet nem módosítunk: nem címkézünk, nem csillagozunk, nem törlünk.",
       whereTitle: "Hová kerül",
       whereLlm:
         "A levél szövegét egyetlen osztályozó hívásban elküldjük az OpenAI API-jának. Az API-n " +
@@ -183,14 +177,12 @@ const agent = {
       optinBody:
         "Ha bepipálod, az agent a megírt választ — a te külön megerősítésed után, levelenként — " +
         "beteszi a Gmail Vázlatok közé, a saját levelezőszálára. Elküldeni akkor is csak te tudod.",
-      optinWarn:
-        "Fontos: a Google-nak nincs „csak vázlat” jogosultsága, ezért a beleegyező képernyő " +
-        "küldési jogot is említeni fog. Ez a kód soha nem küld levelet — a küldés kódszinten " +
-        "tiltott —, de a jogosultság, amit megadsz, ennél szélesebb. Ha ez nem kényelmes, hagyd " +
-        "üresen: a fogalmazás pipa nélkül is működik, csak kimásolni kell.",
+      optinWarn: "Fontos: a Google-nak nincs „csak vázlat” jogosultsága, ezért a beleegyező képernyő küldési jogot is említeni fog. Az agent magától soha nem küld levelet — csak azt a vázlatot, amelynek a küldését te külön megerősíted —, de a jogosultság, amit megadsz, ennél szélesebb. Ha ez nem kényelmes, hagyd üresen: a fogalmazás pipa nélkül is működik, csak kimásolni kell.",
       ctaRead: "Csatlakozás a Google-fiókhoz",
       ctaWrite: "Csatlakozás — olvasás és vázlatírás",
       redirecting: "Átirányítás…",
+      privacyLead: "Az AXIMBRA a Google API-kból kapott adatokat a Google API Services User Data Policy szerint használja és adja tovább, a korlátozott felhasználás (Limited Use) követelményeivel együtt.",
+      privacyLink: "Adatkezelési tájékoztató",
     },
     run: {
       sampleNoteTitle: "Példa postafiók.",
@@ -331,10 +323,7 @@ const agent = {
       scopeRead: "reading your mail. This is always needed, and by default it is the only permission we ask for.",
       scopeIdentity: "so we know which account we're looking at.",
       scopeComposeLead: "only if you tick draft writing.",
-      scopeCompose:
-        "This is what lets it place a draft in your account. Google has no draft-only permission, " +
-        "so it would also allow sending — but this code never sends, and sending is blocked at " +
-        "code level. Without the tick we do not request this permission at all.",
+      scopeCompose: "This is what lets it place a draft in your account, and send that reply if you confirm it for that email. Google has no draft-only permission. It never sends on its own: sending only happens after your separate confirmation. Without the tick we do not request this permission at all.",
       readTitle: "What we read",
       read30: "At most 50 messages from the last 30 days. Nothing older, nothing more.",
       readFields: "Sender, subject, date and the message body.",
@@ -347,10 +336,7 @@ const agent = {
       writeTitle: "What we write",
       writeNoneLead: "Without the tick:",
       writeNone: "nothing. The draft stays on the page and you copy it out.",
-      writeDraft:
-        "With draft writing: one single thing, per email, after your separate confirmation — a " +
-        "reply draft in Gmail Drafts. We do not modify existing mail: no labelling, no starring, " +
-        "no deleting, and we send nothing.",
+      writeDraft: "With draft writing, per email and always after your separate confirmation: a reply draft in Gmail Drafts, and — if you confirm that too — sending that draft. We do not modify existing mail: no labelling, no starring, no deleting.",
       whereTitle: "Where it goes",
       whereLlm:
         "The message text is sent to OpenAI's API in a single classification call. By default the " +
@@ -401,14 +387,12 @@ const agent = {
       optinBody:
         "If you tick this, the agent puts the reply it wrote — after your separate confirmation, " +
         "per email — into Gmail Drafts, on its own thread. Sending is still only yours to do.",
-      optinWarn:
-        "Important: Google has no draft-only permission, so the consent screen will mention send " +
-        "access as well. This code never sends an email — sending is blocked at code level — but " +
-        "the permission you grant is broader than that. If that is uncomfortable, leave it " +
-        "unticked: drafting works without it, you just copy the text out.",
+      optinWarn: "Important: Google has no draft-only permission, so the consent screen will mention send access as well. The agent never sends an email on its own — only a draft you separately confirm for sending — but the permission you grant is broader than that. If that is uncomfortable, leave it unticked: drafting works without it, you just copy the text out.",
       ctaRead: "Connect the Google account",
       ctaWrite: "Connect — read and write drafts",
       redirecting: "Redirecting…",
+      privacyLead: "AXIMBRA's use and transfer of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements.",
+      privacyLink: "Privacy notice",
     },
     run: {
       sampleNoteTitle: "Example mailbox.",
@@ -549,10 +533,7 @@ const agent = {
       scopeRead: "das Lesen Ihrer Mails. Das wird immer gebraucht und ist standardmäßig die einzige Berechtigung, die wir anfragen.",
       scopeIdentity: "damit wir wissen, welches Konto wir ansehen.",
       scopeComposeLead: "nur wenn Sie das Entwurfsschreiben ankreuzen.",
-      scopeCompose:
-        "Damit kann er einen Entwurf in Ihrem Konto ablegen. Google hat keine Nur-Entwurf-" +
-        "Berechtigung, daher würde sie auch das Senden erlauben — dieser Code sendet jedoch nie, " +
-        "das Senden ist auf Code-Ebene gesperrt. Ohne Häkchen fragen wir diese Berechtigung gar nicht an.",
+      scopeCompose: "Damit kann er einen Entwurf in Ihrem Konto ablegen und diese Antwort senden, wenn Sie das für die jeweilige E-Mail gesondert bestätigen. Google hat keine Nur-Entwurf-Berechtigung. Von sich aus sendet er nie: Gesendet wird nur nach Ihrer gesonderten Bestätigung. Ohne Häkchen fragen wir diese Berechtigung gar nicht an.",
       readTitle: "Was wir lesen",
       read30: "Höchstens 50 Nachrichten aus den letzten 30 Tagen. Nichts Älteres, nichts darüber hinaus.",
       readFields: "Absender, Betreff, Datum und den Text der Nachricht.",
@@ -565,10 +546,7 @@ const agent = {
       writeTitle: "Was wir schreiben",
       writeNoneLead: "Ohne Häkchen:",
       writeNone: "nichts. Der Entwurf bleibt auf der Seite, Sie kopieren ihn heraus.",
-      writeDraft:
-        "Mit Entwurfsschreiben: genau eine Sache, pro E-Mail, nach Ihrer gesonderten Bestätigung — " +
-        "einen Antwortentwurf in den Gmail-Entwürfen. Vorhandene Mails ändern wir nicht: kein " +
-        "Labeln, kein Markieren, kein Löschen, und wir senden nichts.",
+      writeDraft: "Mit Entwurfsschreiben, pro E-Mail und immer nach Ihrer gesonderten Bestätigung: einen Antwortentwurf in den Gmail-Entwürfen und — wenn Sie auch das bestätigen — das Senden dieses Entwurfs. Vorhandene Mails ändern wir nicht: kein Labeln, kein Markieren, kein Löschen.",
       whereTitle: "Wohin es geht",
       whereLlm:
         "Den Text der Nachricht senden wir in einem einzigen Klassifizierungsaufruf an die API von " +
@@ -621,15 +599,12 @@ const agent = {
         "Wenn Sie das ankreuzen, legt der Agent die geschriebene Antwort — nach Ihrer gesonderten " +
         "Bestätigung, pro E-Mail — in den Gmail-Entwürfen ab, im eigenen Verlauf. Senden können " +
         "weiterhin nur Sie.",
-      optinWarn:
-        "Wichtig: Google hat keine Nur-Entwurf-Berechtigung, daher wird der Zustimmungsbildschirm " +
-        "auch das Senderecht erwähnen. Dieser Code sendet nie eine E-Mail — das Senden ist auf " +
-        "Code-Ebene gesperrt —, aber die Berechtigung, die Sie erteilen, ist breiter. Wenn Ihnen " +
-        "das unangenehm ist, lassen Sie es leer: Das Formulieren funktioniert auch ohne Häkchen, " +
-        "Sie müssen den Text nur herauskopieren.",
+      optinWarn: "Wichtig: Google hat keine Nur-Entwurf-Berechtigung, daher wird der Zustimmungsbildschirm auch das Senderecht erwähnen. Der Agent sendet nie von sich aus eine E-Mail — nur einen Entwurf, dessen Versand Sie gesondert bestätigen —, aber die Berechtigung, die Sie erteilen, ist breiter. Wenn Ihnen das unangenehm ist, lassen Sie es leer: Das Formulieren funktioniert auch ohne Häkchen, Sie müssen den Text nur herauskopieren.",
       ctaRead: "Mit dem Google-Konto verbinden",
       ctaWrite: "Verbinden — lesen und Entwürfe schreiben",
       redirecting: "Weiterleitung…",
+      privacyLead: "Die Nutzung und Weitergabe von Daten, die AXIMBRA über Google-APIs erhält, entspricht der Google API Services User Data Policy, einschließlich der Anforderungen zur eingeschränkten Nutzung (Limited Use).",
+      privacyLink: "Datenschutzhinweis (Englisch)",
     },
     run: {
       sampleNoteTitle: "Beispiel-Postfach.",
@@ -770,10 +745,7 @@ const agent = {
       scopeRead: "leer tu correo. Siempre hace falta y, por defecto, es el único permiso que pedimos.",
       scopeIdentity: "para saber qué cuenta estamos mirando.",
       scopeComposeLead: "solo si marcas la escritura de borradores.",
-      scopeCompose:
-        "Es lo que le permite dejar un borrador en tu cuenta. Google no tiene un permiso de " +
-        "«solo borrador», así que también permitiría enviar — pero este código nunca envía: el " +
-        "envío está bloqueado a nivel de código. Sin la marca ni siquiera pedimos este permiso.",
+      scopeCompose: "Es lo que le permite dejar un borrador en tu cuenta y enviar esa respuesta si lo confirmas para ese correo. Google no tiene un permiso de «solo borrador». Nunca envía por su cuenta: solo envía tras tu confirmación aparte. Sin la marca ni siquiera pedimos este permiso.",
       readTitle: "Qué leemos",
       read30: "Como mucho 50 mensajes de los últimos 30 días. Nada más antiguo, nada más.",
       readFields: "Remitente, asunto, fecha y el cuerpo del mensaje.",
@@ -786,10 +758,7 @@ const agent = {
       writeTitle: "Qué escribimos",
       writeNoneLead: "Sin la marca:",
       writeNone: "nada. El borrador se queda en la página y lo copias tú.",
-      writeDraft:
-        "Con escritura de borradores: una sola cosa, por correo, tras tu confirmación aparte — un " +
-        "borrador de respuesta en Borradores de Gmail. No modificamos correos existentes: no " +
-        "etiquetamos, no destacamos, no borramos, y no enviamos nada.",
+      writeDraft: "Con escritura de borradores, correo a correo y siempre tras tu confirmación aparte: un borrador de respuesta en Borradores de Gmail y, si también lo confirmas, el envío de ese borrador. No modificamos correos existentes: no etiquetamos, no destacamos, no borramos.",
       whereTitle: "Adónde va",
       whereLlm:
         "El texto del mensaje se envía a la API de OpenAI en una única llamada de clasificación. " +
@@ -840,15 +809,12 @@ const agent = {
       optinBody:
         "Si lo marcas, el agente deja la respuesta redactada — tras tu confirmación aparte, correo " +
         "a correo — en Borradores de Gmail, en su propio hilo. Enviarlo sigue siendo cosa tuya.",
-      optinWarn:
-        "Importante: Google no tiene un permiso de «solo borrador», así que la pantalla de " +
-        "consentimiento mencionará también el permiso de envío. Este código nunca envía un correo " +
-        "— el envío está bloqueado a nivel de código —, pero el permiso que concedes es más " +
-        "amplio. Si eso te incomoda, déjalo sin marcar: la redacción funciona igual, solo hay que " +
-        "copiar el texto.",
+      optinWarn: "Importante: Google no tiene un permiso de «solo borrador», así que la pantalla de consentimiento mencionará también el permiso de envío. El agente nunca envía un correo por su cuenta — solo un borrador cuyo envío confirmas aparte —, pero el permiso que concedes es más amplio. Si eso te incomoda, déjalo sin marcar: la redacción funciona igual, solo hay que copiar el texto.",
       ctaRead: "Conectar la cuenta de Google",
       ctaWrite: "Conectar — leer y escribir borradores",
       redirecting: "Redirigiendo…",
+      privacyLead: "El uso y la transferencia por parte de AXIMBRA de la información recibida de las API de Google se ajustan a la Google API Services User Data Policy, incluidos los requisitos de uso limitado (Limited Use).",
+      privacyLink: "Aviso de privacidad (en inglés)",
     },
     run: {
       sampleNoteTitle: "Buzón de ejemplo.",
@@ -989,11 +955,7 @@ const agent = {
       scopeRead: "la lecture de vos messages. Toujours nécessaire, et par défaut c'est la seule autorisation demandée.",
       scopeIdentity: "pour savoir quel compte nous consultons.",
       scopeComposeLead: "uniquement si vous cochez l'écriture de brouillons.",
-      scopeCompose:
-        "C'est ce qui lui permet de déposer un brouillon dans votre compte. Google n'a pas " +
-        "d'autorisation « brouillon seul », elle permettrait donc aussi l'envoi — mais ce code " +
-        "n'envoie jamais : l'envoi est bloqué au niveau du code. Sans la case, cette autorisation " +
-        "n'est même pas demandée.",
+      scopeCompose: "C'est ce qui lui permet de déposer un brouillon dans votre compte, et d'envoyer cette réponse si vous le confirmez pour ce message. Google n'a pas d'autorisation « brouillon seul ». Il n'envoie jamais de lui-même : l'envoi n'a lieu qu'après votre confirmation distincte. Sans la case, cette autorisation n'est même pas demandée.",
       readTitle: "Ce que nous lisons",
       read30: "Au plus 50 messages des 30 derniers jours. Rien de plus ancien, rien de plus.",
       readFields: "Expéditeur, objet, date et le corps du message.",
@@ -1006,11 +968,7 @@ const agent = {
       writeTitle: "Ce que nous écrivons",
       writeNoneLead: "Sans la case :",
       writeNone: "rien. Le brouillon reste sur la page, c'est vous qui le copiez.",
-      writeDraft:
-        "Avec l'écriture de brouillons : une seule chose, message par message, après votre " +
-        "confirmation distincte — un brouillon de réponse dans les Brouillons Gmail. Nous ne " +
-        "modifions pas les messages existants : pas de libellé, pas d'étoile, pas de suppression, " +
-        "et nous n'envoyons rien.",
+      writeDraft: "Avec l'écriture de brouillons, message par message et toujours après votre confirmation distincte : un brouillon de réponse dans les Brouillons Gmail et, si vous le confirmez aussi, l'envoi de ce brouillon. Nous ne modifions pas les messages existants : pas de libellé, pas d'étoile, pas de suppression.",
       whereTitle: "Où cela va",
       whereLlm:
         "Le texte du message est envoyé à l'API d'OpenAI en un seul appel de classement. Par " +
@@ -1061,14 +1019,12 @@ const agent = {
       optinBody:
         "Si vous cochez, l'agent dépose la réponse rédigée — après votre confirmation distincte, " +
         "message par message — dans les Brouillons Gmail, dans son propre fil. L'envoi reste à vous seul.",
-      optinWarn:
-        "Important : Google n'a pas d'autorisation « brouillon seul », l'écran de consentement " +
-        "mentionnera donc aussi le droit d'envoi. Ce code n'envoie jamais d'e-mail — l'envoi est " +
-        "bloqué au niveau du code —, mais l'autorisation que vous accordez est plus large. Si cela " +
-        "vous gêne, laissez la case vide : la rédaction fonctionne sans, il suffit de copier le texte.",
+      optinWarn: "Important : Google n'a pas d'autorisation « brouillon seul », l'écran de consentement mentionnera donc aussi le droit d'envoi. L'agent n'envoie jamais d'e-mail de lui-même — seulement un brouillon dont vous confirmez l'envoi séparément —, mais l'autorisation que vous accordez est plus large. Si cela vous gêne, laissez la case vide : la rédaction fonctionne sans, il suffit de copier le texte.",
       ctaRead: "Connecter le compte Google",
       ctaWrite: "Connecter — lecture et écriture de brouillons",
       redirecting: "Redirection…",
+      privacyLead: "L'utilisation et le transfert par AXIMBRA des informations reçues des API Google respectent la Google API Services User Data Policy, y compris les exigences d'utilisation limitée (Limited Use).",
+      privacyLink: "Politique de confidentialité (en anglais)",
     },
     run: {
       sampleNoteTitle: "Boîte d'exemple.",
@@ -1209,10 +1165,7 @@ const agent = {
       scopeRead: "la lettura della tua posta. Serve sempre e, di base, è l'unico permesso che chiediamo.",
       scopeIdentity: "per sapere quale account stiamo guardando.",
       scopeComposeLead: "solo se spunti la scrittura delle bozze.",
-      scopeCompose:
-        "È ciò che gli permette di lasciare una bozza nel tuo account. Google non ha un permesso " +
-        "di «sola bozza», quindi consentirebbe anche l'invio — ma questo codice non invia mai: " +
-        "l'invio è bloccato a livello di codice. Senza la spunta questo permesso non viene nemmeno chiesto.",
+      scopeCompose: "È ciò che gli permette di lasciare una bozza nel tuo account e di inviare quella risposta se lo confermi per quel messaggio. Google non ha un permesso di «sola bozza». Non invia mai di sua iniziativa: l'invio avviene solo dopo la tua conferma separata. Senza la spunta questo permesso non viene nemmeno chiesto.",
       readTitle: "Che cosa leggiamo",
       read30: "Al massimo 50 messaggi degli ultimi 30 giorni. Niente di più vecchio, niente di più.",
       readFields: "Mittente, oggetto, data e il testo del messaggio.",
@@ -1225,10 +1178,7 @@ const agent = {
       writeTitle: "Che cosa scriviamo",
       writeNoneLead: "Senza la spunta:",
       writeNone: "nulla. La bozza resta sulla pagina e la copi tu.",
-      writeDraft:
-        "Con la scrittura delle bozze: una cosa sola, per ogni messaggio, dopo la tua conferma " +
-        "separata — una bozza di risposta nelle Bozze di Gmail. Non modifichiamo la posta " +
-        "esistente: niente etichette, niente stelle, niente cancellazioni, e non inviamo nulla.",
+      writeDraft: "Con la scrittura delle bozze, messaggio per messaggio e sempre dopo la tua conferma separata: una bozza di risposta nelle Bozze di Gmail e, se confermi anche questo, l'invio di quella bozza. Non modifichiamo la posta esistente: niente etichette, niente stelle, niente cancellazioni.",
       whereTitle: "Dove finisce",
       whereLlm:
         "Il testo del messaggio viene inviato all'API di OpenAI in una sola chiamata di " +
@@ -1281,14 +1231,12 @@ const agent = {
         "Se lo spunti, l'agente mette la risposta scritta — dopo la tua conferma separata, " +
         "messaggio per messaggio — nelle Bozze di Gmail, nella sua conversazione. Inviarla resta " +
         "comunque solo tuo.",
-      optinWarn:
-        "Importante: Google non ha un permesso di «sola bozza», quindi la schermata di consenso " +
-        "citerà anche il diritto di invio. Questo codice non invia mai un'e-mail — l'invio è " +
-        "bloccato a livello di codice —, ma il permesso che concedi è più ampio. Se questo ti " +
-        "mette a disagio, lascialo vuoto: la stesura funziona anche senza, basta copiare il testo.",
+      optinWarn: "Importante: Google non ha un permesso di «sola bozza», quindi la schermata di consenso citerà anche il diritto di invio. L'agente non invia mai un'e-mail di sua iniziativa — solo una bozza di cui confermi l'invio separatamente —, ma il permesso che concedi è più ampio. Se questo ti mette a disagio, lascialo vuoto: la stesura funziona anche senza, basta copiare il testo.",
       ctaRead: "Collega l'account Google",
       ctaWrite: "Collega — lettura e scrittura di bozze",
       redirecting: "Reindirizzamento…",
+      privacyLead: "L'uso e il trasferimento da parte di AXIMBRA delle informazioni ricevute dalle API di Google rispettano la Google API Services User Data Policy, inclusi i requisiti di uso limitato (Limited Use).",
+      privacyLink: "Informativa sulla privacy (in inglese)",
     },
     run: {
       sampleNoteTitle: "Casella di esempio.",
@@ -1429,10 +1377,7 @@ const agent = {
       scopeRead: "citirea mesajelor tale. Este mereu necesară și, implicit, este singura permisiune pe care o cerem.",
       scopeIdentity: "ca să știm ce cont ne uităm.",
       scopeComposeLead: "doar dacă bifezi scrierea de ciorne.",
-      scopeCompose:
-        "Asta îi permite să lase o ciornă în contul tău. Google nu are o permisiune „doar ciornă\", " +
-        "așa că aceasta ar permite și trimiterea — dar acest cod nu trimite niciodată: trimiterea " +
-        "este blocată la nivel de cod. Fără bifă nici nu cerem această permisiune.",
+      scopeCompose: "Asta îi permite să lase o ciornă în contul tău și să trimită acel răspuns dacă tu confirmi pentru mesajul respectiv. Google nu are o permisiune „doar ciornă”. Nu trimite niciodată din proprie inițiativă: trimiterea are loc doar după confirmarea ta separată. Fără bifă nici nu cerem această permisiune.",
       readTitle: "Ce citim",
       read30: "Cel mult 50 de mesaje din ultimele 30 de zile. Nimic mai vechi, nimic în plus.",
       readFields: "Expeditor, subiect, dată și textul mesajului.",
@@ -1445,10 +1390,7 @@ const agent = {
       writeTitle: "Ce scriem",
       writeNoneLead: "Fără bifă:",
       writeNone: "nimic. Ciorna rămâne pe pagină și o copiezi tu.",
-      writeDraft:
-        "Cu scrierea de ciorne: un singur lucru, pentru fiecare mesaj, după confirmarea ta " +
-        "separată — o ciornă de răspuns în Ciornele Gmail. Nu modificăm mesajele existente: fără " +
-        "etichete, fără stele, fără ștergeri și nu trimitem nimic.",
+      writeDraft: "Cu scrierea de ciorne, mesaj cu mesaj și mereu după confirmarea ta separată: o ciornă de răspuns în Ciornele Gmail și, dacă confirmi și asta, trimiterea acelei ciorne. Nu modificăm mesajele existente: fără etichete, fără stele, fără ștergeri.",
       whereTitle: "Unde ajunge",
       whereLlm:
         "Textul mesajului este trimis către API-ul OpenAI într-un singur apel de clasificare. " +
@@ -1499,15 +1441,12 @@ const agent = {
       optinBody:
         "Dacă bifezi, agentul pune răspunsul scris — după confirmarea ta separată, mesaj cu mesaj " +
         "— în Ciornele Gmail, pe firul lui. Trimiterea rămâne tot la tine.",
-      optinWarn:
-        "Important: Google nu are o permisiune „doar ciornă\", așa că ecranul de consimțământ va " +
-        "menționa și dreptul de trimitere. Acest cod nu trimite niciodată un e-mail — trimiterea " +
-        "este blocată la nivel de cod —, dar permisiunea pe care o acorzi este mai largă. Dacă " +
-        "asta nu îți convine, las-o nebifată: formularea funcționează și fără, doar trebuie să " +
-        "copiezi textul.",
+      optinWarn: "Important: Google nu are o permisiune „doar ciornă”, așa că ecranul de consimțământ va menționa și dreptul de trimitere. Agentul nu trimite niciodată un e-mail din proprie inițiativă — doar o ciornă a cărei trimitere o confirmi separat —, dar permisiunea pe care o acorzi este mai largă. Dacă asta nu îți convine, las-o nebifată: formularea funcționează și fără, doar trebuie să copiezi textul.",
       ctaRead: "Conectează contul Google",
       ctaWrite: "Conectează — citire și scriere de ciorne",
       redirecting: "Redirecționare…",
+      privacyLead: "Utilizarea și transferul de către AXIMBRA ale informațiilor primite prin API-urile Google respectă Google API Services User Data Policy, inclusiv cerințele de utilizare limitată (Limited Use).",
+      privacyLink: "Notă de confidențialitate (în engleză)",
     },
     run: {
       sampleNoteTitle: "Căsuță de exemplu.",
@@ -1648,10 +1587,7 @@ const agent = {
       scopeRead: "čítanie vašej pošty. Je vždy potrebné a predvolene je to jediné povolenie, ktoré žiadame.",
       scopeIdentity: "aby sme vedeli, na ktorý účet sa pozeráme.",
       scopeComposeLead: "iba ak zaškrtnete písanie konceptov.",
-      scopeCompose:
-        "Vďaka nemu môže vo vašom účte nechať koncept. Google nemá povolenie „iba koncept\", takže " +
-        "by umožnilo aj odosielanie — tento kód však nikdy neodosiela, odoslanie je zablokované na " +
-        "úrovni kódu. Bez zaškrtnutia toto povolenie ani nežiadame.",
+      scopeCompose: "Vďaka nemu môže vo vašom účte nechať koncept a odoslať túto odpoveď, ak to pri danej správe potvrdíte. Google nemá povolenie „iba koncept“. Sám od seba nikdy neodosiela: odoslanie prebehne len po vašom samostatnom potvrdení. Bez zaškrtnutia toto povolenie ani nežiadame.",
       readTitle: "Čo čítame",
       read30: "Najviac 50 správ za posledných 30 dní. Nič staršie, nič navyše.",
       readFields: "Odosielateľ, predmet, dátum a text správy.",
@@ -1663,10 +1599,7 @@ const agent = {
       writeTitle: "Čo píšeme",
       writeNoneLead: "Bez zaškrtnutia:",
       writeNone: "nič. Koncept zostane na stránke a skopírujete si ho vy.",
-      writeDraft:
-        "S písaním konceptov: jedinú vec, pri každej správe, po vašom samostatnom potvrdení — " +
-        "koncept odpovede medzi koncepty Gmailu. Existujúcu poštu neupravujeme: žiadne štítky, " +
-        "hviezdičky ani mazanie, a nič neodosielame.",
+      writeDraft: "S písaním konceptov, pri každej správe a vždy po vašom samostatnom potvrdení: koncept odpovede medzi koncepty Gmailu a — ak potvrdíte aj to — odoslanie tohto konceptu. Existujúcu poštu neupravujeme: žiadne štítky, hviezdičky ani mazanie.",
       whereTitle: "Kam to ide",
       whereLlm:
         "Text správy pošleme v jedinom klasifikačnom volaní do API OpenAI. Údaje odoslané cez API " +
@@ -1717,14 +1650,12 @@ const agent = {
       optinBody:
         "Ak to zaškrtnete, agent vloží napísanú odpoveď — po vašom samostatnom potvrdení, správu " +
         "po správe — medzi koncepty Gmailu, do jej vlastného vlákna. Odoslať ju aj tak môžete len vy.",
-      optinWarn:
-        "Dôležité: Google nemá povolenie „iba koncept\", preto obrazovka so súhlasom spomenie aj " +
-        "právo na odosielanie. Tento kód nikdy neodošle e-mail — odoslanie je zablokované na " +
-        "úrovni kódu —, ale povolenie, ktoré udelíte, je širšie. Ak vám to nevyhovuje, nechajte to " +
-        "prázdne: formulovanie funguje aj bez toho, text si len skopírujete.",
+      optinWarn: "Dôležité: Google nemá povolenie „iba koncept“, preto obrazovka so súhlasom spomenie aj právo na odosielanie. Agent nikdy sám od seba neodošle e-mail — iba koncept, ktorého odoslanie samostatne potvrdíte —, ale povolenie, ktoré udelíte, je širšie. Ak vám to nevyhovuje, nechajte to prázdne: formulovanie funguje aj bez toho, text si len skopírujete.",
       ctaRead: "Pripojiť účet Google",
       ctaWrite: "Pripojiť — čítanie a písanie konceptov",
       redirecting: "Presmerovanie…",
+      privacyLead: "Používanie a prenos informácií, ktoré AXIMBRA získa z Google API, sa riadia pravidlami Google API Services User Data Policy vrátane požiadaviek na obmedzené používanie (Limited Use).",
+      privacyLink: "Zásady ochrany súkromia (v angličtine)",
     },
     run: {
       sampleNoteTitle: "Ukážková schránka.",

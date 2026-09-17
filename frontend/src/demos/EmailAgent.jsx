@@ -678,6 +678,14 @@ export default function EmailAgent({ embedded = false }) {
                     : allowDrafts ? a.connect.ctaWrite
                     : a.connect.ctaRead}
                 </button>
+
+                {/* Google's verification asks for the Limited Use statement and the
+                    privacy notice right where access is granted. The notice exists in
+                    Hungarian and English only, so other languages get the English one. */}
+                <p className="agent-start-note" data-testid="agent-limited-use">
+                  {a.connect.privacyLead}{" "}
+                  <Link to={lang === "hu" ? "/adatkezeles" : "/en/adatkezeles"}>{a.connect.privacyLink}</Link>
+                </p>
               </>
             )}
           </div>

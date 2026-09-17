@@ -5,6 +5,7 @@ import { CONTACT, mailto } from "../contact";
 import { CONTROLLER, CONTROLLER_ADDRESS, LEGAL_UPDATED, PROCESSORS } from "../legal";
 import { useDocumentMeta } from "../seo";
 import { useLang } from "../i18n";
+import PrivacyEn from "./PrivacyEn";
 
 /**
  * Adatkezelési tájékoztató.
@@ -16,9 +17,18 @@ import { useLang } from "../i18n";
  *
  * A Google korlátozott felhasználásra (Limited Use) vonatkozó nyilatkozata
  * külön szakasz, mert a restricted scope-ok verifikációjához kötelező.
+ *
+ * Az angol lapon (/en/adatkezeles) a fordítás jelenik meg (PrivacyEn.jsx): a
+ * Google OAuth-verifikáció ellenőrei angolul olvassák. A többi nyelven marad a
+ * magyar szöveg. Külön komponens, nem feltétel a hookok előtt — különben a
+ * nyelvváltás a hookok számát változtatná meg.
  */
 export default function Adatkezeles() {
   const { lang } = useLang();
+  return lang === "en" ? <PrivacyEn lang={lang} /> : <AdatkezelesHu lang={lang} />;
+}
+
+function AdatkezelesHu({ lang }) {
   useDocumentMeta({
     title: "Adatkezelési tájékoztató | AXIMBRA",
     description:
@@ -26,7 +36,7 @@ export default function Adatkezeles() {
       "kinek adjuk tovább, és hogyan kérheted a törlésüket.",
     path: "/adatkezeles",
     lang,
-    // A jogi szöveg csak magyarul létezik.
+    // A magyar szöveg az irányadó; angolul csak fordítás van (PrivacyEn.jsx).
     translated: false,
   });
   useEffect(() => { window.scrollTo(0, 0); }, []);
@@ -104,8 +114,8 @@ export default function Adatkezeles() {
             </li>
             <li>
               <b>Ajánlatkérő űrlap:</b> a beírt név, e-mail-cím, opcionálisan a cégnév és
-              az üzenet a kiszolgálónkon keresztül egyetlen e-mailben jut el az
-              adatkezelőhöz. Adatbázisba nem kerül, a kiszolgálón nem tárolódik; a naplóban
+              az üzenet a kiszolgálónkon és egy levélküldő szolgáltatón (Resend) keresztül
+              egyetlen e-mailben jut el az adatkezelőhöz. Adatbázisba nem kerül, a kiszolgálón nem tárolódik; a naplóban
               csak annyi marad, hogy érkezett egy üzenet — a tartalma nem. Az űrlap egy
               rejtett mezővel és a kitöltés idejével szűri a robotokat; ez nem kerül a
               levélbe.
@@ -172,10 +182,10 @@ export default function Adatkezeles() {
               adott levélnél te külön megerősíted.
             </li>
             <li>
-              <b>Mit írunk:</b> pipa nélkül semmit. Vázlatírással is csak egyetlen
-              dolgot: egy válaszvázlatot a Gmail Vázlatok közé, levelenként a te
-              megerősítésed után. Meglévő leveleidhez soha nem nyúlunk — nem címkézünk,
-              nem csillagozunk, nem törlünk.
+              <b>Mit írunk:</b> pipa nélkül semmit. Vázlatírással levelenként, mindig a te
+              külön megerősítésed után: egy válaszvázlatot a Gmail Vázlatok közé, és ha azt
+              is megerősíted, ennek a vázlatnak az elküldését. Meglévő leveleidhez soha nem
+              nyúlunk — nem címkézünk, nem csillagozunk, nem törlünk.
             </li>
             <li>
               <b>Hová kerül:</b> a levelek szövegét osztályozásonként egy-egy hívásban
@@ -225,8 +235,11 @@ export default function Adatkezeles() {
             Ezeket az adatokat <b>nem használjuk</b> hirdetéshez, nem adjuk el, nem adjuk
             át harmadik félnek a fenti funkciók biztosításán kívül, és{" "}
             <b>nem használjuk fel semmilyen mesterséges intelligencia modell
-            tanítására</b>. Ember nem olvassa őket, kivéve ha ahhoz külön hozzájárulsz,
-            az biztonsági okból vagy jogszabály miatt szükséges.
+            tanítására</b>. A levelek tartalmát egyetlen harmadik fél kapja meg: az OpenAI,
+            az API-ján keresztül, hogy elkészüljön a neked megjelenő besorolás és vázlat; az
+            OpenAI API-feltételei szerint az API-n küldött adattal nem tanítja a modelljeit.
+            Ember nem olvassa őket, kivéve ha ahhoz külön hozzájárulsz, az biztonsági okból
+            vagy jogszabály miatt szükséges.
           </p>
         </section>
 
