@@ -343,7 +343,16 @@ export default function EmailAgent({ embedded = false }) {
   // Off by default, and deliberately not remembered: handing over write access to
   // a mailbox is a decision to take each time, not one to inherit from last visit.
   const [allowDrafts, setAllowDrafts] = useState(false);
+  // Same rule for the cleanup grant: moving mail out of the inbox is a wider
+  // permission than reading it, so it is asked for only when it is wanted.
+  const [allowCleanup, setAllowCleanup] = useState(false);
   const [starting, setStarting] = useState(false);
+  // Cleanup state. `junkAsk` is the on-page confirmation for the bulk button:
+  // one click must not empty a dozen rows out of someone's inbox.
+  const [junkBusy, setJunkBusy] = useState(false);
+  const [junkAsk, setJunkAsk] = useState(false);
+  const [junkDone, setJunkDone] = useState(0);
+  const [junkErr, setJunkErr] = useState("");
   // The Google route is real and works, but it puts an "unverified app" warning
   // in front of every visitor and asks a stranger for their mailbox. It stays,
   // one click away, for someone who actually wants it.
@@ -474,11 +483,36 @@ export default function EmailAgent({ embedded = false }) {
     try {
       // The wider grant is requested only when the visitor ticked the box. The
       // default path asks Google for read access and nothing else.
-      const d = await get(`/connect?lang=${lang}${allowDrafts ? "&drafts=true" : ""}`);
+      const d = await get(
+        `/connect?lang=${lang}` +
+        (allowDrafts ? "&drafts=true" : "") +
+        (allowCleanup ? "&cleanup=true" : "")
+      );
       window.location.href = d.auth_url;
     } catch (e) {
       setConnecting(false);
       setError(e.message || a.err.generic);
+    }
+  };
+
+  // Moves the given mail to Trash and reloads the run, so the list, the counts
+  // and the junk block all come from the server rather than from a local guess
+  // about what the server did. The server refuses anything outside the two junk
+  // categories, so a wrong id here fails closed instead of deleting mail.
+  const trash = async (ids) => {
+    if (!ids || ids.length === 0 || junkBusy) return;
+    setJunkBusy(true);
+    setJunkErr("");
+    try {
+      const r = await post("/trash", { ids, confirm: true });
+      setJunkDone((n) => n + (r.trashed || 0));
+      setResults(await get("/results"));
+      setOpenId(null);
+    } catch (e) {
+      setJunkErr(e.message || a.err.generic);
+    } finally {
+      setJunkBusy(false);
+      setJunkAsk(false);
     }
   };
 
@@ -493,6 +527,12 @@ export default function EmailAgent({ embedded = false }) {
 
   const done = progress && !progress.running && progress.total > 0;
   const pct = progress?.total ? Math.round((progress.done / progress.total) * 100) : 0;
+  // The server decides what counts as junk; the page only renders that list. The
+  // sample mailbox can be tidied without any Google grant because there is no
+  // mailbox behind it.
+  const junkIds = (!search && results?.trashable) || [];
+  const junkSet = new Set(junkIds);
+  const canTrash = !!status && (status.sample === true || status.can_trash === true);
 
   return (
     <div className={embedded ? "agent-embed" : "agent-page"}>
@@ -672,10 +712,24 @@ export default function EmailAgent({ embedded = false }) {
                   </span>
                 </label>
 
+                {/* Second opt-in, separate from the first: tidying up moves mail
+                    out of the inbox, which is a different decision from writing a
+                    draft. Trash only - nothing is ever deleted for good. */}
+                <label className="agent-optin" data-testid="agent-optin-cleanup">
+                  <input type="checkbox" checked={allowCleanup} disabled={connecting}
+                    onChange={(e) => setAllowCleanup(e.target.checked)}
+                    data-testid="agent-optin-cleanup-box" />
+                  <span>
+                    <b>{a.connect.cleanupTitle}</b> {a.connect.cleanupBody}
+                    <span className="agent-optin-warn">{a.connect.cleanupWarn}</span>
+                  </span>
+                </label>
+
                 <button className="agent-cta" onClick={connect}
                   disabled={connecting || status.configured === false}>
                   {connecting ? <><span className="spin" /> {a.connect.redirecting}</>
                     : allowDrafts ? a.connect.ctaWrite
+                    : allowCleanup ? a.connect.ctaClean
                     : a.connect.ctaRead}
                 </button>
 
@@ -813,6 +867,51 @@ export default function EmailAgent({ embedded = false }) {
                     ))}
                 </div>
 
+                {/* Marks the mail nobody needs to read and offers one button for
+                    all of it. Bulk deletion asks first, and the ids come from the
+                    server's own junk list - the page never decides what is junk. */}
+                {junkIds.length > 0 && (
+                  <div className="agent-junk" data-testid="agent-junk">
+                    <div className="agent-junk-head">
+                      <div className="agent-junk-text">
+                        <b>{a.run.junkTitle}</b>
+                        <p>{a.run.junkNote}</p>
+                      </div>
+                      {!canTrash ? (
+                        <p className="agent-junk-nogrant" data-testid="agent-junk-nogrant">
+                          {a.run.junkNoGrant}
+                        </p>
+                      ) : junkAsk ? (
+                        <div className="agent-junk-confirm" data-testid="agent-junk-confirm">
+                          <span>{fmt(a.run.junkConfirm, { n: junkIds.length })}</span>
+                          <button type="button" className="agent-junk-yes"
+                            onClick={() => trash(junkIds)} disabled={junkBusy}
+                            data-testid="agent-junk-yes">
+                            {junkBusy ? a.run.junkBusy : a.run.junkYes}
+                          </button>
+                          <button type="button" className="agent-junk-no"
+                            onClick={() => setJunkAsk(false)} disabled={junkBusy}>
+                            {a.run.junkNo}
+                          </button>
+                        </div>
+                      ) : (
+                        <button type="button" className="agent-junk-all"
+                          onClick={() => setJunkAsk(true)} disabled={junkBusy}
+                          data-testid="agent-junk-all">
+                          {fmt(a.run.junkAll, { n: junkIds.length })}
+                        </button>
+                      )}
+                    </div>
+                    {junkErr && <div className="agent-error">{junkErr}</div>}
+                  </div>
+                )}
+
+                {junkDone > 0 && (
+                  <div className="agent-junk-done" data-testid="agent-junk-done">
+                    {fmt(a.run.junkDone, { n: junkDone })}
+                  </div>
+                )}
+
                 {onlyNeedsReply && (
                   <div className="agent-filter-note" data-testid="agent-filter-note">
                     {a.run.filterNote}{" "}
@@ -833,7 +932,7 @@ export default function EmailAgent({ embedded = false }) {
                       // `needs` paints the row in the same cyan as the tile's
                       // number, so the count and the emails it refers to read as
                       // one thing.
-                      <div className={`agent-row ${u.cls}${needs ? " needs" : ""}`} key={e.id}>
+                      <div className={`agent-row ${u.cls}${needs ? " needs" : ""}${junkSet.has(e.id) ? " junk" : ""}`} key={e.id}>
                         <button className="agent-row-head" onClick={() => setOpenId(open ? null : e.id)}>
                           <div className="agent-row-main">
                             <div className="agent-row-from">{e.sender}</div>
@@ -843,11 +942,23 @@ export default function EmailAgent({ embedded = false }) {
                               <span className="tag-cat">{a.cat[e.category] || e.category}</span>
                               <span className={`tag-u ${u.cls}`}>{a.urgency[u.cls]}</span>
                               {e.needs_reply === "igen" && <span className="tag-reply">{a.run.needsReply}</span>}
+                              {junkSet.has(e.id) && <span className="tag-junk">{a.run.junkTag}</span>}
                               {e.deadline && <span className="tag-date">{e.deadline}</span>}
                             </div>
                           </div>
                           <span className="agent-row-date">{(e.date || "").slice(0, 10)}</span>
                         </button>
+                        {/* Outside the row's own button: a button inside a button
+                            is invalid markup and unreachable by keyboard. */}
+                        {junkSet.has(e.id) && canTrash && (
+                          <div className="agent-row-act">
+                            <button type="button" onClick={() => trash([e.id])}
+                              disabled={junkBusy}
+                              data-testid={`agent-junk-one-${e.id}`}>
+                              {junkBusy ? a.run.junkBusy : a.run.junkOne}
+                            </button>
+                          </div>
+                        )}
                         {open && (
                           <div className="agent-row-body">
                             <div className="k">{a.run.whyUrgent}</div>

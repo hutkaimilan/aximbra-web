@@ -125,6 +125,28 @@ GMAIL_SCOPES = [
 COMPOSE_SCOPE = "https://www.googleapis.com/auth/gmail.compose"
 GMAIL_SCOPES_COMPOSE = [*GMAIL_SCOPES, COMPOSE_SCOPE]
 
+# Moving mail to Trash needs more than reading: gmail.compose cannot touch an
+# existing message's labels. Asked for only when the visitor ticks the cleanup
+# box, and separate from drafting - someone may want one without the other.
+MODIFY_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
+
+# Only these two categories may ever be trashed. Anything the classifier put
+# elsewhere stays out of reach of the button, whatever the browser asks for.
+TRASHABLE_CATEGORIES = {"Hírlevél / marketing", "Spam / kéretlen"}
+
+
+def _scopes_for(with_compose: bool, with_modify: bool) -> list:
+    scopes = list(GMAIL_SCOPES)
+    if with_compose:
+        scopes.append(COMPOSE_SCOPE)
+    if with_modify:
+        scopes.append(MODIFY_SCOPE)
+    return scopes
+
+
+def _is_trashable(doc: dict) -> bool:
+    return doc.get("category") in TRASHABLE_CATEGORIES
+
 SESSION_HEADER = "X-Agent-Session"
 SESSION_TTL_SECONDS = 30 * 60
 MAX_EMAILS = 50
@@ -232,7 +254,8 @@ def _safe_lang(value) -> str:
     return value if value in AGENT_LANGS else "hu"
 
 
-def _pack_state(code_verifier: str, with_compose: bool, lang: str = "hu") -> str:
+def _pack_state(code_verifier: str, with_compose: bool, lang: str = "hu",
+                with_modify: bool = False) -> str:
     """Carry the OAuth handoff in the state parameter instead of server memory.
 
     It used to live in a module-level dict, which meant any restart between
@@ -246,7 +269,8 @@ def _pack_state(code_verifier: str, with_compose: bool, lang: str = "hu") -> str
     without anything being stored.
     """
     payload = json.dumps(
-        {"v": code_verifier, "c": bool(with_compose), "l": _safe_lang(lang)},
+        {"v": code_verifier, "c": bool(with_compose), "m": bool(with_modify),
+         "l": _safe_lang(lang)},
         separators=(",", ":"),
     )
     return _fernet.encrypt(payload.encode()).decode()
@@ -263,6 +287,7 @@ def _unpack_state(state: str):
         if not isinstance(verifier, str) or not verifier:
             return None
         return {"verifier": verifier, "with_compose": bool(data.get("c")),
+                "with_modify": bool(data.get("m")),
                 "lang": _safe_lang(data.get("l"))}
     except Exception:  # noqa - forged, tampered or expired
         return None
@@ -300,13 +325,18 @@ def _granted_compose(creds, requested: bool) -> bool:
     to what was requested — the first Gmail call would fail anyway, and this keeps
     the page from offering a button that cannot work.
     """
+    return _granted_scope(creds, COMPOSE_SCOPE, requested)
+
+
+def _granted_scope(creds, scope: str, requested: bool) -> bool:
+    """Whether Google actually granted one scope, not whether we asked for it."""
     granted = getattr(creds, "granted_scopes", None) or getattr(creds, "scopes", None)
     if not granted:
         return requested
-    return COMPOSE_SCOPE in granted
+    return scope in granted
 
 
-def _flow(with_compose: bool = False):
+def _flow(with_compose: bool = False, with_modify: bool = False):
     """OAuth flow. `with_compose` is set only when the visitor asked for draft
     writing on the page — it is never the default."""
     if not AGENT_PUBLIC:
@@ -323,7 +353,7 @@ def _flow(with_compose: bool = False):
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
             "token_uri": "https://oauth2.googleapis.com/token",
         }},
-        scopes=GMAIL_SCOPES_COMPOSE if with_compose else GMAIL_SCOPES,
+        scopes=_scopes_for(with_compose, with_modify),
         redirect_uri=GMAIL_REDIRECT_URI,
     )
 
@@ -461,6 +491,8 @@ async def status(request: Request):
         # Whether this session may write drafts into the mailbox. False unless the
         # visitor ticked the box *and* Google granted it.
         "can_draft": bool(sess and sess.get("can_draft")),
+        # Whether this session may move unimportant mail to Trash.
+        "can_trash": bool(sess and sess.get("can_trash")),
         # A run over the example inbox rather than someone's Gmail. The page says
         # so rather than letting the results pass for the visitor's own mail.
         "sample": bool(sess and sess.get("sample")),
@@ -468,14 +500,14 @@ async def status(request: Request):
 
 
 @router.get("/connect")
-async def connect(drafts: bool = False, lang: str = "hu"):
+async def connect(drafts: bool = False, cleanup: bool = False, lang: str = "hu"):
     """`drafts=true` asks Google for draft-writing access as well.
 
     It comes from a box the visitor ticks, never from a default, and it is carried
     through the OAuth state so the callback builds the flow with the same scopes —
     a mismatch there makes Google reject the exchange.
     """
-    flow = _flow(with_compose=drafts)
+    flow = _flow(with_compose=drafts, with_modify=cleanup)
     # Set before authorization_url, which only generates one when it is still
     # None — so the verifier can be sealed into the state we hand Google.
     flow.code_verifier = _new_code_verifier()
@@ -483,7 +515,7 @@ async def connect(drafts: bool = False, lang: str = "hu"):
         access_type="online",
         prompt="consent",
         include_granted_scopes="false",
-        state=_pack_state(flow.code_verifier, drafts, lang),
+        state=_pack_state(flow.code_verifier, drafts, lang, with_modify=cleanup),
     )
     return {"auth_url": url}
 
@@ -505,7 +537,7 @@ async def callback(code: str = "", state: str = "", error: str = ""):
         logger.warning("agent oauth: unusable state (forged, tampered or expired)")
         return RedirectResponse(f"{target}?error=invalid_state")
     try:
-        flow = _flow(with_compose=st["with_compose"])
+        flow = _flow(with_compose=st["with_compose"], with_modify=st["with_modify"])
         flow.code_verifier = st["verifier"]
         # google-auth-oauthlib and googleapiclient are synchronous (requests under
         # the hood). Called inline they would block the whole event loop, stalling
@@ -531,6 +563,9 @@ async def callback(code: str = "", state: str = "", error: str = ""):
             # and an endpoint that trusted the request would fail later, inside a
             # Gmail call, instead of saying so up front.
             "can_draft": _granted_compose(creds, requested=st["with_compose"]),
+            # Whether this session may move mail to Trash. Same rule as drafting:
+            # the visitor ticked the box and Google actually granted it.
+            "can_trash": _granted_scope(creds, MODIFY_SCOPE, requested=st["with_modify"]),
             # Drafts the visitor asked for, keyed by "<email id>:<tone>" so asking
             # for the same one twice is free. Dies with the session like everything
             # else here.
@@ -672,16 +707,24 @@ async def results(request: Request):
         sess["analyses"],
         key=lambda d: (-(d.get("urgency") or 0), d.get("date") or ""),
     )
+    # Trashed mail is gone from the mailbox, so it leaves the lists too - keeping
+    # it would offer actions on something that is no longer in the inbox. The
+    # breakdown follows the list for the same reason: a bar counting mail that
+    # is no longer there would contradict what sits underneath it.
+    live = [d for d in docs if not d.get("trashed")]
     counts = {}
-    for d in docs:
+    for d in live:
         counts[d["category"]] = counts.get(d["category"], 0) + 1
     return {
         "email": sess["email"],
-        "analyses": docs,
+        "analyses": live,
         "counts": counts,
         "total": len(docs),
-        "needs_reply": len([d for d in docs if d.get("needs_reply") == "igen"]),
-        "top_urgent": docs[:3],
+        "needs_reply": len([d for d in live if d.get("needs_reply") == "igen"]),
+        # The urgent list is what still needs attention, never junk.
+        "top_urgent": [d for d in live if not _is_trashable(d)][:3],
+        "trashable": [d["id"] for d in live if _is_trashable(d)],
+        "trashed": len([d for d in docs if d.get("trashed")]),
     }
 
 
@@ -965,6 +1008,72 @@ async def send_draft(request: Request, body: SendBody):
         "to": recipient,
         "subject": subject,
     }
+
+
+class TrashBody(BaseModel):
+    ids: list[str]
+    confirm: bool = False
+
+
+@router.post("/trash")
+async def trash(request: Request, body: TrashBody):
+    """Move unimportant mail to Gmail's Trash.
+
+    Three gates, all required:
+      * the session must hold cleanup access, which only exists if the visitor
+        ticked the box and Google granted gmail.modify;
+      * `confirm` must be true;
+      * every id must belong to this session's run AND sit in a trashable
+        category. The browser proposes; this decides. A crafted request naming
+        an invoice or a client question is refused, not obeyed.
+
+    Trash only - recoverable in Gmail for about 30 days. A permanent delete is
+    never called anywhere in this file.
+    """
+    sess = _require(request)
+    if not body.ids:
+        raise HTTPException(status_code=400, detail="Nincs megadva törlendő levél.")
+    if not body.confirm:
+        raise HTTPException(status_code=400, detail="Megerősítés nélkül nem törlünk.")
+
+    wanted = set(body.ids)
+    allowed = [
+        d for d in sess["analyses"]
+        if d.get("id") in wanted and _is_trashable(d) and not d.get("trashed")
+    ]
+    refused = len(wanted) - len(allowed)
+
+    # The example mailbox has no Gmail behind it: mark them and return, so the
+    # flow can be tried without connecting an account.
+    if sess.get("sample"):
+        for doc in allowed:
+            doc["trashed"] = True
+        return {"ok": True, "trashed": len(allowed), "failed": 0, "refused": refused}
+
+    if not sess.get("can_trash"):
+        raise HTTPException(
+            status_code=403,
+            detail="Ehhez a munkamenethez nincs takarítási engedély. "
+                   "Csatlakozz újra, és pipáld be a takarítást.",
+        )
+    if not allowed:
+        return {"ok": True, "trashed": 0, "failed": 0, "refused": refused}
+
+    service = SafeGmailProxy(
+        await asyncio.to_thread(build, "gmail", "v1", credentials=sess["creds"])
+    )
+    done, failed = 0, 0
+    for doc in allowed:
+        try:
+            await asyncio.to_thread(
+                service.users().messages().trash(userId="me", id=doc["id"]).execute
+            )
+            doc["trashed"] = True
+            done += 1
+        except Exception as e:  # noqa - one failure must not stop the rest
+            logger.warning("trash failed: %s", type(e).__name__)
+            failed += 1
+    return {"ok": True, "trashed": done, "failed": failed, "refused": refused}
 
 
 @router.post("/sample")

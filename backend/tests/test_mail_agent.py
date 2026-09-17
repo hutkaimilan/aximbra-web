@@ -57,14 +57,24 @@ def test_only_read_access_is_requested():
     assert not any("gmail.modify" in s for s in mail_agent.GMAIL_SCOPES)
     assert not any(s.endswith("/auth/gmail") for s in mail_agent.GMAIL_SCOPES)
 
-def test_agent_never_alters_existing_mail():
-    """The agent may now create a reply draft, on an explicit grant plus a
-    per-email confirmation. Everything else about the mailbox stays untouched: it
-    does not label, star, trash, or modify a single existing message."""
+def test_agent_alters_existing_mail_in_exactly_one_way():
+    """The agent may write a reply draft, and may move unimportant mail to Trash -
+    both on an explicit grant plus a confirmation. Nothing else about an existing
+    message is touched: no labels, no stars, no bulk modify, and never a
+    permanent delete."""
     src = open(BACKEND / "mail_agent.py").read()
-    for forbidden in (".trash(", ".modify(", "addLabelIds", "removeLabelIds", "STARRED",
-                      "messages().insert", "messages().batchModify"):
+    for forbidden in ("addLabelIds", "removeLabelIds", "STARRED",
+                      "messages().insert", "messages().batchModify",
+                      "batchDelete", ".delete("):
         assert forbidden not in src, forbidden
+    # Trashing exists, and only in the one endpoint that is gated on it.
+    assert src.count(".trash(") == 1
+    idx = src.find("async def trash(")
+    assert idx != -1
+    body = src[idx: src.find("@router.post", idx + 10)]
+    assert 'sess.get("can_trash")' in body
+    assert "body.confirm" in body
+    assert "_is_trashable(d)" in body
 
 def test_run_survives_an_online_only_grant():
     """A demo asks for online access, so Google returns no refresh token and the
@@ -586,7 +596,7 @@ def test_connect_carries_the_draft_choice_into_the_oauth_state(monkeypatch):
             seen["state"] = kw.get("state")
             return ("https://accounts.google.com/fake", kw.get("state"))
 
-    def fake_flow(with_compose=False):
+    def fake_flow(with_compose=False, with_modify=False):
         seen["with_compose"] = with_compose
         return FakeFlow()
 
@@ -611,7 +621,8 @@ def test_the_oauth_handoff_survives_a_restart():
     # a restart clears every in-memory store; the state must still resolve
     mail_agent._sessions.clear()
     out = mail_agent._unpack_state(state)
-    assert out == {"verifier": verifier, "with_compose": True, "lang": "hu"}
+    assert out == {"verifier": verifier, "with_compose": True, "with_modify": False,
+                   "lang": "hu"}
 
 
 def test_a_forged_or_tampered_state_is_refused():
@@ -661,7 +672,8 @@ def test_connect_seals_the_generated_verifier_into_the_state(monkeypatch):
             captured["state"] = kw.get("state")
             return ("https://accounts.google.com/fake", kw.get("state"))
 
-    monkeypatch.setattr(mail_agent, "_flow", lambda with_compose=False: FakeFlow())
+    monkeypatch.setattr(mail_agent, "_flow",
+                        lambda with_compose=False, with_modify=False: FakeFlow())
     c.get("/api/agent/email/connect?drafts=true")
     assert captured["verifier_at_call"], "no verifier was set before the URL was built"
     assert mail_agent._unpack_state(captured["state"])["verifier"] == captured["verifier_at_call"]
