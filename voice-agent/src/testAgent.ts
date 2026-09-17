@@ -876,7 +876,14 @@ export async function handleTestRoute(
   }
 
   if (method === 'POST' && path === '/test/start') {
-    const result = await startTestCall(query.get('scenario') ?? 'alap');
+    // A <form method="POST"> a <select>-et a POST-torzsben kuldi, nem a
+    // lekerdezes-stringben - a query itt csak a token-t hordozza. Ez a sor
+    // korabban `query.get('scenario')`-t olvasott, ami emiatt SOSEM adott
+    // vissza erteket: minden inditas csendben az "alap" forgatokonyvre
+    // esett vissza, akkorm is, ha a lenyilo menuben mast valasztottak - ezt
+    // az arulta el, hogy a "Korabbi futasok" kozott soha nem jelent meg
+    // mas cimke, mint "Alap erdeklodo".
+    const result = await startTestCall(form?.get('scenario') ?? query.get('scenario') ?? 'alap');
     if (!result.ok) {
       return {
         status: 500,
