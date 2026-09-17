@@ -52,12 +52,15 @@ import type { WebSocket } from 'ws';
 
 import { env } from './env.js';
 import { reply, type Turn } from './llm.js';
+import { routeCall, type Lang as AximbraLang } from './routing.js';
 import {
   buildTesterPrompt,
   scenarioByKey,
   SCENARIOS,
   openerFor,
   END_MARKER,
+  type TesterLang,
+  type Scenario,
 } from './testPrompt.js';
 import {
   appendTurn,
@@ -82,6 +85,9 @@ function testCfg() {
     maxSeconds: intEnv('TEST_MAX_SECONDS', 180, 30, 600),
     // <Say> hang: prefixSZEL. Env-bol jon, hogy kod nelkul cserelheto legyen.
     sayVoice: process.env['TEST_SAY_VOICE']?.trim() || 'Google.hu-HU-Wavenet-A',
+    // Ugyanez angol forgatokonyvhoz (csak akkor fut, ha az OpenAI TTS elszall,
+    // lasd synth() - a <Play> a rendes ut, ez csak tartalek).
+    sayVoiceEn: process.env['TEST_SAY_VOICE_EN']?.trim() || 'Google.en-US-Wavenet-D',
     // A teszt-agent modellje kulon allithato: itt a gyorsasag fontosabb,
     // mint az eles oldalon. Minden masodperc gondolkodas nema vonal.
     model: process.env['TEST_MODEL']?.trim() || env().model,
@@ -160,6 +166,43 @@ const SPEECH_HINTS = [
   'elérhetőség',
   'visszahívás',
 ].join(',');
+
+/** Angol forgatokonyv eseten - ugyanaz a szerep, angol markanevekkel. */
+const SPEECH_HINTS_EN = [
+  'Aximbra',
+  'AI agency',
+  'agent',
+  'automation',
+  'email sorter',
+  'lead qualifier',
+  'quote',
+  'contact details',
+  'callback',
+].join(',');
+
+function hintsFor(lang: AximbraLang): string {
+  return lang === 'en' ? SPEECH_HINTS_EN : SPEECH_HINTS;
+}
+
+/**
+ * Milyen nyelven fog valaszolni az AXIMBRA agent erre a teszthivasra.
+ *
+ * FONTOS ES KONNYU ELNEZNI: ez FUGGETLEN a forgatokonyv nyelvetol
+ * (Scenario.lang). Az AXIMBRA agent nyelvet a HIVOSZAM donti el
+ * (routing.ts, pontosan ugyanaz a fuggveny fut, mint egy valodi hivasnal),
+ * nem az, milyen nyelvu szoveget mond a teszt-agent. A TEST_AGENT_FROM egy
+ * rogzitett, nem +36-tal kezdodo szam - emiatt az AXIMBRA agent MINDEN
+ * teszthivasnal angolul valaszol, akkor is, ha a forgatokonyv magyar
+ * (Scenario.lang: 'hu'). Ez a fuggveny azert kell, hogy a teszt-eszkoz SAJAT
+ * beszedfelismerese (ami az AXIMBRA agent hangjat hallja, lasd turnTwiml)
+ * a valodi valaszra legyen beallitva - kulonben pontosan az a fajta
+ * felreertes tortenik, ami miatt ez az egesz fuggveny szuletett.
+ */
+function aximbraReplyLang(): AximbraLang {
+  const c = testCfg();
+  const route = routeCall(c.from, env().ownerPhone);
+  return route.to === 'agent' ? route.lang : 'hu';
+}
 
 /* ------------------------------------------------------------------ */
 /* Beszedszinezis (ferfi hang)                                          */
@@ -320,6 +363,15 @@ async function turnTwiml(
 ): Promise<string> {
   const c = testCfg();
   const cfg = env();
+  // A forgatokonyv nyelve: mit BESZEL a teszt-agent (opener, prompt, a
+  // <Play>-jel felolvasott sajat mondatai - lasd voiceBlock).
+  const scenarioLang = scenarioByKey(scenarioKey).lang;
+  // Amit ez a Gather ERTELMEZ: nem a teszt-agent sajat hangjat, hanem azt,
+  // amit a vonal masik oldalan (az AXIMBRA agent) mond. Ez a ketto ket
+  // fuggetlen dolog - lasd aximbraReplyLang().
+  const axiLang = aximbraReplyLang();
+  const gatherLang = axiLang === 'en' ? 'en-US' : 'hu-HU';
+
   const q =
     `run=${encodeURIComponent(runId)}` +
     `&amp;scenario=${encodeURIComponent(scenarioKey)}` +
@@ -328,9 +380,9 @@ async function turnTwiml(
   const action = `https://${escapeXml(cfg.publicHostname)}/test/turn?${q}`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>${await voiceBlock(speak, token)}
-  <Gather input="speech" language="hu-HU" speechTimeout="${c.speechTimeout}" timeout="12"
-          hints="${escapeXml(SPEECH_HINTS)}"
+<Response>${await voiceBlock(speak, token, scenarioLang)}
+  <Gather input="speech" language="${gatherLang}" speechTimeout="${c.speechTimeout}" timeout="12"
+          hints="${escapeXml(hintsFor(axiLang))}"
           action="${action}" method="POST"/>
   <Redirect method="POST">${action}&amp;silence=${silences + 1}</Redirect>
 </Response>`;
@@ -342,7 +394,7 @@ async function turnTwiml(
  * Elsodlegesen <Play> az OpenAI-jal szintetizalt ferfi hanggal. Ha a TTS
  * elszall, <Say>-re esunk vissza, hogy a teszt attol meg lefusson.
  */
-async function voiceBlock(speak: string | null, token: string): Promise<string> {
+async function voiceBlock(speak: string | null, token: string, lang: TesterLang): Promise<string> {
   if (speak === null) return '';
   const c = testCfg();
   const cfg = env();
@@ -354,13 +406,51 @@ async function voiceBlock(speak: string | null, token: string): Promise<string> 
       `?token=${encodeURIComponent(token)}`;
     return `\n  <Play>${url}</Play>`;
   }
-  return `\n  <Say voice="${escapeXml(c.sayVoice)}" language="hu-HU">${escapeXml(speak)}</Say>`;
+  // <Say> tartalek, csak ha az OpenAI TTS elszallt (synth() null-t adott).
+  const sayVoice = lang === 'en' ? c.sayVoiceEn : c.sayVoice;
+  const sayLang = lang === 'en' ? 'en-US' : 'hu-HU';
+  return `\n  <Say voice="${escapeXml(sayVoice)}" language="${sayLang}">${escapeXml(speak)}</Say>`;
 }
 
+/**
+ * A teszt-agent sajat, forgatokonyvtol fuggetlen mondatai: technikai hiba,
+ * csend utani probalkozas, es a harom lezaro mod. Ezek a HIVO (a teszt-agent)
+ * szajabol hangzanak el, ezert a forgatokonyv nyelvet (Scenario.lang)
+ * kovetik, NEM az AXIMBRA agent tenyleges valaszanak nyelvet.
+ */
+const MSGS: Record<TesterLang, {
+  technicalError: string;
+  silenceRetry: string;
+  silenceShort: string;
+  noAnswerClose: string;
+  turnLimitClose: string;
+  connectionLostClose: string;
+  genericAck: string;
+}> = {
+  hu: {
+    technicalError: 'Elnézést, technikai hiba történt. Viszonthallásra!',
+    silenceRetry: 'Halló, hallja amit mondok?',
+    silenceShort: 'Halló?',
+    noAnswerClose: 'Úgy tűnik, megszakadt a vonal. Viszonthallásra!',
+    turnLimitClose: 'Köszönöm szépen, ennyi elég is. Viszonthallásra!',
+    connectionLostClose: 'Elnézést, megszakadt a vonal. Viszonthallásra!',
+    genericAck: 'Értem.',
+  },
+  en: {
+    technicalError: 'Sorry, a technical error occurred. Goodbye!',
+    silenceRetry: 'Hello, can you hear me?',
+    silenceShort: 'Hello?',
+    noAnswerClose: 'It looks like the line dropped. Goodbye!',
+    turnLimitClose: "Thank you, that's all for now. Goodbye!",
+    connectionLostClose: 'Sorry, the line dropped. Goodbye!',
+    genericAck: 'I see.',
+  },
+};
+
 /** Elkoszones es bontas. */
-async function hangupTwiml(speak: string, token: string): Promise<string> {
+async function hangupTwiml(speak: string, token: string, lang: TesterLang): Promise<string> {
   return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>${await voiceBlock(speak, token)}
+<Response>${await voiceBlock(speak, token, lang)}
   <Hangup/>
 </Response>`;
 }
@@ -404,8 +494,9 @@ async function handleFirstTurn(
   scenarioKey: string,
   token: string,
 ): Promise<string> {
+  const lang = scenarioByKey(scenarioKey).lang;
   const run = await loadRun(runId);
-  if (!run) return await hangupTwiml('Elnézést, technikai hiba történt. Viszonthallásra!', token);
+  if (!run) return await hangupTwiml(MSGS[lang].technicalError, token, lang);
 
   await updateRun(runId, { createdAt: new Date().toISOString() });
   console.log(`[test] hivas felveve run=${runId} forgatokonyv=${scenarioKey}`);
@@ -420,12 +511,19 @@ async function handleFirstTurn(
  * teszt tenylegesen vegigmenjen a tolcsren (elerhetoseg atadasa), ne pedig
  * a limit vagja el a beszelgetest a legfontosabb pillanatban.
  */
-function phaseNote(remaining: number): string {
+function phaseNote(remaining: number, scenario: Scenario): string {
   if (remaining > 4) return '';
+  if (scenario.lang === 'en') {
+    return `\n\nWRAP UP THE CALL NOW:
+- You have at most ${remaining} more replies.
+- If they have not asked for your contact details yet, offer them yourself.
+- Your contact details: ${scenario.contact}.
+- Then say a short goodbye, and put this at the END of your reply: ${END_MARKER}`;
+  }
   return `\n\nMOST ZARD LE A BESZELGETEST:
 - Legfeljebb ${remaining} valaszod van hatra.
 - Ha meg nem kertek el az elerhetosegedet, ajanld fel magadtol.
-- Az elerhetoseged: ez a telefonszam, amirol hivsz, es a kovacs.peter kukac kovacsoptika pont hu cim.
+- Az elerhetoseged: ${scenario.contact}.
 - Ezutan koszonj el egy rovid mondattal, es a valaszod vegere ird oda: ${END_MARKER}`;
 }
 
@@ -438,8 +536,10 @@ async function handleNextTurn(
   silences: number,
 ): Promise<string> {
   const c = testCfg();
+  const scenario = scenarioByKey(scenarioKey);
+  const lang = scenario.lang;
   const run = await loadRun(runId);
-  if (!run) return await hangupTwiml('Elnézést, technikai hiba történt. Viszonthallásra!', token);
+  if (!run) return await hangupTwiml(MSGS[lang].technicalError, token, lang);
 
   const startedAt = baseMs(run);
   const testerTurns = run.turns.filter((t) => t.who === 'tester').length;
@@ -451,7 +551,7 @@ async function handleNextTurn(
   // Elso sajat megszolalas. Fix szoveg, modellhivas nelkul: nulla varakozas,
   // es a forgatokonyv mindig ugyanugy indul.
   if (testerTurns === 0) {
-    const opener = openerFor(scenarioByKey(scenarioKey));
+    const opener = openerFor(scenario);
     await appendTurn(runId, {
       who: 'tester',
       text: opener,
@@ -469,11 +569,11 @@ async function handleNextTurn(
     if (silences >= 3) {
       console.log(`[test] befejezes run=${runId} ok=nincs-valasz`);
       await updateRun(runId, { status: 'done' });
-      return await hangupTwiml('Úgy tűnik, megszakadt a vonal. Viszonthallásra!', token);
+      return await hangupTwiml(MSGS[lang].noAnswerClose, token, lang);
     }
     console.log(`[test] csend run=${runId} (${silences}/2)`);
     return await turnTwiml(
-      silences <= 1 ? 'Halló, hallja amit mondok?' : 'Halló?',
+      silences <= 1 ? MSGS[lang].silenceRetry : MSGS[lang].silenceShort,
       runId,
       scenarioKey,
       token,
@@ -485,15 +585,14 @@ async function handleNextTurn(
   if (testerTurns >= c.maxTurns) {
     console.log(`[test] befejezes run=${runId} ok=fordulo-korlat`);
     await updateRun(runId, { status: 'done' });
-    return await hangupTwiml('Köszönöm szépen, ennyi elég is. Viszonthallásra!', token);
+    return await hangupTwiml(MSGS[lang].turnLimitClose, token, lang);
   }
 
   try {
     const history = historyFromRun(run);
     history.push({ role: 'user', content: heard });
 
-    const prompt =
-      buildTesterPrompt(scenarioByKey(scenarioKey)) + phaseNote(c.maxTurns - testerTurns);
+    const prompt = buildTesterPrompt(scenario) + phaseNote(c.maxTurns - testerTurns, scenario);
 
     const raw = await reply(history, prompt, {
       // Ket rovid mondat. A hosszabb valasz csak a nema varakozast novelne.
@@ -504,7 +603,7 @@ async function handleNextTurn(
     });
 
     const wantsEnd = raw.includes(END_MARKER);
-    const spoken = raw.replace(END_MARKER, '').trim() || 'Értem.';
+    const spoken = raw.replace(END_MARKER, '').trim() || MSGS[lang].genericAck;
 
     await appendTurn(runId, {
       who: 'tester',
@@ -515,13 +614,13 @@ async function handleNextTurn(
     if (wantsEnd) {
       console.log(`[test] befejezes run=${runId} ok=cel-elerve`);
       await updateRun(runId, { status: 'done' });
-      return await hangupTwiml(spoken, token);
+      return await hangupTwiml(spoken, token, lang);
     }
     return await turnTwiml(spoken, runId, scenarioKey, token, 0);
   } catch (err) {
     console.error('[test] modellhiba:', err);
     await updateRun(runId, { status: 'failed', error: String(err) });
-    return await hangupTwiml('Elnézést, megszakadt a vonal. Viszonthallásra!', token);
+    return await hangupTwiml(MSGS[lang].connectionLostClose, token, lang);
   }
 }
 
