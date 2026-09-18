@@ -358,6 +358,7 @@ export default function EmailAgent({ embedded = false }) {
   // one click away, for someone who actually wants it.
   const [showConnect, setShowConnect] = useState(false);
   const [onlyNeedsReply, setOnlyNeedsReply] = useState(false);
+  const [onlyJunk, setOnlyJunk] = useState(false);
   const [openId, setOpenId] = useState(null);
   // A keresés találatai a futás eredménye helyett jelennek meg, nem mellette:
   // két lista egymás alatt csak kérdés lenne, hogy melyiket is nézem.
@@ -506,7 +507,9 @@ export default function EmailAgent({ embedded = false }) {
     try {
       const r = await post("/trash", { ids, confirm: true });
       setJunkDone((n) => n + (r.trashed || 0));
-      setResults(await get("/results"));
+      const nextResults = await get("/results");
+      setResults(nextResults);
+      if (!(nextResults?.trashable || []).length) setOnlyJunk(false);
       setOpenId(null);
     } catch (e) {
       setJunkErr(e.message || a.err.generic);
@@ -830,7 +833,14 @@ export default function EmailAgent({ embedded = false }) {
                   <button
                     type="button"
                     className={`agent-tile agent-tile-btn ${onlyNeedsReply ? "on" : ""}`}
-                    onClick={() => setOnlyNeedsReply((v) => !v)}
+                    onClick={() => {
+                      const next = !onlyNeedsReply;
+                      setOnlyNeedsReply(next);
+                      if (next) {
+                        setOnlyJunk(false);
+                        setJunkAsk(false);
+                      }
+                    }}
                     disabled={results.needs_reply === 0}
                     aria-pressed={onlyNeedsReply}
                     data-testid="agent-tile-needs-reply">
@@ -839,6 +849,26 @@ export default function EmailAgent({ embedded = false }) {
                     {results.needs_reply > 0 && (
                       <div className="agent-tile-hint">
                         {onlyNeedsReply ? a.run.showAllShort : a.run.showThese}
+                      </div>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className={`agent-tile agent-tile-btn agent-tile-junk ${onlyJunk ? "on" : ""}`}
+                    onClick={() => {
+                      const next = !onlyJunk;
+                      setOnlyJunk(next);
+                      setJunkAsk(false);
+                      if (next) setOnlyNeedsReply(false);
+                    }}
+                    disabled={junkIds.length === 0}
+                    aria-pressed={onlyJunk}
+                    data-testid="agent-tile-junk">
+                    <div className="k">{a.run.junkTitle}</div>
+                    <div className="v muted">{junkIds.length}</div>
+                    {junkIds.length > 0 && (
+                      <div className="agent-tile-hint">
+                        {onlyJunk ? a.run.showAllShort : a.run.showThese}
                       </div>
                     )}
                   </button>
@@ -867,10 +897,11 @@ export default function EmailAgent({ embedded = false }) {
                     ))}
                 </div>
 
-                {/* Marks the mail nobody needs to read and offers one button for
-                    all of it. Bulk deletion asks first, and the ids come from the
-                    server's own junk list - the page never decides what is junk. */}
-                {junkIds.length > 0 && (
+                {/* Deletion is deliberately a second step. The overview only
+                    offers "show these"; controls that can move mail appear after
+                    the visitor opens the reviewed, junk-only list. The ids still
+                    come from the server - the page never decides what is junk. */}
+                {onlyJunk && junkIds.length > 0 && (
                   <div className="agent-junk" data-testid="agent-junk">
                     <div className="agent-junk-head">
                       <div className="agent-junk-text">
@@ -921,9 +952,22 @@ export default function EmailAgent({ embedded = false }) {
                   </div>
                 )}
 
+                {onlyJunk && (
+                  <div className="agent-filter-note agent-filter-note-junk" data-testid="agent-junk-filter-note">
+                    {a.run.junkFilterNote}{" "}
+                    <button type="button" onClick={() => {
+                      setOnlyJunk(false);
+                      setJunkAsk(false);
+                    }}>
+                      {fmt(a.run.showAllN, { n: results.total })}
+                    </button>
+                  </div>
+                )}
+
                 <div className="agent-list">
                   {results.analyses
-                    .filter((e) => !onlyNeedsReply || e.needs_reply === "igen")
+                    .filter((e) => (!onlyNeedsReply || e.needs_reply === "igen") &&
+                      (!onlyJunk || junkSet.has(e.id)))
                     .map((e) => {
                     const u = urgencyOf(e.urgency);
                     const open = openId === e.id;
@@ -942,7 +986,14 @@ export default function EmailAgent({ embedded = false }) {
                               <span className="tag-cat">{a.cat[e.category] || e.category}</span>
                               <span className={`tag-u ${u.cls}`}>{a.urgency[u.cls]}</span>
                               {e.needs_reply === "igen" && <span className="tag-reply">{a.run.needsReply}</span>}
-                              {junkSet.has(e.id) && <span className="tag-junk">{a.run.junkTag}</span>}
+                              {junkSet.has(e.id) && (
+                                <span
+                                  className="tag-junk"
+                                  title={a.run.junkNote}
+                                  data-testid={`agent-junk-tag-${e.id}`}>
+                                  {a.run.junkTag}
+                                </span>
+                              )}
                               {e.deadline && <span className="tag-date">{e.deadline}</span>}
                             </div>
                           </div>
@@ -950,7 +1001,7 @@ export default function EmailAgent({ embedded = false }) {
                         </button>
                         {/* Outside the row's own button: a button inside a button
                             is invalid markup and unreachable by keyboard. */}
-                        {junkSet.has(e.id) && canTrash && (
+                        {onlyJunk && junkSet.has(e.id) && canTrash && (
                           <div className="agent-row-act">
                             <button type="button" onClick={() => trash([e.id])}
                               disabled={junkBusy}

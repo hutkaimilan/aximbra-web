@@ -52,13 +52,15 @@
 .agent-bar-fill { display: block; height: 100%; background: var(--cyan); transition: width .4s ease; }
 
 /* tiles */
-.agent-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 18px; }
+.agent-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
 .agent-tile { border: 1px solid var(--border); border-radius: 14px; padding: 16px; background: rgba(0,233,255,.03); }
 .agent-tile.wide { grid-column: 1 / -1; }
 .agent-tile .k { font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
   text-transform: uppercase; color: var(--dim); }
 .agent-tile .v { font-family: var(--display); font-size: 32px; font-weight: 700; margin-top: 4px; }
 .agent-tile .v.accent { color: var(--cyan); }
+.agent-tile .v.muted { color: #B8C0D4; }
+.agent-tile-junk.on { border-color: rgba(181,190,211,.58); background: rgba(154,164,188,.12); }
 .agent-top-list { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 7px; }
 .agent-top-list li { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -490,10 +492,28 @@
   font-size: 13px; color: var(--muted);
 }
 
-/* Junk rows are dimmed, not hidden: the point is to see what is about to go. */
+/* Junk rows stay readable, but are unmistakably separated from work that needs
+   attention. Grey is deliberate: red/amber belong to urgency, not cleanup. */
+.agent-row.junk {
+  border-color: rgba(154,164,188,.26);
+  border-left-color: #9AA4BC;
+  background:
+    linear-gradient(90deg, rgba(154,164,188,.12), rgba(154,164,188,.025) 42%, transparent 76%),
+    rgba(14,16,32,.5);
+}
 .agent-row.junk .agent-row-from,
 .agent-row.junk .agent-row-subj { color: var(--dim); }
-.tag-junk { color: var(--dim); }
+.agent-row-tags .tag-junk {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: #D5DAE7;
+  border-color: rgba(181,190,211,.48);
+  background: rgba(154,164,188,.13);
+  font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+}
+.agent-row-tags .tag-junk::before {
+  content: "\2193";
+  font-size: 12px; line-height: 1;
+}
 .agent-row-act {
   display: flex; justify-content: flex-end;
   padding: 0 16px 12px; margin-top: -6px;
