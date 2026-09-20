@@ -289,3 +289,65 @@ def test_the_footer_says_who_stands_behind_the_site():
         text = (FRONTEND / "i18n" / f"{code}.js").read_text(encoding="utf-8")
         assert "taxMissing" not in text, f"{code}.js: visszakerült a kitalált adószám-állítás"
         assert "footerId: {" in text, f"{code}.js: hiányzik a lábléc azonosító blokkja"
+
+
+# ---------------------------------------------------------------------------
+# A statikus index.html es a hu.js SEO-blokkja egyutt kell mozogjon
+# ---------------------------------------------------------------------------
+
+PUBLIC_HTML = pathlib.Path(__file__).resolve().parents[2] / "frontend" / "public" / "index.html"
+HU_JS = FRONTEND / "i18n" / "hu.js"
+
+
+def _seo_from_hu_js() -> dict:
+    """A hu.js SEO-blokkjanak cime es leirasa."""
+    text = HU_JS.read_text(encoding="utf-8")
+    block = re.search(r"const SEO = \{(.*?)\n\};", text, re.S)
+    assert block, "a hu.js SEO-blokkja nem talalhato"
+    out = {}
+    for key in ("title", "description"):
+        m = re.search(key + r':\s*"((?:\\.|[^"\\])*)"', block.group(1))
+        assert m, f"hu.js SEO.{key} nem talalhato"
+        out[key] = m.group(1)
+    return out
+
+
+def _meta(html: str, name: str, attr: str = "name") -> str:
+    m = re.search(rf'<meta {attr}="{re.escape(name)}" content="((?:[^"])*)"', html)
+    assert m, f"index.html: hianyzik a {name} meta"
+    return m.group(1)
+
+
+def test_the_static_html_says_the_same_as_the_app():
+    """A kereso a statikus valtozatot tolti le eloszor - es sokszor azt is indexeli.
+
+    Elesben ez vezetett oda, hogy a hu.js-ben mar at volt irva a cim, a Google
+    talalat viszont tovabbra is a regit mutatta: az index.html kimaradt a
+    javitasbol. A ketto egyutt kell mozogjon, kulonben a felhasznalo azt
+    latja, hogy "meg mindig nem jo".
+    """
+    html = PUBLIC_HTML.read_text(encoding="utf-8")
+    seo = _seo_from_hu_js()
+
+    title = re.search(r"<title>(.*?)</title>", html, re.S)
+    assert title, "index.html: hianyzik a <title>"
+    assert title.group(1).strip() == seo["title"], (
+        "az index.html cime elter a hu.js SEO-cimetol:\n"
+        f"  index.html: {title.group(1).strip()}\n"
+        f"  hu.js:      {seo['title']}"
+    )
+    assert _meta(html, "description") == seo["description"], (
+        "az index.html leirasa elter a hu.js SEO-leirasatol"
+    )
+
+
+def test_the_business_is_not_narrowed_to_hungarian_companies():
+    """A pozicionalas nemzetkozi; a "magyar cegeknek" szukites nem terhet vissza.
+
+    Ami a tenyeket illeti (magyar mintaadat, magyar nyelvu telefon-agent,
+    magyar szamrol a tulajdonos), az maradhat - ez a teszt csak azt a
+    konkret szukitest tiltja, amit a Google talalat mutatott.
+    """
+    for path in (PUBLIC_HTML, HU_JS):
+        text = path.read_text(encoding="utf-8")
+        assert "magyar cégeknek" not in text, f"{path.name}: visszater a 'magyar cégeknek' szukites"
