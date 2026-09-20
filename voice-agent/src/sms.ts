@@ -8,7 +8,7 @@
 
 import twilio from 'twilio';
 import { env } from './env.js';
-import type { Lang } from './routing.js';
+import { normalizeNumber, type Lang } from './routing.js';
 
 const CONTACT_MESSAGE: Record<Lang, string> = {
   hu: 'AXIMBRA - koszonjuk a hivast! Irjon nekunk: aximbra@gmail.com',
@@ -18,6 +18,22 @@ const CONTACT_MESSAGE: Record<Lang, string> = {
 /** Egyszeru E.164 ellenorzes: + jel es 8-15 szamjegy. */
 function looksLikeE164(value: string): boolean {
   return /^\+[1-9]\d{7,14}$/.test(value);
+}
+
+/**
+ * A beepitett hivastesztelo sajat szama, ha van ilyen beallitva.
+ *
+ * Az onnan "erkezo" hivas egy robot, nem erdeklodo: nincs kinek megkoszonni
+ * a hivast, es a szam kulfoldi, ezert a Twilio a regio-engedelyek miatt
+ * vissza is utasitja (Error 21408). Emiatt minden teszthivas egy hibastack-et
+ * hagyott a naplokban - eppen ott, ahol a valodi hibakat keressuk.
+ *
+ * A process.env-bol olvassuk, nem az env() gyorsitotarbol: ez a dontes
+ * onmagaban ertheto kell legyen, es igy tesztelheto is.
+ */
+export function isTestHarnessNumber(to: string): boolean {
+  const own = normalizeNumber(process.env['TEST_AGENT_FROM'] ?? '');
+  return own !== '' && normalizeNumber(to) === own;
 }
 
 let client: ReturnType<typeof twilio> | null = null;
@@ -37,6 +53,11 @@ export async function sendContactSms(to: string, lang: Lang = 'hu'): Promise<voi
 
   if (!looksLikeE164(to)) {
     console.warn(`[sms] ervenytelen cimzett, kihagyva: ${to}`);
+    return;
+  }
+
+  if (isTestHarnessNumber(to)) {
+    console.log('[sms] teszthivas: a koszono SMS kihagyva');
     return;
   }
 
