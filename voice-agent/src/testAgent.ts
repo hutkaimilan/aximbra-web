@@ -101,7 +101,12 @@ function testCfg() {
     // Ennyi csendet varunk a masik fel mondata utan, mielott lezarjuk a
     // felismerest. Az "auto" MONDAT KOZBEN zart le, ezert vagott bele a
     // teszt-agent az AXIMBRA agent szavaba 11-bol 8 alkalommal.
-    speechTimeout: intEnv('TEST_SPEECH_TIMEOUT', 2, 1, 10),
+    // Mennyi csend utan dontse el a teszt-eszkoz, hogy a masik fel
+    // befejezte. Ketto masodperc kevesnek bizonyult: egy hosszabb nemet
+    // mondat kozbeni levegovetelt mar befejezesnek vett, belevagott, es a
+    // sajat maga altal levagott toredeket nem ertette. Egy ember sem vagna
+    // bele ilyen gyorsan.
+    speechTimeout: intEnv('TEST_SPEECH_TIMEOUT', 3, 1, 10),
   };
 }
 

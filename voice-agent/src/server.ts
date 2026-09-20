@@ -832,8 +832,17 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
 
         // A stream mar lezarult, de a TTS meg jatszott. A tortenet utolso
         // sajat mondatat visszavagjuk arra, ami tenylegesen elhangzott.
+        //
+        // Ez az ag korabban NEM naplozott semmit, es pontosan emiatt volt
+        // nehez megtalalni, miert erkeztek felbevagott mondatok a masik
+        // oldalra ("Wie viele Personen sind bei Ihnen mit E"). Egy csonkolt
+        // valasz nem tunhet el nyomtalanul.
         const last = s.history[s.history.length - 1];
-        if (last && last.role === 'assistant' && said) {
+        if (last && last.role === 'assistant' && said && said !== last.content) {
+          console.log(
+            `[ws] felbeszakitva felolvasas kozben callSid=${s.callSid} ` +
+              `${said.length}/${last.content.length} karakter hangzott el`,
+          );
           last.content = said;
         }
         return;

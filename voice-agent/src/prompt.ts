@@ -123,13 +123,17 @@ export function lines(lang: Lang): {
  * magyar válaszra húzza, pedig a köszönés angolul hangzott el.
  */
 const ENGLISH_CALL_BLOCK = `# NYELV
-Ez a hívás angolul folyik: vagy az angol számot hívták, vagy a hívó angolul szólalt meg. Angolul beszélj, amíg a hívó nem vált más nyelvre. Ha a beszélgetés korábbi részében magyar mondataid vannak, az azért van, mert a hívás magyarul indult, és menet közben álltunk át — ne hozd szóba, csak folytasd angolul. A lenti szabályok angolul is érvényesek: a számokat betűvel mondd ("two hundred ninety thousand forints"), az e-mail címet így: "aximbra at gmail dot com".
+Ez a hívás angolul folyik: vagy az angol számot hívták, vagy a hívó angolul szólalt meg. Angolul beszélj, amíg a hívó nem vált más nyelvre. Ha a beszélgetés korábbi részében magyar mondataid vannak, az azért van, mert a hívás magyarul indult, és menet közben álltunk át — ne hozd szóba, csak folytasd angolul. A lenti szabályok angolul is érvényesek: a számokat betűvel mondd ("two hundred ninety thousand forints").
+
+Az e-mail címet CSAK így mondd ki: "aximbra at gmail dot com". A lenti magyar kiejtés ("kukac", "pont") ilyenkor TILOS — angol mondatban értelmezhetetlen.
 
 `;
 
 /** Ugyanaz nemetre. A szamokat es az e-mail cimet is nemetul kell mondani. */
 const GERMAN_CALL_BLOCK = `# NYELV
-Ez a hívás németül folyik: a hívó a német nyelvet választotta. Németül beszélj, amíg a hívó nem vált más nyelvre. Ha a beszélgetés korábbi részében magyar mondataid vannak, az azért van, mert a hívás magyarul indult, és menet közben álltunk át — ne hozd szóba, csak folytasd németül. A lenti szabályok németül is érvényesek: a számokat betűvel mondd ("dreihundertneunzigtausend Forint"), az e-mail címet így: "aximbra at gmail dot com".
+Ez a hívás németül folyik: a hívó a német nyelvet választotta. Németül beszélj, amíg a hívó nem vált más nyelvre. Ha a beszélgetés korábbi részében magyar mondataid vannak, az azért van, mert a hívás magyarul indult, és menet közben álltunk át — ne hozd szóba, csak folytasd németül. A lenti szabályok németül is érvényesek: a számokat betűvel mondd ("dreihundertneunzigtausend Forint").
+
+Az e-mail címet CSAK így mondd ki: "aximbra at gmail punkt com". A lenti magyar kiejtés ("kukac", "pont") ilyenkor TILOS — német mondatban értelmezhetetlen. Egy éles hívásban elhangzott az "aximbra kukac gmail punkt" keverék; ez hiba.
 
 `;
 
