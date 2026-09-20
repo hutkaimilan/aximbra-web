@@ -47,6 +47,69 @@ export function routeCall(from: string | null | undefined, ownerPhone: string): 
 }
 
 /* ------------------------------------------------------------------ */
+/* Nyelvvalaszto menu                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A hivas elejen a hivo maga valasztja ki a nyelvet, gombnyomassal.
+ *
+ * Ez az egyetlen teljesen megbizhato jel. A hivoszam nem az (magyar ugyfel
+ * hivhat nemet szamrol), es a beszedbol valo felismeres sem az, mert a
+ * felismeronek mar a hivo elso szava elott el kell dontenie, milyen nyelvre
+ * alljon - es ha rosszul dont, a hivo mondata visszafejthetetlenne valik
+ * ("Hello. Hi. Amit Mondock."). Egy gombnyomas ezt a kort atvagja: a
+ * DTMF-jel nyelvfuggetlen.
+ *
+ * Elobb magyarul hangzik el mindket lehetoseg, aztan ugyanaz angolul - a
+ * hazai kozonseg igy azonnal ert mindent, a kulfoldi pedig kivarja a masodik
+ * felet. Barmikor lehet gombot nyomni, a Gather nem varja meg a szoveg vegét.
+ */
+export const MENU_HU =
+  'Jó napot kívánok, Aximbra! Ha magyarul szeretné folytatni, nyomja meg az egyes gombot. ' +
+  'Ha angolul szeretné folytatni, nyomja meg a kettes gombot.';
+
+export const MENU_EN =
+  'Hello, this is Aximbra. To continue in Hungarian, press one. ' +
+  'To continue in English, press two.';
+
+export interface LanguageMenu {
+  host: string;
+  huVoice: string;
+  enVoice: string;
+  /** Hany masodpercig varunk gombnyomasra, mielott magyarul folytatjuk. */
+  timeoutSeconds: number;
+}
+
+export function languageMenuTwiml(m: LanguageMenu): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather numDigits="1" timeout="${m.timeoutSeconds}" action="https://${escapeXml(m.host)}/twiml/lang" method="POST">
+    <Say voice="${escapeXml(m.huVoice)}" language="hu-HU">${escapeXml(MENU_HU)}</Say>
+    <Say voice="${escapeXml(m.enVoice)}" language="en-US">${escapeXml(MENU_EN)}</Say>
+  </Gather>
+  <Redirect method="POST">https://${escapeXml(m.host)}/twiml/lang</Redirect>
+</Response>`;
+}
+
+/**
+ * A megnyomott gomb nyelve, es hogy a hivo valasztott-e egyaltalan.
+ *
+ * Gombnyomas nelkul magyarul folytatjuk - az oldal kozonsege magyar -, de
+ * `chosen: false`-szal, mert ez nem a hivo dontese volt. Ilyenkor a
+ * beszedbol valo felismeres meg korrigalhat; egy megnyomott gombot viszont
+ * semmi nem irhat felul.
+ */
+export function langFromDigits(digits: string | null | undefined): {
+  lang: Lang;
+  chosen: boolean;
+} {
+  const d = (digits ?? '').trim();
+  if (d === '1') return { lang: 'hu', chosen: true };
+  if (d === '2') return { lang: 'en', chosen: true };
+  return { lang: 'hu', chosen: false };
+}
+
+/* ------------------------------------------------------------------ */
 /* Nyelvvaltas hivas kozben                                             */
 /* ------------------------------------------------------------------ */
 

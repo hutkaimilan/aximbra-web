@@ -375,8 +375,15 @@ async function turnTwiml(
 
   const action = `https://${escapeXml(cfg.publicHostname)}/test/turn?${q}`;
 
+  // Az AXIMBRA nyelvvalaszto menuje a hivas legelejen szol. A teszt-eszkoz
+  // ugyanugy valaszt, mint egy ember: megnyomja a forgatokonyvhez tartozo
+  // gombot. Enelkul a menu idotullepesre futna, es a teszt nem azt merne,
+  // amit egy valodi hivo atel.
+  const menuDigit = silences === 0 && speak === null ? (scenarioLang === 'en' ? '2' : '1') : null;
+  const press = menuDigit ? `\n  <Play digits="${menuDigit}"/>` : '';
+
   return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>${await voiceBlock(speak, token, scenarioLang)}
+<Response>${press}${await voiceBlock(speak, token, scenarioLang)}
   <Gather input="speech" language="${gatherLang}" speechTimeout="${c.speechTimeout}" timeout="12"
           hints="${escapeXml(hintsFor(axiLang))}"
           action="${action}" method="POST"/>

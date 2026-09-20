@@ -47,6 +47,8 @@ import {
   screenTwiml,
   screenDoneTwiml,
   normalizeNumber,
+  languageMenuTwiml,
+  langFromDigits,
   languageSwitchMessage,
   takeAccepted,
   HANGUP_TWIML,
@@ -68,7 +70,7 @@ const EN_VOICE = {
   sayVoice: 'Google.en-US-Wavenet-F',
 };
 
-function relayTwiml(host: string, lang: Lang): string {
+function relayTwiml(host: string, lang: Lang, chosen: boolean): string {
   // A <Language> gyerekelemek nyelvenkent adjak meg a hangot es a
   // felismerest. Mindket nyelv mindig fel van veve, hogy a hivas kozbeni
   // nyelvvaltas ne ervenytelen konfiguraciora fusson; a `lang` csak azt
@@ -79,32 +81,30 @@ function relayTwiml(host: string, lang: Lang): string {
       : { language: 'hu-HU', ttsProvider: cfg.ttsProvider, voice: cfg.ttsVoice };
 
   // A `language` attributum EGYSZERRE allitana a TTS-t es a felismerest,
-  // ezert a ketto kulon van megadva - de MINDIG egyutt mozog. A hivas a
-  // hivoszamtol fuggetlenul magyarul indul, es a hivo elso mondata utan
-  // valt at, ha kell (lasd `switchLang`). Ehhez kell, hogy mindket
-  // <Language> mindig fel legyen veve: egy nem deklaralt nyelvre a valtas
-  // ervenytelen lenne.
+  // ezert a ketto kulon van megadva - de MINDIG egyutt mozog.
   //
-  // Miert pont magyarul indul minden hivas? Mert a felismeres hibaja NEM
-  // szimmetrikus, es ezt ket eles atirat mutatta meg:
+  // A nyelvet rendes esetben a hivo valasztotta ki gombnyomassal (lasd
+  // languageMenuTwiml). Ilyenkor `chosen` igaz, es a hivas vegig azon a
+  // nyelven megy: egy megnyomott gombot nem irhat felul se a hivoszam, se a
+  // beszedfelismeres.
+  //
+  // Ha nem nyomott gombot, magyarul folytatjuk, es a beszedbol allunk at, ha
+  // kell. Miert eppen magyarul? Mert a felismeres hibaja NEM szimmetrikus:
   //
   //   angol beszed, magyar felismero:
   //     "We hiv fix People Using Email Regularly" - az angol szavak
   //     atjonnek, a nyelv felismerheto marad.
   //   magyar beszed, angol felismero:
-  //     "Hello. Hi. Amit Mondock." / "Email at kathalisha for glaukos dot
-  //     min cat mat" - ez mar semmilyen nyelvre nem hasonlit, es angolnak
-  //     olvasva megis hihetonek tunik. Innen visszatalalni nem lehet.
+  //     "Hello. Hi. Amit Mondock." - ez mar semmilyen nyelvre nem hasonlit,
+  //     es angolnak olvasva megis hihetonek tunik. Innen nincs ut vissza.
   //
-  // Magyarul indulva a rossz irany az, amelyikbol MEG van ut vissza. A
-  // hivoszam ezt nem tudja jobban: magyar ugyfel hivhat nemet szamrol, es a
-  // hazai kozonseg amugy is magyarul beszel. Az ara egy magyar koszones egy
-  // angol hivonak - egyetlen mondat, ami utan atallunk.
+  // Mindket <Language> mindig fel van veve, kulonben a hivas kozbeni valtas
+  // ervenytelen nyelvre mutatna.
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
     <ConversationRelay
-      url="wss://${escapeXml(host)}/relay?lang=${lang}"
+      url="wss://${escapeXml(host)}/relay?lang=${lang}${chosen ? '&amp;fix=1' : ''}"
       welcomeGreeting="${escapeXml(lines(lang).greeting)}"
       ttsLanguage="${escapeXml(start.language)}"
       transcriptionLanguage="${escapeXml(start.language)}"
@@ -163,7 +163,7 @@ function rejectTwiml(reason: 'daily' | 'concurrent', lang: Lang): string {
  * egyetlen jel, es a mondat ugyis egyszer hangzik el. A BESZELGETES viszont
  * mindig magyarul indul, fuggetlenul a szamtol: lasd a relayTwiml-t.
  */
-function agentTwiml(host: string, lang: Lang, from: string, start: Lang): string {
+function agentTwiml(host: string, lang: Lang, from: string, forced: Lang | null): string {
   const verdict = admitCall();
 
   if (!verdict.allowed) {
@@ -175,14 +175,38 @@ function agentTwiml(host: string, lang: Lang, from: string, start: Lang): string
   }
 
   console.log(
-    `[http] hivas elfogadva szamtipp=${lang} indul=${start} from=${from} ` +
-      `${verdict.count}/${verdict.limit}`,
+    `[http] hivas elfogadva from=${from} ${verdict.count}/${verdict.limit}` +
+      (forced ? ` nyelv=${forced} (sajat szam)` : ' -> nyelvvalaszto'),
   );
-  return relayTwiml(host, start);
+
+  // Kulon nyelvi szamon nincs mit valasztani: aki azt tarcsazta, mar
+  // dontott. Mindenki mas a menuvel kezd.
+  if (forced) return relayTwiml(host, forced, true);
+
+  return languageMenuTwiml({
+    host,
+    huVoice: cfg.sayVoice,
+    enVoice: EN_VOICE.sayVoice,
+    timeoutSeconds: MENU_TIMEOUT_SECONDS,
+  });
 }
 
+/**
+ * Hany masodpercig var a menu gombnyomasra.
+ *
+ * Eleg hosszu ahhoz, hogy a masodik (angol) mondat is vegigmenjen, es a
+ * hivo utana meg gondolkodhasson egy kicsit. Utana magyarul folytatjuk.
+ */
+const MENU_TIMEOUT_SECONDS = 6;
+
 /** A Twilio altal hivott utvonalak. Mind alairt POST. */
-const TWIML_PATHS = new Set(['/twiml', '/twiml/screen', '/twiml/screen-done', '/twiml/owner-done']);
+const TWIML_PATHS = new Set([
+  '/twiml',
+  '/twiml/lang',
+  '/twiml/screen',
+  '/twiml/screen-done',
+  '/twiml/owner-done',
+]);
 
 function twimlFor(
   path: string,
@@ -213,11 +237,23 @@ function twimlFor(
       // rendelkezesre all: aki az angol szamot tarcsazza, angolul var
       // valaszt. Ha nincs kulon angol szam beallitva, magyarul indulunk, es
       // a hivo elso mondatabol allunk at (lasd relayTwiml).
+      // Ha van kulon angol szam es azt tarcsaztak, a menu felesleges.
       const dialled = normalizeNumber(params.get('To'));
-      const start: Lang =
-        cfg.englishPhone !== '' && dialled === cfg.englishPhone ? 'en' : 'hu';
+      const forced: Lang | null =
+        cfg.englishPhone !== '' && dialled === cfg.englishPhone ? 'en' : null;
 
-      return agentTwiml(host, route.to === 'agent' ? route.lang : 'hu', from, start);
+      return agentTwiml(host, route.to === 'agent' ? route.lang : 'hu', from, forced);
+    }
+
+    case '/twiml/lang': {
+      // A nyelvvalaszto menu valasza. Gomb nelkul (idotullepes) magyarul
+      // folytatjuk, de ugy, hogy a beszedfelismeres meg korrigalhat.
+      const { lang, chosen } = langFromDigits(params.get('Digits'));
+      console.log(
+        `[http] nyelvvalasztas ${chosen ? `gomb=${params.get('Digits') ?? ''}` : 'nincs gomb'}` +
+          ` -> ${lang} from=${from}`,
+      );
+      return relayTwiml(host, lang, chosen);
     }
 
     case '/twiml/screen':
@@ -240,7 +276,7 @@ function twimlFor(
       );
       // Ide csak magyar szamrol erkezo hivo jut el (a tulajdonoshoz csak
       // azokat kapcsoljuk), ezert magyarul veszi at az agent.
-      return agentTwiml(host, 'hu', from, 'hu');
+      return agentTwiml(host, 'hu', from, null);
     }
 
     default:
@@ -468,6 +504,10 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
   // KEZDO ertek: amint a hivo megszolal, a `maybeSwitchLang` felulirhatja.
   const relayQuery = new URLSearchParams((req.url ?? '').split('?')[1] ?? '');
   const startLang: Lang = relayQuery.get('lang') === 'en' ? 'en' : 'hu';
+  // `fix=1`: a hivo gombnyomassal valasztott nyelvet. Ezt semmi nem irhatja
+  // felul - egy szandekos dontest felulbiralni rosszabb, mint barmi, amit a
+  // felismeres nyerhetne vele.
+  const langFixed = relayQuery.get('fix') === '1';
   // Fuggveny, nem valtozo: a nyelv menet kozben valtozhat, es egy elmentett
   // `lines(lang)` ettol csendben a regi nyelven maradna.
   const say = (): ReturnType<typeof lines> => lines(s.lang);
@@ -526,7 +566,10 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
   };
 
   /**
-   * Magyarul indult a hivas - tenyleg magyarul beszel a hivo?
+   * Magyarul indult a hivas gombnyomas nelkul - tenyleg magyarul beszel?
+   *
+   * Aki gombot nyomott, azt nem kerdojelezzuk meg: `langFixed` eseten ez a
+   * fuggveny nem csinal semmit.
    *
    * HATTERBEN fut, a valaszra NEM varunk. Az elso valtozat megvarta, hogy
    * atjojjon a valasz, masfel masodperces korlattal - es eppen ezt nem
@@ -550,7 +593,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
   const LANG_CHECK_TIMEOUT_MS = 6_000;
 
   const maybeSwitchLang = (utterance: string): void => {
-    if (s.langChecks >= LANG_CHECK_LIMIT) return;
+    if (langFixed || s.langChecks >= LANG_CHECK_LIMIT) return;
     s.langChecks += 1;
 
     void (async () => {
@@ -725,7 +768,10 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
       if (type === 'setup') {
         s.from = typeof msg['from'] === 'string' ? msg['from'] : s.from;
         s.callSid = typeof msg['callSid'] === 'string' ? msg['callSid'] : s.callSid;
-        console.log(`[ws] setup from=${s.from} callSid=${s.callSid}`);
+        console.log(
+          `[ws] setup from=${s.from} callSid=${s.callSid} ` +
+            `nyelv=${s.lang}${langFixed ? ' (valasztott)' : ' (alapertelmezett)'}`,
+        );
         return;
       }
 

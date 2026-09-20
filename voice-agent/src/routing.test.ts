@@ -9,6 +9,8 @@ import {
   takeAccepted,
   markAccepted,
   languageSwitchMessage,
+  langFromDigits,
+  languageMenuTwiml,
   RELAY_LANG_CODE,
 } from './routing.js';
 
@@ -134,4 +136,47 @@ test('csak olyan nyelvre valthatunk, amit a TwiML deklaral', () => {
   assert.deepEqual(Object.keys(RELAY_LANG_CODE).sort(), ['en', 'hu']);
   assert.equal(RELAY_LANG_CODE.hu, 'hu-HU');
   assert.equal(RELAY_LANG_CODE.en, 'en-US');
+});
+
+/* ------------------------------------------------------------------ */
+/* Nyelvvalaszto menu                                                   */
+/* ------------------------------------------------------------------ */
+
+test('a gomb dont, es a dontes jelolve van', () => {
+  assert.deepEqual(langFromDigits('1'), { lang: 'hu', chosen: true });
+  assert.deepEqual(langFromDigits('2'), { lang: 'en', chosen: true });
+});
+
+test('gomb nelkul magyar, de nem a hivo dontesekent', () => {
+  // A kulonbseg nem kozomboS: a `chosen: false` engedi, hogy a
+  // beszedfelismeres kesobb korrigaljon. Egy megnyomott gombot viszont
+  // semmi nem irhat felul.
+  for (const d of [null, undefined, '', '0', '9', '#', '*', '12', 'egy']) {
+    assert.deepEqual(langFromDigits(d), { lang: 'hu', chosen: false }, String(d));
+  }
+});
+
+test('a menu mindket nyelven felkinalja mindket gombot', () => {
+  const xml = languageMenuTwiml({
+    host: 'voice.example',
+    huVoice: 'Google.hu-HU-Wavenet-A',
+    enVoice: 'Google.en-US-Wavenet-F',
+    timeoutSeconds: 6,
+  });
+
+  // Aki csak magyarul ert, es aki csak angolul, mindketto tudja meg
+  // mindket lehetoseget - kulonben a masik nyelvu hivo talalgatna.
+  assert.match(xml, /nyomja meg az egyes gombot/);
+  assert.match(xml, /nyomja meg a kettes gombot/);
+  assert.match(xml, /press one/);
+  assert.match(xml, /press two/);
+
+  assert.ok(
+    xml.indexOf('hu-HU') < xml.indexOf('en-US'),
+    'elobb magyarul hangzik el, aztan angolul',
+  );
+
+  // Gomb nelkul sem szabad zsakutcaban vegzodnie: a Redirect ugyanoda megy,
+  // es ott az idotulleples magyar valasztassa valik.
+  assert.match(xml, /<Redirect method="POST">https:\/\/voice\.example\/twiml\/lang<\/Redirect>/);
 });
