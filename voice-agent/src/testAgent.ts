@@ -51,7 +51,7 @@ import OpenAI from 'openai';
 import type { WebSocket } from 'ws';
 
 import { env } from './env.js';
-import { reply, type Turn } from './llm.js';
+import { reply, reviewCall, type Turn } from './llm.js';
 import { type Lang as AximbraLang } from './routing.js';
 import {
   buildTesterPrompt,
@@ -791,9 +791,18 @@ export function renderIndex(runs: TestRun[], token: string): string {
         .map((r) => {
           const when = new Date(r.createdAt).toLocaleString('hu-HU');
           const dur = r.durationSec === null ? '' : ` · ${r.durationSec}s`;
+          // A lista az elso, amit az ember lat. Egy nemet futasnal a cimke
+          // onmagaban semmit nem mond arrol, jo volt-e a hivas - a magyar
+          // ertekeles kimenetele viszont igen, egy pillantasra.
+          const judged = r.verdict
+            ? `<span class="badge ${r.verdict.ok ? 'done' : 'failed'}">${
+                r.verdict.ok ? 'jó' : 'hibás'
+              }</span>`
+            : '';
           return `<div class="card">
   <div class="row" style="justify-content:space-between">
     <div><a href="/test/runs/${esc(r.id)}${q}">${esc(r.scenario)}</a></div>
+    ${judged}
     <span class="badge ${esc(r.status)}">${esc(r.status)}</span>
   </div>
   <div class="meta">${esc(when)}${esc(dur)} · ${r.turns.length} forduló</div>
@@ -853,12 +862,30 @@ export function renderRun(run: TestRun, token: string): string {
     ? `<div class="card"><div class="who failed">Hiba</div><div>${esc(run.error)}</div></div>`
     : '';
 
+  // A lap tetejen, az atirat ELOTT: ez az egyetlen resz, amit egy nemet
+  // hivas utan is el lehet olvasni magyarul.
+  const verdict = run.verdict
+    ? `<div class="card" style="border-color:${run.verdict.ok ? '#2E7D52' : '#8C3A3A'}">
+  <div class="who ${run.verdict.ok ? 'done' : 'failed'}" style="margin-bottom:6px">
+    ${run.verdict.ok ? 'Értékelés — használható hívás' : 'Értékelés — a hívás hibás volt'}
+  </div>
+  <div style="white-space:pre-wrap">${esc(run.verdict.text)}</div>
+  <div class="meta" style="margin-top:8px">
+    Gépi értékelés a lenti átiratról, magyarul — akkor is, ha a hívás németül
+    vagy angolul folyt. Az átirat az eredeti nyelven marad alatta.
+  </div>
+</div>`
+    : run.status === 'done'
+      ? '<div class="card"><div class="meta">Az értékelés készül — frissítsd a lapot pár másodperc múlva.</div></div>'
+      : '';
+
   return layout(`<div class="meta"><a href="/test${q}">← Vissza</a></div>
 <h1 style="margin-top:12px">${esc(run.scenario)}</h1>
 <div class="sub">${esc(when)} · ${esc(run.target)} ·
   <span class="badge ${esc(run.status)}">${esc(run.status)}</span>
   ${run.durationSec === null ? '' : ` · ${run.durationSec}s`}</div>
 ${error}
+${verdict}
 ${audio}
 <div class="card">
   <div class="who" style="color:#767D9C;margin-bottom:6px">Átirat</div>
@@ -869,6 +896,31 @@ ${audio}
   </div>
   ${turns}
 </div>`);
+}
+
+/**
+ * A lefutott hivas magyar ertekelese, a futas melle mentve.
+ *
+ * Sosem dob: ha az ertekeles nem sikerul, a futas ugyanugy megnezheto, csak
+ * ertekeles nelkul.
+ */
+async function reviewRun(runId: string): Promise<void> {
+  try {
+    const run = await loadRun(runId);
+    if (!run || run.turns.length === 0) return;
+
+    const transcript = run.turns
+      .map((t) => `${t.who === 'tester' ? 'HÍVÓ' : 'AGENT'}: ${t.text}`)
+      .join('\n');
+
+    const verdict = await reviewCall(transcript);
+    if (verdict) {
+      await updateRun(runId, { verdict });
+      console.log(`[test] ertekeles kesz run=${runId} ok=${verdict.ok}`);
+    }
+  } catch (err) {
+    console.error('[test] ertekeles kihagyva:', err);
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -993,6 +1045,9 @@ export async function handleTestRoute(
 
       if (connected) {
         console.log(`[test] hivas vege run=${runId} ${secs ?? '?'}s allapot=${callStatus}`);
+        // Hatterben: a valasz mar kiment a Twilionak, es egy lassu
+        // ertekeles nem tarthatja fel a statusz-visszajelzest.
+        void reviewRun(runId);
       } else {
         console.error(
           `[test] a hivas NEM kapcsolt be run=${runId} allapot=${callStatus} ` +

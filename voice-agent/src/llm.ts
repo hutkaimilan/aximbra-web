@@ -87,6 +87,69 @@ export async function reply(
 }
 
 /* ------------------------------------------------------------------ */
+/* Teszthivas ertekelese - MAGYARUL                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Egy teszthivas magyar ertekelese, akkor is, ha a hivas nemetul ment.
+ *
+ * Enelkul a nemet forgatokonyv hasznalhatatlan annak, aki nem tud nemetul:
+ * lefut, latszik az atirat, es semmit nem lehet kezdeni vele. A modell
+ * ugyanazt nezi, amit egy ember nezne - ertette-e a ket fel egymast, ragadt-e
+ * be a beszelgetes, megvan-e, amiert a hivas indult.
+ */
+const REVIEW_PROMPT = `Egy AI telefonos ügynök (AXIMBRA) tesztjét értékeled. A beszélgetés bármilyen nyelven folyhatott; te MINDIG MAGYARUL válaszolsz.
+
+A "HÍVÓ" egy teszt-agent, aki ügyfelet játszik. Az "AGENT" az AXIMBRA munkatársa, ŐT értékeled.
+
+Nézd meg:
+- Értette a két fél egymást, vagy voltak értelmetlen, félbevágott mondatok?
+- Beragadt-e a beszélgetés (ugyanaz a mondat többször, körbe-körbe)?
+- Megkapta a hívó, amiért telefonált (ár, határidő, működés)?
+- Elkérte az agent az elérhetőséget?
+- Mondott-e az agent olyat, ami nyilvánvalóan hibás (kevert nyelv, értelmetlen szó)?
+
+CSAK JSON-t adj vissza, semmi mást:
+{"ok": true vagy false, "text": "..."}
+
+"ok" akkor true, ha a hívás használható volt: a két fél értette egymást és a hívó érdemi választ kapott.
+
+A "text" magyarul, legfeljebb 6 rövid sor, gondolatjeles felsorolás. Először egy mondat arról, hogy sikerült-e, aztán a konkrét problémák, idézettel. Ha valami németül vagy angolul hangzott el és számít, fordítsd le zárójelben. Semmi általánosság.`;
+
+export async function reviewCall(
+  transcript: string,
+  opts: ReplyOptions = {},
+): Promise<{ ok: boolean; text: string } | null> {
+  if (!transcript.trim()) return null;
+
+  try {
+    const completion = await openai().chat.completions.create(
+      {
+        model: opts.model ?? env().model,
+        messages: [
+          { role: 'system', content: REVIEW_PROMPT },
+          { role: 'user', content: transcript.slice(0, 12_000) },
+        ],
+        max_tokens: opts.maxTokens ?? 400,
+        temperature: 0,
+        response_format: { type: 'json_object' },
+      },
+      { timeout: opts.timeoutMs ?? 30_000, maxRetries: 1 },
+    );
+
+    const raw = completion.choices[0]?.message?.content?.trim();
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { ok?: unknown; text?: unknown };
+    if (typeof parsed.text !== 'string') return null;
+    return { ok: parsed.ok === true, text: parsed.text };
+  } catch (err) {
+    // Az ertekeles kenyelem, nem a futas resze: ha elszall, a futas all.
+    console.error('[test] ertekeles hiba:', err);
+    return null;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Milyen nyelven beszel a hivo                                         */
 /* ------------------------------------------------------------------ */
 

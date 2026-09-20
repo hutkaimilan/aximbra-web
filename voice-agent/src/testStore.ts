@@ -35,6 +35,14 @@ export interface TestRun {
   turns: RunTurn[];
   /** Hiba szovege, ha a futas elszallt. */
   error: string | null;
+  /**
+   * MAGYAR ertekeles a hivasrol, barmilyen nyelven is folyt.
+   *
+   * A tulajdonos nem beszel nemetul. Egy nemet atirat onmagaban nem mondja
+   * meg neki, hogy jol ment-e a hivas - ezert a futas utan a modell magyarul
+   * leirja, mi tortent es hol akadt el.
+   */
+  verdict: { ok: boolean; text: string } | null;
 }
 
 function runsDir(): string {
@@ -74,6 +82,7 @@ export async function createRun(scenario: string, target: string): Promise<TestR
     durationSec: null,
     turns: [],
     error: null,
+    verdict: null,
   };
 
   await writeAtomic(runPath(run.id), JSON.stringify(run, null, 2));
