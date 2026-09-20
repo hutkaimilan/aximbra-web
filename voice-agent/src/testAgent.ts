@@ -974,12 +974,26 @@ export async function handleTestRoute(
     const runId = query.get('run') ?? '';
     if (isValidRunId(runId)) {
       const secs = Number.parseInt(form?.get('CallDuration') ?? '0', 10) || null;
+      // A Twilio vegallapota. Enelkul egy hivas, ami soha nem kapcsolt be
+      // (foglalt vonal, nem vettek fel), majdnem ugy nezett ki a naplóban,
+      // mint egy sikeres - ez vezetett felre a 2026-09-20-i nemet
+      // fusttesztnel, ahol ket deploy egymasra inditott ket hivast.
+      const callStatus = (form?.get('CallStatus') ?? '').trim() || 'ismeretlen';
+      const connected = callStatus === 'completed' && (secs ?? 0) > 0;
       const run = await loadRun(runId);
       await updateRun(runId, {
         durationSec: secs,
-        status: run?.status === 'failed' ? 'failed' : 'done',
+        status: run?.status === 'failed' || !connected ? 'failed' : 'done',
       });
-      console.log(`[test] hivas vege run=${runId} ${secs ?? '?'}s`);
+
+      if (connected) {
+        console.log(`[test] hivas vege run=${runId} ${secs ?? '?'}s allapot=${callStatus}`);
+      } else {
+        console.error(
+          `[test] a hivas NEM kapcsolt be run=${runId} allapot=${callStatus} ` +
+            `hossz=${secs ?? 0}s - nem volt beszelgetes, a futas nem ertekelheto`,
+        );
+      }
     }
     return { status: 204, headers: TEXT, body: '' };
   }
