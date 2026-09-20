@@ -107,6 +107,21 @@ function testCfg() {
     // sajat maga altal levagott toredeket nem ertette. Egy ember sem vagna
     // bele ilyen gyorsan.
     speechTimeout: intEnv('TEST_SPEECH_TIMEOUT', 3, 1, 10),
+    /**
+     * A teszt-eszkoz sajat beszedfelismero modellje.
+     *
+     * A <Gather> alapertelmezese a `default` modell, ami telefonvonalon es
+     * nem angol nyelven a leggyengebb. A nemet futasokban emiatt kerdezett
+     * vissza a teszt-agent tizszer is olyan mondatokra, amiket az AXIMBRA
+     * hibatlanul mondott ki - a termek oldala ugyanis mindent pontosan
+     * ertett, csak a teszt fule nem.
+     *
+     * Kornyezeti valtozobol jon, hogy modellt lehessen cserelni kod nelkul:
+     * a `googlev2_telephony` telefonhangra van hangolva, de nem minden
+     * nyelven erheto el, es egy rossz parositas a Gathert hibara futtatja.
+     * Alapertelmezesben marad a regi viselkedes.
+     */
+    speechModel: process.env['TEST_SPEECH_MODEL']?.trim() || 'default',
   };
 }
 
@@ -406,7 +421,8 @@ async function turnTwiml(
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>${press}${await voiceBlock(speak, token, scenarioLang)}
-  <Gather input="speech" language="${gatherLang}" speechTimeout="${c.speechTimeout}" timeout="12"
+  <Gather input="speech" language="${gatherLang}" speechModel="${escapeXml(c.speechModel)}"
+          speechTimeout="${c.speechTimeout}" timeout="12"
           hints="${escapeXml(hintsFor(axiLang))}"
           action="${action}" method="POST"/>
   <Redirect method="POST">${action}&amp;silence=${silences + 1}</Redirect>
