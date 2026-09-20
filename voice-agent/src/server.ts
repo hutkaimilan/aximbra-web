@@ -46,6 +46,7 @@ import {
   ownerDialTwiml,
   screenTwiml,
   screenDoneTwiml,
+  normalizeNumber,
   languageSwitchMessage,
   takeAccepted,
   HANGUP_TWIML,
@@ -162,7 +163,7 @@ function rejectTwiml(reason: 'daily' | 'concurrent', lang: Lang): string {
  * egyetlen jel, es a mondat ugyis egyszer hangzik el. A BESZELGETES viszont
  * mindig magyarul indul, fuggetlenul a szamtol: lasd a relayTwiml-t.
  */
-function agentTwiml(host: string, lang: Lang, from: string): string {
+function agentTwiml(host: string, lang: Lang, from: string, start: Lang): string {
   const verdict = admitCall();
 
   if (!verdict.allowed) {
@@ -174,10 +175,10 @@ function agentTwiml(host: string, lang: Lang, from: string): string {
   }
 
   console.log(
-    `[http] hivas elfogadva szamtipp=${lang} indul=hu from=${from} ` +
+    `[http] hivas elfogadva szamtipp=${lang} indul=${start} from=${from} ` +
       `${verdict.count}/${verdict.limit}`,
   );
-  return relayTwiml(host, 'hu');
+  return relayTwiml(host, start);
 }
 
 /** A Twilio altal hivott utvonalak. Mind alairt POST. */
@@ -208,7 +209,15 @@ function twimlFor(
           calledNumber: params.get('To') ?? '',
         });
       }
-      return agentTwiml(host, route.to === 'agent' ? route.lang : 'hu', from);
+      // A HIVOTT szam az egyetlen biztos nyelvi jel, ami a hivas elejen
+      // rendelkezesre all: aki az angol szamot tarcsazza, angolul var
+      // valaszt. Ha nincs kulon angol szam beallitva, magyarul indulunk, es
+      // a hivo elso mondatabol allunk at (lasd relayTwiml).
+      const dialled = normalizeNumber(params.get('To'));
+      const start: Lang =
+        cfg.englishPhone !== '' && dialled === cfg.englishPhone ? 'en' : 'hu';
+
+      return agentTwiml(host, route.to === 'agent' ? route.lang : 'hu', from, start);
     }
 
     case '/twiml/screen':
@@ -229,7 +238,9 @@ function twimlFor(
         `[http] a tulajdonos nem fogadta (${params.get('DialCallStatus') ?? '?'}), ` +
           `agent veszi at from=${from}`,
       );
-      return agentTwiml(host, 'hu', from);
+      // Ide csak magyar szamrol erkezo hivo jut el (a tulajdonoshoz csak
+      // azokat kapcsoljuk), ezert magyarul veszi at az agent.
+      return agentTwiml(host, 'hu', from, 'hu');
     }
 
     default:
@@ -417,6 +428,18 @@ interface Session {
    * az ilyen hivas vegig a hivoszambol tippelt nyelven maradna.
    */
   langChecks: number;
+  /**
+   * Igaz, ha menet kozben nyelvet valtottunk, es a valtast kivalto hivoi
+   * mondat meg nincs tisztazva: azt rossz nyelvu felismero irta at, tehat
+   * nem tudjuk, mi hangzott el.
+   */
+  needsRepeat: boolean;
+  /**
+   * Eldontott nyelvvaltas, ami meg nem lepett eletbe, mert eppen beszelunk.
+   * Mondat kozepen valtani hangot hallhatoan rosszabb, mint megvarni a
+   * pont vegét.
+   */
+  pendingLang: Lang | null;
   from: string;
   callSid: string;
   startedAt: number;
@@ -456,6 +479,8 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     history: [{ role: 'assistant', content: lines(startLang).greeting }],
     lang: startLang,
     langChecks: 0,
+    needsRepeat: false,
+    pendingLang: null,
     from: '<ismeretlen>',
     callSid: '<ismeretlen>',
     startedAt: Date.now(),
@@ -483,8 +508,20 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
    */
   const switchLang = (next: Lang): void => {
     if (next === s.lang || ws.readyState !== ws.OPEN) return;
+
+    // Beszed kozben nem valtunk: a mar folyo mondat masik hangon fejezodne
+    // be. A drain alkalmazza, amint a fordulo lezarult.
+    if (s.speaking) {
+      s.pendingLang = next;
+      return;
+    }
+
     s.lang = next;
     ws.send(languageSwitchMessage(next));
+    // Amit a hivo eddig mondott, azt a MASIK nyelv felismeroje irta at, es
+    // abbol nem lehet visszafejteni, mi hangzott el ("Hello. Hi. Amit
+    // Mondock."). Nem talalgatunk: megkerjuk, hogy mondja ujra.
+    s.needsRepeat = true;
     console.log(`[ws] nyelvvaltas -> ${next} callSid=${s.callSid}`);
   };
 
@@ -517,10 +554,17 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     s.langChecks += 1;
 
     void (async () => {
+      const startedAt = Date.now();
       try {
         const spoken = await detectSpokenLang(utterance, {
           timeoutMs: LANG_CHECK_TIMEOUT_MS,
         });
+        // A valos idozites naplozva, mert az elso valtozat pont ezen bukott
+        // el: masfel masodpercre volt beallitva, es nem fert bele.
+        console.log(
+          `[ws] nyelvfelismeres lang=${spoken ?? 'bizonytalan'} ` +
+            `ido=${Date.now() - startedAt}ms callSid=${s.callSid}`,
+        );
         if (!spoken || s.closed) return;
         s.langChecks = LANG_CHECK_LIMIT; // hatarozott valasz: tobbet nem kerdezunk
         switchLang(spoken);
@@ -625,6 +669,26 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         maybeSwitchLang(text);
         s.history.push({ role: 'user', content: text });
         await speakReply();
+
+        // A beszed alatt eldontott valtas most lephet eletbe.
+        if (s.pendingLang) {
+          const next = s.pendingLang;
+          s.pendingLang = null;
+          switchLang(next);
+        }
+
+        if (s.needsRepeat && !s.closed) {
+          s.needsRepeat = false;
+          // A felreirt kerdes es a ra adott, mar rossz nyelvu valasz kikerul
+          // a tortenetbol: egyik sem tortent meg ugy, ahogy ott all, es a
+          // modell kesobb erre epitene.
+          s.history.splice(-2, 2);
+          const askAgain = say().switched;
+          send(askAgain, true);
+          s.history.push({ role: 'assistant', content: askAgain });
+          continue;
+        }
+
         refreshFacts();
       }
     } finally {

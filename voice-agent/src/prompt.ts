@@ -55,10 +55,38 @@ export const TIME_LIMIT_MESSAGE_EN =
   'Feel free to email us at aximbra at gmail dot com, and we will continue there. ' +
   'Thank you for calling, goodbye!';
 
-export function lines(lang: Lang): { greeting: string; failure: string; timeLimit: string } {
+/**
+ * Amit a hivo hall, ha a hivas kozben nyelvet valtottunk.
+ *
+ * A valtast kivalto mondata rossz nyelvu felismerovel lett atirva, tehat
+ * elveszett - "Hello. Hi. Amit Mondock." nem az, amit mondott. Nem tesszuk
+ * ugy, mintha ertettuk volna: megkerjuk, hogy mondja ujra, mar a sajat
+ * nyelven. Egy ismetles ara, es onnantol tiszta a vonal.
+ */
+export const SWITCHED_MESSAGE = 'Elnezest, most alltam at magyarra. Megismetelned, kerlek?';
+
+export const SWITCHED_MESSAGE_EN =
+  'Sorry - I have just switched to English. Could you say that again, please?';
+
+export function lines(lang: Lang): {
+  greeting: string;
+  failure: string;
+  timeLimit: string;
+  switched: string;
+} {
   return lang === 'en'
-    ? { greeting: GREETING_EN, failure: FAILURE_MESSAGE_EN, timeLimit: TIME_LIMIT_MESSAGE_EN }
-    : { greeting: GREETING, failure: FAILURE_MESSAGE, timeLimit: TIME_LIMIT_MESSAGE };
+    ? {
+        greeting: GREETING_EN,
+        failure: FAILURE_MESSAGE_EN,
+        timeLimit: TIME_LIMIT_MESSAGE_EN,
+        switched: SWITCHED_MESSAGE_EN,
+      }
+    : {
+        greeting: GREETING,
+        failure: FAILURE_MESSAGE,
+        timeLimit: TIME_LIMIT_MESSAGE,
+        switched: SWITCHED_MESSAGE,
+      };
 }
 
 /**
@@ -66,7 +94,7 @@ export function lines(lang: Lang): { greeting: string; failure: string; timeLimi
  * magyar válaszra húzza, pedig a köszönés angolul hangzott el.
  */
 const ENGLISH_CALL_BLOCK = `# NYELV
-Ezt a hívást angolul köszöntötted, mert külföldi számról jött. Angolul beszélj, amíg a hívó nem vált más nyelvre. A lenti szabályok angolul is érvényesek: a számokat betűvel mondd ("two hundred ninety thousand forints"), az e-mail címet így: "aximbra at gmail dot com".
+Ez a hívás angolul folyik: vagy az angol számot hívták, vagy a hívó angolul szólalt meg. Angolul beszélj, amíg a hívó nem vált más nyelvre. Ha a beszélgetés korábbi részében magyar mondataid vannak, az azért van, mert a hívás magyarul indult, és menet közben álltunk át — ne hozd szóba, csak folytasd angolul. A lenti szabályok angolul is érvényesek: a számokat betűvel mondd ("two hundred ninety thousand forints"), az e-mail címet így: "aximbra at gmail dot com".
 
 `;
 

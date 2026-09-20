@@ -38,11 +38,15 @@ const PORT = 18933;
 
 let child: ChildProcess;
 
-async function post(pathAndQuery: string, params: Record<string, string>): Promise<string> {
+async function post(
+  pathAndQuery: string,
+  params: Record<string, string>,
+  port: number = PORT,
+): Promise<string> {
   const body = new URLSearchParams(params);
   const url = `https://${HOST}${pathAndQuery}`;
   const signature = twilio.getExpectedTwilioSignature(TOKEN, url, params);
-  const res = await fetch(`http://127.0.0.1:${PORT}${pathAndQuery}`, {
+  const res = await fetch(`http://127.0.0.1:${port}${pathAndQuery}`, {
     method: 'POST',
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
@@ -132,4 +136,64 @@ test('relayTwiml: a felolvasas es a felismeres egyutt indul, es valthato', async
   });
 
   child.kill();
+});
+
+/**
+ * A kulon angol szam: a legjobb angol elmeny, amit ez a felallas adni tud.
+ *
+ * Aki az angol szamot tarcsazza, angolul var valaszt - ez az egyetlen
+ * biztos nyelvi jel a hivas elejen, es nincs szukseg egyetlen felreertheto
+ * fordulora sem. A hivoszam tovabbra sem szol bele semmibe.
+ */
+const EN_PORT = 18934;
+const EN_NUMBER = '+441234567890';
+
+test('ENGLISH_PHONE_NUMBER: az arra a szamra erkezo hivas vegig angol', async (t) => {
+  const en = spawn(process.execPath, [path.join(HERE, 'server.js')], {
+    cwd: HERE,
+    env: {
+      ...process.env,
+      SMOKE_TEST_SCENARIO: '',
+      PORT: String(EN_PORT),
+      OPENAI_API_KEY: 'sk-test',
+      TWILIO_AUTH_TOKEN: TOKEN,
+      PUBLIC_HOSTNAME: HOST,
+      MAX_CALLS_PER_DAY: '100',
+      ENGLISH_PHONE_NUMBER: EN_NUMBER,
+    },
+  });
+  await new Promise((r) => setTimeout(r, 1200));
+
+  await t.test('az angol szamot hivva: angol hang es angol felismeres', async () => {
+    const xml = await post(
+      '/twiml',
+      {
+        From: '+36209876543', // magyar szam, megis az angol vonalat hivta
+        To: EN_NUMBER,
+        CallSid: 'CA4123456789abcdef0123456789abcdef',
+        CallStatus: 'ringing',
+      },
+      EN_PORT,
+    );
+    assert.match(xml, /ttsLanguage="en-US"/);
+    assert.match(xml, /transcriptionLanguage="en-US"/);
+    assertSwitchable(xml);
+  });
+
+  await t.test('a masik szamot hivva: valtozatlanul magyarul indul', async () => {
+    const xml = await post(
+      '/twiml',
+      {
+        From: '+19498107263',
+        To: '+18024249852',
+        CallSid: 'CA5123456789abcdef0123456789abcdef',
+        CallStatus: 'ringing',
+      },
+      EN_PORT,
+    );
+    assert.match(xml, /ttsLanguage="hu-HU"/);
+    assert.match(xml, /transcriptionLanguage="hu-HU"/);
+  });
+
+  en.kill();
 });

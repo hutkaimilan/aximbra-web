@@ -48,6 +48,8 @@ export interface Env {
   twilioAccountSid: string;
   /** Errol a szamrol megy ki a hivas utani SMS a hivonak. */
   twilioSmsFrom: string;
+  /** Kulon angol nyelvu szam, ha van. Ures: nincs ilyen. */
+  englishPhone: string;
   /** Igaz, ha van eleg adat SMS kuldesehez. */
   smsEnabled: boolean;
   maxCallsPerDay: number;
@@ -82,6 +84,25 @@ export function env(): Env {
   const twilioAccountSid = optional('TWILIO_ACCOUNT_SID', '');
   const twilioSmsFrom = optional('TWILIO_SMS_FROM', '+18024249852');
 
+  /**
+   * Ha van kulon angol nyelvu szamod, ird ide. Az erre a szamra erkezo
+   * hivas VEGIG angolul megy: angol koszones, angol hang, angol
+   * beszedfelismeres, nyelvfelismeres nelkul. Ez a legjobb angol elmeny,
+   * amit ez a felallas adni tud - nincs benne egyetlen felreertheto
+   * fordulo sem.
+   *
+   * Uresen hagyva minden hivas magyarul indul, es a hivo elso mondatabol
+   * allunk at, ha angolul szol (server.ts, `maybeSwitchLang`).
+   */
+  const englishRaw = optional('ENGLISH_PHONE_NUMBER', '').replace(/[\s().-]/g, '');
+  const englishPhone = /^\+[1-9]\d{6,14}$/.test(englishRaw) ? englishRaw : '';
+  if (englishRaw !== '' && englishPhone === '') {
+    console.warn(
+      '[env] ENGLISH_PHONE_NUMBER ervenytelen (+18024249852 alakban kell), ' +
+        'figyelmen kivul hagyva.',
+    );
+  }
+
   // A szam a Railway valtozojaba kerul, nem a kodba: a repo nyilvanos.
   const ownerRaw = optional('OWNER_PHONE', '').replace(/[\s().-]/g, '');
   const ownerPhone = /^\+[1-9]\d{6,14}$/.test(ownerRaw) ? ownerRaw : '';
@@ -109,6 +130,7 @@ export function env(): Env {
 
     twilioAccountSid,
     twilioSmsFrom,
+    englishPhone,
     // SMS-hez az Account SID es az Auth Token egyutt kell.
     smsEnabled: twilioAccountSid !== '' && twilioAuthToken !== '',
 
