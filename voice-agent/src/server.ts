@@ -33,7 +33,7 @@ import {
 } from './llm.js';
 import { sendSummary } from './email.js';
 import { sendContactSms } from './sms.js';
-import { handleTestRoute, handleTestRelay } from './testAgent.js';
+import { handleTestRoute, handleTestRelay, startTestCall } from './testAgent.js';
 import {
   FAILURE_MESSAGE,
   FACTS_PROMPT,
@@ -726,6 +726,43 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
 
 /* ------------------------------------------------------------------ */
 
+/**
+ * Fustteszt inditas utan: egy valodi teszthivas, automatikusan.
+ *
+ * A beepitett hivastesztelot eddig csak kezzel, a weboldalrol lehetett
+ * elinditani - vagyis egy nyelvi vagy hangbeallitasi regresszio csak akkor
+ * derult ki, ha valaki eszebe jutott ranezni. Pont ez tortent ketszer
+ * egymas utan a felismeres nyelvevel.
+ *
+ * ALAPBOL KI VAN KAPCSOLVA. Csak akkor fut, ha a SMOKE_TEST_SCENARIO
+ * valtozo egy forgatokonyv kulcsat tartalmazza (pl. `alap`), es akkor is
+ * deploy-onkent pontosan egyszer: egy indulas, egy hivas. Valodi hivas,
+ * valodi koltseggel, ezert nem alapertelmezes - es a napi hivaskeret
+ * (MAX_CALLS_PER_DAY) ugyanugy vonatkozik ra.
+ *
+ * A hivas eredmenye a szokasos helyre kerul: `[test] ...` sorok, a vegen a
+ * teljes `[atirat]`. Nem dobunk hibat semmilyen agon: egy sikertelen
+ * fustteszt nem akadalyozhatja meg, hogy a szolgaltatas elinduljon.
+ */
+function scheduleSmokeTest(): void {
+  const scenario = process.env['SMOKE_TEST_SCENARIO']?.trim() ?? '';
+  if (!scenario) return;
+
+  // Rovid varakozas: a hivas azonnal visszahiv a sajat /test/twiml
+  // vegpontunkra, aminek addigra fogadokepesnek kell lennie.
+  setTimeout(() => {
+    void (async () => {
+      try {
+        console.log(`[smoke] fustteszt indul forgatokonyv=${scenario}`);
+        const res = await startTestCall(scenario);
+        if (!res.ok) console.error(`[smoke] nem indult el: ${res.error}`);
+      } catch (err) {
+        console.error('[smoke] kivetel:', err);
+      }
+    })();
+  }, 5_000).unref();
+}
+
 server.listen(cfg.port, '0.0.0.0', () => {
   console.log(`[start] AXIMBRA voice agent fut a ${cfg.port} porton`);
   console.log(
@@ -733,6 +770,7 @@ server.listen(cfg.port, '0.0.0.0', () => {
       `modell=${cfg.model} alairas-ellenorzes=${cfg.validateSignature} ` +
       `atkapcsolas=${cfg.ownerPhone !== ''}`,
   );
+  scheduleSmokeTest();
 });
 
 process.on('SIGTERM', () => {

@@ -31,6 +31,9 @@ test('a legordulo menuben valasztott forgatokonyv inditja a hivast, nem mindig a
     cwd: HERE,
     env: {
       ...process.env,
+      // Egy teszt soha nem inditson valodi telefonhivast, meg akkor
+      // sem, ha a futtato gepen veletlenul be van allitva.
+      SMOKE_TEST_SCENARIO: '',
       PORT: String(PORT),
       OPENAI_API_KEY: 'sk-test',
       TEST_AGENT_TOKEN: TOKEN,

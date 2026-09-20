@@ -34,6 +34,9 @@ test('a teszt-agent a forgatokonyv nyelven beszel, es az AXIMBRA valaszat a valo
     cwd: HERE,
     env: {
       ...process.env,
+      // Egy teszt soha nem inditson valodi telefonhivast, meg akkor
+      // sem, ha a futtato gepen veletlenul be van allitva.
+      SMOKE_TEST_SCENARIO: '',
       PORT: String(PORT),
       // Szandekosan ervenytelen: a modellhivas 401-re fut, es a determinisztikus
       // hiba-uzenetre esunk vissza - lasd a fajl tetejen levo magyarazatot.
