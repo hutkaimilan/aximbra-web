@@ -140,7 +140,7 @@ export async function detectSpokenLang(
       max_tokens: 4,
       temperature: 0,
     },
-    { timeout: opts.timeoutMs ?? 1_500, maxRetries: 0, signal: opts.signal },
+    { timeout: opts.timeoutMs ?? 6_000, maxRetries: 0, signal: opts.signal },
   );
 
   const out = completion.choices[0]?.message?.content?.trim().toLowerCase() ?? '';

@@ -13,12 +13,16 @@
  *    forgatokonyv atirata ezt mutatta: "We hiv fix People Using Email
  *    Regularly".
  *
- * A mostani mukodes: a hivoszam csak a KEZDO nyelvet tippeli meg, a ketto
- * egyutt mozog, es a hivas kozben a hivo elso mondata allithatja at
- * (server.ts, `maybeSwitchLang`). Ehhez ket dolog kell a TwiML-ben, es ezt
- * ellenorzi a teszt: a ketertelmu `language=` nem terhet vissza, es MINDKET
- * nyelv `<Language>` gyerekkent fel kell legyen veve - egy nem deklaralt
- * nyelvre a valtas ervenytelen lenne.
+ * A mostani mukodes: MINDEN hivas magyarul indul - a felolvasas es a
+ * felismeres egyutt -, es a hivo elso mondata allithatja at (server.ts,
+ * `maybeSwitchLang`). A hivoszam nem szol bele: a 2026-09-20-i fustteszt
+ * megmutatta, hogy a magyar beszed angol felismerovel ("Hello. Hi. Amit
+ * Mondock.") visszafejthetetlen, mig forditva ("We hiv fix People Using
+ * Email Regularly") nem az. Magyarul indulva a rossz iranybol van ut vissza.
+ *
+ * Amit a teszt orzik: a ketertelmu `language=` nem terhet vissza, a ketto
+ * soha nem csuszik szet, es MINDKET nyelv `<Language>` gyerekkent fel kell
+ * legyen veve - egy nem deklaralt nyelvre a valtas ervenytelen lenne.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -85,17 +89,18 @@ test('relayTwiml: a felolvasas es a felismeres egyutt indul, es valthato', async
     assertSwitchable(xml);
   });
 
-  await t.test('kulfoldi szam: vegig angolul indul - a felismeres is', async () => {
+  await t.test('kulfoldi szam is magyarul indul - a szam nem szol bele', async () => {
     const xml = await post('/twiml', {
       From: '+19498107263',
       To: '+18024249852',
       CallSid: 'CA1123456789abcdef0123456789abcdef',
       CallStatus: 'ringing',
     });
-    // Ez volt a 2026-09-20-i hiba: itt `hu-HU` allt, es az angolul beszelo
-    // hivo minden mondatat magyar felismero irta at.
-    assert.match(xml, /ttsLanguage="en-US"/);
-    assert.match(xml, /transcriptionLanguage="en-US"/);
+    // Ez a sor a 2026-09-20-i fustteszt tanulsaga: amikor ez `en-US` volt, a
+    // magyarul beszelo tesztelo atirata "Amit Mondock" lett, es abbol a
+    // nyelvfelismeres sem tudott visszatalalni.
+    assert.match(xml, /ttsLanguage="hu-HU"/);
+    assert.match(xml, /transcriptionLanguage="hu-HU"/);
     assertSwitchable(xml);
   });
 
@@ -111,7 +116,7 @@ test('relayTwiml: a felolvasas es a felismeres egyutt indul, es valthato', async
     assertSwitchable(xml);
   });
 
-  await t.test('a felolvasas es a felismeres soha nem csuszik szet indulaskor', async () => {
+  await t.test('barmelyik szamrol: magyarul indul, es a ketto nem csuszik szet', async () => {
     for (const from of ['+36209876543', '+19498107263', 'anonymous', '+4915112345678']) {
       const xml = await post('/twiml', {
         From: from,
@@ -122,6 +127,7 @@ test('relayTwiml: a felolvasas es a felismeres egyutt indul, es valthato', async
       const tts = /ttsLanguage="([^"]+)"/.exec(xml)?.[1];
       const stt = /transcriptionLanguage="([^"]+)"/.exec(xml)?.[1];
       assert.equal(stt, tts, `${from}: ${String(tts)} felolvasas, de ${String(stt)} felismeres`);
+      assert.equal(tts, 'hu-HU', `${from}: nem magyarul indult`);
     }
   });
 

@@ -78,21 +78,27 @@ function relayTwiml(host: string, lang: Lang): string {
       : { language: 'hu-HU', ttsProvider: cfg.ttsProvider, voice: cfg.ttsVoice };
 
   // A `language` attributum EGYSZERRE allitana a TTS-t es a felismerest,
-  // ezert a ketto kulon van megadva. A hivoszam viszont csak a KEZDO
-  // beallitast donti el - egy tipp, nem tobb: magyar ugyfel hivhat nemet
-  // szamrol, angol ugyfel magyarrol.
+  // ezert a ketto kulon van megadva - de MINDIG egyutt mozog. A hivas a
+  // hivoszamtol fuggetlenul magyarul indul, es a hivo elso mondata utan
+  // valt at, ha kell (lasd `switchLang`). Ehhez kell, hogy mindket
+  // <Language> mindig fel legyen veve: egy nem deklaralt nyelvre a valtas
+  // ervenytelen lenne.
   //
-  // Ket korabbi valtozat mindketteje felig mukodott. Az elso a szambol
-  // vezette le a felismerest is: a +36-tal nem kezdodo, de magyarul beszelo
-  // hivo atirata hasznalhatatlan lett. A masodik ezert MINDIG `hu-HU`-ra
-  // allitotta a felismerest - amivel viszont az angolul beszelo hivo jart
-  // pontosan ugyanigy (2026-09-20, `kulfoldi` forgatokonyv: "We hiv fix
-  // People Using Email Regularly").
+  // Miert pont magyarul indul minden hivas? Mert a felismeres hibaja NEM
+  // szimmetrikus, es ezt ket eles atirat mutatta meg:
   //
-  // Most a hivo elso mondata donti el, nem a szama: a /relay a valodi
-  // nyelvet felismeri, es menet kozben atallitja mindkettot (lasd
-  // `switchLang`). Ehhez kell, hogy mindket <Language> mindig fel legyen
-  // veve - egy nem deklaralt nyelvre a valtas ervenytelen lenne.
+  //   angol beszed, magyar felismero:
+  //     "We hiv fix People Using Email Regularly" - az angol szavak
+  //     atjonnek, a nyelv felismerheto marad.
+  //   magyar beszed, angol felismero:
+  //     "Hello. Hi. Amit Mondock." / "Email at kathalisha for glaukos dot
+  //     min cat mat" - ez mar semmilyen nyelvre nem hasonlit, es angolnak
+  //     olvasva megis hihetonek tunik. Innen visszatalalni nem lehet.
+  //
+  // Magyarul indulva a rossz irany az, amelyikbol MEG van ut vissza. A
+  // hivoszam ezt nem tudja jobban: magyar ugyfel hivhat nemet szamrol, es a
+  // hazai kozonseg amugy is magyarul beszel. Az ara egy magyar koszones egy
+  // angol hivonak - egyetlen mondat, ami utan atallunk.
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
@@ -149,7 +155,13 @@ function rejectTwiml(reason: 'daily' | 'concurrent', lang: Lang): string {
 </Response>`;
 }
 
-/** Az agenthez kapcsolas, a napi es egyideju keret ellenorzesevel. */
+/**
+ * Az agenthez kapcsolas, a napi es egyideju keret ellenorzesevel.
+ *
+ * A `lang` a hivoszambol jott tipp. Az elutasito uzenet hasznalja - ott ez az
+ * egyetlen jel, es a mondat ugyis egyszer hangzik el. A BESZELGETES viszont
+ * mindig magyarul indul, fuggetlenul a szamtol: lasd a relayTwiml-t.
+ */
 function agentTwiml(host: string, lang: Lang, from: string): string {
   const verdict = admitCall();
 
@@ -162,9 +174,10 @@ function agentTwiml(host: string, lang: Lang, from: string): string {
   }
 
   console.log(
-    `[http] hivas elfogadva lang=${lang} from=${from} ${verdict.count}/${verdict.limit}`,
+    `[http] hivas elfogadva szamtipp=${lang} indul=hu from=${from} ` +
+      `${verdict.count}/${verdict.limit}`,
   );
-  return relayTwiml(host, lang);
+  return relayTwiml(host, 'hu');
 }
 
 /** A Twilio altal hivott utvonalak. Mind alairt POST. */
@@ -476,11 +489,16 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
   };
 
   /**
-   * Jol tippeltunk-e a hivoszambol? A hivo sajat mondata donti el.
+   * Magyarul indult a hivas - tenyleg magyarul beszel a hivo?
    *
-   * A valasz KIMONDASA ELOTT fut, mert egy rossz nyelvu elso mondat jobban
-   * hallatszik, mint egy fel masodpercnyi szunet - es mert a hivo kovetkezo
-   * mondatat is mar a jo felismerovel akarjuk atirni.
+   * HATTERBEN fut, a valaszra NEM varunk. Az elso valtozat megvarta, hogy
+   * atjojjon a valasz, masfel masodperces korlattal - es eppen ezt nem
+   * birta el egy valodi kor az OpenAI-hoz: a 2026-09-20-i fusttesztben
+   * `APIConnectionTimeoutError` lett belole, valtas nelkul, es a hivas
+   * vegig rossz nyelven ment. A ket hibaag nem egyenrangu: egy kesobb
+   * megerkezo valtas egyetlen mondatba kerul, egy elmaradt valtas az egesz
+   * hivasba. Ezert inkabb varunk rea egy fordulot, es adunk neki elegendo
+   * idot.
    *
    * Addig probalkozik, amig hatarozott valaszt nem kap, de legfeljebb
    * LANG_CHECK_LIMIT-szer: egy "Hallo" mindket nyelven letezik, es ha az
@@ -488,22 +506,29 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
    * menne. A felso korlat azert kell, hogy egy vegig ertelmezhetetlen hivas
    * ne fizessen minden fordulora egy plusz modellhivast.
    *
-   * Barmilyen hiba eseten marad a tippelt nyelv es megy tovabb a hivas: ez
-   * a lepes soha nem allithatja meg a beszelgetest.
+   * Barmilyen hiba eseten marad a magyar, es megy tovabb a hivas: ez a
+   * lepes soha nem allithatja meg es nem lassithatja a beszelgetest.
    */
   const LANG_CHECK_LIMIT = 3;
+  const LANG_CHECK_TIMEOUT_MS = 6_000;
 
-  const maybeSwitchLang = async (utterance: string): Promise<void> => {
+  const maybeSwitchLang = (utterance: string): void => {
     if (s.langChecks >= LANG_CHECK_LIMIT) return;
     s.langChecks += 1;
-    try {
-      const spoken = await detectSpokenLang(utterance);
-      if (!spoken) return;
-      s.langChecks = LANG_CHECK_LIMIT; // hatarozott valasz: tobbet nem kerdezunk
-      switchLang(spoken);
-    } catch (err) {
-      console.error('[ws] nyelvfelismeres hiba:', err);
-    }
+
+    void (async () => {
+      try {
+        const spoken = await detectSpokenLang(utterance, {
+          timeoutMs: LANG_CHECK_TIMEOUT_MS,
+        });
+        if (!spoken || s.closed) return;
+        s.langChecks = LANG_CHECK_LIMIT; // hatarozott valasz: tobbet nem kerdezunk
+        switchLang(spoken);
+      } catch (err) {
+        // Nem hatasa a hivasra: a kovetkezo fordulo ujra probalkozik.
+        console.warn('[ws] nyelvfelismeres nem jott vissza:', err);
+      }
+    })();
   };
 
   /** Egy fordulo kimondasa, tokenenkent tovabbitva. */
@@ -594,10 +619,10 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
       while (s.queue.length > 0 && !s.closed) {
         const text = s.queue.splice(0, s.queue.length).join(' ').trim();
         if (!text) continue;
-        // A valasz elott, nem utana: a nyelvet meg az elso megszolalasunk
-        // elott helyre kell tenni, kulonben a hivo egy rossz nyelvu mondatot
-        // kap, es a sajat kovetkezo mondatat is rossz felismero irja at.
-        await maybeSwitchLang(text);
+        // Elinditjuk, de nem varunk ra: a valasz azonnal indul, a nyelvvaltas
+        // pedig akkor lep eletbe, amikor megjon - jellemzoen a kovetkezo
+        // fordulora. Lasd a fuggveny magyarazatat.
+        maybeSwitchLang(text);
         s.history.push({ role: 'user', content: text });
         await speakReply();
         refreshFacts();
