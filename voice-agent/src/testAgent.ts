@@ -1052,8 +1052,17 @@ export async function handleTestRoute(
       // mint egy sikeres - ez vezetett felre a 2026-09-20-i nemet
       // fusttesztnel, ahol ket deploy egymasra inditott ket hivast.
       const callStatus = (form?.get('CallStatus') ?? '').trim() || 'ismeretlen';
-      const connected = callStatus === 'completed' && (secs ?? 0) > 0;
       const run = await loadRun(runId);
+      // Harom feltetel, es mind a harom kellett mar:
+      //  - a Twilio szerint lezarult hivas (nem foglalt, nem nem-vettek-fel),
+      //  - volt merheto hossza,
+      //  - es tenylegesen elhangzott benne valami.
+      //
+      // A harmadik azert, mert egy rossz TEST_SPEECH_MODEL mellett a Gather
+      // azonnal elhalt: a hivas hat masodpercig tartott, `completed` lett, es
+      // ures atirattal mégis sikeresnek latszott.
+      const spoken = (run?.turns.length ?? 0) > 0;
+      const connected = callStatus === 'completed' && (secs ?? 0) > 0 && spoken;
       await updateRun(runId, {
         durationSec: secs,
         status: run?.status === 'failed' || !connected ? 'failed' : 'done',
@@ -1066,8 +1075,9 @@ export async function handleTestRoute(
         void reviewRun(runId);
       } else {
         console.error(
-          `[test] a hivas NEM kapcsolt be run=${runId} allapot=${callStatus} ` +
-            `hossz=${secs ?? 0}s - nem volt beszelgetes, a futas nem ertekelheto`,
+          `[test] a hivas NEM ertekelheto run=${runId} allapot=${callStatus} ` +
+            `hossz=${secs ?? 0}s fordulok=${run?.turns.length ?? 0} - ` +
+            (spoken ? 'a hivas nem kapcsolt be' : 'egyetlen mondat sem hangzott el'),
         );
       }
     }
