@@ -89,7 +89,6 @@ function testCfg() {
     // Ugyanez angol forgatokonyvhoz (csak akkor fut, ha az OpenAI TTS elszall,
     // lasd synth() - a <Play> a rendes ut, ez csak tartalek).
     sayVoiceEn: process.env['TEST_SAY_VOICE_EN']?.trim() || 'Google.en-US-Wavenet-D',
-    sayVoiceDe: process.env['TEST_SAY_VOICE_DE']?.trim() || 'Google.de-DE-Wavenet-B',
     // A teszt-agent modellje kulon allithato: itt a gyorsasag fontosabb,
     // mint az eles oldalon. Minden masodperc gondolkodas nema vonal.
     model: process.env['TEST_MODEL']?.trim() || env().model,
@@ -102,19 +101,19 @@ function testCfg() {
     // felismerest. Az "auto" MONDAT KOZBEN zart le, ezert vagott bele a
     // teszt-agent az AXIMBRA agent szavaba 11-bol 8 alkalommal.
     // Mennyi csend utan dontse el a teszt-eszkoz, hogy a masik fel
-    // befejezte. Ketto masodperc kevesnek bizonyult: egy hosszabb nemet
-    // mondat kozbeni levegovetelt mar befejezesnek vett, belevagott, es a
-    // sajat maga altal levagott toredeket nem ertette. Egy ember sem vagna
-    // bele ilyen gyorsan.
+    // befejezte. Ketto masodperc kevesnek bizonyult: egy hosszabb mondat
+    // kozbeni levegovetelt mar befejezesnek vett, belevagott, es a sajat
+    // maga altal levagott toredeket nem ertette. Egy ember sem vagna bele
+    // ilyen gyorsan.
     speechTimeout: intEnv('TEST_SPEECH_TIMEOUT', 3, 1, 10),
     /**
      * A teszt-eszkoz sajat beszedfelismero modellje.
      *
      * A <Gather> alapertelmezese a `default` modell, ami telefonvonalon es
-     * nem angol nyelven a leggyengebb. A nemet futasokban emiatt kerdezett
-     * vissza a teszt-agent tizszer is olyan mondatokra, amiket az AXIMBRA
-     * hibatlanul mondott ki - a termek oldala ugyanis mindent pontosan
-     * ertett, csak a teszt fule nem.
+     * nem angol nyelven a leggyengebb. Egy korabbi, idegen nyelvu futasban
+     * emiatt kerdezett vissza a teszt-agent tizszer is olyan mondatokra,
+     * amiket az AXIMBRA hibatlanul mondott ki - a termek oldala ugyanis
+     * mindent pontosan ertett, csak a teszt fule nem.
      *
      * Kornyezeti valtozobol jon, hogy modellt lehessen cserelni kod nelkul:
      * a `googlev2_telephony` telefonhangra van hangolva, de nem minden
@@ -202,23 +201,8 @@ const SPEECH_HINTS_EN = [
   'callback',
 ].join(',');
 
-/** Nemet forgatokonyv eseten - ugyanaz a szerep, nemet markanevekkel. */
-const SPEECH_HINTS_DE = [
-  'Aximbra',
-  'KI-Agentur',
-  'Agent',
-  'Automatisierung',
-  'E-Mail-Sortierung',
-  'Lead-Qualifizierung',
-  'Angebot',
-  'Kontaktdaten',
-  'Rückruf',
-].join(',');
-
 function hintsFor(lang: AximbraLang): string {
-  if (lang === 'en') return SPEECH_HINTS_EN;
-  if (lang === 'de') return SPEECH_HINTS_DE;
-  return SPEECH_HINTS;
+  return lang === 'en' ? SPEECH_HINTS_EN : SPEECH_HINTS;
 }
 
 /**
@@ -448,8 +432,8 @@ async function voiceBlock(speak: string | null, token: string, lang: TesterLang)
     return `\n  <Play>${url}</Play>`;
   }
   // <Say> tartalek, csak ha az OpenAI TTS elszallt (synth() null-t adott).
-  const sayVoice = lang === 'en' ? c.sayVoiceEn : lang === 'de' ? c.sayVoiceDe : c.sayVoice;
-  const sayLang = lang === 'en' ? 'en-US' : lang === 'de' ? 'de-DE' : 'hu-HU';
+  const sayVoice = lang === 'en' ? c.sayVoiceEn : c.sayVoice;
+  const sayLang = lang === 'en' ? 'en-US' : 'hu-HU';
   return `\n  <Say voice="${escapeXml(sayVoice)}" language="${sayLang}">${escapeXml(speak)}</Say>`;
 }
 
@@ -485,15 +469,6 @@ const MSGS: Record<TesterLang, {
     turnLimitClose: "Thank you, that's all for now. Goodbye!",
     connectionLostClose: 'Sorry, the line dropped. Goodbye!',
     genericAck: 'I see.',
-  },
-  de: {
-    technicalError: 'Entschuldigung, es gab einen technischen Fehler. Auf Wiederhören!',
-    silenceRetry: 'Hallo, können Sie mich hören?',
-    silenceShort: 'Hallo?',
-    noAnswerClose: 'Die Leitung scheint unterbrochen zu sein. Auf Wiederhören!',
-    turnLimitClose: 'Vielen Dank, das reicht mir fürs Erste. Auf Wiederhören!',
-    connectionLostClose: 'Entschuldigung, die Leitung ist abgerissen. Auf Wiederhören!',
-    genericAck: 'Verstehe.',
   },
 };
 
@@ -569,13 +544,6 @@ function phaseNote(remaining: number, scenario: Scenario): string {
 - If they have not asked for your contact details yet, offer them yourself.
 - Your contact details: ${scenario.contact}.
 - Then say a short goodbye, and put this at the END of your reply: ${END_MARKER}`;
-  }
-  if (scenario.lang === 'de') {
-    return `\n\nBEENDEN SIE DAS GESPRÄCH JETZT:
-- Sie haben höchstens noch ${remaining} Antworten.
-- Wenn man noch nicht nach Ihren Kontaktdaten gefragt hat, bieten Sie sie von sich aus an.
-- Ihre Kontaktdaten: ${scenario.contact}.
-- Verabschieden Sie sich dann kurz, und schreiben Sie ans ENDE Ihrer Antwort: ${END_MARKER}`;
   }
   return `\n\nMOST ZARD LE A BESZELGETEST:
 - Legfeljebb ${remaining} valaszod van hatra.
@@ -807,7 +775,7 @@ export function renderIndex(runs: TestRun[], token: string): string {
         .map((r) => {
           const when = new Date(r.createdAt).toLocaleString('hu-HU');
           const dur = r.durationSec === null ? '' : ` · ${r.durationSec}s`;
-          // A lista az elso, amit az ember lat. Egy nemet futasnal a cimke
+          // A lista az elso, amit az ember lat. A forgatokonyv cimkeje
           // onmagaban semmit nem mond arrol, jo volt-e a hivas - a magyar
           // ertekeles kimenetele viszont igen, egy pillantasra.
           const judged = r.verdict
@@ -878,8 +846,8 @@ export function renderRun(run: TestRun, token: string): string {
     ? `<div class="card"><div class="who failed">Hiba</div><div>${esc(run.error)}</div></div>`
     : '';
 
-  // A lap tetejen, az atirat ELOTT: ez az egyetlen resz, amit egy nemet
-  // hivas utan is el lehet olvasni magyarul.
+  // A lap tetejen, az atirat ELOTT: egy angol hivas utan is ebbol derul ki
+  // magyarul, hogy jo volt-e - az atiratot nem kell vegigolvasni hozza.
   const verdict = run.verdict
     ? `<div class="card" style="border-color:${run.verdict.ok ? '#2E7D52' : '#8C3A3A'}">
   <div class="who ${run.verdict.ok ? 'done' : 'failed'}" style="margin-bottom:6px">
@@ -1049,8 +1017,8 @@ export async function handleTestRoute(
       const secs = Number.parseInt(form?.get('CallDuration') ?? '0', 10) || null;
       // A Twilio vegallapota. Enelkul egy hivas, ami soha nem kapcsolt be
       // (foglalt vonal, nem vettek fel), majdnem ugy nezett ki a naplóban,
-      // mint egy sikeres - ez vezetett felre a 2026-09-20-i nemet
-      // fusttesztnel, ahol ket deploy egymasra inditott ket hivast.
+      // mint egy sikeres - ez vezetett felre a 2026-09-20-i fusttesztnel,
+      // ahol ket deploy egymasra inditott ket hivast.
       const callStatus = (form?.get('CallStatus') ?? '').trim() || 'ismeretlen';
       const run = await loadRun(runId);
       // Harom feltetel, es mind a harom kellett mar:

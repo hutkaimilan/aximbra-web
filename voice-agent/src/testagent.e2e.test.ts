@@ -75,12 +75,5 @@ test('a teszt-agent a forgatokonyv nyelven beszel, es az AXIMBRA valaszat a valo
     assert.match(xml, /Sorry, a technical error occurred/);
   });
 
-  await t.test("nemet ('nemet') forgatokonyv: sajat nemet hang", async () => {
-    const xml = await post(`/test/twiml?run=dddddddddddddddd&scenario=nemet&token=${TOKEN}`);
-    assert.match(xml, /<Say voice="Google\.de-DE-Wavenet-B" language="de-DE">/);
-    assert.match(xml, /technischen Fehler/);
-    assert.doesNotMatch(xml, /hu-HU/, 'egy nemet forgatokonyvbe nem szivaroghat magyar');
-  });
-
   child.kill();
 });

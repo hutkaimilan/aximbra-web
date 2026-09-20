@@ -91,12 +91,12 @@ export async function reply(
 /* ------------------------------------------------------------------ */
 
 /**
- * Egy teszthivas magyar ertekelese, akkor is, ha a hivas nemetul ment.
+ * Egy teszthivas magyar ertekelese, akkor is, ha a hivas angolul ment.
  *
- * Enelkul a nemet forgatokonyv hasznalhatatlan annak, aki nem tud nemetul:
- * lefut, latszik az atirat, es semmit nem lehet kezdeni vele. A modell
- * ugyanazt nezi, amit egy ember nezne - ertette-e a ket fel egymast, ragadt-e
- * be a beszelgetes, megvan-e, amiert a hivas indult.
+ * Egy idegen nyelvu atiratot vegig kell olvasni ahhoz, hogy kiderüljön,
+ * jo volt-e a hivas - es igy a teszt nagy resze kihasznalatlan marad. A
+ * modell ugyanazt nezi, amit egy ember nezne: ertette-e a ket fel egymast,
+ * ragadt-e be a beszelgetes, megvan-e, amiert a hivas indult.
  */
 const REVIEW_PROMPT = `Egy AI telefonos ügynök (AXIMBRA) tesztjét értékeled. A beszélgetés bármilyen nyelven folyhatott; te MINDIG MAGYARUL válaszolsz.
 
@@ -168,15 +168,13 @@ const LANG_DETECT_PROMPT = `You identify which language a phone caller is ACTUAL
 The text you are given is a speech-to-text transcript that may have been produced by a recognizer configured for the WRONG language. When that happens the words come out mangled:
 - English speech run through a Hungarian recognizer looks like Hungarian-ish nonsense with a few real English words surviving. Example: "Iron a Design Studio in the UK. I THM valik" / "We hiv fix People Using Email Regularly" / "Right, I roz azkin' about the cast".
 - Hungarian speech run through an English recognizer looks like English-ish nonsense with Hungarian word shapes. Example: "Hello. Hi. Amit Mondock." / "Email at kathalisha for glaukos dot min cat mat".
-- German speech run through a Hungarian or English recognizer keeps its long compound words and its word order, with "ich", "wir", "haben", "nicht", "und" surfacing in distorted forms.
 
 Judge the language of the SPEECH, not the spelling. Clean grammatical text means the caller speaks that language. For mangled text, decide which language the recognizable words, the word order and the sentence rhythm come from.
 
 Answer with exactly one lowercase word and nothing else:
 hu - the caller is speaking Hungarian
 en - the caller is speaking English
-de - the caller is speaking German
-unknown - too short or too garbled to tell (a greeting alone like "hello" is NOT enough, since it exists in more than one)`;
+unknown - too short or too garbled to tell (a greeting alone like "hello" is NOT enough, since it exists in both)`;
 
 /**
  * `hu` / `en`, vagy `null`, ha nem lehet eldonteni.
@@ -190,7 +188,7 @@ unknown - too short or too garbled to tell (a greeting alone like "hello" is NOT
 export async function detectSpokenLang(
   text: string,
   opts: ReplyOptions = {},
-): Promise<'hu' | 'en' | 'de' | null> {
+): Promise<'hu' | 'en' | null> {
   const sample = text.trim();
   // Ket szo alatt nincs mibol donteni, es a "hallo" mindket nyelven letezik.
   if (sample.split(/\s+/).filter(Boolean).length < 2) return null;
@@ -211,7 +209,6 @@ export async function detectSpokenLang(
   const out = completion.choices[0]?.message?.content?.trim().toLowerCase() ?? '';
   if (out.startsWith('hu')) return 'hu';
   if (out.startsWith('en')) return 'en';
-  if (out.startsWith('de')) return 'de';
   return null;
 }
 

@@ -19,7 +19,7 @@
 
 import { escapeXml } from './xml.js';
 
-export type Lang = 'hu' | 'en' | 'de';
+export type Lang = 'hu' | 'en';
 export type Route = { to: 'owner' } | { to: 'agent'; lang: Lang };
 
 const E164 = /^\+[1-9]\d{6,14}$/;
@@ -65,24 +65,20 @@ export function routeCall(from: string | null | undefined, ownerPhone: string): 
  * felet. Barmikor lehet gombot nyomni, a Gather nem varja meg a szoveg vegét.
  */
 /**
- * Minden nyelv a SAJAT nyelven sorolja fel MINDHAROM lehetoseget.
+ * Mindket nyelv a SAJAT nyelven sorolja fel MINDKET lehetoseget.
  *
- * Igy annak is teljes a kep, aki csak az egyik nyelvet erti - kulonben a
- * nemet hivonak ki kene talalnia, hogy a magyar mondat vegen elhangzo
- * "harmas" ra vonatkozik. A sorrend a kozonseg szerinti: magyar, angol,
- * nemet. Gombot barmikor lehet nyomni, a szoveg vegét nem kell kivarni.
+ * Igy annak is teljes a kep, aki csak az egyiket erti - kulonben az angol
+ * hivonak ki kene talalnia, hogy a magyar mondat vegen elhangzo "kettes" ra
+ * vonatkozik. A sorrend a kozonseg szerinti: elobb magyar, aztan angol.
+ * Gombot barmikor lehet nyomni, a szoveg vegét nem kell kivarni.
  */
 export const MENU_HU =
   'Jó napot kívánok, Aximbra! Ha magyarul szeretné folytatni, nyomja meg az egyes gombot. ' +
-  'Ha angolul, nyomja meg a kettes gombot. Ha németül, nyomja meg a hármas gombot.';
+  'Ha angolul szeretné folytatni, nyomja meg a kettes gombot.';
 
 export const MENU_EN =
   'Hello, this is Aximbra. To continue in Hungarian, press one. ' +
-  'For English, press two. For German, press three.';
-
-export const MENU_DE =
-  'Guten Tag, hier ist Aximbra. Für Ungarisch drücken Sie die Eins. ' +
-  'Für Englisch die Zwei. Für Deutsch die Drei.';
+  'To continue in English, press two.';
 
 export interface LanguageMenu {
   host: string;
@@ -92,10 +88,10 @@ export interface LanguageMenu {
   timeoutSeconds: number;
 }
 
-const MENU_TEXT: Record<Lang, string> = { hu: MENU_HU, en: MENU_EN, de: MENU_DE };
+const MENU_TEXT: Record<Lang, string> = { hu: MENU_HU, en: MENU_EN };
 
 /** A felolvasas sorrendje. A magyar all elol: az oldal kozonsege magyar. */
-export const MENU_ORDER: Lang[] = ['hu', 'en', 'de'];
+export const MENU_ORDER: Lang[] = ['hu', 'en'];
 
 export function languageMenuTwiml(m: LanguageMenu): string {
   const says = MENU_ORDER.map(
@@ -127,7 +123,6 @@ export function langFromDigits(digits: string | null | undefined): {
   const d = (digits ?? '').trim();
   if (d === '1') return { lang: 'hu', chosen: true };
   if (d === '2') return { lang: 'en', chosen: true };
-  if (d === '3') return { lang: 'de', chosen: true };
   return { lang: 'hu', chosen: false };
 }
 
@@ -136,11 +131,7 @@ export function langFromDigits(digits: string | null | undefined): {
 /* ------------------------------------------------------------------ */
 
 /** A ConversationRelay nyelvkodjai. A TwiML `<Language code=...>`-ai ezek. */
-export const RELAY_LANG_CODE: Record<Lang, string> = {
-  hu: 'hu-HU',
-  en: 'en-US',
-  de: 'de-DE',
-};
+export const RELAY_LANG_CODE: Record<Lang, string> = { hu: 'hu-HU', en: 'en-US' };
 
 /**
  * A ConversationRelay-nek kuldheto uzenet, ami a mar folo hivason atallitja

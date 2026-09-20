@@ -38,9 +38,9 @@ export interface TestRun {
   /**
    * MAGYAR ertekeles a hivasrol, barmilyen nyelven is folyt.
    *
-   * A tulajdonos nem beszel nemetul. Egy nemet atirat onmagaban nem mondja
-   * meg neki, hogy jol ment-e a hivas - ezert a futas utan a modell magyarul
-   * leirja, mi tortent es hol akadt el.
+   * Egy idegen nyelvu atirat onmagaban nem mondja meg, hogy jol ment-e a
+   * hivas - vegig kellene olvasni hozza. A futas utan ezert a modell
+   * magyarul leirja, mi tortent es hol akadt el.
    */
   verdict: { ok: boolean; text: string } | null;
 }

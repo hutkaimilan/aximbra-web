@@ -130,20 +130,15 @@ test('a nyelvvaltas uzenete mindket iranyt egyutt allitja', () => {
   assert.equal(en['ttsLanguage'], 'en-US');
   assert.equal(en['transcriptionLanguage'], 'en-US');
 
-  const de = JSON.parse(languageSwitchMessage('de')) as Record<string, string>;
-  assert.equal(de['type'], 'language');
-  assert.equal(de['ttsLanguage'], 'de-DE');
-  assert.equal(de['transcriptionLanguage'], 'de-DE');
 });
 
 test('csak olyan nyelvre valthatunk, amit a TwiML deklaral', () => {
   // A relayTwiml `<Language code=...>` gyerekei pontosan ezek. Ha ez a ket
   // ertek elcsuszik a TwiML-tol, a valtas a hivas kozben ervenytelen lesz,
   // es a hivo nemasagot kap - ezert all itt, teszt ala kotve.
-  assert.deepEqual(Object.keys(RELAY_LANG_CODE).sort(), ['de', 'en', 'hu']);
+  assert.deepEqual(Object.keys(RELAY_LANG_CODE).sort(), ['en', 'hu']);
   assert.equal(RELAY_LANG_CODE.hu, 'hu-HU');
   assert.equal(RELAY_LANG_CODE.en, 'en-US');
-  assert.equal(RELAY_LANG_CODE.de, 'de-DE');
 });
 
 /* ------------------------------------------------------------------ */
@@ -153,14 +148,13 @@ test('csak olyan nyelvre valthatunk, amit a TwiML deklaral', () => {
 test('a gomb dont, es a dontes jelolve van', () => {
   assert.deepEqual(langFromDigits('1'), { lang: 'hu', chosen: true });
   assert.deepEqual(langFromDigits('2'), { lang: 'en', chosen: true });
-  assert.deepEqual(langFromDigits('3'), { lang: 'de', chosen: true });
 });
 
 test('gomb nelkul magyar, de nem a hivo dontesekent', () => {
   // A kulonbseg nem kozomboS: a `chosen: false` engedi, hogy a
   // beszedfelismeres kesobb korrigaljon. Egy megnyomott gombot viszont
   // semmi nem irhat felul.
-  for (const d of [null, undefined, '', '0', '4', '9', '#', '*', '12', 'egy']) {
+  for (const d of [null, undefined, '', '0', '3', '9', '#', '*', '12', 'egy']) {
     assert.deepEqual(langFromDigits(d), { lang: 'hu', chosen: false }, String(d));
   }
 });
@@ -168,30 +162,21 @@ test('gomb nelkul magyar, de nem a hivo dontesekent', () => {
 test('a menu mindket nyelven felkinalja mindket gombot', () => {
   const xml = languageMenuTwiml({
     host: 'voice.example',
-    voices: {
-      hu: 'Google.hu-HU-Wavenet-A',
-      en: 'Google.en-US-Wavenet-F',
-      de: 'Google.de-DE-Wavenet-C',
-    },
+    voices: { hu: 'Google.hu-HU-Wavenet-A', en: 'Google.en-US-Wavenet-F' },
     timeoutSeconds: 6,
   });
 
-  // Aki csak az egyik nyelvet erti, annak is tudnia kell MINDHAROM
-  // lehetoseget - kulonben a nemet hivonak ki kene talalnia, hogy a magyar
-  // mondat vegen elhangzo "harmas" ra vonatkozik.
+  // Aki csak az egyik nyelvet erti, annak is tudnia kell MINDKET
+  // lehetoseget - kulonben az angol hivonak ki kene talalnia, hogy a magyar
+  // mondat vegen elhangzo "kettes" ra vonatkozik.
   assert.match(xml, /nyomja meg az egyes gombot/);
   assert.match(xml, /nyomja meg a kettes gombot/);
-  assert.match(xml, /nyomja meg a hármas gombot/);
   assert.match(xml, /press one/);
   assert.match(xml, /press two/);
-  assert.match(xml, /press three/);
-  assert.match(xml, /drücken Sie die Eins/);
-  assert.match(xml, /die Zwei/);
-  assert.match(xml, /die Drei/);
 
   assert.ok(
-    xml.indexOf('hu-HU') < xml.indexOf('en-US') && xml.indexOf('en-US') < xml.indexOf('de-DE'),
-    'a sorrend: magyar, angol, nemet',
+    xml.indexOf('hu-HU') < xml.indexOf('en-US'),
+    'elobb magyarul hangzik el, aztan angolul',
   );
 
   // Gomb nelkul sem szabad zsakutcaban vegzodnie: a Redirect ugyanoda megy,

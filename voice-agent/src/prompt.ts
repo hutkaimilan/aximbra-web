@@ -40,7 +40,7 @@ export const TIME_LIMIT_MESSAGE =
   'Köszönöm a hívást, viszonthallásra!';
 
 /**
- * Az angol változat a külföldi számról érkező hívásoknak (lásd routing.ts).
+ * Az angol változat annak, aki a menüben a kettes gombot nyomta.
  * Ugyanaz a három mondat, ugyanazzal a szereppel.
  */
 export const GREETING_EN =
@@ -68,26 +68,6 @@ export const SWITCHED_MESSAGE = 'Elnezest, most alltam at magyarra. Megismetelne
 export const SWITCHED_MESSAGE_EN =
   'Sorry - I have just switched to English. Could you say that again, please?';
 
-/**
- * A nemet valtozat. Ugyanaz a harom mondat, ugyanazzal a szereppel: a
- * bemutatkozas, az adatkezelesi mondat, es a "miben segithetek".
- */
-export const GREETING_DE =
-  'Aximbra, guten Tag! Nur damit Sie es wissen: Was Sie uns sagen, behandeln wir ' +
-  'vertraulich und verwenden es ausschließlich zur Erstellung des Angebots. ' +
-  'Wie kann ich Ihnen helfen?';
-
-export const FAILURE_MESSAGE_DE =
-  'Entschuldigung, die Verbindung war kurz unterbrochen. Könnten Sie das bitte wiederholen?';
-
-export const TIME_LIMIT_MESSAGE_DE =
-  'Ich muss das Gespräch hier leider beenden, das ist eine Demo-Leitung. ' +
-  'Schreiben Sie uns gerne an aximbra at gmail dot com, dort machen wir weiter. ' +
-  'Danke für Ihren Anruf, auf Wiederhören!';
-
-export const SWITCHED_MESSAGE_DE =
-  'Entschuldigung, ich habe gerade auf Deutsch umgestellt. Könnten Sie das bitte wiederholen?';
-
 export function lines(lang: Lang): {
   greeting: string;
   failure: string;
@@ -100,14 +80,6 @@ export function lines(lang: Lang): {
       failure: FAILURE_MESSAGE_EN,
       timeLimit: TIME_LIMIT_MESSAGE_EN,
       switched: SWITCHED_MESSAGE_EN,
-    };
-  }
-  if (lang === 'de') {
-    return {
-      greeting: GREETING_DE,
-      failure: FAILURE_MESSAGE_DE,
-      timeLimit: TIME_LIMIT_MESSAGE_DE,
-      switched: SWITCHED_MESSAGE_DE,
     };
   }
   return {
@@ -126,14 +98,6 @@ const ENGLISH_CALL_BLOCK = `# NYELV
 Ez a hívás angolul folyik: vagy az angol számot hívták, vagy a hívó angolul szólalt meg. Angolul beszélj, amíg a hívó nem vált más nyelvre. Ha a beszélgetés korábbi részében magyar mondataid vannak, az azért van, mert a hívás magyarul indult, és menet közben álltunk át — ne hozd szóba, csak folytasd angolul. A lenti szabályok angolul is érvényesek: a számokat betűvel mondd ("two hundred ninety thousand forints").
 
 Az e-mail címet CSAK így mondd ki: "aximbra at gmail dot com". A lenti magyar kiejtés ("kukac", "pont") ilyenkor TILOS — angol mondatban értelmezhetetlen.
-
-`;
-
-/** Ugyanaz nemetre. A szamokat es az e-mail cimet is nemetul kell mondani. */
-const GERMAN_CALL_BLOCK = `# NYELV
-Ez a hívás németül folyik: a hívó a német nyelvet választotta. Németül beszélj, amíg a hívó nem vált más nyelvre. Ha a beszélgetés korábbi részében magyar mondataid vannak, az azért van, mert a hívás magyarul indult, és menet közben álltunk át — ne hozd szóba, csak folytasd németül. A lenti szabályok németül is érvényesek: a számokat betűvel mondd ("dreihundertneunzigtausend Forint").
-
-Az e-mail címet CSAK így mondd ki: "aximbra at gmail punkt com". A lenti magyar kiejtés ("kukac", "pont") ilyenkor TILOS — német mondatban értelmezhetetlen. Egy éles hívásban elhangzott az "aximbra kukac gmail punkt" keverék; ez hiba.
 
 `;
 
@@ -338,9 +302,9 @@ export function buildSystemPrompt(
   callerNumber = '',
   lang: Lang = 'hu',
 ): string {
-  const langBlock =
-    lang === 'en' ? ENGLISH_CALL_BLOCK : lang === 'de' ? GERMAN_CALL_BLOCK : '';
-  const head = langBlock + (facts ? buildFactsBlock(facts, callerNumber) : '');
+  const head =
+    (lang === 'en' ? ENGLISH_CALL_BLOCK : '') +
+    (facts ? buildFactsBlock(facts, callerNumber) : '');
   const base = head + SYSTEM_PROMPT_BASE;
   if (projects <= 0) return base;
   return (

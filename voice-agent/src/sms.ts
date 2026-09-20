@@ -13,7 +13,6 @@ import { normalizeNumber, type Lang } from './routing.js';
 const CONTACT_MESSAGE: Record<Lang, string> = {
   hu: 'AXIMBRA - koszonjuk a hivast! Irjon nekunk: aximbra@gmail.com',
   en: 'AXIMBRA - thank you for calling! Write to us: aximbra@gmail.com',
-  de: 'AXIMBRA - danke für Ihren Anruf! Schreiben Sie uns: aximbra@gmail.com',
 };
 
 /** Egyszeru E.164 ellenorzes: + jel es 8-15 szamjegy. */

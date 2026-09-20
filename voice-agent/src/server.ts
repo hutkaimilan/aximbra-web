@@ -86,14 +86,6 @@ function voiceFor(lang: Lang): VoiceCfg {
       sayVoice: 'Google.en-US-Wavenet-F',
     };
   }
-  if (lang === 'de') {
-    return {
-      language: 'de-DE',
-      ttsProvider: 'Google',
-      ttsVoice: 'de-DE-Wavenet-C',
-      sayVoice: 'Google.de-DE-Wavenet-C',
-    };
-  }
   return {
     language: cfg.ttsLanguage,
     ttsProvider: cfg.ttsProvider,
@@ -103,7 +95,7 @@ function voiceFor(lang: Lang): VoiceCfg {
 }
 
 /** A felkinalt nyelvek. A ConversationRelay mindegyiket deklaralja. */
-const ALL_LANGS: Lang[] = ['hu', 'en', 'de'];
+const ALL_LANGS: Lang[] = ['hu', 'en'];
 
 function relayTwiml(host: string, lang: Lang, chosen: boolean): string {
   // A <Language> gyerekelemek nyelvenkent adjak meg a hangot es a
@@ -171,12 +163,6 @@ const REJECT_MESSAGES: Record<Lang, Record<'daily' | 'concurrent', string>> = {
     daily:
       "Thank you for calling. Today's limit for this demo line has been reached. Please email us at aximbra at gmail dot com, or try again tomorrow. Goodbye!",
   },
-  de: {
-    concurrent:
-      'Danke für Ihren Anruf. Gerade sind alle Leitungen belegt, bitte versuchen Sie es in ein paar Minuten noch einmal. Auf Wiederhören!',
-    daily:
-      'Danke für Ihren Anruf. Das heutige Kontingent dieser Demo-Leitung ist ausgeschöpft. Schreiben Sie uns bitte an aximbra at gmail dot com, oder versuchen Sie es morgen wieder. Auf Wiederhören!',
-  },
 };
 
 /**
@@ -226,7 +212,7 @@ function agentTwiml(host: string, lang: Lang, from: string, forced: Lang | null)
 
   return languageMenuTwiml({
     host,
-    voices: { hu: voiceFor('hu').sayVoice, en: voiceFor('en').sayVoice, de: voiceFor('de').sayVoice },
+    voices: { hu: voiceFor('hu').sayVoice, en: voiceFor('en').sayVoice },
     timeoutSeconds: MENU_TIMEOUT_SECONDS,
   });
 }
@@ -543,8 +529,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
   // A relayTwiml a hivoszambol tippelt nyelvet teszi az URL-be. Ez csak a
   // KEZDO ertek: amint a hivo megszolal, a `maybeSwitchLang` felulirhatja.
   const relayQuery = new URLSearchParams((req.url ?? '').split('?')[1] ?? '');
-  const asked = relayQuery.get('lang');
-  const startLang: Lang = asked === 'en' ? 'en' : asked === 'de' ? 'de' : 'hu';
+  const startLang: Lang = relayQuery.get('lang') === 'en' ? 'en' : 'hu';
   // `fix=1`: a hivo gombnyomassal valasztott nyelvet. Ezt semmi nem irhatja
   // felul - egy szandekos dontest felulbiralni rosszabb, mint barmi, amit a
   // felismeres nyerhetne vele.
