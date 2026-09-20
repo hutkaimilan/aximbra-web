@@ -79,7 +79,6 @@ function AdatkezelesHu({ lang }) {
           </p>
           <ul>
             <li>a kiválasztott nyelv (<code>aximbra_lang</code>),</li>
-            <li>hogy láttad-e már a nyitóanimációt (<code>aximbra:intro-seen</code>),</li>
             <li>hol tartottál a lapon, amikor egy demóra léptél — hogy visszatérve
               ugyanoda kerülj (<code>aximbra:return</code>, a fül bezárásáig él),</li>
             <li>az e-mail agent munkamenet-azonosítója, ha csatlakoztattad a fiókodat

@@ -19,7 +19,7 @@ const sk = {
     intro: "AI AGENTI · BUDAPEŠŤ",
   },
   hero: {
-    phoneCta: { badge: "AI", note: "Preberá ho AI agent · po anglicky a po maďarsky", origin: "Číslo v USA (Twilio) — hovory z nemaďarských čísel prijíma AI agent" },
+    phoneCta: { badge: "AI", note: "Preberá ho AI agent · po anglicky a po maďarsky", origin: "Číslo v USA (Twilio) — hovory z nemaďarských čísel prijíma AI agent; na začiatku si vyberiete maďarčinu alebo angličtinu" },
     eyebrow: "Budapešť · AI agentúra",
     h1: ["Nestaviame", "chatboty. Ale", "spolupracovníka."],
     sub: "Staviame AI agentov pre firmy, ktorí vykonávajú konkrétnu prácu — triedia e-maily, kvalifikujú dopyty, dvíhajú telefón. Neodovzdávame demo, ale funkčný systém, ktorý udržiavame nažive.",

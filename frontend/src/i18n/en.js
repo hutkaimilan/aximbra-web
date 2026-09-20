@@ -24,7 +24,7 @@ const en = {
     sub: "We build AI agents for Hungarian companies that do one concrete job — sort emails, qualify leads, answer the phone. We don't hand over a demo, but a working system that we keep alive.",
     ctaPrimary: "See the agents",
     ctaGhost: "See it live",
-    phoneCta: { badge: "AI", note: "Answered by an AI agent · in English & Hungarian", origin: "US number (Twilio) — calls from Hungarian numbers ring through to me" },
+    phoneCta: { badge: "AI", note: "Answered by an AI agent · in English & Hungarian", origin: "US number (Twilio) — calls from Hungarian numbers ring through to me, and the agent lets you pick Hungarian or English at the start" },
     status: { checking: "Checking status…", online: "Live phone agent", offline: "Phone agent unavailable", today: "today", callsUnit: "calls", liveUnit: "active now" },
     stats: [["2–4 weeks", "the first agent"], ["3 languages", "the phone agent speaks"], ["100%", "human approval"]],
   },
@@ -208,7 +208,7 @@ const en = {
   contact: {
     heading: "Which task eats up your week?",
     para: "Write it in one sentence. Within two working days we'll tell you whether it's worth building an agent for it — and if not, that too.",
-    phoneNote: "Answered by an AI agent, in English · calls from Hungarian numbers reach me",
+    phoneNote: "Answered by an AI agent · pick Hungarian or English at the start · calls from Hungarian numbers reach me",
     phoneOrigin: "US number (Twilio). Calls from non-Hungarian numbers go to the AI agent, and I get what you said by email.",
     form: {
       name: "Your name",

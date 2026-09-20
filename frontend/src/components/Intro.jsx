@@ -3,28 +3,24 @@ import { useLang } from "../i18n";
 
 const LETTERS = "AXIMBRA".split("");
 
-// The 2.6s wordmark is worth it once. On every later visit it is a toll on
-// someone who already knows the brand, so it plays once per visitor rather than
-// once per tab. localStorage can throw (private mode, blocked site data), and a
-// visitor who cannot be remembered simply sees the animation again.
-const SEEN_KEY = "aximbra:intro-seen";
-const hasSeenIntro = () => {
-  try { return localStorage.getItem(SEEN_KEY) !== null; } catch { return false; }
-};
-const markIntroSeen = () => {
-  try { localStorage.setItem(SEEN_KEY, "1"); } catch { /* not remembered, no harm */ }
-};
-
+// The wordmark plays on every load of the page, by choice: it is the first
+// thing the brand says, and a visitor arriving from a search result should get
+// it whether or not they have been here before. An earlier version remembered
+// each visitor in localStorage and showed it once, ever - that is the line to
+// change if it should go back to being once per visitor.
+//
+// `skip` is a different matter and stays: it covers coming back from a demo
+// page inside the same visit, where replaying the intro would feel like the
+// site had reloaded under the visitor.
 export const Intro = ({ skip }) => {
   const { t } = useLang();
   // Read once, on mount: re-reading during the run would hide it mid-animation.
-  const [suppressed] = useState(() => skip || hasSeenIntro());
+  const [suppressed] = useState(() => skip);
   const [hide, setHide] = useState(false);
   const [gone, setGone] = useState(false);
 
   useEffect(() => {
     if (suppressed) return;
-    markIntroSeen();
     document.body.classList.add("lock");
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const delay = reduce ? 200 : 2600;

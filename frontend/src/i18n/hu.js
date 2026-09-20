@@ -4,8 +4,8 @@ const CALLBAR = mailto("Hány hívást hagyunk megválaszolatlanul?");
 // Per-language search/social copy. Previously every language served the
 // Hungarian, unaccented title and description from index.html.
 const SEO = {
-  title: "AXIMBRA — AI ügynökség Budapest | AI agentek magyar cégeknek",
-  description: "Egyedi AI agenteket építünk magyar cégeknek: e-mail rendezés, érdeklődő-minősítés, telefonos ügyfélszolgálat. Éles demók, amiket azonnal kipróbálhatsz.",
+  title: "AXIMBRA — AI ügynökség Budapest | Egyedi AI agentek cégeknek",
+  description: "Egyedi AI agenteket építünk cégeknek: e-mail rendezés, érdeklődő-minősítés, telefonos ügyfélszolgálat. Éles demók, amiket azonnal kipróbálhatsz.",
 };
 
 const hu = {
@@ -21,10 +21,10 @@ const hu = {
   hero: {
     eyebrow: "Budapest · AI ügynökség",
     h1: ["Nem chatbotot", "építünk. Hanem", "munkatársat."],
-    sub: "Olyan AI agenteket építünk magyar cégeknek, amelyek elvégeznek egy konkrét munkát — leveleket rendeznek, érdeklődőt minősítenek, telefont vesznek fel. Nem demót adunk át, hanem működő rendszert, amit mi tartunk életben.",
+    sub: "Olyan AI agenteket építünk cégeknek, amelyek elvégeznek egy konkrét munkát — leveleket rendeznek, érdeklődőt minősítenek, telefont vesznek fel. Nem demót adunk át, hanem működő rendszert, amit mi tartunk életben.",
     ctaPrimary: "Nézd meg az agenteket",
     ctaGhost: "Működés közben",
-    phoneCta: { badge: "HÍVJ", note: "Magyar számról én veszem fel · ha nem érek rá, az AI agent", origin: "Amerikai szám (Twilio) — külföldi számról az AI agent fogadja, angolul" },
+    phoneCta: { badge: "HÍVJ", note: "Magyar számról én veszem fel · ha nem érek rá, az AI agent", origin: "Amerikai szám (Twilio) — külföldi számról az AI agent fogadja, és a hívás elején magyar vagy angol nyelvet választhatsz" },
     status: { checking: "Állapot lekérése…", online: "Élő telefon-agent", offline: "Telefon-agent nem elérhető", today: "ma", callsUnit: "hívás", liveUnit: "aktív most" },
     stats: [["2–4 hét", "az első agent"], ["3 nyelv", "a telefonos agent beszél"], ["100%", "emberi jóváhagyás"]],
   },

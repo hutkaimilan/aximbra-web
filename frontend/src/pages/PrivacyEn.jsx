@@ -71,7 +71,6 @@ export default function PrivacyEn({ lang }) {
           </p>
           <ul>
             <li>the selected language (<code>aximbra_lang</code>),</li>
-            <li>whether you have already seen the opening animation (<code>aximbra:intro-seen</code>),</li>
             <li>where you were on the page when you opened a demo, so you come back to the
               same place (<code>aximbra:return</code>, kept until the tab is closed),</li>
             <li>the email agent's session ID, if you connected your account
