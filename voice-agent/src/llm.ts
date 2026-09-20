@@ -104,14 +104,16 @@ const LANG_DETECT_PROMPT = `You identify which language a phone caller is ACTUAL
 
 The text you are given is a speech-to-text transcript that may have been produced by a recognizer configured for the WRONG language. When that happens the words come out mangled:
 - English speech run through a Hungarian recognizer looks like Hungarian-ish nonsense with a few real English words surviving. Example: "Iron a Design Studio in the UK. I THM valik" / "We hiv fix People Using Email Regularly" / "Right, I roz azkin' about the cast".
-- Hungarian speech run through an English recognizer looks like English-ish nonsense with Hungarian word shapes.
+- Hungarian speech run through an English recognizer looks like English-ish nonsense with Hungarian word shapes. Example: "Hello. Hi. Amit Mondock." / "Email at kathalisha for glaukos dot min cat mat".
+- German speech run through a Hungarian or English recognizer keeps its long compound words and its word order, with "ich", "wir", "haben", "nicht", "und" surfacing in distorted forms.
 
-Judge the language of the SPEECH, not the spelling. Clean grammatical Hungarian means the caller speaks Hungarian. Clean grammatical English means English. For mangled text, decide which language the recognizable words, the word order and the sentence rhythm come from.
+Judge the language of the SPEECH, not the spelling. Clean grammatical text means the caller speaks that language. For mangled text, decide which language the recognizable words, the word order and the sentence rhythm come from.
 
 Answer with exactly one lowercase word and nothing else:
 hu - the caller is speaking Hungarian
 en - the caller is speaking English
-unknown - too short or too garbled to tell (a greeting alone like "hello" is NOT enough, since it exists in both)`;
+de - the caller is speaking German
+unknown - too short or too garbled to tell (a greeting alone like "hello" is NOT enough, since it exists in more than one)`;
 
 /**
  * `hu` / `en`, vagy `null`, ha nem lehet eldonteni.
@@ -125,7 +127,7 @@ unknown - too short or too garbled to tell (a greeting alone like "hello" is NOT
 export async function detectSpokenLang(
   text: string,
   opts: ReplyOptions = {},
-): Promise<'hu' | 'en' | null> {
+): Promise<'hu' | 'en' | 'de' | null> {
   const sample = text.trim();
   // Ket szo alatt nincs mibol donteni, es a "hallo" mindket nyelven letezik.
   if (sample.split(/\s+/).filter(Boolean).length < 2) return null;
@@ -146,6 +148,7 @@ export async function detectSpokenLang(
   const out = completion.choices[0]?.message?.content?.trim().toLowerCase() ?? '';
   if (out.startsWith('hu')) return 'hu';
   if (out.startsWith('en')) return 'en';
+  if (out.startsWith('de')) return 'de';
   return null;
 }
 

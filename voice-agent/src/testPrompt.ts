@@ -23,7 +23,7 @@
  * TEST_AGENT_FROM szamrol hivva, ami nem +36-tal kezdodik - igy pontosan azt
  * az utat gyakorolja, amit egy valodi kulfoldi erdeklodo jarna be.
  */
-export type TesterLang = 'hu' | 'en';
+export type TesterLang = 'hu' | 'en' | 'de';
 
 export interface Scenario {
   key: string;
@@ -116,6 +116,26 @@ export const SCENARIOS: Record<string, Scenario> = {
       'agent gets something wrong. Whether it works with plain Gmail or ' +
       'needs its own system.',
   },
+  nemet: {
+    key: 'nemet',
+    label: 'Deutscher Anrufer (Wien)',
+    lang: 'de',
+    contact: 'diese Telefonnummer, und m punkt gruber at optikgruber punkt at',
+    persona:
+      'Sie sind Martin Gruber und führen in Wien zwei Optikergeschäfte mit ' +
+      'insgesamt elf Mitarbeitern. Täglich kommen 50 bis 70 E-Mails: ' +
+      'Terminanfragen, Reklamationen, Lieferavise von Lieferanten. Zwei ' +
+      'Mitarbeiterinnen verbringen damit je zwei Stunden am Tag. Sie nutzen ' +
+      'Google Workspace, ohne jede Automatisierung. Sie haben AXIMBRA über ' +
+      'die deutsche Seite gefunden. Ungarisch sprechen Sie nicht.',
+    reason:
+      'Sie möchten wissen, ob man Ihre eingehenden E-Mails automatisch ' +
+      'sortieren und nach Dringlichkeit ordnen lassen kann.',
+    questions:
+      'Was es kostet. Wie lange die Einrichtung dauert. Was passiert, wenn ' +
+      'der Agent etwas falsch einsortiert. Ob es mit Google Workspace läuft ' +
+      'oder ein eigenes System braucht.',
+  },
 };
 
 export function scenarioByKey(key: string): Scenario {
@@ -139,8 +159,20 @@ export function openerFor(scenario: Scenario): string {
   if (scenario.key === 'kulfoldi') {
     return "Hi, this is Sarah Bennett, I run a design studio in the UK. I'm calling about automating our email inbox.";
   }
+  if (scenario.key === 'nemet') {
+    return 'Guten Tag, Martin Gruber hier, ich führe zwei Optikergeschäfte in Wien. Ich rufe wegen der Automatisierung unserer E-Mails an.';
+  }
   return 'Jó napot, Kovács Péter vagyok a győri Kovács Optikától. Az e-mail-kezelés automatizálása miatt keresem önöket.';
 }
+
+/**
+ * Melyik gombot nyomja a teszt-eszkoz az AXIMBRA nyelvvalaszto menujeben.
+ *
+ * Ugyanaz a harom gomb, amit egy ember nyomna (server.ts, langFromDigits).
+ * Ha a ketto elcsuszik, a teszt nem azt merne, amit egy valodi hivo atel -
+ * ezert all itt, egy helyen, teszt ala kotve.
+ */
+export const MENU_DIGIT: Record<TesterLang, string> = { hu: '1', en: '2', de: '3' };
 
 /** Ha a modell ezt leirja, bontjuk a hivast. */
 export const END_MARKER = '<<VEGE>>';
@@ -207,8 +239,71 @@ The other side's sentence comes from speech recognition, so it can contain nonse
 The other side never hears ${END_MARKER}. Never say the word "end" out loud.`;
 }
 
+/** Nemet hivo eseten - szerkezetileg 1:1 a masik kettovel. */
+function buildTesterPromptDe(scenario: Scenario): string {
+  return `Sie haben eine Firma angerufen, eine KI-Agentur namens AXIMBRA, weil Sie ein Problem lösen möchten. Verhalten Sie sich wie ein echter Interessent.
+
+Verraten Sie nie, dass Sie ein Test sind, und sagen Sie nie, dass Sie eine KI sind.
+
+# WER SIE SIND
+
+${scenario.persona}
+
+# WARUM SIE ANRUFEN
+
+${scenario.reason}
+
+# WAS SIE HERAUSFINDEN WOLLEN
+
+${scenario.questions}
+
+# IHRE ROLLE — DARAN ÄNDERT SICH NICHTS
+
+SIE SIND DER ANRUFER. Sie bitten um Hilfe, Sie bieten keine an.
+
+Sagen Sie nie Sätze wie:
+- "Wie kann ich Ihnen helfen?"
+- "Gerne."
+- "Kann ich Ihnen bei etwas behilflich sein?"
+- alles, was klingt, als hätten Sie den Hörer abgenommen
+
+Sie haben sich einmal vorgestellt. Stellen Sie sich nicht noch einmal vor.
+
+# WIE SIE SPRECHEN
+
+- Ein oder zwei kurze Sätze, so wie man am Telefon spricht.
+- Natürliche Füllwörter: "gut", "okay", "verstehe", "und wie lange dauert das?".
+- Wenn man Ihnen eine Frage stellt, beantworten Sie sie — aber schütten Sie nicht alles auf einmal aus.
+- Wenn Sie fragen, fragen Sie eines nach dem anderen.
+- Bedanken Sie sich nicht übermäßig. Ein "danke" pro Gespräch reicht.
+
+# HALTEN SIE DAS GESPRÄCH IN BEWEGUNG
+
+Das ist ein Gespräch mit einem Ziel. In jedem Zug beantworten Sie etwas oder fragen Sie etwas von Ihrer Liste.
+
+Wenn die andere Seite Ihre Frage nicht beantwortet hat, fragen Sie erneut, konkreter. Ein echter Kunde würde nicht lockerlassen: "Gut, aber was würde das ungefähr kosten?"
+
+Wenn Sie zweimal keine Antwort bekommen, sagen Sie es: "Entschuldigung, darauf habe ich keine Antwort bekommen."
+
+# WAS SIE HÖREN, IST EIN MASCHINELLES TRANSKRIPT — ES KANN FALSCH SEIN
+
+Der Satz der Gegenseite kommt aus einer Spracherkennung und kann Unsinnswörter oder verstümmelte Passagen enthalten.
+
+- Wenn ein Satz unsinnig oder zerstückelt ist, erfinden Sie KEINEN Inhalt dafür und bestätigen Sie ihn NICHT. Fragen Sie stattdessen: "Entschuldigung, das habe ich nicht verstanden. Könnten Sie das wiederholen?"
+- Behaupten Sie NIE etwas über Ihre eigene Firma, das nicht in Ihrer Beschreibung steht. Fragt man nach etwas, das nicht darin vorkommt, antworten Sie allgemein und bleiben Sie später konsistent.
+
+# WANN SIE DAS GESPRÄCH BEENDEN
+
+- Wenn Sie Ihre Antworten haben und Ihre Kontaktdaten genannt haben: verabschieden Sie sich kurz, und schreiben Sie ans ENDE Ihrer Antwort: ${END_MARKER}
+- Wenn die andere Seite das Gespräch beendet hat: verabschieden Sie sich ebenfalls kurz, und fügen Sie an: ${END_MARKER}
+- Wenn Sie sich im Kreis drehen und es nicht vorangeht: verabschieden Sie sich, und fügen Sie an: ${END_MARKER}
+
+Die andere Seite hört ${END_MARKER} nie. Sagen Sie das Wort "Ende" niemals laut.`;
+}
+
 export function buildTesterPrompt(scenario: Scenario): string {
   if (scenario.lang === 'en') return buildTesterPromptEn(scenario);
+  if (scenario.lang === 'de') return buildTesterPromptDe(scenario);
   return `Telefonon felhívtál egy céget, az AXIMBRA nevű AI-ügynökséget, mert van egy problémád, amit meg akarsz oldani. Úgy viselkedj, mint egy valódi érdeklődő ügyfél.
 
 Soha ne áruld el, hogy teszt vagy, és soha ne mondd, hogy AI vagy.

@@ -61,8 +61,11 @@ async function post(
 /** Amit minden osszekapcsolasnal el kell varni, barmelyik nyelven. */
 function assertSwitchable(xml: string): void {
   assert.doesNotMatch(xml, /\blanguage="/, 'a ketertelmu `language` attributum nem terhet vissza');
-  assert.match(xml, /<Language code="hu-HU"/, 'hu-HU nelkul nem lehet magyarra valtani');
-  assert.match(xml, /<Language code="en-US"/, 'en-US nelkul nem lehet angolra valtani');
+  // Minden felkinalt nyelvnek deklaralva kell lennie, kulonben a hivas
+  // kozbeni valtas egy nem letezo nyelvre mutatna.
+  for (const code of ['hu-HU', 'en-US', 'de-DE']) {
+    assert.match(xml, new RegExp(`<Language code="${code}"`), `${code} nelkul nem lehet ra valtani`);
+  }
 }
 
 function ring(sid: string): Record<string, string> {
@@ -92,15 +95,20 @@ test('a hivas nyelvvalaszto menuvel kezd, es a gomb dont', async (t) => {
 
     const hu = xml.indexOf('language="hu-HU"');
     const en = xml.indexOf('language="en-US"');
-    assert.ok(hu > -1 && en > -1, 'mindket nyelven el kell hangoznia');
-    assert.ok(hu < en, 'a magyar szoveg jon elobb');
+    const de = xml.indexOf('language="de-DE"');
+    assert.ok(hu > -1 && en > -1 && de > -1, 'mindharom nyelven el kell hangoznia');
+    assert.ok(hu < en && en < de, 'a sorrend: magyar, angol, nemet');
 
     // Mindket nyelvu szoveg mindket gombot felkinalja - aki csak az egyiket
     // erti, annak is tudnia kell, mit nyomjon.
     assert.match(xml, /nyomja meg az egyes gombot/);
     assert.match(xml, /nyomja meg a kettes gombot/);
+    assert.match(xml, /nyomja meg a hármas gombot/);
     assert.match(xml, /press one/);
     assert.match(xml, /press two/);
+    assert.match(xml, /press three/);
+    assert.match(xml, /drücken Sie die Eins/);
+    assert.match(xml, /die Drei/);
 
     // A beszelgetes meg nem indulhat el: elobb valasztani kell.
     assert.doesNotMatch(xml, /<ConversationRelay/);
@@ -128,6 +136,18 @@ test('a hivas nyelvvalaszto menuvel kezd, es a gomb dont', async (t) => {
     assertSwitchable(xml);
   });
 
+  await t.test('3-as gomb: nemet, es a valasztas vedve van', async () => {
+    const xml = await post('/twiml/lang', {
+      ...ring('CA8123456789abcdef0123456789abcdef'),
+      Digits: '3',
+    });
+    assert.match(xml, /ttsLanguage="de-DE"/);
+    assert.match(xml, /transcriptionLanguage="de-DE"/);
+    assert.match(xml, /\/relay\?lang=de&amp;fix=1/);
+    assert.match(xml, /welcomeGreeting="Aximbra, guten Tag!/);
+    assertSwitchable(xml);
+  });
+
   await t.test('gomb nelkul: magyar, de a felismeres meg korrigalhat', async () => {
     const xml = await post('/twiml/lang', ring('CA3123456789abcdef0123456789abcdef'));
     assert.match(xml, /ttsLanguage="hu-HU"/);
@@ -148,7 +168,7 @@ test('a hivas nyelvvalaszto menuvel kezd, es a gomb dont', async (t) => {
   });
 
   await t.test('a felolvasas es a felismeres soha nem csuszik szet', async () => {
-    for (const d of ['1', '2', '']) {
+    for (const d of ['1', '2', '3', '']) {
       const xml = await post('/twiml/lang', {
         ...ring('CA5123456789abcdef0123456789abcde' + (d === '' ? '3' : d)),
         Digits: d,

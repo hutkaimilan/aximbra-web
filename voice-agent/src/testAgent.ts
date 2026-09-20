@@ -57,6 +57,7 @@ import {
   buildTesterPrompt,
   scenarioByKey,
   SCENARIOS,
+  MENU_DIGIT,
   openerFor,
   END_MARKER,
   type TesterLang,
@@ -88,6 +89,7 @@ function testCfg() {
     // Ugyanez angol forgatokonyvhoz (csak akkor fut, ha az OpenAI TTS elszall,
     // lasd synth() - a <Play> a rendes ut, ez csak tartalek).
     sayVoiceEn: process.env['TEST_SAY_VOICE_EN']?.trim() || 'Google.en-US-Wavenet-D',
+    sayVoiceDe: process.env['TEST_SAY_VOICE_DE']?.trim() || 'Google.de-DE-Wavenet-B',
     // A teszt-agent modellje kulon allithato: itt a gyorsasag fontosabb,
     // mint az eles oldalon. Minden masodperc gondolkodas nema vonal.
     model: process.env['TEST_MODEL']?.trim() || env().model,
@@ -180,8 +182,23 @@ const SPEECH_HINTS_EN = [
   'callback',
 ].join(',');
 
+/** Nemet forgatokonyv eseten - ugyanaz a szerep, nemet markanevekkel. */
+const SPEECH_HINTS_DE = [
+  'Aximbra',
+  'KI-Agentur',
+  'Agent',
+  'Automatisierung',
+  'E-Mail-Sortierung',
+  'Lead-Qualifizierung',
+  'Angebot',
+  'Kontaktdaten',
+  'Rückruf',
+].join(',');
+
 function hintsFor(lang: AximbraLang): string {
-  return lang === 'en' ? SPEECH_HINTS_EN : SPEECH_HINTS;
+  if (lang === 'en') return SPEECH_HINTS_EN;
+  if (lang === 'de') return SPEECH_HINTS_DE;
+  return SPEECH_HINTS;
 }
 
 /**
@@ -365,7 +382,7 @@ async function turnTwiml(
   // amit a vonal masik oldalan (az AXIMBRA agent) mond. Az AXIMBRA a hivo
   // nyelvere all at az elso mondata utan, ezert a forgatokonyv nyelve a jo
   // tipp erre - lasd aximbraGreetingLang().
-  const axiLang: AximbraLang = scenarioLang === 'en' ? 'en' : 'hu';
+  const axiLang: AximbraLang = scenarioLang;
   const gatherLang = axiLang === 'en' ? 'en-US' : 'hu-HU';
 
   const q =
@@ -379,7 +396,7 @@ async function turnTwiml(
   // ugyanugy valaszt, mint egy ember: megnyomja a forgatokonyvhez tartozo
   // gombot. Enelkul a menu idotullepesre futna, es a teszt nem azt merne,
   // amit egy valodi hivo atel.
-  const menuDigit = silences === 0 && speak === null ? (scenarioLang === 'en' ? '2' : '1') : null;
+  const menuDigit = silences === 0 && speak === null ? MENU_DIGIT[scenarioLang] : null;
   const press = menuDigit ? `\n  <Play digits="${menuDigit}"/>` : '';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -410,8 +427,8 @@ async function voiceBlock(speak: string | null, token: string, lang: TesterLang)
     return `\n  <Play>${url}</Play>`;
   }
   // <Say> tartalek, csak ha az OpenAI TTS elszallt (synth() null-t adott).
-  const sayVoice = lang === 'en' ? c.sayVoiceEn : c.sayVoice;
-  const sayLang = lang === 'en' ? 'en-US' : 'hu-HU';
+  const sayVoice = lang === 'en' ? c.sayVoiceEn : lang === 'de' ? c.sayVoiceDe : c.sayVoice;
+  const sayLang = lang === 'en' ? 'en-US' : lang === 'de' ? 'de-DE' : 'hu-HU';
   return `\n  <Say voice="${escapeXml(sayVoice)}" language="${sayLang}">${escapeXml(speak)}</Say>`;
 }
 
@@ -447,6 +464,15 @@ const MSGS: Record<TesterLang, {
     turnLimitClose: "Thank you, that's all for now. Goodbye!",
     connectionLostClose: 'Sorry, the line dropped. Goodbye!',
     genericAck: 'I see.',
+  },
+  de: {
+    technicalError: 'Entschuldigung, es gab einen technischen Fehler. Auf Wiederhören!',
+    silenceRetry: 'Hallo, können Sie mich hören?',
+    silenceShort: 'Hallo?',
+    noAnswerClose: 'Die Leitung scheint unterbrochen zu sein. Auf Wiederhören!',
+    turnLimitClose: 'Vielen Dank, das reicht mir fürs Erste. Auf Wiederhören!',
+    connectionLostClose: 'Entschuldigung, die Leitung ist abgerissen. Auf Wiederhören!',
+    genericAck: 'Verstehe.',
   },
 };
 
@@ -522,6 +548,13 @@ function phaseNote(remaining: number, scenario: Scenario): string {
 - If they have not asked for your contact details yet, offer them yourself.
 - Your contact details: ${scenario.contact}.
 - Then say a short goodbye, and put this at the END of your reply: ${END_MARKER}`;
+  }
+  if (scenario.lang === 'de') {
+    return `\n\nBEENDEN SIE DAS GESPRÄCH JETZT:
+- Sie haben höchstens noch ${remaining} Antworten.
+- Wenn man noch nicht nach Ihren Kontaktdaten gefragt hat, bieten Sie sie von sich aus an.
+- Ihre Kontaktdaten: ${scenario.contact}.
+- Verabschieden Sie sich dann kurz, und schreiben Sie ans ENDE Ihrer Antwort: ${END_MARKER}`;
   }
   return `\n\nMOST ZARD LE A BESZELGETEST:
 - Legfeljebb ${remaining} valaszod van hatra.

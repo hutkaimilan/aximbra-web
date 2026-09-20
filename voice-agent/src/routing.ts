@@ -19,7 +19,7 @@
 
 import { escapeXml } from './xml.js';
 
-export type Lang = 'hu' | 'en';
+export type Lang = 'hu' | 'en' | 'de';
 export type Route = { to: 'owner' } | { to: 'agent'; lang: Lang };
 
 const E164 = /^\+[1-9]\d{6,14}$/;
@@ -64,28 +64,49 @@ export function routeCall(from: string | null | undefined, ownerPhone: string): 
  * hazai kozonseg igy azonnal ert mindent, a kulfoldi pedig kivarja a masodik
  * felet. Barmikor lehet gombot nyomni, a Gather nem varja meg a szoveg vegét.
  */
+/**
+ * Minden nyelv a SAJAT nyelven sorolja fel MINDHAROM lehetoseget.
+ *
+ * Igy annak is teljes a kep, aki csak az egyik nyelvet erti - kulonben a
+ * nemet hivonak ki kene talalnia, hogy a magyar mondat vegen elhangzo
+ * "harmas" ra vonatkozik. A sorrend a kozonseg szerinti: magyar, angol,
+ * nemet. Gombot barmikor lehet nyomni, a szoveg vegét nem kell kivarni.
+ */
 export const MENU_HU =
   'Jó napot kívánok, Aximbra! Ha magyarul szeretné folytatni, nyomja meg az egyes gombot. ' +
-  'Ha angolul szeretné folytatni, nyomja meg a kettes gombot.';
+  'Ha angolul, nyomja meg a kettes gombot. Ha németül, nyomja meg a hármas gombot.';
 
 export const MENU_EN =
   'Hello, this is Aximbra. To continue in Hungarian, press one. ' +
-  'To continue in English, press two.';
+  'For English, press two. For German, press three.';
+
+export const MENU_DE =
+  'Guten Tag, hier ist Aximbra. Für Ungarisch drücken Sie die Eins. ' +
+  'Für Englisch die Zwei. Für Deutsch die Drei.';
 
 export interface LanguageMenu {
   host: string;
-  huVoice: string;
-  enVoice: string;
+  /** Nyelvenkent a <Say> hangja, ugyanabban a sorrendben, ahogy elhangzik. */
+  voices: Record<Lang, string>;
   /** Hany masodpercig varunk gombnyomasra, mielott magyarul folytatjuk. */
   timeoutSeconds: number;
 }
 
+const MENU_TEXT: Record<Lang, string> = { hu: MENU_HU, en: MENU_EN, de: MENU_DE };
+
+/** A felolvasas sorrendje. A magyar all elol: az oldal kozonsege magyar. */
+export const MENU_ORDER: Lang[] = ['hu', 'en', 'de'];
+
 export function languageMenuTwiml(m: LanguageMenu): string {
+  const says = MENU_ORDER.map(
+    (lang) =>
+      `\n    <Say voice="${escapeXml(m.voices[lang])}" language="${RELAY_LANG_CODE[lang]}">` +
+      `${escapeXml(MENU_TEXT[lang])}</Say>`,
+  ).join('');
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather numDigits="1" timeout="${m.timeoutSeconds}" action="https://${escapeXml(m.host)}/twiml/lang" method="POST">
-    <Say voice="${escapeXml(m.huVoice)}" language="hu-HU">${escapeXml(MENU_HU)}</Say>
-    <Say voice="${escapeXml(m.enVoice)}" language="en-US">${escapeXml(MENU_EN)}</Say>
+  <Gather numDigits="1" timeout="${m.timeoutSeconds}" action="https://${escapeXml(m.host)}/twiml/lang" method="POST">${says}
   </Gather>
   <Redirect method="POST">https://${escapeXml(m.host)}/twiml/lang</Redirect>
 </Response>`;
@@ -106,6 +127,7 @@ export function langFromDigits(digits: string | null | undefined): {
   const d = (digits ?? '').trim();
   if (d === '1') return { lang: 'hu', chosen: true };
   if (d === '2') return { lang: 'en', chosen: true };
+  if (d === '3') return { lang: 'de', chosen: true };
   return { lang: 'hu', chosen: false };
 }
 
@@ -114,7 +136,11 @@ export function langFromDigits(digits: string | null | undefined): {
 /* ------------------------------------------------------------------ */
 
 /** A ConversationRelay nyelvkodjai. A TwiML `<Language code=...>`-ai ezek. */
-export const RELAY_LANG_CODE: Record<Lang, string> = { hu: 'hu-HU', en: 'en-US' };
+export const RELAY_LANG_CODE: Record<Lang, string> = {
+  hu: 'hu-HU',
+  en: 'en-US',
+  de: 'de-DE',
+};
 
 /**
  * A ConversationRelay-nek kuldheto uzenet, ami a mar folo hivason atallitja

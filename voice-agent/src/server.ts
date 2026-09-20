@@ -62,23 +62,55 @@ const cfg = env();
 /* TwiML                                                               */
 /* ------------------------------------------------------------------ */
 
-/** Az angol hang rogzitett; a magyar a Railway valtozokbol jon (env.ts). */
-const EN_VOICE = {
-  language: 'en-US',
-  ttsProvider: 'Google',
-  ttsVoice: 'en-US-Wavenet-F',
-  sayVoice: 'Google.en-US-Wavenet-F',
-};
+/**
+ * Nyelvenkent a hang, egy helyen.
+ *
+ * A magyar a Railway valtozoibol jon, hogy kod nelkul cserelheto legyen; a
+ * tobbi rogzitett. Egy uj nyelv igy egyetlen sor ide, nem szet-szort
+ * elagazasok fel tucat fajlban - pontosan ez tette korabban konnyuve, hogy
+ * a felolvasas es a felismeres eszrevetlenul szetcsusszon.
+ */
+interface VoiceCfg {
+  language: string;
+  ttsProvider: string;
+  ttsVoice: string;
+  sayVoice: string;
+}
+
+function voiceFor(lang: Lang): VoiceCfg {
+  if (lang === 'en') {
+    return {
+      language: 'en-US',
+      ttsProvider: 'Google',
+      ttsVoice: 'en-US-Wavenet-F',
+      sayVoice: 'Google.en-US-Wavenet-F',
+    };
+  }
+  if (lang === 'de') {
+    return {
+      language: 'de-DE',
+      ttsProvider: 'Google',
+      ttsVoice: 'de-DE-Wavenet-C',
+      sayVoice: 'Google.de-DE-Wavenet-C',
+    };
+  }
+  return {
+    language: cfg.ttsLanguage,
+    ttsProvider: cfg.ttsProvider,
+    ttsVoice: cfg.ttsVoice,
+    sayVoice: cfg.sayVoice,
+  };
+}
+
+/** A felkinalt nyelvek. A ConversationRelay mindegyiket deklaralja. */
+const ALL_LANGS: Lang[] = ['hu', 'en', 'de'];
 
 function relayTwiml(host: string, lang: Lang, chosen: boolean): string {
   // A <Language> gyerekelemek nyelvenkent adjak meg a hangot es a
   // felismerest. Mindket nyelv mindig fel van veve, hogy a hivas kozbeni
   // nyelvvaltas ne ervenytelen konfiguraciora fusson; a `lang` csak azt
   // donti el, melyiken kezdunk.
-  const start =
-    lang === 'en'
-      ? { language: EN_VOICE.language, ttsProvider: EN_VOICE.ttsProvider, voice: EN_VOICE.ttsVoice }
-      : { language: 'hu-HU', ttsProvider: cfg.ttsProvider, voice: cfg.ttsVoice };
+  const start = voiceFor(lang);
 
   // A `language` attributum EGYSZERRE allitana a TTS-t es a felismerest,
   // ezert a ketto kulon van megadva - de MINDIG egyutt mozog.
@@ -110,15 +142,17 @@ function relayTwiml(host: string, lang: Lang, chosen: boolean): string {
       transcriptionLanguage="${escapeXml(start.language)}"
       hints="Aximbra,AI ügynökség,agent,automatizálás,e-mail rendező,érdeklődő minősítő,árajánlat,elérhetőség"
       ttsProvider="${escapeXml(start.ttsProvider)}"
-      voice="${escapeXml(start.voice)}"
+      voice="${escapeXml(start.ttsVoice)}"
       interruptible="speech"
       interruptSensitivity="${escapeXml(process.env['INTERRUPT_SENSITIVITY'] ?? 'low')}"
       speechTimeout="${escapeXml(process.env['SPEECH_TIMEOUT'] ?? '1500')}"
       ignoreBackchannel="true"
       welcomeGreetingInterruptible="none"
       reportInputDuringAgentSpeech="none">
-      <Language code="hu-HU" ttsProvider="${escapeXml(cfg.ttsProvider)}" voice="${escapeXml(cfg.ttsVoice)}" />
-      <Language code="${EN_VOICE.language}" ttsProvider="${EN_VOICE.ttsProvider}" voice="${EN_VOICE.ttsVoice}" />
+${ALL_LANGS.map((l) => {
+        const v = voiceFor(l);
+        return `      <Language code="${escapeXml(v.language)}" ttsProvider="${escapeXml(v.ttsProvider)}" voice="${escapeXml(v.ttsVoice)}" />`;
+      }).join('\n')}
     </ConversationRelay>
   </Connect>
 </Response>`;
@@ -137,6 +171,12 @@ const REJECT_MESSAGES: Record<Lang, Record<'daily' | 'concurrent', string>> = {
     daily:
       "Thank you for calling. Today's limit for this demo line has been reached. Please email us at aximbra at gmail dot com, or try again tomorrow. Goodbye!",
   },
+  de: {
+    concurrent:
+      'Danke für Ihren Anruf. Gerade sind alle Leitungen belegt, bitte versuchen Sie es in ein paar Minuten noch einmal. Auf Wiederhören!',
+    daily:
+      'Danke für Ihren Anruf. Das heutige Kontingent dieser Demo-Leitung ist ausgeschöpft. Schreiben Sie uns bitte an aximbra at gmail dot com, oder versuchen Sie es morgen wieder. Auf Wiederhören!',
+  },
 };
 
 /**
@@ -146,8 +186,9 @@ const REJECT_MESSAGES: Record<Lang, Record<'daily' | 'concurrent', string>> = {
  * marketingoldalon szereplo szamnal ugy hangzik, mintha a ceg nem letezne.
  */
 function rejectTwiml(reason: 'daily' | 'concurrent', lang: Lang): string {
-  const voice = lang === 'en' ? EN_VOICE.sayVoice : cfg.sayVoice;
-  const language = lang === 'en' ? EN_VOICE.language : cfg.ttsLanguage;
+  const v = voiceFor(lang);
+  const voice = v.sayVoice;
+  const language = v.language;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -185,8 +226,7 @@ function agentTwiml(host: string, lang: Lang, from: string, forced: Lang | null)
 
   return languageMenuTwiml({
     host,
-    huVoice: cfg.sayVoice,
-    enVoice: EN_VOICE.sayVoice,
+    voices: { hu: voiceFor('hu').sayVoice, en: voiceFor('en').sayVoice, de: voiceFor('de').sayVoice },
     timeoutSeconds: MENU_TIMEOUT_SECONDS,
   });
 }
@@ -503,7 +543,8 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
   // A relayTwiml a hivoszambol tippelt nyelvet teszi az URL-be. Ez csak a
   // KEZDO ertek: amint a hivo megszolal, a `maybeSwitchLang` felulirhatja.
   const relayQuery = new URLSearchParams((req.url ?? '').split('?')[1] ?? '');
-  const startLang: Lang = relayQuery.get('lang') === 'en' ? 'en' : 'hu';
+  const asked = relayQuery.get('lang');
+  const startLang: Lang = asked === 'en' ? 'en' : asked === 'de' ? 'de' : 'hu';
   // `fix=1`: a hivo gombnyomassal valasztott nyelvet. Ezt semmi nem irhatja
   // felul - egy szandekos dontest felulbiralni rosszabb, mint barmi, amit a
   // felismeres nyerhetne vele.
