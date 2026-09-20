@@ -8,6 +8,8 @@ import {
   screenDoneTwiml,
   takeAccepted,
   markAccepted,
+  languageSwitchMessage,
+  RELAY_LANG_CODE,
 } from './routing.js';
 
 const OWNER = '+36301234567';
@@ -104,4 +106,32 @@ test('a regi fogadasok kiesnek a nyilvantartasbol', () => {
   markAccepted(SID, 4 * 60 * 60 * 1000);
   assert.equal(takeAccepted(old), false);
   assert.equal(takeAccepted(SID), true);
+});
+
+/* ------------------------------------------------------------------ */
+/* Nyelvvaltas hivas kozben                                             */
+/* ------------------------------------------------------------------ */
+
+test('a nyelvvaltas uzenete mindket iranyt egyutt allitja', () => {
+  // Ez a lenyeg: ha csak az egyiket allitanank at, pontosan az az allapot
+  // allna elo, ami ketszer is eltorte elesben a hivasokat - a hivo egyik
+  // nyelven beszel, a felismero a masikat varja.
+  const hu = JSON.parse(languageSwitchMessage('hu')) as Record<string, string>;
+  assert.equal(hu['type'], 'language');
+  assert.equal(hu['ttsLanguage'], 'hu-HU');
+  assert.equal(hu['transcriptionLanguage'], 'hu-HU');
+
+  const en = JSON.parse(languageSwitchMessage('en')) as Record<string, string>;
+  assert.equal(en['type'], 'language');
+  assert.equal(en['ttsLanguage'], 'en-US');
+  assert.equal(en['transcriptionLanguage'], 'en-US');
+});
+
+test('csak olyan nyelvre valthatunk, amit a TwiML deklaral', () => {
+  // A relayTwiml `<Language code=...>` gyerekei pontosan ezek. Ha ez a ket
+  // ertek elcsuszik a TwiML-tol, a valtas a hivas kozben ervenytelen lesz,
+  // es a hivo nemasagot kap - ezert all itt, teszt ala kotve.
+  assert.deepEqual(Object.keys(RELAY_LANG_CODE).sort(), ['en', 'hu']);
+  assert.equal(RELAY_LANG_CODE.hu, 'hu-HU');
+  assert.equal(RELAY_LANG_CODE.en, 'en-US');
 });

@@ -53,12 +53,17 @@ test('a teszt-agent a forgatokonyv nyelven beszel, es az AXIMBRA valaszat a valo
     assert.match(xml, /<Say voice="Google\.hu-HU-Wavenet-A" language="hu-HU">/);
   });
 
-  await t.test('...DE a Gather, ami az AXIMBRA valaszat hallgatja, angol - mert a hivoszam nem +36', async () => {
+  await t.test('...es a hivoszam ezen nem valtoztat: a forgatokonyv dont', async () => {
     const xml = await post(`/test/twiml?run=bbbbbbbbbbbbbbbb&scenario=alap&token=${TOKEN}`);
-    // Ez itt a hangup-ag (hibas API-kulcs miatt), tehat nincs Gather ebben a
-    // konkret valaszban - de a scenario.lang='hu' melletti sajat hangja
-    // igy is `hu-HU` marad, ami a lenyeg: a ket dolog fuggetlen egymastol.
+    // A TEST_AGENT_FROM egy amerikai szam, megis magyar marad minden: a
+    // teszt-eszkoz a forgatokonyv nyelvet koveti, mert az AXIMBRA a hivo
+    // elso mondata utan atall arra (server.ts, `maybeSwitchLang`).
+    //
+    // Ez itt a hangup-ag (szandekosan hibas API-kulcs miatt), tehat Gather
+    // nincs ebben a konkret valaszban - a felolvasas nyelve viszont ugyanabbol
+    // a forgatokonyv-nyelvbol jon, amibol a Gather-e is.
     assert.match(xml, /language="hu-HU"/);
+    assert.doesNotMatch(xml, /en-US/, 'egy magyar forgatokonyvbe nem szivaroghat angol');
   });
 
   await t.test("angol ('kulfoldi') forgatokonyv: a teszt-agent sajat hangja is angol", async () => {

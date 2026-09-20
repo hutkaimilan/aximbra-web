@@ -27,6 +27,7 @@ import {
   extractFacts,
   emptyFacts,
   mergeFacts,
+  detectSpokenLang,
   type Turn,
   type CallFacts,
 } from './llm.js';
@@ -45,6 +46,7 @@ import {
   ownerDialTwiml,
   screenTwiml,
   screenDoneTwiml,
+  languageSwitchMessage,
   takeAccepted,
   HANGUP_TWIML,
   type Lang,
@@ -75,14 +77,22 @@ function relayTwiml(host: string, lang: Lang): string {
       ? { language: EN_VOICE.language, ttsProvider: EN_VOICE.ttsProvider, voice: EN_VOICE.ttsVoice }
       : { language: 'hu-HU', ttsProvider: cfg.ttsProvider, voice: cfg.ttsVoice };
 
-  // A `language` attributum EGYSZERRE allitana a TTS-t es a felismerest -
-  // ez tette tonkre elesben a +36-tal nem kezdodo, de magyarul beszelo
-  // hivo hivasat: a felismero angolra allt, es az egesz beszelgetes
-  // ertelmezhetetlen szoveget irt at (lasd a teszt-agent 2026-09-17-i
-  // felvetelet). A ket beallitas KULON kell: a koszones es a hang
-  // igazodhat a hivo szamahoz, a felismeres viszont MINDIG magyar marad,
-  // mert nincs megbizhato automatikus nyelvfelismeres beallitva (ahhoz
-  // Deepgram + ElevenLabs kellene, itt Google fut).
+  // A `language` attributum EGYSZERRE allitana a TTS-t es a felismerest,
+  // ezert a ketto kulon van megadva. A hivoszam viszont csak a KEZDO
+  // beallitast donti el - egy tipp, nem tobb: magyar ugyfel hivhat nemet
+  // szamrol, angol ugyfel magyarrol.
+  //
+  // Ket korabbi valtozat mindketteje felig mukodott. Az elso a szambol
+  // vezette le a felismerest is: a +36-tal nem kezdodo, de magyarul beszelo
+  // hivo atirata hasznalhatatlan lett. A masodik ezert MINDIG `hu-HU`-ra
+  // allitotta a felismerest - amivel viszont az angolul beszelo hivo jart
+  // pontosan ugyanigy (2026-09-20, `kulfoldi` forgatokonyv: "We hiv fix
+  // People Using Email Regularly").
+  //
+  // Most a hivo elso mondata donti el, nem a szama: a /relay a valodi
+  // nyelvet felismeri, es menet kozben atallitja mindkettot (lasd
+  // `switchLang`). Ehhez kell, hogy mindket <Language> mindig fel legyen
+  // veve - egy nem deklaralt nyelvre a valtas ervenytelen lenne.
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
@@ -90,7 +100,7 @@ function relayTwiml(host: string, lang: Lang): string {
       url="wss://${escapeXml(host)}/relay?lang=${lang}"
       welcomeGreeting="${escapeXml(lines(lang).greeting)}"
       ttsLanguage="${escapeXml(start.language)}"
-      transcriptionLanguage="hu-HU"
+      transcriptionLanguage="${escapeXml(start.language)}"
       hints="Aximbra,AI ügynökség,agent,automatizálás,e-mail rendező,érdeklődő minősítő,árajánlat,elérhetőség"
       ttsProvider="${escapeXml(start.ttsProvider)}"
       voice="${escapeXml(start.voice)}"
@@ -382,6 +392,18 @@ server.on('upgrade', (req, socket, head) => {
 
 interface Session {
   history: Turn[];
+  /**
+   * A hivas NYELVE, ahogy eppen all. A hivoszambol indul, es a hivo elso
+   * mondata utan atallhat - ezert nem konstans, es ezert kell mindenhol
+   * innen olvasni, nem a belepeskori ertekbol.
+   */
+  lang: Lang;
+  /**
+   * Hany nyelvfelismeres futott mar le. Nem logikai jelzo: egy "Hallo"-bol
+   * nem lehet nyelvet allapitani, es ha az elso probalkozas utan feladnank,
+   * az ilyen hivas vegig a hivoszambol tippelt nyelven maradna.
+   */
+  langChecks: number;
   from: string;
   callSid: string;
   startedAt: number;
@@ -406,16 +428,21 @@ interface Session {
 wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
   callStarted();
 
-  // A nyelvet a relayTwiml teszi az URL-be: a routing ott mar eldontotte.
+  // A relayTwiml a hivoszambol tippelt nyelvet teszi az URL-be. Ez csak a
+  // KEZDO ertek: amint a hivo megszolal, a `maybeSwitchLang` felulirhatja.
   const relayQuery = new URLSearchParams((req.url ?? '').split('?')[1] ?? '');
-  const lang: Lang = relayQuery.get('lang') === 'en' ? 'en' : 'hu';
-  const say = lines(lang);
+  const startLang: Lang = relayQuery.get('lang') === 'en' ? 'en' : 'hu';
+  // Fuggveny, nem valtozo: a nyelv menet kozben valtozhat, es egy elmentett
+  // `lines(lang)` ettol csendben a regi nyelven maradna.
+  const say = (): ReturnType<typeof lines> => lines(s.lang);
 
   const s: Session = {
     // A welcomeGreeting-et a Twilio mondja ki, nem mi. Ha nem tesszuk be a
     // tortenetbe, a modell nem tud rola, hogy mar koszontunk - es az elso
     // valaszaban ujra bemutatkozik. Pontosan ez tortent elesben.
-    history: [{ role: 'assistant', content: say.greeting }],
+    history: [{ role: 'assistant', content: lines(startLang).greeting }],
+    lang: startLang,
+    langChecks: 0,
     from: '<ismeretlen>',
     callSid: '<ismeretlen>',
     startedAt: Date.now(),
@@ -435,6 +462,50 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     ws.send(JSON.stringify({ type: 'text', token: text, last }));
   };
 
+  /**
+   * Nyelvvaltas a mar folo hivason.
+   *
+   * Csak olyan nyelvre szabad valtani, amelyik `<Language>` gyerekkent
+   * szerepel a TwiML-ben - a relayTwiml mindkettot mindig felveszi.
+   */
+  const switchLang = (next: Lang): void => {
+    if (next === s.lang || ws.readyState !== ws.OPEN) return;
+    s.lang = next;
+    ws.send(languageSwitchMessage(next));
+    console.log(`[ws] nyelvvaltas -> ${next} callSid=${s.callSid}`);
+  };
+
+  /**
+   * Jol tippeltunk-e a hivoszambol? A hivo sajat mondata donti el.
+   *
+   * A valasz KIMONDASA ELOTT fut, mert egy rossz nyelvu elso mondat jobban
+   * hallatszik, mint egy fel masodpercnyi szunet - es mert a hivo kovetkezo
+   * mondatat is mar a jo felismerovel akarjuk atirni.
+   *
+   * Addig probalkozik, amig hatarozott valaszt nem kap, de legfeljebb
+   * LANG_CHECK_LIMIT-szer: egy "Hallo" mindket nyelven letezik, es ha az
+   * elso probalkozas utan feladnank, az ilyen hivas vegig rossz nyelven
+   * menne. A felso korlat azert kell, hogy egy vegig ertelmezhetetlen hivas
+   * ne fizessen minden fordulora egy plusz modellhivast.
+   *
+   * Barmilyen hiba eseten marad a tippelt nyelv es megy tovabb a hivas: ez
+   * a lepes soha nem allithatja meg a beszelgetest.
+   */
+  const LANG_CHECK_LIMIT = 3;
+
+  const maybeSwitchLang = async (utterance: string): Promise<void> => {
+    if (s.langChecks >= LANG_CHECK_LIMIT) return;
+    s.langChecks += 1;
+    try {
+      const spoken = await detectSpokenLang(utterance);
+      if (!spoken) return;
+      s.langChecks = LANG_CHECK_LIMIT; // hatarozott valasz: tobbet nem kerdezunk
+      switchLang(spoken);
+    } catch (err) {
+      console.error('[ws] nyelvfelismeres hiba:', err);
+    }
+  };
+
   /** Egy fordulo kimondasa, tokenenkent tovabbitva. */
   const speakReply = async (): Promise<void> => {
     const ac = new AbortController();
@@ -445,7 +516,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     try {
       const full = await replyStream(
         s.history,
-        buildSystemPrompt(cfg.currentProjects, s.facts, s.from, lang),
+        buildSystemPrompt(cfg.currentProjects, s.facts, s.from, s.lang),
         (delta) => {
           s.streamed += delta;
           send(delta, false);
@@ -471,8 +542,8 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         send('', true);
         s.history.push({ role: 'assistant', content: s.streamed.trim() });
       } else {
-        send(say.failure, true);
-        s.history.push({ role: 'assistant', content: say.failure });
+        send(say().failure, true);
+        s.history.push({ role: 'assistant', content: say().failure });
       }
     } finally {
       s.speaking = false;
@@ -523,6 +594,10 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
       while (s.queue.length > 0 && !s.closed) {
         const text = s.queue.splice(0, s.queue.length).join(' ').trim();
         if (!text) continue;
+        // A valasz elott, nem utana: a nyelvet meg az elso megszolalasunk
+        // elott helyre kell tenni, kulonben a hivo egy rossz nyelvu mondatot
+        // kap, es a sajat kovetkezo mondatat is rossz felismero irja at.
+        await maybeSwitchLang(text);
         s.history.push({ role: 'user', content: text });
         await speakReply();
         refreshFacts();
@@ -540,7 +615,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     // Ha eppen beszelunk, elobb elvagjuk - kulonben ket szoveg keveredne.
     s.abort?.abort();
     s.queue.length = 0;
-    send(say.timeLimit, true);
+    send(say().timeLimit, true);
     setTimeout(() => {
       if (ws.readyState === ws.OPEN) ws.close(1000, 'time limit');
     }, 6_000);
@@ -637,7 +712,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         console.error('[ws] osszefoglalo kuldes hiba:', err);
       }
       try {
-        await sendContactSms(s.from, lang);
+        await sendContactSms(s.from, s.lang);
       } catch (err) {
         console.error('[ws] SMS kuldes hiba:', err);
       }

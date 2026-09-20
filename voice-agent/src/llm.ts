@@ -86,6 +86,69 @@ export async function reply(
   return text;
 }
 
+/* ------------------------------------------------------------------ */
+/* Milyen nyelven beszel a hivo                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A hivoszam nem mondja meg, milyen nyelven beszel valaki. Egy magyar
+ * ugyfel hivhat nemet szamrol, es egy angol ugyfel magyarrol. A
+ * ConversationRelay viszont a hivas elejen MAR beallitja a felismeres
+ * nyelvet - es ha rosszul talaltuk el, az atirat hasznalhatatlan lesz.
+ *
+ * Ezert a hivo elso mondata utan megkerdezzuk a modellt, mi hangzott el
+ * valojaban. A bemenet szandekosan lehet torzult: eppen az a helyzet
+ * erdekel minket, amikor a rossz nyelvu felismero irta at.
+ */
+const LANG_DETECT_PROMPT = `You identify which language a phone caller is ACTUALLY speaking.
+
+The text you are given is a speech-to-text transcript that may have been produced by a recognizer configured for the WRONG language. When that happens the words come out mangled:
+- English speech run through a Hungarian recognizer looks like Hungarian-ish nonsense with a few real English words surviving. Example: "Iron a Design Studio in the UK. I THM valik" / "We hiv fix People Using Email Regularly" / "Right, I roz azkin' about the cast".
+- Hungarian speech run through an English recognizer looks like English-ish nonsense with Hungarian word shapes.
+
+Judge the language of the SPEECH, not the spelling. Clean grammatical Hungarian means the caller speaks Hungarian. Clean grammatical English means English. For mangled text, decide which language the recognizable words, the word order and the sentence rhythm come from.
+
+Answer with exactly one lowercase word and nothing else:
+hu - the caller is speaking Hungarian
+en - the caller is speaking English
+unknown - too short or too garbled to tell (a greeting alone like "hello" is NOT enough, since it exists in both)`;
+
+/**
+ * `hu` / `en`, vagy `null`, ha nem lehet eldonteni.
+ *
+ * Szandekosan szoros idokorlattal fut: ez a hivas elso forduloja elott van,
+ * es minden itt toltott ezredmasodperc csend a vonalban. Ha nem er ide
+ * idoben vagy hibara fut, `null`-lal terunk vissza, es marad az a nyelv,
+ * amit a hivoszambol tippeltunk - vagyis a rossz valasz ara egy kesobbi
+ * fordulo, nem egy megallt hivas.
+ */
+export async function detectSpokenLang(
+  text: string,
+  opts: ReplyOptions = {},
+): Promise<'hu' | 'en' | null> {
+  const sample = text.trim();
+  // Ket szo alatt nincs mibol donteni, es a "hallo" mindket nyelven letezik.
+  if (sample.split(/\s+/).filter(Boolean).length < 2) return null;
+
+  const completion = await openai().chat.completions.create(
+    {
+      model: opts.model ?? env().model,
+      messages: [
+        { role: 'system', content: LANG_DETECT_PROMPT },
+        { role: 'user', content: sample.slice(0, 600) },
+      ],
+      max_tokens: 4,
+      temperature: 0,
+    },
+    { timeout: opts.timeoutMs ?? 1_500, maxRetries: 0, signal: opts.signal },
+  );
+
+  const out = completion.choices[0]?.message?.content?.trim().toLowerCase() ?? '';
+  if (out.startsWith('hu')) return 'hu';
+  if (out.startsWith('en')) return 'en';
+  return null;
+}
+
 /**
  * Ugyanaz, de tokenenkent.
  *

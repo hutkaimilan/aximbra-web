@@ -47,6 +47,30 @@ export function routeCall(from: string | null | undefined, ownerPhone: string): 
 }
 
 /* ------------------------------------------------------------------ */
+/* Nyelvvaltas hivas kozben                                             */
+/* ------------------------------------------------------------------ */
+
+/** A ConversationRelay nyelvkodjai. A TwiML `<Language code=...>`-ai ezek. */
+export const RELAY_LANG_CODE: Record<Lang, string> = { hu: 'hu-HU', en: 'en-US' };
+
+/**
+ * A ConversationRelay-nek kuldheto uzenet, ami a mar folo hivason atallitja
+ * a nyelvet.
+ *
+ * MINDKETTOT egyszerre allitja: amit felolvasunk (`ttsLanguage`) es amit
+ * felismerunk (`transcriptionLanguage`). Ez szandekos - a ketto szetcsuszasa
+ * volt maga a hiba, amit ez az egesz megold: a hivo nyelven kell hallgatni
+ * es a hivo nyelven kell valaszolni, nem a hivoszama szerint.
+ */
+export function languageSwitchMessage(next: Lang): string {
+  return JSON.stringify({
+    type: 'language',
+    ttsLanguage: RELAY_LANG_CODE[next],
+    transcriptionLanguage: RELAY_LANG_CODE[next],
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* Ki fogadta a hivast                                                  */
 /* ------------------------------------------------------------------ */
 

@@ -52,7 +52,7 @@ import type { WebSocket } from 'ws';
 
 import { env } from './env.js';
 import { reply, type Turn } from './llm.js';
-import { routeCall, type Lang as AximbraLang } from './routing.js';
+import { type Lang as AximbraLang } from './routing.js';
 import {
   buildTesterPrompt,
   scenarioByKey,
@@ -185,24 +185,19 @@ function hintsFor(lang: AximbraLang): string {
 }
 
 /**
- * Milyen nyelven fog valaszolni az AXIMBRA agent erre a teszthivasra.
+ * Milyen nyelven megy a teszthivas.
  *
- * FONTOS ES KONNYU ELNEZNI: ez FUGGETLEN a forgatokonyv nyelvetol
- * (Scenario.lang). Az AXIMBRA agent nyelvet a HIVOSZAM donti el
- * (routing.ts, pontosan ugyanaz a fuggveny fut, mint egy valodi hivasnal),
- * nem az, milyen nyelvu szoveget mond a teszt-agent. A TEST_AGENT_FROM egy
- * rogzitett, nem +36-tal kezdodo szam - emiatt az AXIMBRA agent MINDEN
- * teszthivasnal angolul valaszol, akkor is, ha a forgatokonyv magyar
- * (Scenario.lang: 'hu'). Ez a fuggveny azert kell, hogy a teszt-eszkoz SAJAT
- * beszedfelismerese (ami az AXIMBRA agent hangjat hallja, lasd turnTwiml)
- * a valodi valaszra legyen beallitva - kulonben pontosan az a fajta
- * felreertes tortenik, ami miatt ez az egesz fuggveny szuletett.
+ * Az AXIMBRA KOSZONESE a hivoszambol jon (routing.ts), es a TEST_AGENT_FROM
+ * egy rogzitett, nem +36-tal kezdodo szam - tehat az elso mondata mindig
+ * angol. Utana viszont a hivo elso mondatabol felismeri a valodi nyelvet es
+ * atall ra (server.ts, `maybeSwitchLang`), igy egy magyar forgatokonyv a
+ * masodik fordulotol magyarul folyik.
+ *
+ * Ezert a teszt-eszkoz SAJAT beszedfelismerese (ami az AXIMBRA hangjat
+ * hallja, lasd turnTwiml) a FORGATOKONYV nyelvere all, nem a hivoszamera: a
+ * hivas dulo resze azon a nyelven megy. Az egyetlen ara a koszones, amit egy
+ * fordulon at a masik nyelv felismeroje ir at.
  */
-function aximbraReplyLang(): AximbraLang {
-  const c = testCfg();
-  const route = routeCall(c.from, env().ownerPhone);
-  return route.to === 'agent' ? route.lang : 'hu';
-}
 
 /* ------------------------------------------------------------------ */
 /* Beszedszinezis (ferfi hang)                                          */
@@ -367,9 +362,10 @@ async function turnTwiml(
   // <Play>-jel felolvasott sajat mondatai - lasd voiceBlock).
   const scenarioLang = scenarioByKey(scenarioKey).lang;
   // Amit ez a Gather ERTELMEZ: nem a teszt-agent sajat hangjat, hanem azt,
-  // amit a vonal masik oldalan (az AXIMBRA agent) mond. Ez a ketto ket
-  // fuggetlen dolog - lasd aximbraReplyLang().
-  const axiLang = aximbraReplyLang();
+  // amit a vonal masik oldalan (az AXIMBRA agent) mond. Az AXIMBRA a hivo
+  // nyelvere all at az elso mondata utan, ezert a forgatokonyv nyelve a jo
+  // tipp erre - lasd aximbraGreetingLang().
+  const axiLang: AximbraLang = scenarioLang === 'en' ? 'en' : 'hu';
   const gatherLang = axiLang === 'en' ? 'en-US' : 'hu-HU';
 
   const q =
