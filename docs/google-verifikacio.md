@@ -134,6 +134,17 @@ a videó a **Videók → Rögzítések** mappába kerül.
 A forgatókönyv lent van angolul (**Demo video script**). Minden képernyőnél
 várj 3–4 másodpercet, hogy a Google ellenőre el tudja olvasni.
 
+**Felvétel előtt, két perc előkészület — ez sokat spórol:**
+
+1. Küldj magadnak egy levelet egy másik címedről, „Kérdés az árakról" tárggyal.
+   A videóban EZT használd a vázlat- és küldés-bemutatóhoz: így a válasz a saját
+   másik címedre megy, nem egy valódi ügyfélnek. A forgatókönyv 8–9. pontja
+   különben tényleg kiküld egy levelet annak, aki írt neked.
+2. A postafiókodban azt fogja látni a Google ellenőre, ami épp ott van. Ha van
+   benne olyan, amit nem akarsz megmutatni, vagy használj egy másik fiókot,
+   vagy archiváld előtte.
+3. A felületet állítsd angolra: a `https://aximbra.hu/en` címmel kezdj.
+
 ---
 
 ## 6. lépés — beadás
