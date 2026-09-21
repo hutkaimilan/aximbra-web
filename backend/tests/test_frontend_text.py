@@ -348,6 +348,12 @@ def test_the_business_is_not_narrowed_to_hungarian_companies():
     magyar szamrol a tulajdonos), az maradhat - ez a teszt csak azt a
     konkret szukitest tiltja, amit a Google talalat mutatott.
     """
-    for path in (PUBLIC_HTML, HU_JS):
+    # Nem eleg a magyar valtozatot nezni. A szukites eloszor pont az angol
+    # lapon maradt bent ("AI agents for Hungarian companies"), es epp azt
+    # latja a kulfoldi latogato - meg a Google ellenore is a demovideoban.
+    banned = ("magyar cégeknek", "magyar cegeknek", "for Hungarian companies")
+    paths = [PUBLIC_HTML, *sorted((FRONTEND / "i18n").glob("*.js"))]
+    for path in paths:
         text = path.read_text(encoding="utf-8")
-        assert "magyar cégeknek" not in text, f"{path.name}: visszater a 'magyar cégeknek' szukites"
+        for phrase in banned:
+            assert phrase not in text, f"{path.name}: visszater a szukites ({phrase!r})"
