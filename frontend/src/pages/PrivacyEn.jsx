@@ -69,6 +69,16 @@ export default function PrivacyEn({ lang }) {
             Your browser's storage keeps four small items, only on your device, and
             they never reach us:
           </p>
+          <p>
+            <b>Traffic.</b> For each page view we record which page was opened, in
+            which language, and which site the visitor came from — of that last one
+            only the domain (for example <code>google.com</code>), never the search
+            term or the full address. <b>We do not store IP addresses</b>, set no
+            cookie for it, and build no identifier that would let a visitor be
+            followed. The data stays aggregated on our own server; we use no
+            third-party analytics service. That is why we do not ask for consent to
+            it: this set of data is not personal data.
+          </p>
           <ul>
             <li>the selected language (<code>aximbra_lang</code>),</li>
             <li>where you were on the page when you opened a demo, so you come back to the

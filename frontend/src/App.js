@@ -19,6 +19,7 @@ import { Founder } from "@/components/Founder";
 import { LanguageProvider, useLang, PREFIXED_LANGS } from "@/i18n";
 import { useDocumentMeta, organizationJsonLd } from "@/seo";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useVisitBeacon } from "./visits";
 import Etterem from "@/demos/Etterem";
 import Szalon from "@/demos/Szalon";
 import Rendelo from "@/demos/Rendelo";
@@ -131,12 +132,23 @@ const PAGES = [
   { path: "adatkezeles", element: <Adatkezeles /> },
 ];
 
+/**
+ * Semmit nem rajzol - csak jelzi a szervernek, hogy valaki megnyitott egy
+ * lapot. Kulon komponens, mert a useLocation csak a routeren BELUL mukodik.
+ */
+function VisitBeacon() {
+  const { lang } = useLang();
+  useVisitBeacon(lang);
+  return null;
+}
+
 export default function App() {
   return (
     // The router wraps the provider, not the other way round: the language now
     // comes from the URL, so the provider has to be able to read it.
     <BrowserRouter>
       <LanguageProvider>
+        <VisitBeacon />
         <Routes>
           {PAGES.map((p) => (
             <Route key={p.path} path={`/${p.path}`} element={p.element} />

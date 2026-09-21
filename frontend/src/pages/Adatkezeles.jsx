@@ -77,6 +77,16 @@ function AdatkezelesHu({ lang }) {
             A böngésződ tárolója négy apróságot őriz, kizárólag a te gépeden, és
             ezek nem jutnak el hozzánk:
           </p>
+          <p>
+            <b>Látogatottság.</b> Minden oldalmegtekintésnél feljegyezzük, melyik
+            aloldalt nyitották meg, milyen nyelven, és melyik webhelyről érkezett a
+            látogató — ez utóbbiból csak a domaint (például <code>google.com</code>),
+            a keresőkifejezést és a teljes címet nem. <b>Nem tároljuk az IP-címet</b>,
+            nem helyezünk el sütit hozzá, és nem képzünk azonosítót, amivel a
+            látogató követhető lenne. Az adat összesítve, saját kiszolgálón marad;
+            külső elemzőszolgáltatót nem használunk. Ezért ehhez nem kérünk
+            hozzájárulást: a fenti adatkör nem személyes adat.
+          </p>
           <ul>
             <li>a kiválasztott nyelv (<code>aximbra_lang</code>),</li>
             <li>hol tartottál a lapon, amikor egy demóra léptél — hogy visszatérve

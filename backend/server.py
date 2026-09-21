@@ -468,6 +468,9 @@ app.include_router(mail_agent_router)
 from lead_intake import router as contact_router  # noqa: E402 - after api_router
 app.include_router(contact_router)
 
+from visits import router as visits_router  # noqa: E402 - after api_router
+app.include_router(visits_router)
+
 _cors_origins = [o.strip() for o in os.environ.get('CORS_ORIGINS', '*').split(',') if o.strip()]
 
 app.add_middleware(
