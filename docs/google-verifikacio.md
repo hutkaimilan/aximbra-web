@@ -27,30 +27,20 @@ A lépések sorrendje számít. Mindegyik után elég nekem annyit írnod, hogy 
 
 ---
 
-## 1. lépés — `api.aximbra.hu` a Railway-en és a Cloudflare-en (kb. 10 perc)
+## 1. lépés — `api.aximbra.hu` ✅ KÉSZ
 
-Miért: a Gmail-belépés után a Google egy `…up.railway.app` címre küldi vissza a
-látogatót. A Google csak olyan címet fogad el, amelyről igazolod, hogy a tiéd —
-ezért kell a saját `aximbra.hu` alá költöztetni.
+Miért kellett: a Gmail-belépés után a Google egy `…up.railway.app` címre küldte
+vissza a látogatót. A Google csak olyan címet fogad el, amelyről igazolod, hogy
+a tiéd — a `railway.app` pedig nem a tiéd.
 
-**Railway:**
-1. Nyisd meg: https://railway.com/project/b568b02b-0610-47da-967a-12ef5bcf6e7d/service/1c739e18-26aa-48f3-9b9e-e18534091f6c/settings?environmentId=bd933f1e-b0e0-4afc-88c2-5e43856d82fc
-2. **Networking** → **Public Networking** → **+ Custom Domain**
-3. Írd be: `api.aximbra.hu` → ha portot kér, válaszd azt, amit felajánl → **Add**
-4. A Railway két rekordot mutat: egy **CNAME**-et és egy **TXT**-t. Hagyd nyitva ezt a fület.
+Beállítva és ellenőrizve 2026-09-21-én:
 
-**Cloudflare:**
-1. https://dash.cloudflare.com → **aximbra.hu** → **DNS** → **Records**
-2. **Add record** → Type: **CNAME** → Name: `api` → Target: amit a Railway a CNAME-hez írt →
-   **Proxy status: kapcsold KI (szürke felhő, „DNS only”)** → **Save**
-3. **Add record** → Type: **TXT** → Name: `_railway-verify.api` → Content: amit a Railway a
-   TXT-hez írt → **Save**
+```
+CNAME   api.aximbra.hu  →  xlpd7dfh.up.railway.app
+állapot: PROPAGATED · igazolva · tanúsítvány érvényes
+```
 
-A proxyt azért kell kikapcsolni, mert a négynapos domainhibát pont a bekapcsolt
-narancssárga felhő okozta.
-
-Pár perc múlva a Railway-en zöld pipa jelenik meg a domain mellett. Írd meg, és
-ellenőrzöm.
+Ezzel ez a lépés lezárult, nincs vele teendőd.
 
 *(Megjegyzés: a Railway segédje korábban tévedésből létrehozott egy felesleges
 `aximbra-api-production-cfea.up.railway.app` címet is. Nem árt semminek, a
@@ -73,9 +63,14 @@ Ugyanazzal a Google-fiókkal csináld, amelyik a Google Cloud projekt tulajdonos
 
 ---
 
-## 3. lépés — az új visszatérési cím beállítása (kb. 5 perc)
+## 3. lépés — az új visszatérési cím beállítása (kb. 3 perc)
 
-Csak az 1. lépés zöld pipája után.
+**EZ A KÖVETKEZŐ TEENDŐD.** Az 1. lépés kész, ez épül rá.
+
+A sorrend számít: előbb a Google-nál vedd fel az új címet, és csak utána
+állítsuk át a szerveren. Fordítva a bekötés azonnal `redirect_uri_mismatch`
+hibára futna mindenkinél. A régit hagyd bent, amíg át nem álltunk — így nincs
+egyetlen perc kiesés sem.
 
 **Google Cloud:**
 1. https://console.cloud.google.com/apis/credentials (felül a jó projekt legyen kiválasztva)
@@ -84,10 +79,10 @@ Csak az 1. lépés zöld pipája után.
    `https://api.aximbra.hu/api/agent/email/callback` → **Save**
    (A régit még ne töröld.)
 
-**Railway** — `aximbra-api` → **Variables**:
-- `AGENT_REDIRECT_URI` → írd át erre: `https://api.aximbra.hu/api/agent/email/callback` → pipa → **Deploy**
-
-Szólj, és kipróbálom, hogy a bekötés működik-e az új címmel.
+**Railway** — ezt már NE csináld kézzel: szólj, hogy megvan a Google-nál, és
+átállítom az `AGENT_REDIRECT_URI`-t, majd ellenőrzöm a naplóból, hogy a bekötés
+az új címmel is működik. (Ha mégis magad tennéd: `aximbra-api` → **Variables** →
+`AGENT_REDIRECT_URI` = `https://api.aximbra.hu/api/agent/email/callback`.)
 
 ---
 
