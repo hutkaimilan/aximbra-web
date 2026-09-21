@@ -48,7 +48,11 @@ Networking alatt a kuka ikonnal törölhető.)*
 
 ---
 
-## 2. lépés — a domain igazolása a Google Search Console-ban (kb. 5 perc)
+## 2. lépés — a domain igazolása a Google Search Console-ban ✅ KÉSZ
+
+Az `aximbra.hu` Domain-tulajdon igazolva 2026-09-21-én, a
+`hutkaimilan11@gmail.com` fiókkal. Nincs vele teendőd; az alábbi lépések
+csak emlékeztetőül maradnak itt.
 
 Ugyanazzal a Google-fiókkal csináld, amelyik a Google Cloud projekt tulajdonosa
 (a piros képernyőn ez állt fejlesztőként: `hutkaimilan11@gmail.com`).
@@ -63,9 +67,21 @@ Ugyanazzal a Google-fiókkal csináld, amelyik a Google Cloud projekt tulajdonos
 
 ---
 
-## 3. lépés — az új visszatérési cím beállítása (kb. 3 perc)
+## 3. lépés — az új visszatérési cím beállítása ✅ KÉSZ
 
-**EZ A KÖVETKEZŐ TEENDŐD.** Az 1. lépés kész, ez épül rá.
+Mindkét fele megvan, 2026-09-21:
+
+- **Google Cloud**, Authorized redirect URIs:
+  `https://api.aximbra.hu/api/agent/email/callback` felvéve.
+- **Railway**, `aximbra-api`: `AGENT_REDIRECT_URI` átállítva. A deploy naplója
+  ezt írja indításkor, tehát élesben is ez megy:
+  `email agent configured (redirect URI: https://api.aximbra.hu/api/agent/email/callback)`
+
+A régi `…up.railway.app` visszatérési címet a Google-nél nyugodtan bent
+hagyhatod, amíg a jóváhagyás le nem zárul — nem zavar semmit, viszont ha valami
+visszaáll, nem esik ki a bekötés.
+
+<details><summary>Az eredeti leírás (már nem teendő)</summary>
 
 A sorrend számít: előbb a Google-nál vedd fel az új címet, és csak utána
 állítsuk át a szerveren. Fordítva a bekötés azonnal `redirect_uri_mismatch`
@@ -79,14 +95,18 @@ egyetlen perc kiesés sem.
    `https://api.aximbra.hu/api/agent/email/callback` → **Save**
    (A régit még ne töröld.)
 
-**Railway** — ezt már NE csináld kézzel: szólj, hogy megvan a Google-nál, és
-átállítom az `AGENT_REDIRECT_URI`-t, majd ellenőrzöm a naplóból, hogy a bekötés
-az új címmel is működik. (Ha mégis magad tennéd: `aximbra-api` → **Variables** →
-`AGENT_REDIRECT_URI` = `https://api.aximbra.hu/api/agent/email/callback`.)
+**Railway:** `aximbra-api` → **Variables** → `AGENT_REDIRECT_URI` =
+`https://api.aximbra.hu/api/agent/email/callback`
+
+</details>
 
 ---
 
-## 4. lépés — az alkalmazás adatai a Google-nél (kb. 15 perc)
+## 4. lépés — az alkalmazás adatai a Google-nél ✅ KÉSZ
+
+A Branding lap hibátlanul elmentve, az Audience lapon **In production** /
+**External**, a Data Access alatt mind az öt jogosultság bent van (a `gmail.modify`
+is). Nincs vele teendőd; a táblázat alább emlékeztetőül marad.
 
 https://console.cloud.google.com/auth/branding
 
@@ -123,7 +143,9 @@ szövegek lent vannak, csak be kell másolni őket.
 
 ---
 
-## 5. lépés — a demóvideó (kb. 20 perc)
+## 5. lépés — a demóvideó (kb. 20 perc) ⬅️ **EZ A KÖVETKEZŐ TEENDŐD**
+
+Ezt csak te tudod megcsinálni. A saját postafiókodat kell mutatni benne.
 
 Beszélni nem kell, csak lassan végigkattintani. A felület legyen **angolul**.
 
