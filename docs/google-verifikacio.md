@@ -153,6 +153,30 @@ Beszélni nem kell, csak lassan végigkattintani. A felület legyen **angolul**.
 a videó a **Videók → Rögzítések** mappába kerül.
 **Feltöltés:** YouTube → **Létrehozás → Videó feltöltése** → láthatóság: **Nem nyilvános (Unlisted)**.
 
+### Rövid változat — 10 lépés (ez az ajánlott)
+
+A Google ehhez ragaszkodik; a többi a hosszú változatban szépítés. Kb. 3 perc.
+
+1. `aximbra.hu/en/demo/email-agent` → a nagy gomb alatti link
+2. Pipáld be **mindkét** dobozt (write drafts, tidy up) → **Connect**
+3. A felugró magyarázó ablak → **Értem, tovább a Google-höz**
+4. Piros képernyő → **Advanced** → a lenti továbbvivő link
+5. Jogosultság-képernyő: **kattints a címsorba** (látszódjon az URL a
+   `client_id`-vel) → várj 5 mp → pipáld a jogokat → **Continue**
+6. Várd meg a futást → görgess végig lassan a leveleken *(gmail.readonly)*
+7. „Kérdés az árakról" levél → **draft a reply** → **save to Gmail Drafts**
+   → Gmail fül → **Piszkozatok** → mutasd *(gmail.compose)*
+8. Vissza → **küldés** megerősítése → Gmail → **Elküldött** → mutasd
+9. Vissza → **Unimportant mail** blokk → **Delete all** → megerősítés →
+   Gmail → **Kuka** → mutasd, hogy ott vannak *(gmail.modify)*
+10. Vissza → **Log out and disconnect**, majd ha van még 20 másodperced,
+    `myaccount.google.com/permissions` 5 másodpercig
+
+A 9. lépés a legfontosabb. A `gmail.modify` a legkényesebb jog: ha a Kuka
+mappa nem látszik, jó eséllyel visszakérdeznek, és megy még egy kör.
+
+### Hosszú változat
+
 A forgatókönyv lent van angolul (**Demo video script**). Minden képernyőnél
 várj 3–4 másodpercet, hogy a Google ellenőre el tudja olvasni.
 
