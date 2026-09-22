@@ -173,6 +173,18 @@ const agent = {
         "Továbblépni a Speciális → Tovább… linken lehet. Ha ez most kényelmetlen, a példa " +
         "postafiók mindent megmutat belépés nélkül.",
       back: "← Vissza a példa postafiókhoz",
+      warn: {
+        title: "Mielőtt továbbküldünk: a Google egy figyelmeztetést fog mutatni",
+        why: "A következő oldalon a Google azt írja: „A Google nem ellenőrizte ezt az alkalmazást”. Ez azért van, mert az AXIMBRA még nem ment át a Google fizetős, évente megújítandó biztonsági auditján, amelyet minden leveleket olvasó alkalmazástól megkövetel. Egyszemélyes műhelyként ezt az első ügyfélprojektek után vállaljuk be.",
+        means: "Ez azt jelenti, hogy a Google nem vizsgálta meg az alkalmazást — nem azt, hogy baj van a fiókoddal, és nem azt, hogy a Google hibát talált.",
+        checkTitle: "Amit magad is ellenőrizhetsz:",
+        checks: ["A Google engedélykérő oldalán pontosan látod, mihez kérünk hozzáférést. Az olvasáson túli jogot csak akkor kérjük, ha fent bepipáltad.", "A futás 30 perc után magától törlődik, a leveleid adatbázisba nem kerülnek."],
+        revoke: "A hozzáférést bármikor visszavonhatod a Google-fiókodban:",
+        howTitle: "Így jutsz tovább a figyelmeztető oldalon:",
+        steps: ["Kattints a lent lévő „Speciális beállítások” linkre.", "Kattints a „Lépjen ide: aximbra.hu (nem biztonságos)” linkre.", "Válaszd ki a fiókodat, és fogadd el a kért jogokat."],
+        go: "Értem, tovább a Google-höz",
+        cancel: "Mégse",
+      },
       optinTitle: "Írhat vázlatot a postafiókomba.",
       optinBody:
         "Ha bepipálod, az agent a megírt választ — a te külön megerősítésed után, levelenként — " +
@@ -401,6 +413,18 @@ const agent = {
         "You get past it via Advanced → Go to… If that is uncomfortable right now, the example " +
         "mailbox shows everything with no sign-in.",
       back: "← Back to the example mailbox",
+      warn: {
+        title: "Before we send you on: Google will show a warning",
+        why: "On the next page Google says \"Google hasn't verified this app\". That is because AXIMBRA has not yet completed Google's paid, yearly-renewed security audit, which Google requires from every app that reads email. As a one-person workshop we'll take it on after our first client projects.",
+        means: "It means Google has not reviewed the app — not that anything is wrong with your account, and not that Google found a problem.",
+        checkTitle: "What you can check yourself:",
+        checks: ["Google's consent screen lists exactly what access we ask for. Anything beyond reading is only requested if you ticked the box above.", "The run deletes itself after 30 minutes; your mail is not written to a database."],
+        revoke: "You can revoke access at any time in your Google account:",
+        howTitle: "How to get past the warning page:",
+        steps: ["Click the \"Advanced\" link at the bottom.", "Click \"Go to aximbra.hu (unsafe)\".", "Choose your account and accept the requested access."],
+        go: "Got it, continue to Google",
+        cancel: "Cancel",
+      },
       optinTitle: "It may write drafts into my mailbox.",
       optinBody:
         "If you tick this, the agent puts the reply it wrote — after your separate confirmation, " +
@@ -630,6 +654,18 @@ const agent = {
         "Weiter geht es über Erweitert → Weiter zu… Wenn Ihnen das gerade unangenehm ist: Das " +
         "Beispiel-Postfach zeigt alles ganz ohne Anmeldung.",
       back: "← Zurück zum Beispiel-Postfach",
+      warn: {
+        title: "Bevor wir Sie weiterleiten: Google zeigt eine Warnung",
+        why: "Auf der nächsten Seite schreibt Google: „Google hat diese App nicht überprüft“. Das liegt daran, dass AXIMBRA die kostenpflichtige, jährlich zu erneuernde Sicherheitsprüfung von Google noch nicht abgeschlossen hat, die Google von jeder App verlangt, die E-Mails liest. Als Ein-Personen-Werkstatt gehen wir sie nach den ersten Kundenprojekten an.",
+        means: "Das heißt: Google hat die App nicht geprüft — nicht, dass mit Ihrem Konto etwas nicht stimmt, und nicht, dass Google ein Problem gefunden hat.",
+        checkTitle: "Was Sie selbst prüfen können:",
+        checks: ["Der Zustimmungsbildschirm von Google zeigt genau, welchen Zugriff wir anfragen. Mehr als Lesen wird nur angefragt, wenn Sie oben das Häkchen gesetzt haben.", "Der Lauf löscht sich nach 30 Minuten selbst; Ihre E-Mails landen in keiner Datenbank."],
+        revoke: "Den Zugriff können Sie jederzeit in Ihrem Google-Konto widerrufen:",
+        howTitle: "So kommen Sie an der Warnseite vorbei:",
+        steps: ["Klicken Sie unten auf „Erweitert“ (Advanced).", "Klicken Sie auf „Weiter zu aximbra.hu (unsicher)“.", "Wählen Sie Ihr Konto und bestätigen Sie den angefragten Zugriff."],
+        go: "Verstanden, weiter zu Google",
+        cancel: "Abbrechen",
+      },
       optinTitle: "Er darf Entwürfe in mein Postfach schreiben.",
       optinBody:
         "Wenn Sie das ankreuzen, legt der Agent die geschriebene Antwort — nach Ihrer gesonderten " +
@@ -859,6 +895,18 @@ const agent = {
         "Se continúa por Configuración avanzada → Ir a… Si ahora mismo te resulta incómodo, el " +
         "buzón de ejemplo lo enseña todo sin registrarse.",
       back: "← Volver al buzón de ejemplo",
+      warn: {
+        title: "Antes de redirigirte: Google mostrará un aviso",
+        why: "En la siguiente página Google dice «Google no ha verificado esta aplicación». Es porque AXIMBRA todavía no ha completado la auditoría de seguridad de pago de Google, que se renueva cada año y que Google exige a toda aplicación que lee correo. Como taller de una sola persona, la haremos tras nuestros primeros proyectos con clientes.",
+        means: "Significa que Google no ha revisado la aplicación — no que haya algún problema con tu cuenta, ni que Google haya encontrado un fallo.",
+        checkTitle: "Lo que puedes comprobar tú mismo:",
+        checks: ["La pantalla de consentimiento de Google muestra exactamente qué acceso pedimos. Solo pedimos algo más que lectura si marcaste la casilla de arriba.", "La ejecución se borra sola a los 30 minutos; tu correo no se guarda en ninguna base de datos."],
+        revoke: "Puedes revocar el acceso en cualquier momento desde tu cuenta de Google:",
+        howTitle: "Cómo pasar la página de aviso:",
+        steps: ["Haz clic en «Configuración avanzada» (Advanced), abajo.", "Haz clic en «Ir a aximbra.hu (no seguro)».", "Elige tu cuenta y acepta el acceso solicitado."],
+        go: "Entendido, continuar a Google",
+        cancel: "Cancelar",
+      },
       optinTitle: "Puede escribir borradores en mi buzón.",
       optinBody:
         "Si lo marcas, el agente deja la respuesta redactada — tras tu confirmación aparte, correo " +
@@ -1087,6 +1135,18 @@ const agent = {
         "On continue via Paramètres avancés → Accéder à… Si cela vous gêne pour l'instant, la " +
         "boîte d'exemple montre tout sans connexion.",
       back: "← Retour à la boîte d'exemple",
+      warn: {
+        title: "Avant de vous rediriger : Google va afficher un avertissement",
+        why: "Sur la page suivante, Google indique « Google n'a pas validé cette application ». C'est parce qu'AXIMBRA n'a pas encore passé l'audit de sécurité payant de Google, renouvelé chaque année, que Google exige de toute application qui lit des e-mails. En tant qu'atelier d'une seule personne, nous le ferons après nos premiers projets clients.",
+        means: "Cela signifie que Google n'a pas examiné l'application — pas qu'il y a un problème avec votre compte, ni que Google a trouvé une faille.",
+        checkTitle: "Ce que vous pouvez vérifier vous-même :",
+        checks: ["L'écran de consentement de Google indique exactement l'accès demandé. Nous ne demandons plus que la lecture que si vous avez coché la case ci-dessus.", "L'exécution s'efface d'elle-même après 30 minutes ; vos e-mails ne sont enregistrés dans aucune base de données."],
+        revoke: "Vous pouvez révoquer l'accès à tout moment dans votre compte Google :",
+        howTitle: "Comment passer la page d'avertissement :",
+        steps: ["Cliquez sur « Paramètres avancés » (Advanced), en bas.", "Cliquez sur « Accéder à aximbra.hu (non sécurisé) ».", "Choisissez votre compte et acceptez l'accès demandé."],
+        go: "Compris, continuer vers Google",
+        cancel: "Annuler",
+      },
       optinTitle: "Il peut écrire des brouillons dans ma boîte.",
       optinBody:
         "Si vous cochez, l'agent dépose la réponse rédigée — après votre confirmation distincte, " +
@@ -1316,6 +1376,18 @@ const agent = {
         "Si prosegue da Avanzate → Vai a… Se in questo momento ti mette a disagio, la casella di " +
         "esempio mostra tutto senza accesso.",
       back: "← Torna alla casella di esempio",
+      warn: {
+        title: "Prima di reindirizzarti: Google mostrerà un avviso",
+        why: "Nella pagina successiva Google scrive «Google non ha verificato questa app». Il motivo è che AXIMBRA non ha ancora completato l'audit di sicurezza a pagamento di Google, da rinnovare ogni anno, che Google richiede a ogni app che legge la posta. Come laboratorio di una sola persona lo affronteremo dopo i primi progetti con i clienti.",
+        means: "Significa che Google non ha esaminato l'app — non che ci sia qualcosa che non va nel tuo account, né che Google abbia trovato un problema.",
+        checkTitle: "Cosa puoi verificare da solo:",
+        checks: ["La schermata di consenso di Google mostra esattamente quale accesso chiediamo. Chiediamo più della lettura solo se hai spuntato la casella sopra.", "L'esecuzione si cancella da sola dopo 30 minuti; la tua posta non finisce in nessun database."],
+        revoke: "Puoi revocare l'accesso in qualsiasi momento dal tuo account Google:",
+        howTitle: "Come superare la pagina di avviso:",
+        steps: ["Fai clic su «Avanzate» (Advanced), in basso.", "Fai clic su «Vai a aximbra.hu (non sicuro)».", "Scegli il tuo account e accetta l'accesso richiesto."],
+        go: "Ho capito, continua su Google",
+        cancel: "Annulla",
+      },
       optinTitle: "Può scrivere bozze nella mia casella.",
       optinBody:
         "Se lo spunti, l'agente mette la risposta scritta — dopo la tua conferma separata, " +
@@ -1545,6 +1617,18 @@ const agent = {
         "Se continuă prin Avansat → Accesați… Dacă acum îți este incomod, căsuța de exemplu arată " +
         "tot fără autentificare.",
       back: "← Înapoi la căsuța de exemplu",
+      warn: {
+        title: "Înainte să te redirecționăm: Google va afișa un avertisment",
+        why: "Pe pagina următoare Google scrie „Google nu a verificat această aplicație”. Motivul este că AXIMBRA nu a trecut încă prin auditul de securitate plătit al Google, reînnoit anual, pe care Google îl cere oricărei aplicații care citește e-mailuri. Fiind un atelier cu o singură persoană, îl vom face după primele proiecte cu clienți.",
+        means: "Înseamnă că Google nu a verificat aplicația — nu că ar fi ceva în neregulă cu contul tău și nici că Google a găsit o problemă.",
+        checkTitle: "Ce poți verifica singur:",
+        checks: ["Ecranul de consimțământ Google arată exact ce acces cerem. Cerem mai mult decât citire doar dacă ai bifat căsuța de mai sus.", "Rularea se șterge singură după 30 de minute; e-mailurile tale nu ajung în nicio bază de date."],
+        revoke: "Poți revoca accesul oricând din contul tău Google:",
+        howTitle: "Cum treci de pagina de avertizare:",
+        steps: ["Dă clic pe „Avansat” (Advanced), jos.", "Dă clic pe „Accesează aximbra.hu (nesigur)”.", "Alege-ți contul și acceptă accesul cerut."],
+        go: "Am înțeles, continuă la Google",
+        cancel: "Anulează",
+      },
       optinTitle: "Poate scrie ciorne în căsuța mea.",
       optinBody:
         "Dacă bifezi, agentul pune răspunsul scris — după confirmarea ta separată, mesaj cu mesaj " +
@@ -1772,6 +1856,18 @@ const agent = {
         "Ďalej sa pokračuje cez Rozšírené → Prejsť na… Ak je to teraz nepríjemné, ukážková " +
         "schránka ukáže všetko bez prihlásenia.",
       back: "← Späť na ukážkovú schránku",
+      warn: {
+        title: "Skôr než vás presmerujeme: Google zobrazí upozornenie",
+        why: "Na ďalšej stránke Google napíše „Google túto aplikáciu neoveril“. Je to preto, že AXIMBRA ešte neprešla platenou, každoročne obnovovanou bezpečnostnou kontrolou Google, ktorú Google vyžaduje od každej aplikácie, ktorá číta e-maily. Ako dielňa jedného človeka ju absolvujeme po prvých projektoch pre klientov.",
+        means: "Znamená to, že Google aplikáciu neskontroloval — nie to, že je niečo v neporiadku s vaším účtom, ani to, že Google našiel problém.",
+        checkTitle: "Čo si môžete overiť sami:",
+        checks: ["Na obrazovke súhlasu Google presne vidíte, o aký prístup žiadame. O viac než čítanie žiadame, len ak ste vyššie zaškrtli políčko.", "Beh sa po 30 minútach sám vymaže; vaše e-maily sa neukladajú do žiadnej databázy."],
+        revoke: "Prístup môžete kedykoľvek zrušiť vo svojom účte Google:",
+        howTitle: "Ako sa dostať cez stránku s upozornením:",
+        steps: ["Kliknite dole na „Rozšírené“ (Advanced).", "Kliknite na „Prejsť na aximbra.hu (nebezpečné)“.", "Vyberte svoj účet a potvrďte požadovaný prístup."],
+        go: "Rozumiem, pokračovať na Google",
+        cancel: "Zrušiť",
+      },
       optinTitle: "Môže písať koncepty do mojej schránky.",
       optinBody:
         "Ak to zaškrtnete, agent vloží napísanú odpoveď — po vašom samostatnom potvrdení, správu " +

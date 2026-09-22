@@ -324,6 +324,64 @@ const SearchPanel = ({ onResults, onClear, active }) => {
   );
 };
 
+/* Shown between the Connect button and Google. Google puts an "unverified app"
+   screen in front of every restricted Gmail scope until the app has passed a
+   paid security audit; meeting it cold reads as a scam. This says why it
+   appears, what it does and doesn't mean, and exactly which links get past it -
+   and only its own "continue" button starts the OAuth redirect. */
+function GoogleWarn({ w, connecting, onGo, onCancel }) {
+  const goRef = useRef(null);
+
+  useEffect(() => {
+    goRef.current?.focus();
+    const onKey = (e) => { if (e.key === "Escape" && !connecting) onCancel(); };
+    window.addEventListener("keydown", onKey);
+    // No page scroll behind the dialog; restore whatever the page had.
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [connecting, onCancel]);
+
+  return (
+    <div className="agent-warn-backdrop" data-testid="agent-google-warn"
+      onClick={(e) => { if (e.target === e.currentTarget && !connecting) onCancel(); }}>
+      <div className="agent-warn" role="dialog" aria-modal="true" aria-labelledby="agent-warn-title">
+        <h3 id="agent-warn-title">{w.title}</h3>
+        <p>{w.why}</p>
+        <p className="agent-warn-means">{w.means}</p>
+
+        <p className="agent-warn-sub">{w.checkTitle}</p>
+        <ul>
+          {w.checks.map((c) => <li key={c}>{c}</li>)}
+          <li>
+            {w.revoke}{" "}
+            <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">
+              myaccount.google.com/permissions
+            </a>
+          </li>
+        </ul>
+
+        <p className="agent-warn-sub">{w.howTitle}</p>
+        <ol>{w.steps.map((s) => <li key={s}>{s}</li>)}</ol>
+
+        <div className="agent-warn-actions">
+          <button ref={goRef} className="agent-cta" onClick={onGo} disabled={connecting}
+            data-testid="agent-warn-go">
+            {connecting ? <span className="spin" /> : null} {w.go}
+          </button>
+          <button type="button" className="agent-start-alt" onClick={onCancel}
+            disabled={connecting} data-testid="agent-warn-cancel">
+            {w.cancel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function EmailAgent({ embedded = false }) {
   const { t, lang } = useLang();
   const a = t.agent;
@@ -357,6 +415,10 @@ export default function EmailAgent({ embedded = false }) {
   // in front of every visitor and asks a stranger for their mailbox. It stays,
   // one click away, for someone who actually wants it.
   const [showConnect, setShowConnect] = useState(false);
+  // The pre-redirect explainer for Google's unverified-app screen.
+  const [showWarn, setShowWarn] = useState(false);
+  // Stable, so the dialog's key listener isn't torn down on every render.
+  const closeWarn = useCallback(() => setShowWarn(false), []);
   const [onlyNeedsReply, setOnlyNeedsReply] = useState(false);
   const [onlyJunk, setOnlyJunk] = useState(false);
   const [openId, setOpenId] = useState(null);
@@ -479,6 +541,7 @@ export default function EmailAgent({ embedded = false }) {
   };
 
   const connect = async () => {
+    if (connecting) return; // a double click must not start two OAuth flows
     setConnecting(true);
     setError("");
     try {
@@ -492,6 +555,7 @@ export default function EmailAgent({ embedded = false }) {
       window.location.href = d.auth_url;
     } catch (e) {
       setConnecting(false);
+      setShowWarn(false); // close the explainer so the error is visible
       setError(e.message || a.err.generic);
     }
   };
@@ -728,7 +792,12 @@ export default function EmailAgent({ embedded = false }) {
                   </span>
                 </label>
 
-                <button className="agent-cta" onClick={connect}
+                {/* The button opens the explainer, not Google. The redirect only
+                    happens from the explainer's own "continue", so nobody meets
+                    the unverified-app screen without having read why it appears. */}
+                <button className="agent-cta"
+                  onClick={() => (a.connect.warn ? setShowWarn(true) : connect())}
+                  data-testid="agent-connect"
                   disabled={connecting || status.configured === false}>
                   {connecting ? <><span className="spin" /> {a.connect.redirecting}</>
                     : allowDrafts ? a.connect.ctaWrite
@@ -743,6 +812,11 @@ export default function EmailAgent({ embedded = false }) {
                   {a.connect.privacyLead}{" "}
                   <Link to={lang === "hu" ? "/adatkezeles" : "/en/adatkezeles"}>{a.connect.privacyLink}</Link>
                 </p>
+
+                {showWarn && (
+                  <GoogleWarn w={a.connect.warn} connecting={connecting}
+                    onGo={connect} onCancel={closeWarn} />
+                )}
               </>
             )}
           </div>

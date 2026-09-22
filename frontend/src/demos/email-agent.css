@@ -526,3 +526,41 @@
 }
 .agent-row-act button:hover:not(:disabled) { background: rgba(255,255,255,.1); }
 .agent-row-act button:disabled { opacity: .6; cursor: default; }
+
+/* ---------- Google "unverified app" explainer, shown before the redirect ---------- */
+.agent-warn-backdrop {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+  background: rgba(4,6,14,.78);
+  overflow-y: auto;
+}
+.agent-warn {
+  width: 100%; max-width: 620px; max-height: calc(100vh - 32px); overflow-y: auto;
+  padding: 24px 24px 20px;
+  border: 1px solid rgba(255,176,32,.38); border-radius: 16px;
+  background: #0E1020;
+  box-shadow: 0 24px 64px rgba(0,0,0,.55);
+  font-size: 14.5px; line-height: 1.65; color: #D8D4E6;
+}
+.agent-warn h3 {
+  margin: 0 0 12px; font-size: 19px; line-height: 1.35; color: #FFD9A0;
+}
+.agent-warn p { margin: 0 0 12px; }
+.agent-warn .agent-warn-means { color: #FFE7C2; }
+.agent-warn .agent-warn-sub { margin: 16px 0 6px; font-weight: 600; color: #fff; }
+.agent-warn ul, .agent-warn ol { margin: 0 0 4px; padding-left: 22px; }
+.agent-warn ul { list-style: disc; }
+.agent-warn ol { list-style: decimal; }
+.agent-warn li::marker { color: #FFB020; }
+.agent-warn li { margin: 0 0 6px; }
+.agent-warn a { color: var(--cyan); word-break: break-all; }
+.agent-warn-actions {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; margin-top: 20px;
+}
+.agent-warn-actions .agent-cta { margin: 0; }
+.agent-warn-actions .agent-start-alt { margin-top: 0; }
+@media (max-width: 600px) {
+  .agent-warn { padding: 18px 16px 16px; font-size: 14px; }
+  .agent-warn h3 { font-size: 17px; }
+}
