@@ -74,13 +74,17 @@ const es = {
     heading: "Diseño y desarrollo web",
     sub: "Sitios modernos, rápidos y optimizados para móvil — con contenido real, en funcionamiento.",
     netNote: "precio neto, sin alojamiento ni dominio",
+    // A "{p}" helyere a money.js teszi be a kesz arat; a szorend
+    // nyelvenkent mas, ezert nem a formazo dolga.
+    fromFmt: "desde {p}",
+    fxNote: "Los precios están convertidos desde forintos húngaros con un tipo aproximado de 1 € ≈ 400 Ft. El importe exacto se fija en el presupuesto.",
     popular: "Más popular",
     cta: "Solicitar presupuesto",
     subjectPrefix: "Solicitud de presupuesto",
     packages: [
-      { name: "Presencia de una página", price: "120 000 Ft", features: ["página única, optimizada para móvil", "contacto, horario, Google Maps", "lista en 3–5 días"] },
-      { name: "Negocio multipágina", price: "290 000 Ft", features: ["varias subpáginas, galería, formulario de contacto", "SEO básico e indexación en Google", "lista en 1–2 semanas"] },
-      { name: "A medida / con IA", price: "desde 900 000 Ft", features: ["sistema de reservas o chat / agente de voz con IA", "funciones a medida según necesidad", "según presupuesto, con plazo acordado"] },
+      { name: "Presencia de una página", price: "120000", features: ["página única, optimizada para móvil", "contacto, horario, Google Maps", "lista en 3–5 días"] },
+      { name: "Negocio multipágina", price: "290000", features: ["varias subpáginas, galería, formulario de contacto", "SEO básico e indexación en Google", "lista en 1–2 semanas"] },
+      { name: "A medida / con IA", price: "900000+", features: ["sistema de reservas o chat / agente de voz con IA", "funciones a medida según necesidad", "según presupuesto, con plazo acordado"] },
     ],
   },
   caseStudy: {

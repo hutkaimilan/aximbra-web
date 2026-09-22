@@ -74,13 +74,17 @@ const ro = {
     heading: "Creare și dezvoltare de site-uri web",
     sub: "Site-uri moderne, rapide, optimizate pentru mobil — cu conținut real, în funcțiune.",
     netNote: "preț net, fără găzduire și domeniu",
+    // A "{p}" helyere a money.js teszi be a kesz arat; a szorend
+    // nyelvenkent mas, ezert nem a formazo dolga.
+    fromFmt: "de la {p}",
+    fxNote: "Prețurile sunt convertite din forinți maghiari la un curs aproximativ de 1 RON ≈ 80 Ft. Suma exactă se stabilește în ofertă.",
     popular: "Cel mai popular",
     cta: "Cere o ofertă",
     subjectPrefix: "Cerere de ofertă",
     packages: [
-      { name: "Prezență pe o pagină", price: "120 000 Ft", features: ["site de o pagină, optimizat pentru mobil", "contact, program, Google Maps", "gata în 3–5 zile"] },
-      { name: "Business cu mai multe pagini", price: "290 000 Ft", features: ["mai multe subpagini, galerie, formular de contact", "SEO de bază și indexare Google", "gata în 1–2 săptămâni"] },
-      { name: "Personalizat / cu AI", price: "de la 900 000 Ft", features: ["sistem de rezervări sau chat / agent vocal AI", "funcții personalizate la cerere", "pe bază de ofertă, cu termen convenit"] },
+      { name: "Prezență pe o pagină", price: "120000", features: ["site de o pagină, optimizat pentru mobil", "contact, program, Google Maps", "gata în 3–5 zile"] },
+      { name: "Business cu mai multe pagini", price: "290000", features: ["mai multe subpagini, galerie, formular de contact", "SEO de bază și indexare Google", "gata în 1–2 săptămâni"] },
+      { name: "Personalizat / cu AI", price: "900000+", features: ["sistem de rezervări sau chat / agent vocal AI", "funcții personalizate la cerere", "pe bază de ofertă, cu termen convenit"] },
     ],
   },
   caseStudy: {

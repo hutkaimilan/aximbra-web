@@ -357,3 +357,100 @@ def test_the_business_is_not_narrowed_to_hungarian_companies():
         text = path.read_text(encoding="utf-8")
         for phrase in banned:
             assert phrase not in text, f"{path.name}: visszater a szukites ({phrase!r})"
+
+
+# ---------------------------------------------------------------------------
+# Arak es penznemek
+# ---------------------------------------------------------------------------
+
+LANG_FILES = ("hu", "en", "de", "es", "fr", "it", "ro", "sk")
+MONEY_JS = FRONTEND / "money.js"
+PRICE_TOKEN = re.compile(r'price: "(\d+(?:-\d+)?\+?)"')
+
+
+def _lang_source(code):
+    return (FRONTEND / "i18n" / f"{code}.js").read_text(encoding="utf-8")
+
+
+def test_no_price_is_hardcoded_in_a_currency():
+    """Az arak forintosszegek, nem kesz szovegek.
+
+    Amig "120 000 Ft" allt a nyolc fajlban, a nemet es a roman latogato is
+    forintot latott - egy nemet cegvezetonek az nem ar, hanem rejtveny. A
+    penznemet a money.js teszi ra a nyelv alapjan, ezert itt szam all.
+    """
+    for code in LANG_FILES:
+        text = _lang_source(code)
+        for bad in ("Ft", "eFt", "MFt", "€", "RON", "lei"):
+            for line in text.splitlines():
+                if line.strip().startswith("//") or "fxNote" in line:
+                    continue  # a megjegyzes maga leirja az arfolyamot
+                assert not (f'price: "' in line and bad in line), (
+                    f"{code}.js: a penznem beegett az arba - {line.strip()}"
+                )
+
+
+def test_every_price_is_a_number_the_formatter_understands():
+    """Egy elgepelt ar ures helyet hagyna a kartyan, hibauzenet nelkul."""
+    for code in LANG_FILES:
+        text = _lang_source(code)
+        raw = re.findall(r'price: "([^"]*)"', text)
+        assert raw, f"{code}.js: egyetlen ar sincs benne"
+        for value in raw:
+            assert PRICE_TOKEN.fullmatch(f'price: "{value}"'), (
+                f"{code}.js: ertelmezhetetlen ar: {value!r}"
+            )
+
+
+def test_hungarian_and_english_agree_on_what_the_agents_cost():
+    """A tobbi nyelv az angoltol orokli az agent-arakat, az angol a magyartol.
+
+    Ha a ketto elcsuszik, a magyar lapon mas ar all, mint a nemeten - es ezt
+    csak egy ugyfel veszi eszre, arajanlatkeres kozben.
+    """
+    def agent_prices(code):
+        text = _lang_source(code)
+        start = text.index("\n  agents: [")
+        end = text.index("\n  ],", start)
+        return re.findall(r'price: "([^"]*)"', text[start:end])
+
+    hu_prices, en_prices = agent_prices("hu"), agent_prices("en")
+    assert hu_prices, "hu.js: nincs agent-ar"
+    assert hu_prices == en_prices, (
+        f"a magyar es az angol agent-arak elcsusztak: {hu_prices} vs {en_prices}"
+    )
+
+
+def test_every_language_says_which_rate_it_converted_at():
+    """Atvaltott arat arfolyam nelkul kiirni felrevezetes.
+
+    A magyar lapon nincs atvaltas, ezert ott ures a megjegyzes; minden mas
+    nyelven kotelezo, es meg kell neveznie a szamot, amivel dolgoztunk.
+    """
+    money = MONEY_JS.read_text(encoding="utf-8")
+    for code in LANG_FILES:
+        text = _lang_source(code)
+        assert "fromFmt:" in text, f"{code}.js: hianyzik a fromFmt"
+        note = re.search(r'fxNote: "([^"]*)"', text)
+        assert note, f"{code}.js: hianyzik az fxNote"
+        if code == "hu":
+            assert note.group(1) == "", "hu.js: nincs atvaltas, ne legyen arfolyam-szoveg"
+            continue
+        assert note.group(1), f"{code}.js: atvaltott arak arfolyam-megjegyzes nelkul"
+        # A kiirt arfolyamnak abbol a szambol kell jonnie, amivel a kod szamol.
+        rate = "80" if code == "ro" else "400"
+        assert f"{rate} Ft" in note.group(1), (
+            f"{code}.js: az arfolyam-szoveg nem a money.js ertekevel szamol ({rate})"
+        )
+        assert f"RON: {rate}" in money or f"EUR: {rate}" in money, (
+            f"money.js: hianyzik a {rate}-as arfolyam"
+        )
+
+
+def test_the_formatter_knows_every_language_on_the_site():
+    """Uj nyelv eseten a penznem-tabla nem maradhat le - kulonben euroban
+    latna az arat valaki, akinek nem az a penzneme."""
+    money = MONEY_JS.read_text(encoding="utf-8")
+    block = money[money.index("CURRENCY_BY_LANG"):money.index("export const currencyFor")]
+    for code in LANG_FILES:
+        assert f"{code}:" in block, f"money.js: a {code} nyelvhez nincs penznem"

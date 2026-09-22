@@ -74,13 +74,17 @@ const it = {
     heading: "Creazione e sviluppo di siti web",
     sub: "Siti moderni, veloci e ottimizzati per il mobile — con contenuti reali, in esercizio.",
     netNote: "prezzo netto, esclusi hosting e dominio",
+    // A "{p}" helyere a money.js teszi be a kesz arat; a szorend
+    // nyelvenkent mas, ezert nem a formazo dolga.
+    fromFmt: "da {p}",
+    fxNote: "I prezzi sono convertiti dal fiorino ungherese a un tasso approssimativo di 1 € ≈ 400 Ft. L'importo esatto viene fissato nel preventivo.",
     popular: "Più popolare",
     cta: "Richiedi un preventivo",
     subjectPrefix: "Richiesta di preventivo",
     packages: [
-      { name: "Presenza a una pagina", price: "120 000 Ft", features: ["sito a pagina singola, ottimizzato mobile", "contatti, orari, Google Maps", "pronto in 3–5 giorni"] },
-      { name: "Business multipagina", price: "290 000 Ft", features: ["più sottopagine, galleria, modulo di contatto", "SEO di base e indicizzazione Google", "pronto in 1–2 settimane"] },
-      { name: "Su misura / con AI", price: "da 900 000 Ft", features: ["sistema di prenotazione o chat / agente vocale AI", "funzioni su misura secondo necessità", "su preventivo, con scadenza concordata"] },
+      { name: "Presenza a una pagina", price: "120000", features: ["sito a pagina singola, ottimizzato mobile", "contatti, orari, Google Maps", "pronto in 3–5 giorni"] },
+      { name: "Business multipagina", price: "290000", features: ["più sottopagine, galleria, modulo di contatto", "SEO di base e indicizzazione Google", "pronto in 1–2 settimane"] },
+      { name: "Su misura / con AI", price: "900000+", features: ["sistema di prenotazione o chat / agente vocale AI", "funzioni su misura secondo necessità", "su preventivo, con scadenza concordata"] },
     ],
   },
   caseStudy: {

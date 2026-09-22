@@ -74,13 +74,17 @@ const fr = {
     heading: "Création et développement de sites web",
     sub: "Des sites modernes, rapides et optimisés pour mobile — avec du vrai contenu, en exploitation réelle.",
     netNote: "prix net, hors hébergement et domaine",
+    // A "{p}" helyere a money.js teszi be a kesz arat; a szorend
+    // nyelvenkent mas, ezert nem a formazo dolga.
+    fromFmt: "à partir de {p}",
+    fxNote: "Les prix sont convertis depuis le forint hongrois à un taux approximatif de 1 € ≈ 400 Ft. Le montant exact est fixé dans le devis.",
     popular: "Le plus populaire",
     cta: "Demander un devis",
     subjectPrefix: "Demande de devis",
     packages: [
-      { name: "Présence une page", price: "120 000 Ft", features: ["site d'une page, optimisé mobile", "contact, horaires, Google Maps", "prêt en 3–5 jours"] },
-      { name: "Entreprise multipage", price: "290 000 Ft", features: ["plusieurs sous-pages, galerie, formulaire de contact", "SEO de base et indexation Google", "prêt en 1–2 semaines"] },
-      { name: "Sur mesure / avec IA", price: "à partir de 900 000 Ft", features: ["système de réservation ou chat / agent vocal IA", "fonctions sur mesure selon les besoins", "sur devis, avec un délai convenu"] },
+      { name: "Présence une page", price: "120000", features: ["site d'une page, optimisé mobile", "contact, horaires, Google Maps", "prêt en 3–5 jours"] },
+      { name: "Entreprise multipage", price: "290000", features: ["plusieurs sous-pages, galerie, formulaire de contact", "SEO de base et indexation Google", "prêt en 1–2 semaines"] },
+      { name: "Sur mesure / avec IA", price: "900000+", features: ["système de réservation ou chat / agent vocal IA", "fonctions sur mesure selon les besoins", "sur devis, avec un délai convenu"] },
     ],
   },
   caseStudy: {

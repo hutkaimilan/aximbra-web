@@ -3,12 +3,22 @@ import { Reveal } from "./Reveal";
 import { LiquidButton } from "./LiquidButton";
 import { mailto } from "../contact";
 import { useLang, pathFor } from "../i18n";
+import { formatPrice, parseToken } from "../money";
+
+/** A "900000+" alak nyitott ar: a nyelv sajat szokoszerkezete teszi ra a
+ *  "-tol"-t, mert nemetul elol all ("ab 2 250 €"), magyarul hatul. */
+const priceText = (token, lang, fromFmt) => {
+  const text = formatPrice(token, lang, "full");
+  if (!text) return "";
+  const p = parseToken(token);
+  return p && p.open ? String(fromFmt || "{p}").replace("{p}", text) : text;
+};
 
 /** A csomagok rácsa. A főoldalról a /weboldal oldalra költözött: egy AI-agent
  *  ügynökség főoldalának közepén három weboldalcsomag azt kérdezteti az
  *  olvasóval, hogy végül is mit árulunk. */
 export const PricingPackages = () => {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const p = t.pricing;
   return (
     <div className="pkg-grid">
@@ -20,7 +30,7 @@ export const PricingPackages = () => {
             <div className={`pkg-card ${featured ? "featured" : ""}`} data-testid={`pkg-card-${i}`}>
               {featured && <div className="pkg-badge" data-testid="pkg-popular">{p.popular}</div>}
               <div className="pkg-name">{pkg.name}</div>
-              <div className="pkg-price">{pkg.price}</div>
+              <div className="pkg-price">{priceText(pkg.price, lang, p.fromFmt)}</div>
               <div className="pkg-net">{p.netNote}</div>
               <ul className="pkg-features">
                 {pkg.features.map((f, j) => <li key={j}>{f}</li>)}
@@ -32,6 +42,7 @@ export const PricingPackages = () => {
           </Reveal>
         );
       })}
+      {p.fxNote && <p className="pkg-fx" data-testid="pricing-fx-note">{p.fxNote}</p>}
     </div>
   );
 };

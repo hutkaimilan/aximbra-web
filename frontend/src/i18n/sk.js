@@ -74,13 +74,17 @@ const sk = {
     heading: "Tvorba a vývoj webových stránok",
     sub: "Moderné, rýchle, pre mobil optimalizované stránky — s reálnym obsahom, v ostrej prevádzke.",
     netNote: "cena bez DPH, bez hostingu a domény",
+    // A "{p}" helyere a money.js teszi be a kesz arat; a szorend
+    // nyelvenkent mas, ezert nem a formazo dolga.
+    fromFmt: "od {p}",
+    fxNote: "Ceny sú prepočítané z maďarských forintov približným kurzom 1 € ≈ 400 Ft. Presná suma je uvedená v ponuke.",
     popular: "Najobľúbenejšie",
     cta: "Chcem ponuku",
     subjectPrefix: "Dopyt na ponuku",
     packages: [
-      { name: "Jednostránková prezentácia", price: "120 000 Ft", features: ["jednostránkový web optimalizovaný pre mobil", "kontakt, otváracie hodiny, Google Maps", "hotové za 3–5 dní"] },
-      { name: "Viacstránkový firemný", price: "290 000 Ft", features: ["viac podstránok, galéria, kontaktný formulár", "základné SEO a indexovanie v Google", "hotové za 1–2 týždne"] },
-      { name: "Na mieru / s AI", price: "od 900 000 Ft", features: ["rezervačný systém alebo AI chat / hlasový agent", "vlastné funkcie podľa potreby", "na základe ponuky, s dohodnutým termínom"] },
+      { name: "Jednostránková prezentácia", price: "120000", features: ["jednostránkový web optimalizovaný pre mobil", "kontakt, otváracie hodiny, Google Maps", "hotové za 3–5 dní"] },
+      { name: "Viacstránkový firemný", price: "290000", features: ["viac podstránok, galéria, kontaktný formulár", "základné SEO a indexovanie v Google", "hotové za 1–2 týždne"] },
+      { name: "Na mieru / s AI", price: "900000+", features: ["rezervačný systém alebo AI chat / hlasový agent", "vlastné funkcie podľa potreby", "na základe ponuky, s dohodnutým termínom"] },
     ],
   },
   caseStudy: {

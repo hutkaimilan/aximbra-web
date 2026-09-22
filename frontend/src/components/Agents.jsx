@@ -9,10 +9,11 @@ import { AgentSim } from "./AgentSim";
 import { simFor } from "./agentSims";
 import { mailto } from "../contact";
 import { useLang } from "../i18n";
+import { formatPrice } from "../money";
 
 export const SLUGS = ["email-rendezo", "erdeklodo-minosito", "belso-admin", "kutatasi-monitor", "ugyfelszolgalat", "tartalom", "webshop", "dokumentum-elemzo", "penzugyi", "toborzas", "it-uzemelteto", "multi-agent"];
 
-const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote, simText }) => {
+const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote, simText, lang }) => {
   const simData = simFor(kind, simText);
   const slug = SLUGS[kind];
   // Csak a fénypont követi az egeret, a kártya nem dől meg.
@@ -40,7 +41,7 @@ const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote, si
       </div>
       <p className="card-desc">{agent.desc}</p>
       <div className="card-meta">
-        <span className="price">{agent.price}</span>
+        <span className="price">{formatPrice(agent.price, lang, "compact")}</span>
         <span className="lead">{agent.lead}</span>
       </div>
       <LiquidButton as="a" className="card-quote" data-testid={`agent-quote-${kind}`}
@@ -75,7 +76,7 @@ const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote, si
 const VISIBLE_AT_FIRST = 6;
 
 export const Agents = () => {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [open, setOpen] = useState(null);
   const [simOpen, setSimOpen] = useState(null);
   const [showAll, setShowAll] = useState(false);
@@ -102,7 +103,7 @@ export const Agents = () => {
       <div className="grid">
         {t.agents.slice(0, showAll ? undefined : VISIBLE_AT_FIRST).map((a, i) => (
           <Reveal key={a.demo || i} delay={(i % 3) * 90} className={(open === a.demo || simOpen === i) ? "span-all" : ""}>
-            <TiltCard agent={a} labels={s} kind={i} simText={t.sims[i]}
+            <TiltCard agent={a} labels={s} kind={i} simText={t.sims[i]} lang={lang}
               quote={{ label: t.pricing.cta, subject: t.pricing.subjectPrefix }}
               open={open === a.demo}
               onToggle={() => { setSimOpen(null); setOpen(open === a.demo ? null : a.demo); }}
@@ -111,6 +112,7 @@ export const Agents = () => {
           </Reveal>
         ))}
       </div>
+      {t.pricing.fxNote && <p className="agents-fx" data-testid="agents-fx-note">{t.pricing.fxNote}</p>}
       {!showAll && t.agents.length > VISIBLE_AT_FIRST && (
         <div className="agents-more">
           <button type="button" className="agents-more-btn" data-testid="agents-show-all"

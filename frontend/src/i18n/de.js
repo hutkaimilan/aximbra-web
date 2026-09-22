@@ -74,13 +74,17 @@ const de = {
     heading: "Webdesign und -entwicklung",
     sub: "Moderne, schnelle, mobiloptimierte Seiten — mit echtem Inhalt, im Live-Betrieb.",
     netNote: "Nettopreis, ohne Hosting und Domain",
+    // A "{p}" helyere a money.js teszi be a kesz arat; a szorend
+    // nyelvenkent mas, ezert nem a formazo dolga.
+    fromFmt: "ab {p}",
+    fxNote: "Die Preise sind aus ungarischen Forint umgerechnet, zum Näherungskurs 1 € ≈ 400 Ft. Der genaue Betrag steht im Angebot.",
     popular: "Am beliebtesten",
     cta: "Angebot anfordern",
     subjectPrefix: "Angebotsanfrage",
     packages: [
-      { name: "Einseitige Präsenz", price: "120 000 Ft", features: ["einseitige, mobiloptimierte Seite", "Kontakt, Öffnungszeiten, Google Maps", "fertig in 3–5 Tagen"] },
-      { name: "Mehrseitig für Unternehmen", price: "290 000 Ft", features: ["mehrere Unterseiten, Galerie, Kontaktformular", "Basis-SEO und Google-Indexierung", "fertig in 1–2 Wochen"] },
-      { name: "Individuell / KI-integriert", price: "ab 900 000 Ft", features: ["Buchungssystem oder KI-Chat / Sprachagent", "individuelle Funktionen nach Bedarf", "auf Angebotsbasis, mit vereinbartem Termin"] },
+      { name: "Einseitige Präsenz", price: "120000", features: ["einseitige, mobiloptimierte Seite", "Kontakt, Öffnungszeiten, Google Maps", "fertig in 3–5 Tagen"] },
+      { name: "Mehrseitig für Unternehmen", price: "290000", features: ["mehrere Unterseiten, Galerie, Kontaktformular", "Basis-SEO und Google-Indexierung", "fertig in 1–2 Wochen"] },
+      { name: "Individuell / KI-integriert", price: "900000+", features: ["Buchungssystem oder KI-Chat / Sprachagent", "individuelle Funktionen nach Bedarf", "auf Angebotsbasis, mit vereinbartem Termin"] },
     ],
   },
   caseStudy: {

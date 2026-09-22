@@ -276,6 +276,20 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
   filter: drop-shadow(0 0 14px rgba(0,233,255,.35)); }
 .pkg-card.featured .pkg-price { color: #fff; filter: drop-shadow(0 0 16px rgba(200,31,255,.5)); }
 .pkg-net { font-size: 12px; color: var(--dim); margin-top: 8px; font-family: var(--mono); }
+
+/* Az arfolyam-megjegyzes. A .pkg-grid racs, ezert a megjegyzesnek at kell
+   ernie a teljes sort - kulonben a negyedik cellaba ulne be egy csomagkartya
+   helyere. */
+.pkg-fx, .agents-fx {
+  grid-column: 1 / -1;
+  margin: 18px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--dim);
+  font-family: var(--mono);
+  max-width: 62ch;
+}
+.agents-fx { margin-top: 22px; }
 .pkg-features { list-style: none; padding: 0; margin: 26px 0; flex: 1; }
 .pkg-features li { color: var(--muted); font-size: 14px; line-height: 1.5; padding: 10px 0; display: flex; gap: 10px;
   border-bottom: 1px solid var(--border); }
