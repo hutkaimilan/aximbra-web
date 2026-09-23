@@ -143,9 +143,9 @@ szövegek lent vannak, csak be kell másolni őket.
 
 ---
 
-## 5. lépés — a demóvideó (kb. 20 perc) ⬅️ **EZ A KÖVETKEZŐ TEENDŐD**
+## 5. lépés — a demóvideó ✅ KÉSZ
 
-Ezt csak te tudod megcsinálni. A saját postafiókodat kell mutatni benne.
+Felvéve és feltöltve: https://youtu.be/k0HSxLwh6XE (Nem nyilvános)
 
 Beszélni nem kell, csak lassan végigkattintani. A felület legyen **angolul**.
 
@@ -193,7 +193,39 @@ várj 3–4 másodpercet, hogy a Google ellenőre el tudja olvasni.
 
 ---
 
-## 6. lépés — beadás
+## 6. lépés — beadás ✅ KÉSZ (2026-09-23)
+
+A Verification Center azt írja: **„Your app's data access is under review."**
+A branding már korábban külön jóváhagyást kapott.
+
+**Amit beadtunk.** Az űrlap másképp néz ki, mint amire lent a szövegek
+készültek: nincs három külön indoklásmező, hanem egy „Gmail scopes" csoport,
+egyetlen 1000 karakteres mezővel, és „intended data usage" mező egyáltalán
+nincs. Ezért ment be összevont, rövidített szöveg — a lenti hosszú
+indoklások megmaradtak, mert egy esetleges visszakérdezésnél pont azokból
+kell majd válaszolni.
+
+- **Features:** csak `Email productivity` (a másik három szándékosan nem —
+  minden extra állítás egy extra dolog, amit igazolni kell)
+- **How will the scopes be used?** (938 karakter): mindhárom Gmail-jogot
+  lefedi, benne a három mondat, amit a Google a leggyakrabban visszakérdez —
+  miért nem elég a `gmail.metadata`, miért nem elég a `gmail.send`, és hogy
+  a törlés soha nem végleges (`users.messages.trash`)
+- **Additional info** (658 karakter): mintafiók belépés nélkül, a redirect
+  URI, az OpenAI-mondat (nem tanítanak vele modellt), az adatkezelési link
+- **A négy kérdésre mind „No"**, és bepipálva a CASA-vállalás
+
+**Mi jön most.** A Google e-mailben jelentkezik a `hutkaimilan11@gmail.com`
+és/vagy az `aximbra@gmail.com` címre — jellemzően 1-4 hét. Külön levélben
+írnak a CASA-ról (ez a fizetős rész, évente megújítandó). Addig minden marad:
+piros „nem ellenőrzött" képernyő és 100 felhasználós korlát.
+
+**Ha kérdést küldenek, ne válaszolj magadtól** — egy elkapkodott válasz egy
+újabb több hetes kört jelent. Küldd át a levelet, és megírjuk a választ.
+
+---
+
+<details><summary>Az eredeti leírás (már nem teendő)</summary>
 
 https://console.cloud.google.com/auth/verification → **Prepare for verification**
 → a kérdéseknél másold be a lenti angol szövegeket és a YouTube-linket → **Submit**.
@@ -201,6 +233,8 @@ https://console.cloud.google.com/auth/verification → **Prepare for verificatio
 Utána a Google e-mailben jelentkezik (a `hutkaimilan11@gmail.com` címre). Ha kérdeznek,
 küldd át nekem a levelet, és megírom a választ. A biztonsági vizsgálatról (CASA)
 is ők írnak, a labor kiválasztásában segítek.
+
+</details>
 
 ---
 
