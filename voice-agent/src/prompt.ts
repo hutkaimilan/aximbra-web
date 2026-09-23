@@ -68,6 +68,33 @@ export const SWITCHED_MESSAGE = 'Elnezest, most alltam at magyarra. Megismetelne
 export const SWITCHED_MESSAGE_EN =
   'Sorry - I have just switched to English. Could you say that again, please?';
 
+/**
+ * A visszahivas koszonese. NEM ugyanaz, mint a bejovo hivase.
+ *
+ * Ezt a hivast mi kezdemenyezzuk, ezert az elso mondatnak ket dolgot kell
+ * azonnal tisztaznia: ki hiv, es miert. Aki elgepelte a sajat szamat,
+ * annak egy idegen telefonja csorog - neki is meg kell ertenie harom
+ * masodperc alatt, hogy ez nem hidegen hivo ertekesites, hanem egy
+ * weboldalon kert visszahivas.
+ *
+ * Az adatkezelesi mondat itt is elhangzik, ugyanabbol az okbol, mint a
+ * bejovo hivasnal: egyszer, az elejen.
+ */
+export const CALLBACK_GREETING =
+  'Jó napot kívánok, Aximbra! Ön visszahívást kért az aximbra pont hu oldalon. ' +
+  'Amit elmond, azt bizalmasan kezeljük, kizárólag az ajánlat elkészítéséhez. ' +
+  'Miben segíthetek?';
+
+export const CALLBACK_GREETING_EN =
+  'Hello, this is Aximbra. You asked us to call you back on aximbra dot hu. ' +
+  'Anything you tell us is kept confidential and used only to prepare an offer. ' +
+  'How can I help you?';
+
+/** A visszahivas koszonese a kert nyelven. */
+export function callbackGreeting(lang: Lang): string {
+  return lang === 'en' ? CALLBACK_GREETING_EN : CALLBACK_GREETING;
+}
+
 export function lines(lang: Lang): {
   greeting: string;
   failure: string;

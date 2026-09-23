@@ -25,6 +25,22 @@ const en = {
     ctaPrimary: "See the agents",
     ctaGhost: "See it live",
     phoneCta: { badge: "AI", note: "Answered by an AI agent · in English & Hungarian", origin: "US number (Twilio) — calls from Hungarian numbers ring through to me, and the agent lets you pick Hungarian or English at the start" },
+    // A "hivjon vissza" urlap. A lap egy amerikai szamot hirdet; egy
+    // magyar cegvezeto azt nem tarcsazza, bejovo hivast viszont felvesz.
+    callback: {
+      title: "Or let us call you, right now",
+      lead: "Type your number and the agent calls you within 10 seconds. Free, and you can hang up any time.",
+      placeholder: "+44 7700 900123",
+      cta: "Call me back",
+      sending: "Dialling…",
+      ok: "Done — the agent is calling. Your phone will ring within 10 seconds.",
+      errNumber: "I don't recognise that number. Try it like this: +44 7700 900123",
+      errCountry: "We can't place calls to that country code, sorry.",
+      errRepeat: "We already called that number today. Please try again tomorrow.",
+      errDaily: "Today's quota is used up. Try tomorrow, or send us an email.",
+      errFailed: "The call couldn't be started just now. Please try again in a few minutes.",
+      privacy: "The number is used for this one call only, and never passed on.",
+    },
     status: { checking: "Checking status…", online: "Live phone agent", offline: "Phone agent unavailable", today: "today", callsUnit: "calls", liveUnit: "active now" },
     stats: [["2–4 weeks", "the first agent"], ["3 languages", "the phone agent speaks"], ["100%", "human approval"]],
   },

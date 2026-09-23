@@ -382,6 +382,48 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
 .hero-phone-origin { display: block; font-family: var(--mono); font-size: 10.5px; line-height: 1.4;
   letter-spacing: .02em; color: var(--dim); opacity: .72; margin-top: 2px; }
 @media (max-width: 420px){ .hero-phone { gap: 12px; padding: 10px 18px 10px 12px; } }
+
+/* ===== "HIVJON VISSZA" =====
+   A lap egy amerikai szamot hirdet. Ez az urlap a masik irany: a latogato
+   beirja a sajat szamat, es az agent hivja ot. Ugyanolyan hangsulyos, mint a
+   telefonszam-sav felette - nem egy lablecbe bujtatott extra. */
+.callback {
+  margin-top: 18px; max-width: 560px;
+  padding: 18px 20px 16px;
+  border: 1px solid var(--line); border-radius: 16px;
+  background: rgba(255,255,255,.022);
+}
+.callback-title { margin: 0; font-family: var(--display); font-weight: 700;
+  font-size: 17px; line-height: 1.3; color: var(--text); }
+.callback-lead { margin: 6px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--dim); }
+.callback-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.callback-input {
+  flex: 1 1 220px; min-width: 0;
+  padding: 12px 14px; font-size: 15px; font-family: var(--mono);
+  color: var(--text); background: rgba(0,0,0,.28);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.callback-input::placeholder { color: var(--dim); opacity: .6; }
+.callback-input:focus { outline: none; border-color: var(--cyan); }
+.callback-input:disabled { opacity: .6; }
+.callback-btn {
+  flex: 0 0 auto; padding: 12px 22px; font-size: 14.5px; font-weight: 600;
+  font-family: var(--display); color: #06070E; cursor: pointer;
+  border: 0; border-radius: 10px;
+  background: linear-gradient(100deg, var(--cyan), var(--violet));
+}
+.callback-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.callback-btn:disabled { opacity: .65; cursor: default; }
+.callback-msg { margin: 12px 0 0; font-size: 13.5px; line-height: 1.5; }
+.callback-msg.ok { color: #6EE7A8; }
+.callback-msg.error { color: #FFB020; }
+.callback-privacy { margin: 10px 0 0; font-family: var(--mono);
+  font-size: 10.5px; line-height: 1.45; letter-spacing: .02em;
+  color: var(--dim); opacity: .72; }
+@media (max-width: 420px){
+  .callback { padding: 16px 14px 14px; }
+  .callback-btn { flex: 1 1 100%; }
+}
 .stats { display: flex; gap: 56px; flex-wrap: wrap; }
 .stat .big { font-family: var(--display); font-weight: 700; font-size: 30px; color: var(--text); }
 .stat .lbl { font-size: 13px; color: var(--dim); margin-top: 4px; font-family: var(--mono); letter-spacing: .04em; }

@@ -20,6 +20,22 @@ const sk = {
   },
   hero: {
     phoneCta: { badge: "AI", note: "Preberá ho AI agent · po anglicky a po maďarsky", origin: "Číslo v USA (Twilio) — hovory z nemaďarských čísel prijíma AI agent; na začiatku si vyberiete maďarčinu alebo angličtinu" },
+    // A "hivjon vissza" urlap. A lap egy amerikai szamot hirdet; egy
+    // magyar cegvezeto azt nem tarcsazza, bejovo hivast viszont felvesz.
+    callback: {
+      title: "Alebo zavoláme my vám, hneď teraz",
+      lead: "Zadajte svoje číslo a agent vám do 10 sekúnd zavolá. Je to zadarmo a môžete kedykoľvek zložiť.",
+      placeholder: "+421 901 234 567",
+      cta: "Zavolajte mi",
+      sending: "Vytáča sa…",
+      ok: "Hotovo — agent volá. Telefón zazvoní do 10 sekúnd.",
+      errNumber: "Toto číslo nepoznám. Skúste to takto: +421 901 234 567",
+      errCountry: "Na túto predvoľbu krajiny, žiaľ, volať nevieme.",
+      errRepeat: "Na toto číslo sme dnes už volali. Skúste to zajtra.",
+      errDaily: "Dnešný limit je vyčerpaný. Skúste to zajtra alebo nám napíšte.",
+      errFailed: "Hovor sa teraz nepodarilo spustiť. Skúste to o pár minút.",
+      privacy: "Číslo použijeme len na tento jeden hovor a nikomu ho neposkytneme.",
+    },
     eyebrow: "Budapešť · AI agentúra",
     h1: ["Nestaviame", "chatboty. Ale", "spolupracovníka."],
     sub: "Staviame AI agentov pre firmy, ktorí vykonávajú konkrétnu prácu — triedia e-maily, kvalifikujú dopyty, dvíhajú telefón. Neodovzdávame demo, ale funkčný systém, ktorý udržiavame nažive.",

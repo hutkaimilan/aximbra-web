@@ -20,6 +20,22 @@ const es = {
   },
   hero: {
     phoneCta: { badge: "IA", note: "Atendida por un agente de IA · en inglés y húngaro", origin: "Número de EE. UU. (Twilio) — las llamadas de números no húngaros las atiende el agente de IA; al principio eliges húngaro o inglés" },
+    // A "hivjon vissza" urlap. A lap egy amerikai szamot hirdet; egy
+    // magyar cegvezeto azt nem tarcsazza, bejovo hivast viszont felvesz.
+    callback: {
+      title: "O te llamamos nosotros, ahora mismo",
+      lead: "Escribe tu número y el agente te llama en 10 segundos. Es gratis y puedes colgar cuando quieras.",
+      placeholder: "+34 612 345 678",
+      cta: "Llámame",
+      sending: "Marcando…",
+      ok: "Listo — el agente está llamando. Tu teléfono sonará en 10 segundos.",
+      errNumber: "No reconozco ese número. Prueba así: +34 612 345 678",
+      errCountry: "No podemos llamar a ese prefijo de país, lo sentimos.",
+      errRepeat: "Ya hemos llamado a ese número hoy. Inténtalo mañana.",
+      errDaily: "La cuota de hoy se ha agotado. Inténtalo mañana o escríbenos.",
+      errFailed: "No se ha podido iniciar la llamada. Inténtalo de nuevo en unos minutos.",
+      privacy: "El número se usa solo para esta llamada y no se comparte.",
+    },
     eyebrow: "Budapest · agencia de IA",
     h1: ["No creamos", "chatbots. Creamos un", "compañero de trabajo."],
     sub: "Creamos agentes de IA para empresas que hacen un trabajo concreto — ordenan correos, califican consultas, atienden el teléfono. No entregamos una demo, sino un sistema que funciona y que mantenemos vivo.",

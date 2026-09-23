@@ -158,6 +158,98 @@ def test_voice_health_degrades_instead_of_failing(monkeypatch):
     monkeypatch.setattr(server.httpx, "AsyncClient", lambda **kw: Boom())
     r = client.get("/api/voice/health")
     assert r.status_code == 200
+    # A `callback` is benne van: ebbol tudja a lap, megjelenitse-e a "hivjon
+    # vissza" urlapot. Elerhetetlen szolgaltatasnal hamis - egy urlap, ami
+    # sose csorget vissza, tobbet art, mint amennyit hasznal.
     assert r.json() == {
-        "reachable": False, "ok": False, "day": None, "count": None, "live": None
+        "reachable": False, "ok": False, "day": None, "count": None,
+        "live": None, "callback": False,
     }
+
+
+# ---------------------------------------------------------------------------
+# "Hivjon vissza" proxy
+# ---------------------------------------------------------------------------
+
+class _FakeVoice:
+    """A voice-agent helyett all: elteszi, amit kapott, es azt adja, amit kertek."""
+
+    def __init__(self, status=202, payload=None, boom=False):
+        self.status = status
+        self.payload = payload if payload is not None else {"ok": True}
+        self.boom = boom
+        self.seen = None
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def post(self, url, json=None):
+        if self.boom:
+            raise RuntimeError("unreachable")
+        self.seen = {"url": url, "json": json}
+
+        class R:
+            status_code = self.status
+            headers = {"content-type": "application/json"}
+
+            def json(_self):
+                return self.payload
+
+        return R()
+
+
+def _voice(monkeypatch, fake):
+    monkeypatch.setattr(server.httpx, "AsyncClient", lambda **kw: fake)
+    return fake
+
+
+def test_callback_forwards_the_number_and_the_language(monkeypatch):
+    fake = _voice(monkeypatch, _FakeVoice())
+    r = client.post("/api/voice/callback", json={"phone": "06 30 123 4567", "lang": "en"})
+    assert r.status_code == 202
+    assert r.json() == {"ok": True}
+    # A szam UGY megy tovabb, ahogy beirtak: egyetlen helyen dolje el, mi
+    # szamit ervenyes szamnak, es az a hely hivja a telefont.
+    assert fake.seen["json"] == {"phone": "06 30 123 4567", "lang": "en"}
+    assert fake.seen["url"].endswith("/callback")
+
+
+def test_callback_passes_the_reason_through(monkeypatch):
+    """A felulet nem azt mutatja, hogy "nem sikerult", hanem hogy MIERT."""
+    for status, reason in ((400, "number"), (400, "country"), (429, "repeat"), (429, "daily")):
+        _voice(monkeypatch, _FakeVoice(status=status, payload={"ok": False, "reason": reason}))
+        r = client.post("/api/voice/callback", json={"phone": "+36301234567"})
+        assert r.status_code == status, reason
+        assert r.json()["reason"] == reason
+
+
+def test_callback_survives_the_voice_service_being_down(monkeypatch):
+    """A telefon-agent kiesese ne 500-as hibaoldal legyen a foglapon."""
+    _voice(monkeypatch, _FakeVoice(boom=True))
+    r = client.post("/api/voice/callback", json={"phone": "+36301234567"})
+    assert r.status_code == 502
+    assert r.json() == {"ok": False, "reason": "failed"}
+
+
+def test_callback_rejects_junk_before_it_reaches_the_phone(monkeypatch):
+    """Ami nyilvanvaloan nem telefonszam, az el se jusson a hivasinditasig."""
+    fake = _voice(monkeypatch, _FakeVoice())
+    for bad in ({"phone": ""}, {"phone": "   "}, {"phone": "x" * 33}, {}):
+        r = client.post("/api/voice/callback", json=bad)
+        assert r.status_code == 422, bad
+    assert fake.seen is None, "egyik szemet sem indithatott hivast"
+
+
+def test_callback_defaults_to_hungarian(monkeypatch):
+    """Ismeretlen vagy hianyzo nyelv eseten magyar - ez a lap fo kozonsege."""
+    for body, expected in (
+        ({"phone": "+36301234567"}, "hu"),
+        ({"phone": "+36301234567", "lang": "klingon"}, "hu"),
+        ({"phone": "+36301234567", "lang": "EN"}, "en"),
+    ):
+        fake = _voice(monkeypatch, _FakeVoice())
+        client.post("/api/voice/callback", json=body)
+        assert fake.seen["json"]["lang"] == expected, body

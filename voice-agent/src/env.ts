@@ -70,6 +70,14 @@ export interface Env {
   ownerPhone: string;
   /** Ennyi masodpercig cseng a tulajdonos telefonja, mielott az agent atveszi. */
   ownerRingSeconds: number;
+  /** Naponta hany "hivjon vissza" kerest teljesitunk. 0 = a funkcio kikapcsolva. */
+  maxCallbacksPerDay: number;
+  /** Errol a szamrol megy ki a visszahivas. Ures: nincs visszahivas. */
+  callbackFrom: string;
+  /** Ezek a webcimek hivhatjak a /callback vegpontot (CORS). */
+  siteOrigins: string[];
+  /** Igaz, ha a visszahivashoz minden megvan. */
+  callbackEnabled: boolean;
 }
 
 let cached: Env | null = null;
@@ -112,6 +120,35 @@ export function env(): Env {
         'az atkapcsolas KI van kapcsolva.',
     );
   }
+
+  /**
+   * Errol a szamrol hivjuk vissza a latogatot. Alapbol ugyanaz a szam, amit a
+   * lap hirdet - igy a hivott fel vissza tud hivni minket, ha kesobb jut eszebe
+   * valami. Kulon valtozo, mert ha egyszer lesz +36-os szam, ITT kell atirni,
+   * es semmi mashol.
+   */
+  const callbackRaw = optional('CALLBACK_FROM', twilioSmsFrom).replace(/[\s().-]/g, '');
+  const callbackFrom = /^\+[1-9]\d{6,14}$/.test(callbackRaw) ? callbackRaw : '';
+  if (callbackRaw !== '' && callbackFrom === '') {
+    console.warn(
+      '[env] CALLBACK_FROM ervenytelen (+18024249852 alakban kell), ' +
+        'a visszahivas KI van kapcsolva.',
+    );
+  }
+
+  /**
+   * Honnan fogadunk el visszahivas-kerest. A bongeszo a CORS-fejlecbol
+   * dolgozik, tehat ez nem biztonsagi hatar egy scripttel szemben - a valodi
+   * vedelmet a szamonkenti es a napi korlat adja. Arra viszont jo, hogy egy
+   * idegen oldal ne tudjon a latogatoja neveben hivast inditani.
+   */
+  const siteOrigins = optional(
+    'SITE_ORIGINS',
+    'https://aximbra.hu,https://www.aximbra.hu',
+  )
+    .split(',')
+    .map((o) => o.trim().replace(/\/+$/, ''))
+    .filter((o) => o !== '');
 
   const built: Env = {
     port: intOption('PORT', 8080, 1, 65535),
@@ -160,6 +197,17 @@ export function env(): Env {
     // Husz masodperc alatt a legtobb mobil meg nem kapcsol hangpostara, es a
     // hivo sem teszi le addig.
     ownerRingSeconds: intOption('OWNER_RING_SECONDS', 20, 5, 60),
+
+    // Tiz visszahivas naponta. Szandekosan alacsony: ez a felso korlatja
+    // annak, amennyit egy rossz nap maximum kerulhet. Emelni barmikor lehet,
+    // visszamenoleg fizetni nem.
+    maxCallbacksPerDay: intOption('MAX_CALLBACKS_PER_DAY', 10, 0, 500),
+    callbackFrom,
+    siteOrigins,
+    // Kimeno hivashoz a REST API kell: Account SID + Auth Token + egy szam,
+    // amirol hivhatunk. Barmelyik hianya eseten a gomb el sem jelenik meg.
+    callbackEnabled:
+      twilioAccountSid !== '' && twilioAuthToken !== '' && callbackFrom !== '',
   };
 
   cached = built;
@@ -184,6 +232,18 @@ export function env(): Env {
     console.warn(
       '[env] Atkapcsolas KI van kapcsolva (OWNER_PHONE hianyzik). ' +
         'A magyar hivasokat is az agent fogadja.',
+    );
+  }
+
+  if (!built.callbackEnabled) {
+    console.warn(
+      '[env] A "hivjon vissza" gomb KI van kapcsolva ' +
+        '(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN vagy CALLBACK_FROM hianyzik).',
+    );
+  } else {
+    console.log(
+      `[env] visszahivas BE (max ${built.maxCallbacksPerDay}/nap, ` +
+        `from=${built.callbackFrom}, origins=${built.siteOrigins.join(' ')})`,
     );
   }
 

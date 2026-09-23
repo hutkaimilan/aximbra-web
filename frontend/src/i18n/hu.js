@@ -25,6 +25,22 @@ const hu = {
     ctaPrimary: "Nézd meg az agenteket",
     ctaGhost: "Működés közben",
     phoneCta: { badge: "HÍVJ", note: "Magyar számról én veszem fel · ha nem érek rá, az AI agent", origin: "Amerikai szám (Twilio) — külföldi számról az AI agent fogadja, és a hívás elején magyar vagy angol nyelvet választhatsz" },
+    // A "hivjon vissza" urlap. A lap egy amerikai szamot hirdet; egy
+    // magyar cegvezeto azt nem tarcsazza, bejovo hivast viszont felvesz.
+    callback: {
+      title: "Vagy hívjuk mi önt, most azonnal",
+      lead: "Írja be a számát, és az agent 10 másodpercen belül felhívja. Ingyenes, és bármikor leteheti.",
+      placeholder: "+36 30 123 4567",
+      cta: "Hívjon vissza",
+      sending: "Tárcsázás…",
+      ok: "Rendben — az agent most hívja. Csörögni fog 10 másodpercen belül.",
+      errNumber: "Ezt a számot nem ismerem fel. Próbálja így: +36 30 123 4567",
+      errCountry: "Erre az országhívóra sajnos nem tudunk hívást indítani.",
+      errRepeat: "Erre a számra ma már indítottunk hívást. Holnap újra próbálhatja.",
+      errDaily: "Mára elfogyott a napi keret. Próbálja holnap, vagy írjon nekünk.",
+      errFailed: "Most nem sikerült elindítani a hívást. Próbálja újra pár perc múlva.",
+      privacy: "A számot kizárólag ehhez az egy híváshoz használjuk, és nem adjuk tovább.",
+    },
     status: { checking: "Állapot lekérése…", online: "Élő telefon-agent", offline: "Telefon-agent nem elérhető", today: "ma", callsUnit: "hívás", liveUnit: "aktív most" },
     stats: [["2–4 hét", "az első agent"], ["3 nyelv", "a telefonos agent beszél"], ["100%", "emberi jóváhagyás"]],
   },

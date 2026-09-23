@@ -20,6 +20,22 @@ const it = {
   },
   hero: {
     phoneCta: { badge: "IA", note: "Risposto da un agente IA · in inglese e ungherese", origin: "Numero USA (Twilio) — le chiamate da numeri non ungheresi le prende l'agente IA; all'inizio scegli ungherese o inglese" },
+    // A "hivjon vissza" urlap. A lap egy amerikai szamot hirdet; egy
+    // magyar cegvezeto azt nem tarcsazza, bejovo hivast viszont felvesz.
+    callback: {
+      title: "Oppure ti chiamiamo noi, subito",
+      lead: "Scrivi il tuo numero e l'agente ti chiama entro 10 secondi. È gratis e puoi riattaccare quando vuoi.",
+      placeholder: "+39 333 123 4567",
+      cta: "Richiamami",
+      sending: "Composizione…",
+      ok: "Fatto — l'agente sta chiamando. Il telefono squillerà entro 10 secondi.",
+      errNumber: "Non riconosco questo numero. Prova così: +39 333 123 4567",
+      errCountry: "Non possiamo chiamare quel prefisso internazionale, ci dispiace.",
+      errRepeat: "Questo numero lo abbiamo già chiamato oggi. Riprova domani.",
+      errDaily: "La quota di oggi è esaurita. Riprova domani, oppure scrivici.",
+      errFailed: "Non è stato possibile avviare la chiamata. Riprova tra qualche minuto.",
+      privacy: "Il numero viene usato solo per questa chiamata e non viene condiviso.",
+    },
     eyebrow: "Budapest · agenzia AI",
     h1: ["Non costruiamo", "chatbot. Ma un", "collaboratore."],
     sub: "Costruiamo agenti AI per le aziende che svolgono un lavoro concreto — smistano email, qualificano richieste, rispondono al telefono. Non consegniamo una demo, ma un sistema funzionante che teniamo in vita.",

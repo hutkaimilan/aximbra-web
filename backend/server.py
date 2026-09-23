@@ -1,6 +1,7 @@
 from fastapi import FastAPI, APIRouter, Request, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
 import os
 import json
 import time
@@ -215,7 +216,11 @@ async def root():
     return {"message": "AXIMBRA API"}
 
 
-VOICE_HEALTH_URL = "https://aximbra-voice-production.up.railway.app/health"
+VOICE_BASE_URL = os.environ.get(
+    "VOICE_BASE_URL", "https://aximbra-voice-production.up.railway.app"
+).rstrip("/")
+VOICE_HEALTH_URL = f"{VOICE_BASE_URL}/health"
+VOICE_CALLBACK_URL = f"{VOICE_BASE_URL}/callback"
 
 
 @api_router.get("/voice/health")
@@ -232,10 +237,75 @@ async def voice_health():
             "day": data.get("day"),
             "count": data.get("count"),
             "live": data.get("live"),
+            # Ebbol tudja a lap, megjelenitse-e a "hivjon vissza" urlapot.
+            # Egy urlap, ami sose csorget vissza, tobbet art, mint hasznal.
+            "callback": bool(data.get("callback", False)),
         }
     except Exception as e:
         logger.warning(f"voice health unreachable: {e}")
-        return {"reachable": False, "ok": False, "day": None, "count": None, "live": None}
+        return {
+            "reachable": False,
+            "ok": False,
+            "day": None,
+            "count": None,
+            "live": None,
+            "callback": False,
+        }
+
+
+class CallbackRequest(BaseModel):
+    """A látogató saját telefonszáma, ahogy beírta.
+
+    A szám alakját szándékosan NEM itt ellenőrizzük. Egyetlen helyen dőljön
+    el, mi számít érvényesnek: a voice-agent `callback.ts` modulja végzi a
+    normalizálást és az ország-szűrést is, és az hívja a telefont. Két
+    validáló két helyen előbb-utóbb elcsúszik, és akkor a hibaüzenet mást
+    mond, mint ami történik.
+    """
+
+    phone: str
+    lang: str = "hu"
+
+    @field_validator("phone")
+    @classmethod
+    def _phone_len(cls, v):
+        v = (v or "").strip()
+        # Csak a nyilvánvaló szemét ellen: egy telefonszám nem 32 karakter.
+        if not v or len(v) > 32:
+            raise ValueError("phone")
+        return v
+
+    @field_validator("lang")
+    @classmethod
+    def _lang(cls, v):
+        return "en" if (v or "").strip().lower() == "en" else "hu"
+
+
+@api_router.post("/voice/callback")
+async def voice_callback(body: CallbackRequest):
+    """A "hívjon vissza" kérés továbbítása a voice-agentnek.
+
+    Miért proxy: ugyanabból az okból, amiért a /voice/health is az. A lap az
+    api.aximbra.hu-val beszél; ha innen közvetlenül a voice szolgáltatást
+    hívná, minden látogatónak CORS-kört kellene futnia egy harmadik
+    tartománnyal. A hívásindítás, a keretek és a szám ellenőrzése ott marad,
+    ahol a telefon van.
+
+    A válasz státuszkódja átmegy, mert a felületen az számít, MIÉRT nem megy
+    a hívás: hibás szám, mai kerete elfogyott, vagy a szolgáltatás áll.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.post(
+                VOICE_CALLBACK_URL,
+                json={"phone": body.phone, "lang": body.lang},
+            )
+        data = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+        return JSONResponse(status_code=r.status_code, content=data or {"ok": False, "reason": "failed"})
+    except Exception as e:
+        # A számot nem naplózzuk: személyes adat, és a hibakereséshez nem kell.
+        logger.warning(f"voice callback proxy failed: {e}")
+        return JSONResponse(status_code=502, content={"ok": False, "reason": "failed"})
 
 
 @api_router.post("/demo/lead")

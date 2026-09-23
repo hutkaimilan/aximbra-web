@@ -18,6 +18,7 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
+import twilio from 'twilio';
 
 import { env } from './env.js';
 import { admitCall, callStarted, callEnded, maxCallSeconds, stats } from './limit.js';
@@ -38,8 +39,10 @@ import {
   FAILURE_MESSAGE,
   FACTS_PROMPT,
   buildSystemPrompt,
+  callbackGreeting,
   lines,
 } from './prompt.js';
+import { admitCallback, refundCallback, callbackStats } from './callback.js';
 import {
   routeCall,
   isCallSid,
@@ -97,7 +100,12 @@ function voiceFor(lang: Lang): VoiceCfg {
 /** A felkinalt nyelvek. A ConversationRelay mindegyiket deklaralja. */
 const ALL_LANGS: Lang[] = ['hu', 'en'];
 
-function relayTwiml(host: string, lang: Lang, chosen: boolean): string {
+/**
+ * @param greeting  Felulirja a koszonest. A visszahivasnal masra van szukseg,
+ *                  mint a bejovo hivasnal: ott mi hivunk, ezert az elso
+ *                  mondatnak azt is meg kell mondania, miert.
+ */
+function relayTwiml(host: string, lang: Lang, chosen: boolean, greeting?: string): string {
   // A <Language> gyerekelemek nyelvenkent adjak meg a hangot es a
   // felismerest. Mindket nyelv mindig fel van veve, hogy a hivas kozbeni
   // nyelvvaltas ne ervenytelen konfiguraciora fusson; a `lang` csak azt
@@ -129,7 +137,7 @@ function relayTwiml(host: string, lang: Lang, chosen: boolean): string {
   <Connect>
     <ConversationRelay
       url="wss://${escapeXml(host)}/relay?lang=${lang}${chosen ? '&amp;fix=1' : ''}"
-      welcomeGreeting="${escapeXml(lines(lang).greeting)}"
+      welcomeGreeting="${escapeXml(greeting ?? lines(lang).greeting)}"
       ttsLanguage="${escapeXml(start.language)}"
       transcriptionLanguage="${escapeXml(start.language)}"
       hints="Aximbra,AI ügynökség,agent,automatizálás,e-mail rendező,érdeklődő minősítő,árajánlat,elérhetőség"
@@ -228,6 +236,7 @@ const MENU_TIMEOUT_SECONDS = 6;
 /** A Twilio altal hivott utvonalak. Mind alairt POST. */
 const TWIML_PATHS = new Set([
   '/twiml',
+  '/twiml/callback',
   '/twiml/lang',
   '/twiml/screen',
   '/twiml/screen-done',
@@ -282,6 +291,24 @@ function twimlFor(
       return relayTwiml(host, lang, chosen);
     }
 
+    case '/twiml/callback': {
+      // A latogato altal kert visszahivas. A napi keret mar a kereskor
+      // elfogyott (lasd handleCallbackRequest), ezert itt NEM hivunk
+      // `admitCall`-t - kulonben egyetlen visszahivas ketszer fogyna.
+      const lang: Lang = query.get('lang') === 'en' ? 'en' : 'hu';
+
+      // Uzenetrogzitore beszelni penzbe kerul es ertelmetlen. A Twilio
+      // gepi hangpostat ismer fel (machineDetection), es azt itt kapjuk meg.
+      const answeredBy = params.get('AnsweredBy') ?? '';
+      if (answeredBy.startsWith('machine') || answeredBy === 'fax') {
+        console.log(`[http] visszahivas: uzenetrogzito (${answeredBy}), bontas`);
+        return HANGUP_TWIML;
+      }
+
+      console.log(`[http] visszahivas fogadva nyelv=${lang}`);
+      return relayTwiml(host, lang, true, callbackGreeting(lang));
+    }
+
     case '/twiml/screen':
       return screenTwiml(host, query.get('parent') ?? '', cfg.sayVoice, cfg.ttsLanguage);
 
@@ -307,6 +334,105 @@ function twimlFor(
 
     default:
       return HANGUP_TWIML;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* "Hivjon vissza"                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Eldonti, valaszolhatunk-e ennek az oldalnak, es ha igen, milyen fejleccel.
+ *
+ * Ismeretlen origin eseten NEM kuldunk `Access-Control-Allow-Origin`-t: a
+ * bongeszo igy eldobja a valaszt. Ez nem allitja meg a curl-t - azt a
+ * szamonkenti es a napi korlat allitja meg -, de megakadalyozza, hogy egy
+ * idegen oldal a latogatoja neveben hivast inditson.
+ */
+function corsHeaders(origin: string | undefined): Record<string, string> {
+  const clean = (origin ?? '').replace(/\/+$/, '');
+  if (clean === '' || !cfg.siteOrigins.includes(clean)) return {};
+  return {
+    'access-control-allow-origin': clean,
+    'access-control-allow-methods': 'POST, OPTIONS',
+    'access-control-allow-headers': 'content-type',
+    'access-control-max-age': '86400',
+    vary: 'origin',
+  };
+}
+
+interface CallbackReply {
+  status: number;
+  body: { ok: boolean; reason?: string };
+}
+
+/**
+ * A latogato visszahivast kert.
+ *
+ * A sorrend szandekos: eloszor a keret (olcso, helyi ellenorzes), utana a
+ * Twilio-hivas (halozat, penz). Ha a hivas inditasa elszall, visszaadjuk a
+ * keretet - kulonben egy Twilio-kimaradas elhasznalna a napi tiz probalkozast
+ * anelkul, hogy barki telefonja megcsordult volna.
+ */
+async function handleCallbackRequest(raw: string, host: string): Promise<CallbackReply> {
+  if (!cfg.callbackEnabled) {
+    return { status: 503, body: { ok: false, reason: 'disabled' } };
+  }
+
+  let phone = '';
+  let lang: Lang = 'hu';
+  try {
+    const data = JSON.parse(raw) as { phone?: unknown; lang?: unknown };
+    phone = typeof data.phone === 'string' ? data.phone : '';
+    lang = data.lang === 'en' ? 'en' : 'hu';
+  } catch {
+    return { status: 400, body: { ok: false, reason: 'number' } };
+  }
+
+  // Hosszkorlat a normalizalas ELOTT: egy megabajtnyi "szam" ne is jusson el
+  // a regexpig. (A body merete mar korlatozott, ez a mezore vonatkozik.)
+  if (phone.length > 32) return { status: 400, body: { ok: false, reason: 'number' } };
+
+  const verdict = admitCallback(phone, cfg.maxCallbacksPerDay);
+  if (!verdict.ok) {
+    console.log(`[callback] elutasitva (${verdict.reason})`);
+    // A 429 a keret-jellegu elutasitasoke; a hibas szam 400.
+    const status = verdict.reason === 'number' || verdict.reason === 'country' ? 400 : 429;
+    return { status, body: { ok: false, reason: verdict.reason } };
+  }
+
+  // Ugyanabbol a napi keretbol megy, mint a bejovo hivas: egy visszahivas
+  // ugyanolyan draga, es ugyanazt az egy relay-t foglalja.
+  const seat = admitCall();
+  if (!seat.allowed) {
+    refundCallback(verdict.to);
+    console.log(`[callback] elutasitva (hivaskeret: ${seat.reason})`);
+    return { status: 429, body: { ok: false, reason: 'daily' } };
+  }
+
+  try {
+    const client = twilio(cfg.twilioAccountSid, cfg.twilioAuthToken);
+    const call = await client.calls.create({
+      to: verdict.to,
+      from: cfg.callbackFrom,
+      url: `https://${host}/twiml/callback?lang=${lang}`,
+      method: 'POST',
+      timeLimit: maxCallSeconds(),
+      // Huszonot masodperc utan a legtobb mobil hangpostara kapcsol; ennel
+      // tovabb csengetni csak az uzenetrogzito eselyet noveli.
+      timeout: 25,
+      // Uzenetrogzitovel nem beszelgetunk: a /twiml/callback az AnsweredBy
+      // alapjan bont. Az AMD nehany szazadcentbe kerul, egy felmondott
+      // hangposta-percnel nagysagrenddel olcsobb.
+      machineDetection: 'Enable',
+    });
+    console.log(`[callback] hivas inditva to=${verdict.to} lang=${lang} sid=${call.sid}`);
+    return { status: 202, body: { ok: true } };
+  } catch (err) {
+    // Nem tortent hivas: a keret jarjon vissza.
+    refundCallback(verdict.to);
+    console.error('[callback] a hivas inditasa nem sikerult:', err);
+    return { status: 502, body: { ok: false, reason: 'failed' } };
   }
 }
 
@@ -390,7 +516,52 @@ const server = http.createServer((req, res) => {
 
   if (req.method === 'GET' && (path === '/health' || path === '/')) {
     res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, ...stats() }));
+    res.end(
+      JSON.stringify({
+        ok: true,
+        ...stats(),
+        // A gomb csak akkor jelenik meg a lapon, ha itt igaz - igy egy
+        // hianyzo Twilio-valtozo nem egy mukodni latszo, de sose csorgo
+        // urlapot eredmenyez.
+        callback: cfg.callbackEnabled,
+        callbacks: callbackStats(),
+      }),
+    );
+    return;
+  }
+
+  if (path === '/callback') {
+    const headers = corsHeaders(req.headers.origin);
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(Object.keys(headers).length > 0 ? 204 : 403, headers);
+      res.end();
+      return;
+    }
+
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'content-type': 'application/json', ...headers });
+      res.end(JSON.stringify({ ok: false, reason: 'method' }));
+      return;
+    }
+
+    void (async () => {
+      try {
+        const host = cfg.publicHostname || req.headers.host || '';
+        if (!host) {
+          res.writeHead(500, { 'content-type': 'application/json', ...headers });
+          res.end(JSON.stringify({ ok: false, reason: 'failed' }));
+          return;
+        }
+        const out = await handleCallbackRequest(await readBody(req), host);
+        res.writeHead(out.status, { 'content-type': 'application/json', ...headers });
+        res.end(JSON.stringify(out.body));
+      } catch (err) {
+        console.error('[callback] utvonal hiba:', err);
+        res.writeHead(500, { 'content-type': 'application/json', ...headers });
+        res.end(JSON.stringify({ ok: false, reason: 'failed' }));
+      }
+    })();
     return;
   }
 

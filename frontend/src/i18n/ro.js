@@ -20,6 +20,22 @@ const ro = {
   },
   hero: {
     phoneCta: { badge: "AI", note: "Preluat de un agent AI · în engleză și maghiară", origin: "Număr din SUA (Twilio) — apelurile de pe numere din afara Ungariei le preia agentul AI; la început alegi maghiară sau engleză" },
+    // A "hivjon vissza" urlap. A lap egy amerikai szamot hirdet; egy
+    // magyar cegvezeto azt nem tarcsazza, bejovo hivast viszont felvesz.
+    callback: {
+      title: "Sau te sunăm noi, chiar acum",
+      lead: "Scrie-ți numărul și agentul te sună în 10 secunde. Este gratuit și poți închide oricând.",
+      placeholder: "+40 721 234 567",
+      cta: "Sună-mă",
+      sending: "Se formează…",
+      ok: "Gata — agentul sună. Telefonul va suna în 10 secunde.",
+      errNumber: "Nu recunosc acest număr. Încearcă așa: +40 721 234 567",
+      errCountry: "Nu putem suna la acest prefix de țară, ne pare rău.",
+      errRepeat: "Am sunat deja la acest număr astăzi. Încearcă mâine.",
+      errDaily: "Cota de azi s-a epuizat. Încearcă mâine sau scrie-ne.",
+      errFailed: "Apelul nu a putut fi pornit acum. Încearcă din nou peste câteva minute.",
+      privacy: "Numărul este folosit doar pentru acest apel și nu este transmis mai departe.",
+    },
     eyebrow: "Budapesta · agenție AI",
     h1: ["Nu construim", "chatboți. Ci un", "coleg de muncă."],
     sub: "Construim agenți AI pentru companii, care fac o muncă concretă — sortează e-mailuri, califică solicitări, răspund la telefon. Nu predăm o demonstrație, ci un sistem funcțional pe care îl menținem în viață.",

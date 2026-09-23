@@ -20,6 +20,22 @@ const de = {
   },
   hero: {
     phoneCta: { badge: "AI", note: "Wird von einem KI-Agenten angenommen · auf Englisch und Ungarisch", origin: "US-Nummer (Twilio) — Anrufe von nicht-ungarischen Nummern nimmt der KI-Agent an; zu Beginn wählen Sie Ungarisch oder Englisch" },
+    // A "hivjon vissza" urlap. A lap egy amerikai szamot hirdet; egy
+    // magyar cegvezeto azt nem tarcsazza, bejovo hivast viszont felvesz.
+    callback: {
+      title: "Oder wir rufen Sie an, sofort",
+      lead: "Nummer eintragen, und der Agent ruft Sie innerhalb von 10 Sekunden an. Kostenlos, und Sie können jederzeit auflegen.",
+      placeholder: "+49 151 12345678",
+      cta: "Rufen Sie mich an",
+      sending: "Wird gewählt…",
+      ok: "Erledigt — der Agent ruft an. Ihr Telefon klingelt in 10 Sekunden.",
+      errNumber: "Diese Nummer erkenne ich nicht. Versuchen Sie es so: +49 151 12345678",
+      errCountry: "Zu dieser Ländervorwahl können wir leider nicht anrufen.",
+      errRepeat: "Diese Nummer haben wir heute schon angerufen. Bitte morgen erneut versuchen.",
+      errDaily: "Das Tageskontingent ist aufgebraucht. Versuchen Sie es morgen oder schreiben Sie uns.",
+      errFailed: "Der Anruf konnte gerade nicht gestartet werden. Bitte in ein paar Minuten erneut versuchen.",
+      privacy: "Die Nummer wird nur für diesen einen Anruf verwendet und nicht weitergegeben.",
+    },
     eyebrow: "Budapest · KI-Agentur",
     h1: ["Wir bauen keine", "Chatbots. Wir bauen", "Mitarbeiter."],
     sub: "Wir bauen KI-Agenten für Unternehmen, die eine konkrete Aufgabe erledigen — E-Mails sortieren, Anfragen qualifizieren, ans Telefon gehen. Wir übergeben keine Demo, sondern ein funktionierendes System, das wir am Leben halten.",

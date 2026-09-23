@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { LiquidButton } from "./LiquidButton";
 import { useLang } from "../i18n";
 import { CONTACT } from "../contact";
+import { CallbackForm } from "./CallbackForm";
 
-const HeroStatus = ({ s }) => {
-  const [status, setStatus] = useState(null); // null = loading
+/** Egyetlen lekerdezes, ket fogyaszto: a zold pont es a visszahivo urlap.
+ *  Kulon-kulon ketszer kerdeznenk ugyanazt harminc masodpercenkent. */
+const useVoiceStatus = () => {
+  const [status, setStatus] = useState(null); // null = toltes alatt
 
   useEffect(() => {
     let active = true;
@@ -14,7 +17,7 @@ const HeroStatus = ({ s }) => {
         const data = await res.json();
         if (active) setStatus(data);
       } catch {
-        if (active) setStatus({ reachable: false, ok: false });
+        if (active) setStatus({ reachable: false, ok: false, callback: false });
       }
     };
     fetchStatus();
@@ -22,6 +25,10 @@ const HeroStatus = ({ s }) => {
     return () => { active = false; clearInterval(id); };
   }, []);
 
+  return status;
+};
+
+const HeroStatus = ({ s, status }) => {
   const live = status && status.reachable && status.ok;
   const state = status === null ? "checking" : live ? "online" : "offline";
   const talking = live && typeof status.live === "number" && status.live > 0;
@@ -51,11 +58,12 @@ const HeroStatus = ({ s }) => {
 export const Hero = ({ scrollTo }) => {
   const { t } = useLang();
   const h = t.hero;
+  const status = useVoiceStatus();
   return (
     <section className="hero container" id="top" data-testid="hero">
       <div className="hero-top">
         <div className="eyebrow"><span className="dot" /> {h.eyebrow}</div>
-        <HeroStatus s={h.status} />
+        <HeroStatus s={h.status} status={status} />
       </div>
       <h1 className="h1">
         {h.h1[0]}<br />{h.h1[1]}<br /><span className="grad">{h.h1[2]}</span>
@@ -78,6 +86,9 @@ export const Hero = ({ scrollTo }) => {
           <span className="hero-phone-origin">{h.phoneCta.origin}</span>
         </span>
       </a>
+      {/* A vonal elerhetosegetol fuggetlenul: ha a szolgaltatas all, a gomb
+          el sem jelenik meg, es a latogato nem ir be szamot hiaba. */}
+      <CallbackForm enabled={Boolean(status && status.reachable && status.callback)} />
       <div className="stats">
         {h.stats.map(([big, lbl], i) => (
           <div className="stat" key={i}><div className="big">{big}</div><div className="lbl">{lbl}</div></div>

@@ -454,3 +454,62 @@ def test_the_formatter_knows_every_language_on_the_site():
     block = money[money.index("CURRENCY_BY_LANG"):money.index("export const currencyFor")]
     for code in LANG_FILES:
         assert f"{code}:" in block, f"money.js: a {code} nyelvhez nincs penznem"
+
+
+# ---------------------------------------------------------------------------
+# "Hivjon vissza"
+# ---------------------------------------------------------------------------
+
+CALLBACK_KEYS = (
+    "title", "lead", "placeholder", "cta", "sending", "ok",
+    "errNumber", "errCountry", "errRepeat", "errDaily", "errFailed", "privacy",
+)
+
+
+def test_the_callback_form_speaks_every_language():
+    """Egy hianyzo kulcs itt ures gombot vagy `undefined`-ot jelentene a lapon.
+
+    Ez a blokk nem oroklodhet az angolbol ugy, hogy eszre se vesszuk: a
+    placeholder es a hibauzenetek orszagonkent mas telefonszam-alakot
+    mutatnak, es egy nemet latogatonak a "+36 30 123 4567" minta semmit nem
+    mond arrol, hogyan irja le a sajatjat.
+    """
+    for code in LANG_FILES:
+        text = _lang_source(code)
+        block = re.search(r"\n    callback: \{(.*?)\n    \},", text, re.S)
+        assert block, f"{code}.js: nincs callback blokk a hero-ban"
+        for key in CALLBACK_KEYS:
+            assert f"{key}:" in block.group(1), f"{code}.js: hianyzik a callback.{key}"
+
+
+def test_the_placeholder_is_a_local_number_in_every_language():
+    """A minta-szam ne mindenhol magyar legyen.
+
+    Az elso valtozatban minden nyelv a "+36 30 123 4567" mintat mutatta -
+    ez egy nemet latogatonak pont azt nem arulja el, amit kellene.
+    """
+    expected = {
+        "hu": "+36", "en": "+44", "de": "+49", "es": "+34",
+        "fr": "+33", "it": "+39", "ro": "+40", "sk": "+421",
+    }
+    for code, prefix in expected.items():
+        text = _lang_source(code)
+        block = re.search(r"\n    callback: \{(.*?)\n    \},", text, re.S)
+        assert block, code
+        ph = re.search(r'placeholder: "([^"]*)"', block.group(1))
+        assert ph, f"{code}.js: nincs placeholder"
+        assert ph.group(1).startswith(prefix), (
+            f"{code}.js: a minta-szam {ph.group(1)!r}, pedig {prefix} kellene"
+        )
+
+
+def test_the_callback_form_says_what_happens_to_the_number():
+    """Telefonszamot elkerni adatkezelesi mondat nelkul nem korrekt."""
+    for code in LANG_FILES:
+        block = re.search(
+            r"\n    callback: \{(.*?)\n    \},", _lang_source(code), re.S
+        )
+        privacy = re.search(r'privacy: "([^"]*)"', block.group(1))
+        assert privacy and len(privacy.group(1)) > 30, (
+            f"{code}.js: hianyzik vagy ures az adatkezelesi mondat"
+        )
