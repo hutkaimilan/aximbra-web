@@ -46,6 +46,7 @@ import { admitCallback, refundCallback, callbackStats } from './callback.js';
 import {
   routeCall,
   isCallSid,
+  isE164,
   ownerDialTwiml,
   screenTwiml,
   screenDoneTwiml,
@@ -105,7 +106,24 @@ const ALL_LANGS: Lang[] = ['hu', 'en'];
  *                  mint a bejovo hivasnal: ott mi hivunk, ezert az elso
  *                  mondatnak azt is meg kell mondania, miert.
  */
-function relayTwiml(host: string, lang: Lang, chosen: boolean, greeting?: string): string {
+function relayTwiml(
+  host: string,
+  lang: Lang,
+  chosen: boolean,
+  greeting?: string,
+  /**
+   * A MASIK fel szama, ha nem a Twilio `From` mezojebol jon.
+   *
+   * Bejovo hivasnal a `From` a hivo - kimeno hivasnal viszont MI vagyunk a
+   * `From`, es a latogato a `To`. A relay setup uzenete ezt nem valogatja
+   * szet, ezert a visszahivasnal itt adjuk at, kulonben a hivas vegen a
+   * sajat szamunkat tekintenenk ugyfelnek: oda menne az SMS (a Twilio
+   * "'To' and 'From' cannot be the same" hibaval el is utasitja), es az
+   * osszefoglaloban sem az erdeklodo szama allna. Elesben pontosan ez
+   * tortent az elso valodi erdeklodonel.
+   */
+  peer?: string,
+): string {
   // A <Language> gyerekelemek nyelvenkent adjak meg a hangot es a
   // felismerest. Mindket nyelv mindig fel van veve, hogy a hivas kozbeni
   // nyelvvaltas ne ervenytelen konfiguraciora fusson; a `lang` csak azt
@@ -136,7 +154,7 @@ function relayTwiml(host: string, lang: Lang, chosen: boolean, greeting?: string
 <Response>
   <Connect>
     <ConversationRelay
-      url="wss://${escapeXml(host)}/relay?lang=${lang}${chosen ? '&amp;fix=1' : ''}"
+      url="wss://${escapeXml(host)}/relay?lang=${lang}${chosen ? '&amp;fix=1' : ''}${peer ? `&amp;peer=${encodeURIComponent(peer)}` : ''}${greeting ? '&amp;cb=1' : ''}"
       welcomeGreeting="${escapeXml(greeting ?? lines(lang).greeting)}"
       ttsLanguage="${escapeXml(start.language)}"
       transcriptionLanguage="${escapeXml(start.language)}"
@@ -305,8 +323,10 @@ function twimlFor(
         return HANGUP_TWIML;
       }
 
-      console.log(`[http] visszahivas fogadva nyelv=${lang}`);
-      return relayTwiml(host, lang, true, callbackGreeting(lang));
+      // Kimeno hivas: a latogato a `To`, nem a `From`.
+      const peer = normalizeNumber(params.get('To'));
+      console.log(`[http] visszahivas fogadva nyelv=${lang} to=${peer || '<ismeretlen>'}`);
+      return relayTwiml(host, lang, true, callbackGreeting(lang), peer);
     }
 
     case '/twiml/screen':
@@ -705,6 +725,15 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
   // felul - egy szandekos dontest felulbiralni rosszabb, mint barmi, amit a
   // felismeres nyerhetne vele.
   const langFixed = relayQuery.get('fix') === '1';
+  // Visszahivasnal a TwiML adja at a latogato szamat, mert a setup uzenet
+  // `from` mezojeben ilyenkor a SAJAT szamunk all. Ha megvan, az a
+  // mervado, es a setup nem irhatja felul.
+  const peerRaw = normalizeNumber(relayQuery.get('peer'));
+  const peer = isE164(peerRaw) ? peerRaw : '';
+  // `cb=1`: visszahivas. A Twilio a visszahivas sajat koszoneset mondta ki,
+  // nem a bejovo hivaset - ha a rossz mondat kerul a tortenetbe, a modell
+  // azt hiszi, meg be sem mutatkozott, es ujra megteszi.
+  const isCallback = relayQuery.get('cb') === '1';
   // Fuggveny, nem valtozo: a nyelv menet kozben valtozhat, es egy elmentett
   // `lines(lang)` ettol csendben a regi nyelven maradna.
   const say = (): ReturnType<typeof lines> => lines(s.lang);
@@ -713,12 +742,17 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     // A welcomeGreeting-et a Twilio mondja ki, nem mi. Ha nem tesszuk be a
     // tortenetbe, a modell nem tud rola, hogy mar koszontunk - es az elso
     // valaszaban ujra bemutatkozik. Pontosan ez tortent elesben.
-    history: [{ role: 'assistant', content: lines(startLang).greeting }],
+    history: [
+      {
+        role: 'assistant',
+        content: isCallback ? callbackGreeting(startLang) : lines(startLang).greeting,
+      },
+    ],
     lang: startLang,
     langChecks: 0,
     needsRepeat: false,
     pendingLang: null,
-    from: '<ismeretlen>',
+    from: peer || '<ismeretlen>',
     callSid: '<ismeretlen>',
     startedAt: Date.now(),
     queue: [],
@@ -963,7 +997,9 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
       const type = msg['type'];
 
       if (type === 'setup') {
-        s.from = typeof msg['from'] === 'string' ? msg['from'] : s.from;
+        // Visszahivasnal a `from` MI vagyunk: ilyenkor a TwiML-bol kapott
+        // szam az ugyfele, es azt nem irjuk felul.
+        if (!peer && typeof msg['from'] === 'string') s.from = msg['from'];
         s.callSid = typeof msg['callSid'] === 'string' ? msg['callSid'] : s.callSid;
         console.log(
           `[ws] setup from=${s.from} callSid=${s.callSid} ` +

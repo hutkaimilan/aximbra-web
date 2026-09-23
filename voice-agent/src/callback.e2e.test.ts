@@ -151,6 +151,39 @@ test('a visszahivas-vegpont vedve van', async (t) => {
     assert.match(xml, /visszah&#237;v&#225;st k&#233;rt|visszahívást kért/);
   });
 
+  await t.test('a hivas az UGYFEL szamat viszi tovabb, nem a sajatunkat', async () => {
+    // Eles hiba, 2026-09-23, az elso valodi erdeklodonel. Kimeno hivasnal a
+    // Twilio `From` mezojeben MI allunk, es az ugyfel a `To`. A relay a
+    // `From`-ot vette hivonak, ezert a hivas utani SMS a sajat szamunkra
+    // ment volna ("'To' and 'From' number cannot be the same"), az
+    // osszefoglalo pedig a sajat szamunkat irta ugyfelkent - az erdeklodo
+    // telefonszama elveszett. Az agent ra is olvasta a hivora a mi
+    // szamunkat, sajatjakent.
+    const xml = await twiml('/twiml/callback?lang=hu', {
+      CallSid: 'CAd123456789abcdef0123456789abcdef',
+      CallStatus: 'in-progress',
+      AnsweredBy: 'human',
+      From: '+18024249852', // mi
+      To: '+36301300242',   // az erdeklodo
+    });
+    assert.match(xml, /peer=%2B36301300242/, 'az ugyfel szamanak at kell menni a relaynek');
+    assert.doesNotMatch(xml, /peer=%2B18024249852/, 'a sajat szamunk nem az ugyfele');
+    // `cb=1`: a relay ebbol tudja, hogy a visszahivas koszonese hangzott el,
+    // nem a bejovo hivase - kulonben a modell ujra bemutatkozik.
+    assert.match(xml, /cb=1/);
+  });
+
+  await t.test('hianyzo To eseten nem talalunk ki szamot', async () => {
+    const xml = await twiml('/twiml/callback?lang=hu', {
+      CallSid: 'CAe123456789abcdef0123456789abcdef',
+      CallStatus: 'in-progress',
+      AnsweredBy: 'human',
+      From: '+18024249852',
+    });
+    assert.doesNotMatch(xml, /peer=/, 'ures To-bol ne szulessen hamis ugyfelszam');
+    assert.match(xml, /<ConversationRelay/, 'a beszelgetes ettol meg induljon el');
+  });
+
   await t.test('angolul kert visszahivas angolul szol', async () => {
     const xml = await twiml('/twiml/callback?lang=en', {
       CallSid: 'CAa123456789abcdef0123456789abcdef',
