@@ -298,6 +298,32 @@ export function emptyFacts(): CallFacts {
 
 const FACT_KEYS = Object.keys(emptyFacts()) as (keyof CallFacts)[];
 
+/**
+ * Egy e-mail cim, ami legalabb ALAKRA helyes.
+ *
+ * A telefonos felismeres a cimeket rontja el a leggyakrabban. Egy eles
+ * teszthivasban a hivo cime "kovacsopka kukac hu"-kent erkezett, es az agent
+ * ezt magabiztosan vissza is olvasta - egy olyan cimet, amiben nincs is pont
+ * a kukac utan, tehat nem letezhet.
+ *
+ * Ami ilyenkor tortenik, az rosszabb, mint ha semmit nem tudnank: a cim
+ * bekerul a "MAR TUDJUK" listaba, az agent tobbe nem kerdez ra, es az
+ * osszefoglaloban is ez a hasznalhatatlan cim all. Ezert a nyilvanvaloan
+ * hibas cim NEM valik ismert tennye.
+ *
+ * Szandekosan nem szigoru: nem az a dolga, hogy szabvanyos cimeket
+ * valogasson, hanem hogy a felismeres szemetet kiszurje.
+ */
+export function looksLikeEmail(value: string): boolean {
+  const t = value.trim();
+  if (/\s/.test(t)) return false;              // "kovacsopka kukac hu"
+  const at = t.indexOf('@');
+  if (at <= 0 || at !== t.lastIndexOf('@')) return false;
+  const domain = t.slice(at + 1);
+  // Pont nelkuli domain nem letezik; a vegzodes legalabb ket betu.
+  return /^[^.@]+(\.[^.@]+)*\.[A-Za-z]{2,}$/.test(domain);
+}
+
 function cleanFact(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const t = value.trim();
@@ -320,7 +346,12 @@ export function mergeFacts(prev: CallFacts, next: Partial<CallFacts>): CallFacts
   const out: CallFacts = { ...prev };
   for (const key of FACT_KEYS) {
     const v = cleanFact(next[key]);
-    if (v !== null) out[key] = v;
+    if (v === null) continue;
+    // A felismeres altal osszetort cim ne valjon "mar tudjuk" tennye:
+    // onnantol az agent nem kerdezne ra ujra, es az osszefoglaloba is
+    // hasznalhatatlan cim kerulne.
+    if (key === 'email' && !looksLikeEmail(v)) continue;
+    out[key] = v;
   }
   return out;
 }

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { buildFactsBlock, buildSystemPrompt } from './prompt.js';
-import { emptyFacts, type CallFacts } from './llm.js';
+import { emptyFacts, mergeFacts, looksLikeEmail, type CallFacts } from './llm.js';
 
 function facts(over: Partial<CallFacts> = {}): CallFacts {
   return { ...emptyFacts(), ...over };
@@ -75,4 +75,42 @@ test('a kiejtesi pelda nem a sajat cimunk', () => {
   const rule = prompt.slice(prompt.indexOf('E-mail címet betűzve'));
   const firstLine = rule.slice(0, rule.indexOf('\n'));
   assert.doesNotMatch(firstLine, /aximbra/i, 'a pelda ne a sajat cimunk legyen');
+});
+
+test('a felismeres altal osszetort cim nem valik ismert tennye', () => {
+  // Eles teszthivas: a hivo cime "kovacsopka kukac hu"-kent erkezett, es az
+  // agent magabiztosan vissza is olvasta. Pont nelkuli domain nem letezhet.
+  assert.equal(looksLikeEmail('kovacsopka@hu'), false);
+  assert.equal(looksLikeEmail('kovacsopka kukac hu'), false);
+  assert.equal(looksLikeEmail('@kovacsoptika.hu'), false);
+  assert.equal(looksLikeEmail('petr@@kovacsoptika.hu'), false);
+  assert.equal(looksLikeEmail('kovacs.peter@kovacsoptika.hu'), true);
+  assert.equal(looksLikeEmail('sarah@bennett-design.co.uk'), true);
+
+  // ...es a hibas cim tenyleg nem kerul be a tenyek koze.
+  const merged = mergeFacts(facts(), { email: 'kovacsopka@hu', nev: 'Kovács Péter' });
+  assert.equal(merged.email, null, 'a hasznalhatatlan cim nem lehet "mar tudjuk"');
+  assert.equal(merged.nev, 'Kovács Péter', 'a tobbi adat viszont bekerul');
+
+  const good = mergeFacts(facts(), { email: 'kovacs.peter@kovacsoptika.hu' });
+  assert.equal(good.email, 'kovacs.peter@kovacsoptika.hu');
+});
+
+test('ha a szam megvan es ervenyes cim nincs, az SMS-utat ajanlja', () => {
+  const block = buildFactsBlock(facts({ nev: 'K P', ceg: 'K Kft.' }), '+36301300242');
+  assert.match(block, /HA KÜLDENED KELL VALAMIT/);
+  assert.match(block, /SMS/);
+});
+
+test('ervenyes cim mellett nem eroltetjuk az SMS-t', () => {
+  const block = buildFactsBlock(
+    facts({ nev: 'K P', ceg: 'K Kft.', email: 'k@pelda.hu' }),
+    '+36301300242',
+  );
+  assert.doesNotMatch(block, /HA KÜLDENED KELL VALAMIT/);
+});
+
+test('szam nelkul nincs mit SMS-ben kuldeni', () => {
+  const block = buildFactsBlock(facts({ nev: 'K P', ceg: 'K Kft.' }), '<ismeretlen>');
+  assert.doesNotMatch(block, /HA KÜLDENED KELL VALAMIT/);
 });

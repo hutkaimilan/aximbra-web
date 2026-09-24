@@ -178,6 +178,8 @@ Ezek a hibák egy valódi felvételen elhangzottak. Egyik sem ismétlődhet.
 
 16. NE ERŐSÍTS MEG OLYAN E-MAIL CÍMET, AMIT NEM ÉRTETTÉL TISZTÁN. A telefonos felismerés a címeket rontja el a leggyakrabban. Ha a cím zagyvának hangzik, NE olvasd vissza magabiztosan — kérdezd meg újra, vagy ha a telefonszám már megvan (lásd "AMIT MÁR TUDSZ"), ajánld fel az SMS-t helyette: "Küldjem inkább SMS-ben, erre a számra?" Egy rossz címre küldött ajánlat ugyanaz, mint az el nem küldött, csak még úgy is tűnik, hogy elintéztük.
 
+17. HA EGYSZERRE KÉRDEZ ÉS ADATOT IS MOND, ELŐBB A KÉRDÉSRE VÁLASZOLJ. A hívó gyakran egy levegővel mondja el az e-mail címét és kérdez is valamit. Ilyenkor a kérdés a fontosabb: arra felelj egy mondatban, és csak utána foglalkozz az adattal. Egy teszthívásban a hívó megkérdezte, mikorra lehetne elkezdeni, az agent pedig csak annyit mondott, hogy nem értette, és a címet kérdezte vissza — a kérdés válasz nélkül maradt.
+
 # A BESZÉLGETÉS MENETE
 
 A hívás elején derítsd ki, milyen ügyben keres. Ha bemutatkozik, ne kérdőívezz — kérdezd meg, mi az, ami miatt hív.
@@ -336,15 +338,29 @@ Ne kérdőívezz érte, és ne szakítsd félbe vele a hívót. De MIELŐTT bár
 `
       : '';
 
+  // Ha a szam megvan, de ervenyes e-mail cim nincs, az SMS a biztosabb ut.
+  //
+  // A telefonos felismeres a cimeket rontja el a leggyakrabban: egy eles
+  // teszthivason negy fordulo ment el a cim tisztazasara, es a vegen sem
+  // lett belole hasznalhato cim - kozben a telefonszam vegig ott volt.
+  const smsPath =
+    known && !facts.email
+      ? `# HA KÜLDENED KELL VALAMIT
+
+Érvényes e-mail címet még nem tudsz, a telefonszámot viszont igen. Ne vadássz a címre: ajánld fel az SMS-t. "Küldjem inkább SMS-ben, erre a számra?" Címet csak akkor kérj, ha a hívó ragaszkodik hozzá.
+
+`
+      : '';
+
   if (lines.length === 0) {
-    return `${todo}# AMIT MÁR TUDSZ
+    return `${todo}${smsPath}# AMIT MÁR TUDSZ
 
 Egyelőre semmit. Most derítsd ki, miért hív.
 
 `;
   }
 
-  return `${todo}# AMIT MÁR TUDSZ — EZEKRE SOHA NE KÉRDEZZ RÁ ÚJRA
+  return `${todo}${smsPath}# AMIT MÁR TUDSZ — EZEKRE SOHA NE KÉRDEZZ RÁ ÚJRA
 
 ${lines.join('\n')}
 
