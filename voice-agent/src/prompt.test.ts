@@ -58,3 +58,21 @@ test('a rendszerprompt kimondja, hogy nev nelkul nem igerunk ajanlatot', () => {
   // ...es azt is, hogy a mar ismert szamot ne kerje el ujra.
   assert.match(prompt, /HA A TELEFONSZÁM MÁR MEGVAN/);
 });
+
+test('a sajat e-mail cimunket nem ajanlhatja fel a hivo cimekent', () => {
+  // Teszthivas, 2026-09-24: az agent ketszer is felajanlotta, hogy az
+  // ajanlatot az "aximbra kukac gmail pont com" cimre kuldi - a sajat
+  // cimunkre -, es a hivonak kellett kijavitania.
+  const prompt = buildSystemPrompt(0, facts(), '+36301300242');
+  assert.match(prompt, /AZ AXIMBRA CÍME A MIÉNK, NEM A HÍVÓÉ/);
+  assert.match(prompt, /NE ERŐSÍTS MEG OLYAN E-MAIL CÍMET/);
+});
+
+test('a kiejtesi pelda nem a sajat cimunk', () => {
+  // Korabban a formazasi szabaly peldaja maga az AXIMBRA cime volt, es a
+  // modell ezt hasznalta "a" cimkent, amikor cimet kellett mondania.
+  const prompt = buildSystemPrompt(0, facts(), '');
+  const rule = prompt.slice(prompt.indexOf('E-mail címet betűzve'));
+  const firstLine = rule.slice(0, rule.indexOf('\n'));
+  assert.doesNotMatch(firstLine, /aximbra/i, 'a pelda ne a sajat cimunk legyen');
+});
