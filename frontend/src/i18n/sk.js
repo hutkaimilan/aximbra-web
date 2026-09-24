@@ -104,6 +104,23 @@ const sk = {
       { name: "Na mieru / s AI", price: "900000+", features: ["rezervačný systém alebo AI chat / hlasový agent", "vlastné funkcie podľa potreby", "na základe ponuky, s dohodnutým termínom"] },
     ],
   },
+  // A /weboldal lap fulcime. Enelkul hat nyelven az angol cim latszott:
+  // a lap tartalma leforditva, a bongeszofulon meg "Website design and
+  // development" - ez az a reszlet, amitol a forditas felkesznek latszik.
+  webPage: {
+    seo: {
+      title: "Tvorba webových stránok — AXIMBRA",
+      description: "Balíky webstránok s cenou a termínom: od jednostránkovej prezentácie po individuálny vývoj s integrovanou AI. Budapešť.",
+    },
+  },
+  // A nem letezo cimen fogado lap. Nyolc nyelven kell: egy nemet
+  // latogato ne magyarul kapja a hibauzenetet.
+  notFound: {
+    title: "Táto stránka neexistuje",
+    lead: "Adresa môže byť preklepnutá, alebo stránka už neexistuje.",
+    home: "← Späť na úvodnú stránku",
+    agents: "Pozrieť agentov",
+  },
   caseStudy: {
     tag: "V akcii",
     heading: "Telefonujúci agent na ostrej linke",

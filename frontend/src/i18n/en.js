@@ -180,6 +180,14 @@ const en = {
     agentsText: "That is exactly what the third package means: a booking system, an AI chat or a phone agent built into the site. If the website already exists and you'd rather take a workflow off your hands, that's our other page.",
     agentsLink: "See the agents →",
   },
+  // A nem letezo cimen fogado lap. Nyolc nyelven kell: egy nemet
+  // latogato ne magyarul kapja a hibauzenetet.
+  notFound: {
+    title: "This page does not exist",
+    lead: "The address may be mistyped, or the page has since been removed.",
+    home: "← Back to the home page",
+    agents: "See the agents",
+  },
   founder: {
     bioTag: "About me",
     bio: [

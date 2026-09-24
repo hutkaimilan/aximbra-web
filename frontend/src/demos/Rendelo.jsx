@@ -15,7 +15,6 @@ export default function Rendelo() {
     path: "/demo/rendelo", lang, noindex: true });
   const L = t.demos.labels;
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  const mailto = `mailto:${d.email}?subject=${encodeURIComponent(d.cta + " — " + d.brand)}`;
 
   return (
     <div className="med-page demo-page" data-testid="demo-rendelo">
@@ -26,7 +25,7 @@ export default function Rendelo() {
           <h1 className="med-title">{d.heroTitle}</h1>
           <p className="med-sub">{d.heroSub}</p>
           <div className="med-cta-row">
-            <a className="med-btn" href={mailto}>{d.cta}</a>
+            <a className="med-btn" href="#contact">{d.cta}</a>
           </div>
         </div>
       </section>
@@ -71,7 +70,7 @@ export default function Rendelo() {
         </div>
       </section>
 
-      <section className="demo-section med-about">
+      <section className="demo-section med-about" id="contact">
         <div className="demo-container">
           <h2 className="med-h2">{d.contactTitle}</h2>
           <div className="med-contact-grid">

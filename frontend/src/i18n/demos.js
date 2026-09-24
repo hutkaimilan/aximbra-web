@@ -3,7 +3,7 @@ const demos = {
   hu: {
     back: "← Vissza az AXIMBRA-hoz",
     noticeTag: "DEMÓ",
-    noticeText: "Ez egy bemutató oldal, nem valós vállalkozás. A márka, a címek, az árak és a munkatársak kitaláltak; a megadott adatokat nem küldjük el és nem tároljuk. Készítette: AXIMBRA.",
+    noticeText: "Ez egy bemutató oldal, nem valós vállalkozás. A márkát, a címeket, az árakat és a munkatársakat mi találtuk ki; a megadott adatokat nem küldjük el és nem tároljuk. Készítette: AXIMBRA.",
     labels: { address: "Cím", phone: "Telefon", email: "E-mail", hours: "Nyitvatartás", send: "Küldés", name: "Név", message: "Miben segíthetünk?", sent: "Köszönjük! Hamarosan jelentkezünk.", consent: "Elfogadom, hogy ez egy bemutató űrlap: a beírt adatok nem kerülnek elküldésre és tárolásra.", sentDemo: "Ez egy bemutató — nem küldtünk el semmit, és a beírt adatokat nem tároltuk. Egy valódi oldalon itt futna az AXIMBRA ajánlatkérő agentje.", enlarge: "kép nagyban", close: "Bezárás", demo: "demó" },
     refs: {
       tag: "Referenciák",

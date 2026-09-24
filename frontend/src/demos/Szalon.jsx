@@ -21,7 +21,6 @@ export default function Szalon() {
   const L = t.demos.labels;
   const [lb, setLb] = useState(null);
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  const mailto = `mailto:${d.email}?subject=${encodeURIComponent(d.cta + " — " + d.brand)}`;
 
   // Escape zarja a nagykepet.
   //
@@ -43,7 +42,7 @@ export default function Szalon() {
           <div className="sln-eyebrow">{d.heroEyebrow}</div>
           <h1 className="sln-title">{d.heroTitle}</h1>
           <p className="sln-sub">{d.heroSub}</p>
-          <a className="sln-btn" href={mailto}>{d.cta}</a>
+          <a className="sln-btn" href="#contact">{d.cta}</a>
         </div>
       </section>
 
@@ -91,7 +90,7 @@ export default function Szalon() {
         </div>
       </section>
 
-      <section className="demo-section">
+      <section className="demo-section" id="contact">
         <div className="demo-container">
           <h2 className="sln-h2">{d.contactTitle}</h2>
           <div className="sln-contact-grid">
@@ -99,7 +98,6 @@ export default function Szalon() {
             <div><div className="sln-ci-l">{L.phone}</div><div className="sln-ci-v">{d.phone}</div></div>
             <div><div className="sln-ci-l">{L.hours}</div><div className="sln-ci-v">{d.hours}</div></div>
           </div>
-          <a className="sln-btn" href={mailto} style={{ marginTop: 34 }}>{d.cta}</a>
         </div>
       </section>
 

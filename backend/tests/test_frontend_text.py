@@ -513,3 +513,71 @@ def test_the_callback_form_says_what_happens_to_the_number():
         assert privacy and len(privacy.group(1)) > 30, (
             f"{code}.js: hianyzik vagy ures az adatkezelesi mondat"
         )
+
+
+# ---------------------------------------------------------------------------
+# Fulcimek, holt linkek, nem letezo cimek
+# ---------------------------------------------------------------------------
+
+APP_JS = FRONTEND / "App.js"
+DEMOS_DIR = FRONTEND / "demos"
+
+
+def test_the_website_page_has_a_title_in_every_language():
+    """A /weboldal fulcime hat nyelven angolul allt.
+
+    A lap tartalma le volt forditva, a bongeszofulon viszont "Website design
+    and development" - es a keresotalalat cime is az. Pont ez az a reszlet,
+    amitol egy forditas felkesznek latszik.
+    """
+    for code in LANG_FILES:
+        text = _lang_source(code)
+        block = re.search(r"\n  webPage: \{(.*?)\n  \},", text, re.S)
+        assert block, f"{code}.js: nincs webPage blokk"
+        title = re.search(r'title: "([^"]*)"', block.group(1))
+        assert title and title.group(1).strip(), f"{code}.js: nincs /weboldal fulcim"
+
+    # ...es a cimek tenyleg kulonbozoek, nem mindenhol az angol masolata.
+    titles = set()
+    for code in LANG_FILES:
+        block = re.search(r"\n  webPage: \{(.*?)\n  \},", _lang_source(code), re.S)
+        titles.add(re.search(r'title: "([^"]*)"', block.group(1)).group(1))
+    assert len(titles) >= 7, f"gyanusan sok azonos cim: {sorted(titles)}"
+
+
+def test_an_unknown_address_is_not_the_home_page():
+    """Eddig minden nem letezo cim a fooldalt adta vissza, 200-as valasszal.
+
+    A Google ezt "soft 404"-kent kezeli: ugy latja, hogy tetszoleges sok cimen
+    ugyanaz a lap all. A statikus kiszolgalo nem tud 404-et adni, ezert a
+    `noindex` az, ami ezeket tavol tartja a keresobol.
+    """
+    app = APP_JS.read_text(encoding="utf-8")
+    assert 'path="*" element={<NotFound />}' in app, (
+        "az ismeretlen cim megint a fooldalra esik vissza"
+    )
+    nf = (FRONTEND / "pages" / "NotFound.jsx").read_text(encoding="utf-8")
+    assert "noindex: true" in nf, "a 404-lap bekerulhet a keresobe"
+    # Nyolc nyelven szol, kulonben a nemet latogato magyarul kap hibauzenetet.
+    for code in LANG_FILES:
+        text = _lang_source(code)
+        block = re.search(r"\n  notFound: \{(.*?)\n  \},", text, re.S)
+        assert block, f"{code}.js: nincs notFound blokk"
+        for key in ("title", "lead", "home", "agents"):
+            assert f"{key}:" in block.group(1), f"{code}.js: hianyzik a notFound.{key}"
+
+
+def test_the_demo_sites_have_no_dead_contact_links():
+    """A bemutato oldalak nem letezo tartomanyokra kuldtek levelet.
+
+    A `*-demo.hu` cimek nincsenek bejegyezve: a gombra kattintva megnyilt a
+    levelezo, a level pedig visszapattant. A lapon ott a kapcsolati blokk -
+    a gomb oda vigyen.
+    """
+    for path in sorted(DEMOS_DIR.glob("*.jsx")):
+        text = path.read_text(encoding="utf-8")
+        assert "mailto:${d.email}" not in text, (
+            f"{path.name}: visszater a nem letezo cimre mutato mailto"
+        )
+        # Horgony, ami sehova nem visz.
+        assert 'href="#"' not in text, f"{path.name}: holt horgony (#)"

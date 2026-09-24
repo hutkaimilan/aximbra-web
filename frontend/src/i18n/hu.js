@@ -57,7 +57,7 @@ const hu = {
     approved: "Jóváhagyva — kimegy.",
     rewritten: "Átírásra visszaküldve.",
     again: "↻ Újra",
-    sampleNote: "Illusztráció magyar mintaadatokkal — a levelek kitaláltak.",
+    sampleNote: "Illusztráció magyar mintaadatokkal — a leveleket mi találtuk ki.",
     showAll: "Mutasd a további {n} agentet →",
   },
   agents: [
@@ -179,6 +179,14 @@ const hu = {
     agentsTitle: "És ha agent is kell rá?",
     agentsText: "A harmadik csomag pontosan ezt jelenti: foglalási rendszer, AI chat vagy telefonáló agent a weboldalba építve. Ha viszont a weboldal megvan és inkább egy munkafolyamatot vennél le a válladról, az a másik oldalunk.",
     agentsLink: "Nézd meg az agenteket →",
+  },
+  // A nem letezo cimen fogado lap. Nyolc nyelven kell: egy nemet
+  // latogato ne magyarul kapja a hibauzenetet.
+  notFound: {
+    title: "Ez az oldal nincs meg",
+    lead: "Lehet, hogy elgépelted a címet, vagy a lap azóta megszűnt.",
+    home: "← Vissza a főoldalra",
+    agents: "Nézd meg az agenteket",
   },
   founder: {
     tag: "Ki áll mögötte",

@@ -104,6 +104,23 @@ const ro = {
       { name: "Personalizat / cu AI", price: "900000+", features: ["sistem de rezervări sau chat / agent vocal AI", "funcții personalizate la cerere", "pe bază de ofertă, cu termen convenit"] },
     ],
   },
+  // A /weboldal lap fulcime. Enelkul hat nyelven az angol cim latszott:
+  // a lap tartalma leforditva, a bongeszofulon meg "Website design and
+  // development" - ez az a reszlet, amitol a forditas felkesznek latszik.
+  webPage: {
+    seo: {
+      title: "Creare de site-uri web — AXIMBRA",
+      description: "Pachete de site-uri cu preț și termen: de la pagina unică la dezvoltarea personalizată cu IA integrată. Budapesta.",
+    },
+  },
+  // A nem letezo cimen fogado lap. Nyolc nyelven kell: egy nemet
+  // latogato ne magyarul kapja a hibauzenetet.
+  notFound: {
+    title: "Această pagină nu există",
+    lead: "Poate adresa este scrisă greșit sau pagina a fost eliminată.",
+    home: "← Înapoi la pagina principală",
+    agents: "Vezi agenții",
+  },
   caseStudy: {
     tag: "În acțiune",
     heading: "Un agent care sună, pe o linie reală",

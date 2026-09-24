@@ -17,7 +17,6 @@ export default function Etterem() {
   const L = t.demos.labels;
   const [open, setOpen] = useState(0);
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  const mailto = `mailto:${d.email}?subject=${encodeURIComponent(d.floating + " — " + d.brand)}`;
 
   return (
     <div className="rst-page demo-page" data-testid="demo-etterem">
@@ -29,7 +28,7 @@ export default function Etterem() {
           <h1 className="rst-title">{d.brand}</h1>
           <p className="rst-sub">{d.heroSub}</p>
           <div className="rst-cta-row">
-            <a className="rst-btn solid" href={mailto}>{d.cta}</a>
+            <a className="rst-btn solid" href="#contact">{d.cta}</a>
             <a className="rst-btn ghost" href="#menu">{d.ctaGhost}</a>
           </div>
         </div>
@@ -71,7 +70,7 @@ export default function Etterem() {
       </section>
 
       <footer className="rst-footer">© {d.brand} · {d.address} · {L.demo}</footer>
-      <a className="rst-float" href={mailto} data-testid="rst-float">{d.floating}</a>
+      <a className="rst-float" href="#contact" data-testid="rst-float">{d.floating}</a>
     </div>
   );
 }

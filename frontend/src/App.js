@@ -19,6 +19,7 @@ import { Founder } from "@/components/Founder";
 import { LanguageProvider, useLang, PREFIXED_LANGS } from "@/i18n";
 import { useDocumentMeta, organizationJsonLd } from "@/seo";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import NotFound from "./pages/NotFound";
 import { useVisitBeacon } from "./visits";
 import Etterem from "@/demos/Etterem";
 import Szalon from "@/demos/Szalon";
@@ -159,7 +160,9 @@ export default function App() {
             ))
           )}
           {/* Unknown path: hand it to the homepage rather than a blank screen. */}
-          <Route path="*" element={<Site />} />
+          {/* Ismeretlen cim: sajat lap, `noindex`-szel. Eddig a fooldal jott vissza
+              200-as valasszal, amit a Google "soft 404"-kent bunteti. */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </LanguageProvider>
     </BrowserRouter>

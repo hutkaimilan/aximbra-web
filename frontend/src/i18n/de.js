@@ -104,6 +104,23 @@ const de = {
       { name: "Individuell / KI-integriert", price: "900000+", features: ["Buchungssystem oder KI-Chat / Sprachagent", "individuelle Funktionen nach Bedarf", "auf Angebotsbasis, mit vereinbartem Termin"] },
     ],
   },
+  // A /weboldal lap fulcime. Enelkul hat nyelven az angol cim latszott:
+  // a lap tartalma leforditva, a bongeszofulon meg "Website design and
+  // development" - ez az a reszlet, amitol a forditas felkesznek latszik.
+  webPage: {
+    seo: {
+      title: "Webdesign und -entwicklung — AXIMBRA",
+      description: "Website-Pakete mit Preis und Termin: von der einseitigen Präsenz bis zur individuellen, KI-integrierten Entwicklung. Budapest.",
+    },
+  },
+  // A nem letezo cimen fogado lap. Nyolc nyelven kell: egy nemet
+  // latogato ne magyarul kapja a hibauzenetet.
+  notFound: {
+    title: "Diese Seite gibt es nicht",
+    lead: "Vielleicht ist die Adresse vertippt, oder die Seite wurde entfernt.",
+    home: "← Zurück zur Startseite",
+    agents: "Agenten ansehen",
+  },
   caseStudy: {
     tag: "Im Einsatz",
     heading: "Ein telefonierender Agent, auf einer echten Leitung",

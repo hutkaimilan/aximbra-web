@@ -104,6 +104,23 @@ const es = {
       { name: "A medida / con IA", price: "900000+", features: ["sistema de reservas o chat / agente de voz con IA", "funciones a medida según necesidad", "según presupuesto, con plazo acordado"] },
     ],
   },
+  // A /weboldal lap fulcime. Enelkul hat nyelven az angol cim latszott:
+  // a lap tartalma leforditva, a bongeszofulon meg "Website design and
+  // development" - ez az a reszlet, amitol a forditas felkesznek latszik.
+  webPage: {
+    seo: {
+      title: "Diseño y desarrollo web — AXIMBRA",
+      description: "Paquetes de sitios web con precio y plazo: desde la página única hasta el desarrollo a medida con IA integrada. Budapest.",
+    },
+  },
+  // A nem letezo cimen fogado lap. Nyolc nyelven kell: egy nemet
+  // latogato ne magyarul kapja a hibauzenetet.
+  notFound: {
+    title: "Esta página no existe",
+    lead: "Puede que la dirección esté mal escrita, o que la página ya no exista.",
+    home: "← Volver a la página principal",
+    agents: "Ver los agentes",
+  },
   caseStudy: {
     tag: "En acción",
     heading: "Un agente que llama, en una línea real",
