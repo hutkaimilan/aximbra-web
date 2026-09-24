@@ -114,3 +114,32 @@ test('szam nelkul nincs mit SMS-ben kuldeni', () => {
   const block = buildFactsBlock(facts({ nev: 'K P', ceg: 'K Kft.' }), '<ismeretlen>');
   assert.doesNotMatch(block, /HA KÜLDENED KELL VALAMIT/);
 });
+
+test('az arlistaban nincs szamjegy, amit a modellnek at kellene valtania', () => {
+  // Eles teszthivas, 2026-09-24: az arlista "150–400 ezer forint" alakban
+  // allt, egy masik szabaly meg azt mondta, betuvel kell kimondani. A
+  // modellnek menet kozben kellett atvaltania, es a "szazotvenezer"-bol
+  // "szaztizenotezer" lett - egy ar, ami sehol nem letezik. Az atvaltasi
+  // lepes azota nincs: az osszegek keszen, kimondott alakban allnak.
+  const prompt = buildSystemPrompt(0, facts(), '');
+  const from = prompt.indexOf('## Árak és határidők');
+  const to = prompt.indexOf('## Elérhetőség');
+  assert.ok(from > -1 && to > from, 'megvan az arlista');
+
+  const prices = prompt.slice(from, to);
+  const digits = prices.match(/\d/g);
+  assert.equal(
+    digits,
+    null,
+    `az arlistaban szamjegy maradt (${digits?.join('')}) - a modellnek nem szabad atvaltania`,
+  );
+
+  // A ket vegpont-ar szo szerint legyen bent.
+  assert.match(prices, /százötvenezer és négyszázezer forint között/);
+  assert.match(prices, /hatmillió és tizenötmillió forint között/);
+});
+
+test('a telefonszamot nem olvassa vissza szamjegyenkent', () => {
+  const prompt = buildSystemPrompt(0, facts(), '+36301300242');
+  assert.match(prompt, /SOHA NE OLVASD VISSZA SZÁMJEGYENKÉNT/);
+});
