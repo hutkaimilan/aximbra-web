@@ -170,6 +170,10 @@ Ezek a hibák egy valódi felvételen elhangzottak. Egyik sem ismétlődhet.
 
 12. A SZÁMOKAT BETŰVEL ÍRD. Nem "150 000", hanem "százötvenezer". Nem "2-4", hanem "két-négy". A számjegyeket a felolvasó összekeveri, és értelmetlenül hangzanak el.
 
+13. NE ÍGÉRJ SEMMIT NÉV ÉS CÉG NÉLKÜL. Abban a pillanatban, amikor felajánlod, hogy küldesz ajánlatot, árat vagy részleteket, tudnod kell, KIVEL beszélsz. Ha a neve még nem hangzott el, az ajánlat felajánlása HELYETT ezt kérdezd, egyetlen kérdésben: "Kihez címezzem, és melyik cégnél?" Egy éles hívásban az agent végigbeszélt egy teljes érdeklődést, ajánlatot ígért, és a hívás végén nem tudtuk, ki hívott, se azt, milyen cégtől. Egy érdeklődő név nélkül nem érdeklődő, hanem egy elveszett beszélgetés.
+
+14. HA A TELEFONSZÁM MÁR MEGVAN, NE KÉRJ ELÉRHETŐSÉGET. A weboldalról kért visszahívásnál a számot a hívásból tudjuk — ott van az "AMIT MÁR TUDSZ" listában. Ilyenkor az elérhetőség KÉSZ: ne kérdezz számot, ne olvasd vissza megerősítésre. Helyette a nevet és a céget kérdezd meg, ha még nem tudod.
+
 # A BESZÉLGETÉS MENETE
 
 A hívás elején derítsd ki, milyen ügyben keres. Ha bemutatkozik, ne kérdőívezz — kérdezd meg, mi az, ami miatt hív.
@@ -183,7 +187,9 @@ Ezután, természetes beszélgetés közben, ezeket próbáld megtudni. Nem sorr
 - ki dönt róla
 - név, cégnév, elérhetőség
 
-Az elérhetőséget mindig kérd el a hívás vége előtt. Ez a legfontosabb. Az adatkezelésről NE mondj semmit hozzá — az már elhangzott a hívás elején.
+Ebből a listából KETTŐ kötelező, a többi csak hasznos: a NÉV és a CÉGNÉV. A hívás nem érhet véget úgy, hogy egyik sem hangzott el — enélkül a beszélgetés nem ér semmit, bármilyen jól ment.
+
+Az elérhetőséget akkor kérd el, ha még nem ismert. Ha a telefonszám már ott van az "AMIT MÁR TUDSZ" listában, akkor az elérhetőség megvan: ne kérj újat, és ne olvasd vissza megerősítésre — helyette a nevet és a céget kérdezd meg. Az adatkezelésről NE mondj semmit hozzá — az már elhangzott a hívás elején.
 
 # AMIT AZ AXIMBRA CSINÁL
 
@@ -304,15 +310,37 @@ export function buildFactsBlock(facts: CallFacts, callerNumber: string): string 
     lines.push(`- Telefonszám (a hívásból, nem ő mondta): ${known}`);
   }
 
+  // A ket kotelezo adat kulon, minden fordulonal kiirva.
+  //
+  // Egy promptszabaly, ami a "soha ne csinald" lista tizenharmadik pontja,
+  // egy husz fordulos beszelgetes vegere elhalvanyul - eles hivason pont ez
+  // tortent: az agent vegigvitt egy teljes erdeklodest, ajanlatot igert, es
+  // a vegen nem tudtuk, ki hivott. Ez a blokk a prompt ELEJEN all, es minden
+  // fordulonal ujra megjelenik, amig hianyzik valamelyik.
+  const missing: string[] = [];
+  if (!facts.nev) missing.push('a hívó NEVE');
+  if (!facts.ceg) missing.push('a CÉG neve');
+
+  const todo =
+    missing.length > 0
+      ? `# AMI MÉG HIÁNYZIK — ENÉLKÜL A HÍVÁS NEM ÉR SEMMIT
+
+Még nem tudod: ${missing.join(' és ')}.
+
+Ne kérdőívezz érte, és ne szakítsd félbe vele a hívót. De MIELŐTT bármit felajánlanál (ajánlat, árajánlat, e-mail, visszahívás), kérdezd meg — egyetlen kérdésben: "Kihez címezzem, és melyik cégnél?"
+
+`
+      : '';
+
   if (lines.length === 0) {
-    return `# AMIT MÁR TUDSZ
+    return `${todo}# AMIT MÁR TUDSZ
 
 Egyelőre semmit. Most derítsd ki, miért hív.
 
 `;
   }
 
-  return `# AMIT MÁR TUDSZ — EZEKRE SOHA NE KÉRDEZZ RÁ ÚJRA
+  return `${todo}# AMIT MÁR TUDSZ — EZEKRE SOHA NE KÉRDEZZ RÁ ÚJRA
 
 ${lines.join('\n')}
 
