@@ -20,13 +20,32 @@ export const Intro = ({ skip }) => {
   const [gone, setGone] = useState(false);
 
   useEffect(() => {
-    if (suppressed) return;
+    if (suppressed) return undefined;
     document.body.classList.add("lock");
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const delay = reduce ? 200 : 2600;
     const t1 = setTimeout(() => setHide(true), delay);
     const t2 = setTimeout(() => { setGone(true); document.body.classList.remove("lock"); }, delay + 850);
-    return () => { clearTimeout(t1); clearTimeout(t2); document.body.classList.remove("lock"); };
+
+    // Aki dolgozni jott, ne varjon ra.
+    //
+    // Az animacio 2,6 masodpercig takarja a fejlecet, es addig a lap sem
+    // gorgetheto. Aki a talalati listarol erkezik es rogton a KAPCSOLAT
+    // gombra menne, halott kattintast kap - meresen pontosan ennyi ideig.
+    // A marka-pillanat marad mindenki masnak; ez csak kiutat ad belole.
+    const skipNow = () => { setHide(true); setTimeout(() => { setGone(true); document.body.classList.remove("lock"); }, 300); };
+    window.addEventListener("pointerdown", skipNow, { once: true });
+    window.addEventListener("keydown", skipNow, { once: true });
+    window.addEventListener("wheel", skipNow, { once: true, passive: true });
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      window.removeEventListener("pointerdown", skipNow);
+      window.removeEventListener("keydown", skipNow);
+      window.removeEventListener("wheel", skipNow);
+      document.body.classList.remove("lock");
+    };
   }, [suppressed]);
 
   if (suppressed || gone) return null;

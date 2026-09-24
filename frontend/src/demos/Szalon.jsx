@@ -23,6 +23,18 @@ export default function Szalon() {
   useEffect(() => { window.scrollTo(0, 0); }, []);
   const mailto = `mailto:${d.email}?subject=${encodeURIComponent(d.cta + " — " + d.brand)}`;
 
+  // Escape zarja a nagykepet.
+  //
+  // Eddig csak a hatter es az X gomb zarta. Egy `aria-modal` panel, ami
+  // figyelmen kivul hagyja az Escape-et, csapdanak erzodik: ez az elso,
+  // amihez a latogato nyul, es billentyuzettel ez az EGYETLEN kiut.
+  useEffect(() => {
+    if (!lb) return undefined;
+    const onKey = (e) => { if (e.key === "Escape") setLb(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lb]);
+
   return (
     <div className="sln-page demo-page" data-testid="demo-szalon">
       <DemoBar prefix="sln" />
