@@ -12,7 +12,7 @@
  * probaidoszakunk"), aminek semmi alapja nem volt.
  */
 
-import type { CallFacts } from './llm.js';
+import type { CallFacts, Turn } from './llm.js';
 import type { Lang } from './routing.js';
 
 /**
@@ -226,39 +226,33 @@ Minden kimenetet ember hagy jóvá. Nem azért, mert a modell rossz, hanem mert 
 
 A telefonos agent magyarul és angolul beszél. Az első agent jellemzően két-négy hét.
 
-## Árak és határidők — SZÓ SZERINT EZEKET MONDD
+## Árak és határidők
 
-Az összegek készen, kimondott alakban állnak itt. Ne számold át, ne kerekíts, ne fogalmazd át: idézd őket úgy, ahogy le vannak írva.
+Minden sorban ELŐL a szám (ez a gondolkodáshoz kell: összehasonlításhoz, sorba rendezéshez), utána idézőjelben a KIMONDOTT alak. Amikor árat mondasz, az idézőjeles alakot idézd szó szerint. Számjegyet SOHA ne olvass fel.
 
-E-mail rendező: "százötvenezer és négyszázezer forint között", "két-négy hét". Beolvassa a leveleket, kategóriákba rendezi, sürgősséget értékel, megmondja ki illetékes. Élőben kipróbálható a weboldalon.
+Olcsótól a legdrágábbig, ez a sorrend:
 
-Érdeklődő-minősítő: "négyszázezer és egymillió-kétszázezer forint között", "három-öt hét". Átnézi a beérkező megkereséseket, pontozza őket, megmondja mi a teendő. Ez is élő a weboldalon.
+1. E-mail rendező — 150 000–400 000 Ft — "százötvenezer és négyszázezer forint között", 2–4 hét "két-négy hét". Beolvassa a leveleket, kategóriákba rendezi, sürgősséget értékel, megmondja ki illetékes. Élőben kipróbálható a weboldalon.
+2. Belső adminisztrációs agent — 150 000–400 000 Ft — "százötvenezer és négyszázezer forint között", 2–4 hét "két-négy hét". Adatot mozgat rendszerek között, riportot készít, űrlapot tölt.
+3. Kutatás-monitor — 150 000–400 000 Ft — "százötvenezer és négyszázezer forint között", 2–4 hét "két-négy hét". Versenytársat, jogszabályt, piacot figyel, és csak akkor szól, ha tényleg történt valami.
+4. Érdeklődő-minősítő — 400 000–1 200 000 Ft — "négyszázezer és egymillió-kétszázezer forint között", 3–5 hét "három-öt hét". Átnézi a beérkező megkereséseket, pontozza őket, megmondja mi a teendő. Ez is élő a weboldalon.
+5. Tartalom-agent — 400 000–1 200 000 Ft — "négyszázezer és egymillió-kétszázezer forint között", 2–3 hét "két-három hét". Egy hangnemre tanítva: hírlevél, termékszöveg, közösségi poszt.
+6. Webshop-asszisztens — 600 000–1 500 000 Ft — "hatszázezer és másfél millió forint között", 3–5 hét "három-öt hét". Terméket ajánl, készletet néz, rendelést követ.
+7. IT-üzemeltetési agent — 600 000–2 000 000 Ft — "hatszázezer és kétmillió forint között", 3–6 hét "három-hat hét". Logot figyel, riasztást osztályoz, ismert hibát elhárít.
+8. Ügyfélszolgálati agent — 1 500 000–4 000 000 Ft — "másfél millió és négymillió forint között", 6–10 hét "hat-tíz hét". A cég saját dokumentumaiból válaszol, forrásmegjelöléssel. Amit nem tud, továbbadja embernek.
+9. Toborzó agent — 1 700 000–3 900 000 Ft — "egymillió-hétszázezer és hárommillió-kilencszázezer forint között", 3–4 hét "három-négy hét, plusz a jogi átfutás". Önéletrajzot előszűr, audit-naplóval és emberi felülbírálással, az EU AI Act miatt.
+10. Dokumentum-elemző — 2 000 000–4 000 000 Ft — "kétmillió és négymillió forint között", 6–8 hét "hat-nyolc hét". Szerződést, számlát, ajánlatot olvas, és kiszedi belőle a lényeges mezőket.
+11. Pénzügyi asszisztens — 2 000 000–4 000 000 Ft — "kétmillió és négymillió forint között", 6–8 hét "hat-nyolc hét". Költséget kategorizál, eltérést jelez, riportot készít.
+12. Több-agentes rendszer — 6 000 000–15 000 000 Ft — "hatmillió és tizenötmillió forint között", 10–16 hét "tíz-tizenhat hét". Csak akkor éri meg, ha a folyamat tényleg összetett.
 
-Belső adminisztrációs agent: "százötvenezer és négyszázezer forint között", "két-négy hét". Adatot mozgat rendszerek között, riportot készít, űrlapot tölt.
-
-Kutatás-monitor: "százötvenezer és négyszázezer forint között", "két-négy hét". Versenytársat, jogszabályt, piacot figyel, és csak akkor szól, ha tényleg történt valami.
-
-Ügyfélszolgálati agent: "másfél millió és négymillió forint között", "hat-tíz hét". A cég saját dokumentumaiból válaszol, forrásmegjelöléssel. Amit nem tud, továbbadja embernek.
-
-Tartalom-agent: "négyszázezer és egymillió-kétszázezer forint között", "két-három hét". Egy hangnemre tanítva: hírlevél, termékszöveg, közösségi poszt.
-
-Webshop-asszisztens: "hatszázezer és másfél millió forint között", "három-öt hét". Terméket ajánl, készletet néz, rendelést követ.
-
-Dokumentum-elemző: "kétmillió és négymillió forint között", "hat-nyolc hét". Szerződést, számlát, ajánlatot olvas, és kiszedi belőle a lényeges mezőket.
-
-Pénzügyi asszisztens: "kétmillió és négymillió forint között", "hat-nyolc hét". Költséget kategorizál, eltérést jelez, riportot készít.
-
-Toborzó agent: "egymillió-hétszázezer és hárommillió-kilencszázezer forint között", "három-négy hét, plusz a jogi átfutás". Önéletrajzot előszűr, audit-naplóval és emberi felülbírálással, az EU AI Act miatt.
-
-IT-üzemeltetési agent: "hatszázezer és kétmillió forint között", "három-hat hét". Logot figyel, riasztást osztályoz, ismert hibát elhárít.
-
-Több-agentes rendszer: "hatmillió és tizenötmillió forint között", "tíz-tizenhat hét". Csak akkor éri meg, ha a folyamat tényleg összetett.
+A LEGOLCSÓBB az e-mail rendező, a belső adminisztrációs agent és a kutatás-monitor, mind "százötvenezer forinttól".
+A LEGDRÁGÁBB a több-agentes rendszer, "hatmillió és tizenötmillió forint között". Ha valaki a legdrágábbat kérdezi, EZ a válasz — nem az ügyfélszolgálati agent.
 
 ## Weboldal-készítés
 
-Egyoldalas bemutatkozó: "százhúszezer forint", "három-öt nap".
-Többoldalas céges: "kétszázkilencvenezer forint", "egy-két hét".
-Egyedi vagy AI-integrált: "kilencszázezer forinttól".
+Egyoldalas bemutatkozó — 120 000 Ft — "százhúszezer forint", 3–5 nap "három-öt nap".
+Többoldalas céges — 290 000 Ft — "kétszázkilencvenezer forint", 1–2 hét "egy-két hét".
+Egyedi vagy AI-integrált — 900 000 Ft-tól — "kilencszázezer forinttól".
 Az árak nettók, tárhely és domain nélkül.
 
 ## Elérhetőség
@@ -323,7 +317,15 @@ const FACT_LABELS: Array<[keyof CallFacts, string]> = [
  * atsiklik felette. Ez a blokk valtozik fordulonkent - a prompt tobbi
  * resze nem.
  */
-export function buildFactsBlock(facts: CallFacts, callerNumber: string): string {
+/**
+ * @param history  A beszelgetes eddigi menete. Ettol fugg, hogy a hianyzo
+ *                 nev/ceg blokkja egyaltalan megjelenik-e.
+ */
+export function buildFactsBlock(
+  facts: CallFacts,
+  callerNumber: string,
+  history: readonly Turn[] = [],
+): string {
   const lines: string[] = [];
 
   for (const [key, label] of FACT_LABELS) {
@@ -348,16 +350,33 @@ export function buildFactsBlock(facts: CallFacts, callerNumber: string): string 
   if (!facts.nev) missing.push('a hívó NEVE');
   if (!facts.ceg) missing.push('a CÉG neve');
 
-  const todo =
-    missing.length > 0
-      ? `# AMI MÉG HIÁNYZIK — ENÉLKÜL A HÍVÁS NEM ÉR SEMMIT
+  // Ket kapu all a hianylista elott. Mindketto egy eles hiba miatt van itt.
+  //
+  // 1. Az elso fordulokban NEM jelenik meg. Enelkul az agent a hivo legelso
+  //    mondataba vagott bele a nevkerdessel - meg mielott a kerdes elhangzott
+  //    volna. Egy 55 masodperces hivas lett belole, D minositessel, es a nev
+  //    igy sem hangzott el: a hivo letette.
+  // 2. Ha az elmult ket fordulo valamelyikeben MAR megkerdeztuk, elnemul.
+  //    Ugyanabban a hivasban ketszer hangzott el a "Kihez cimezzem" - ez nem
+  //    kitartas, hanem sukesseg.
+  const callerTurns = history.filter((t) => t.role === 'user').length;
+  const lastSaid = history
+    .filter((t) => t.role === 'assistant')
+    .slice(-2)
+    .map((t) => t.content)
+    .join(' ');
+  const askedRecently = /kihez címezzem|melyik cégnél|hogy hívják|mi a neve/i.test(lastSaid);
+  const showTodo = missing.length > 0 && callerTurns >= 2 && !askedRecently;
+
+  const todo = showTodo
+    ? `# AMI MÉG HIÁNYZIK
 
 Még nem tudod: ${missing.join(' és ')}.
 
-Ne kérdőívezz érte, és ne szakítsd félbe vele a hívót. De MIELŐTT bármit felajánlanál (ajánlat, árajánlat, e-mail, visszahívás), kérdezd meg — egyetlen kérdésben: "Kihez címezzem, és melyik cégnél?"
+Ezt NE most kérdezd meg, és SOHA ne vágj vele a hívó szavába. Előbb válaszolj arra, amit kérdezett. A név akkor jön, amikor felajánlasz valamit — "Kihez címezzem, és melyik cégnél?" —, és akkor is csak EGYSZER. Ha már kérdezted és nem felelt rá, ne kérdezd újra.
 
 `
-      : '';
+    : '';
 
   // Ha a szam megvan, de ervenyes e-mail cim nincs, az SMS a biztosabb ut.
   //
@@ -397,10 +416,11 @@ export function buildSystemPrompt(
   facts?: CallFacts,
   callerNumber = '',
   lang: Lang = 'hu',
+  history: readonly Turn[] = [],
 ): string {
   const head =
     (lang === 'en' ? ENGLISH_CALL_BLOCK : '') +
-    (facts ? buildFactsBlock(facts, callerNumber) : '');
+    (facts ? buildFactsBlock(facts, callerNumber, history) : '');
   const base = head + SYSTEM_PROMPT_BASE;
   if (projects <= 0) return base;
   return (

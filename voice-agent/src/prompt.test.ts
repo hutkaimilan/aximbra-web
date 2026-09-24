@@ -8,11 +8,17 @@ function facts(over: Partial<CallFacts> = {}): CallFacts {
   return { ...emptyFacts(), ...over };
 }
 
-test('amig nincs nev es ceg, minden fordulo elejen ott all, hogy hianyzik', () => {
+const turns = (n: number) =>
+  Array.from({ length: n }, (_, i) => ({
+    role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+    content: i % 2 === 0 ? 'kerdes' : 'valasz',
+  }));
+
+test('nehany fordulo utan ott all, hogy a nev es a ceg hianyzik', () => {
   // Eles hivas, 2026-09-23: az agent vegigvitt egy teljes erdeklodest,
   // ajanlatot igert, es a hivas vegen nem tudtuk, ki hivott. A szabaly
   // ott volt a promptban, csak husz fordulo utan elhalvanyult.
-  const block = buildFactsBlock(facts(), '+36301300242');
+  const block = buildFactsBlock(facts(), '+36301300242', turns(6));
   assert.match(block, /AMI MÉG HIÁNYZIK/);
   assert.match(block, /NEVE/);
   assert.match(block, /CÉG/);
@@ -25,17 +31,17 @@ test('amig nincs nev es ceg, minden fordulo elejen ott all, hogy hianyzik', () =
 });
 
 test('ha mindketto megvan, a hianylista eltunik', () => {
-  const block = buildFactsBlock(facts({ nev: 'Kovács Péter', ceg: 'Pelda Kft.' }), '');
+  const block = buildFactsBlock(facts({ nev: 'Kovács Péter', ceg: 'Pelda Kft.' }), '', turns(6));
   assert.doesNotMatch(block, /AMI MÉG HIÁNYZIK/);
 });
 
 test('kulon jelzi, ha csak az egyik hianyzik', () => {
-  const csakNev = buildFactsBlock(facts({ nev: 'Kovács Péter' }), '');
+  const csakNev = buildFactsBlock(facts({ nev: 'Kovács Péter' }), '', turns(6));
   assert.match(csakNev, /AMI MÉG HIÁNYZIK/);
   assert.match(csakNev, /CÉG/);
   assert.doesNotMatch(csakNev, /a hívó NEVE/);
 
-  const csakCeg = buildFactsBlock(facts({ ceg: 'Pelda Kft.' }), '');
+  const csakCeg = buildFactsBlock(facts({ ceg: 'Pelda Kft.' }), '', turns(6));
   assert.match(csakCeg, /a hívó NEVE/);
 });
 
@@ -97,7 +103,7 @@ test('a felismeres altal osszetort cim nem valik ismert tennye', () => {
 });
 
 test('ha a szam megvan es ervenyes cim nincs, az SMS-utat ajanlja', () => {
-  const block = buildFactsBlock(facts({ nev: 'K P', ceg: 'K Kft.' }), '+36301300242');
+  const block = buildFactsBlock(facts({ nev: 'K P', ceg: 'K Kft.' }), '+36301300242', turns(6));
   assert.match(block, /HA KÜLDENED KELL VALAMIT/);
   assert.match(block, /SMS/);
 });
@@ -106,37 +112,31 @@ test('ervenyes cim mellett nem eroltetjuk az SMS-t', () => {
   const block = buildFactsBlock(
     facts({ nev: 'K P', ceg: 'K Kft.', email: 'k@pelda.hu' }),
     '+36301300242',
+    turns(6),
   );
   assert.doesNotMatch(block, /HA KÜLDENED KELL VALAMIT/);
 });
 
 test('szam nelkul nincs mit SMS-ben kuldeni', () => {
-  const block = buildFactsBlock(facts({ nev: 'K P', ceg: 'K Kft.' }), '<ismeretlen>');
+  const block = buildFactsBlock(facts({ nev: 'K P', ceg: 'K Kft.' }), '<ismeretlen>', turns(6));
   assert.doesNotMatch(block, /HA KÜLDENED KELL VALAMIT/);
 });
 
-test('az arlistaban nincs szamjegy, amit a modellnek at kellene valtania', () => {
-  // Eles teszthivas, 2026-09-24: az arlista "150–400 ezer forint" alakban
-  // allt, egy masik szabaly meg azt mondta, betuvel kell kimondani. A
-  // modellnek menet kozben kellett atvaltania, es a "szazotvenezer"-bol
-  // "szaztizenotezer" lett - egy ar, ami sehol nem letezik. Az atvaltasi
-  // lepes azota nincs: az osszegek keszen, kimondott alakban allnak.
+test('minden arnak van kimondott alakja, hogy ne kelljen atvaltania', () => {
+  // Eles teszthivas, 2026-09-24: az arlista csak szamjeggyel allt, egy masik
+  // szabaly meg azt mondta, betuvel kell kimondani. A modellnek menet kozben
+  // kellett atvaltania, es a "szazotvenezer"-bol "szaztizenotezer" lett - egy
+  // ar, ami sehol nem letezik. Azota mindket alak ott all: a szam a
+  // gondolkodashoz, az idezojeles alak a kimondashoz.
   const prompt = buildSystemPrompt(0, facts(), '');
-  const from = prompt.indexOf('## Árak és határidők');
-  const to = prompt.indexOf('## Elérhetőség');
-  assert.ok(from > -1 && to > from, 'megvan az arlista');
-
-  const prices = prompt.slice(from, to);
-  const digits = prices.match(/\d/g);
-  assert.equal(
-    digits,
-    null,
-    `az arlistaban szamjegy maradt (${digits?.join('')}) - a modellnek nem szabad atvaltania`,
+  const prices = prompt.slice(
+    prompt.indexOf('## Árak és határidők'),
+    prompt.indexOf('## Elérhetőség'),
   );
-
-  // A ket vegpont-ar szo szerint legyen bent.
-  assert.match(prices, /százötvenezer és négyszázezer forint között/);
-  assert.match(prices, /hatmillió és tizenötmillió forint között/);
+  assert.match(prices, /"százötvenezer és négyszázezer forint között"/);
+  assert.match(prices, /"hatmillió és tizenötmillió forint között"/);
+  assert.match(prices, /"kétszázkilencvenezer forint"/);
+  assert.match(prices, /Számjegyet SOHA ne olvass fel/);
 });
 
 test('a telefonszamot nem olvassa vissza szamjegyenkent', () => {
@@ -197,4 +197,69 @@ test('a prompt nem tartalmaz nem letezo arat peldakent', () => {
   // arral, amit kerulni akartunk. A modell minden fordulonal elolvassa.
   const prompt = buildSystemPrompt(0, facts(), '');
   assert.doesNotMatch(prompt, /sztizenotezer|száztizenötezer/i);
+});
+
+/* ------------------------------------------------------------------ */
+/* A nevkerdes idozitese                                               */
+/* ------------------------------------------------------------------ */
+
+test('az elso fordulokban nem surgeti a nevet', () => {
+  // Eles hivas, 2026-09-24, 20:10: az agent a hivo LEGELSO mondataba vagott
+  // bele ("Azt szeretnem megkerdezni, hogy az oldalon lathato...") azzal,
+  // hogy "Elnezest, meg tudna mondani, kihez cimezzem". 55 masodperc, D
+  // minosites, es a nev igy sem hangzott el - a hivo letette.
+  // turns(1) = egy hivoi mondat, turns(2) = hivo + agent: itt meg csendben marad.
+  assert.doesNotMatch(buildFactsBlock(facts(), '', turns(1)), /AMI MÉG HIÁNYZIK/);
+  assert.doesNotMatch(buildFactsBlock(facts(), '', turns(2)), /AMI MÉG HIÁNYZIK/);
+  // turns(3)-tol a hivo mar masodszor beszelt: innentol helyenvalo.
+  assert.match(buildFactsBlock(facts(), '', turns(3)), /AMI MÉG HIÁNYZIK/);
+});
+
+test('nem kerdezi meg ketszer egymas utan', () => {
+  // Ugyanabban az 55 masodperces hivasban ketszer hangzott el.
+  const asked = [
+    ...turns(4),
+    { role: 'assistant' as const, content: 'Rendben. Kihez címezzem, és melyik cégnél?' },
+    { role: 'user' as const, content: 'es mennyibe kerul?' },
+  ];
+  assert.doesNotMatch(buildFactsBlock(facts(), '', asked), /AMI MÉG HIÁNYZIK/);
+});
+
+test('ket fordulo utan ujra felhozhatja', () => {
+  const asked = [
+    { role: 'assistant' as const, content: 'Kihez címezzem, és melyik cégnél?' },
+    ...turns(6),
+  ];
+  assert.match(buildFactsBlock(facts(), '', asked), /AMI MÉG HIÁNYZIK/);
+});
+
+/* ------------------------------------------------------------------ */
+/* Arak: osszehasonlithatosag                                          */
+/* ------------------------------------------------------------------ */
+
+test('a legdragabb agent a tobb-agentes rendszer', () => {
+  // Eles hivas, 2026-09-24, 20:10: a kerdesre ("a legdragabb agent milyen
+  // arkategoriaban mozog?") az agent az ugyfelszolgalati agentet mondta
+  // (masfel-negymillio) a tobb-agentes rendszer helyett (hat-tizenotmillio).
+  // Az ok: az arlistabol kivettem minden szamjegyet, es ezzel elvettem azt
+  // is, amivel a modell sorba tudta volna rendezni oket.
+  const prompt = buildSystemPrompt(0, facts(), '');
+  assert.match(prompt, /A LEGDRÁGÁBB a több-agentes rendszer/);
+  assert.match(prompt, /nem az ügyfélszolgálati agent/);
+  // A szam is ott van a gondolkodashoz, a kimondott alak az idezethez.
+  assert.match(prompt, /6 000 000–15 000 000 Ft/);
+  assert.match(prompt, /"hatmillió és tizenötmillió forint között"/);
+});
+
+test('minden ar-sorhoz tartozik kimondott alak', () => {
+  const prompt = buildSystemPrompt(0, facts(), '');
+  const block = prompt.slice(
+    prompt.indexOf('Olcsótól a legdrágábbig'),
+    prompt.indexOf('## Weboldal-készítés'),
+  );
+  const rows = block.split('\n').filter((l) => /^\d+\. /.test(l));
+  assert.equal(rows.length, 12, 'mind a tizenket agent legyen bent');
+  for (const row of rows) {
+    assert.match(row, /Ft — "/, `hianyzik a kimondott alak: ${row.slice(0, 40)}`);
+  }
 });

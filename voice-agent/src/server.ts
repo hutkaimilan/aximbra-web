@@ -859,7 +859,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     try {
       const full = await replyStream(
         s.history,
-        buildSystemPrompt(cfg.currentProjects, s.facts, s.from, s.lang),
+        buildSystemPrompt(cfg.currentProjects, s.facts, s.from, s.lang, s.history),
         (delta) => {
           s.streamed += delta;
           send(delta, false);
