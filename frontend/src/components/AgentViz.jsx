@@ -150,6 +150,27 @@ const SCENES = [
       <circle className="fill-c" r="3" style={{ offsetPath: "path('M34 62 L100 44 L166 26')", animation: "vTravel 2.8s ease-in-out 1.2s infinite" }} />
     </svg>
   ),
+  // 12 — NIS2: egy ellenorzolista, amin sorra pipa kerul, es egy sor pirosan marad
+  (
+    <svg viewBox="0 0 200 88" key="12">
+      {[18, 34, 50, 66].map((y, i) => (
+        <rect key={`r${i}`} className="stroke vz-v" x="52" y={y} width="96" height="10" rx="3" opacity=".35" />
+      ))}
+      {[18, 34, 66].map((y, i) => (
+        <path
+          key={`t${i}`}
+          className="stroke vz-c"
+          d={`M38 ${y + 5} l4 4 l7 -8`}
+          style={{ animation: `vFixIn 2.4s ease-in-out ${i * 0.5}s infinite` }}
+        />
+      ))}
+      {/* A harmadik sor marad nyitva: ez az, amit az agent jelez. */}
+      <g style={{ animation: "vPulse 1.8s ease-in-out infinite" }}>
+        <circle className="stroke vz-a" cx="42" cy="55" r="5" />
+        <path className="stroke vz-a" d="M42 52.5 v3 M42 57.5 v.5" />
+      </g>
+    </svg>
+  ),
 ];
 
 export const AgentViz = ({ kind }) => {

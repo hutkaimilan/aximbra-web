@@ -71,6 +71,7 @@ const fr = {
     { title: "Agent de recrutement", badge: "Démo", desc: "Présélectionne les CV selon des critères structurés. En raison de l'AI Act de l'UE, avec journal d'audit et contrôle humain.", lead: "3–4 semaines + juridique" },
     { title: "Agent d'exploitation IT", badge: "Démo", desc: "Surveille les logs, classe les alertes, exécute le correctif pour les incidents connus. Ce qu'il ne connaît pas, il vous réveille pour.", lead: "3–6 semaines" },
     { title: "Système multi-agent", badge: "Démo", desc: "Plusieurs agents dans un même processus, avec passations et points de contrôle. Utile seulement si le processus est vraiment complexe.", lead: "10–16 semaines" },
+    { title: "Agent de conformité NIS2", desc: "Collecte et tient à jour ce que l'audit réclame : qui accède à quoi, quand a eu lieu la dernière sauvegarde, où manque la double authentification. Il ne protège pas — il prouve.", lead: "4–8 semaines" },
   ],
   process: {
     tag: "Comment nous travaillons",

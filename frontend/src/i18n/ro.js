@@ -71,6 +71,7 @@ const ro = {
     { title: "Agent de recrutare", badge: "Demo", desc: "Prefiltrează CV-urile după criterii structurate. Din cauza AI Act al UE, include jurnal de audit și control uman.", lead: "3–4 săptămâni + juridic" },
     { title: "Agent de operațiuni IT", badge: "Demo", desc: "Se uită la loguri, clasifică alertele, rulează remedierea pentru erori cunoscute. Ce nu recunoaște, te trezește pentru asta.", lead: "3–6 săptămâni" },
     { title: "Sistem multi-agent", badge: "Demo", desc: "Mai mulți agenți într-un proces, cu predări și puncte de control. Are sens doar dacă procesul e cu adevărat complex.", lead: "10–16 săptămâni" },
+    { title: "Agent de conformitate NIS2", desc: "Colectează și menține la zi ce cere auditul: cine are acces la ce, când a fost ultima copie de siguranță, unde lipsește autentificarea în doi pași. Nu protejează — dovedește.", lead: "4–8 săptămâni" },
   ],
   process: {
     tag: "Cum lucrăm",

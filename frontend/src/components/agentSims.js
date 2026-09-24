@@ -577,6 +577,65 @@ const sims = {
       }
     ],
     picks: []
+  },
+  "12": {
+    total: 46,
+    items: [
+      {
+        t: "Rendszergazdai jog — távozott kolléga",
+        s: "Hozzáférés-kezelés",
+        cat: "m"
+      },
+      {
+        t: "Mentés utoljára 41 napja futott le",
+        s: "Adatmentés",
+        cat: "m"
+      },
+      {
+        t: "Kétlépcsős belépés nélkül: 7 fiók",
+        s: "Azonosítás",
+        cat: "m"
+      },
+      {
+        t: "Incidenskezelési terv — nincs dátumozva",
+        s: "Dokumentáció",
+        cat: "c"
+      },
+      {
+        t: "Beszállítói szerződés biztonsági melléklet nélkül",
+        s: "Ellátási lánc",
+        cat: "c"
+      },
+      {
+        t: "Jelszóházirend rögzítve",
+        s: "Azonosítás",
+        cat: "dim"
+      },
+      {
+        t: "Vírusvédelem minden gépen aktív",
+        s: "Végpontvédelem",
+        cat: "dim"
+      },
+      {
+        t: "Tűzfalszabályok dokumentálva",
+        s: "Hálózat",
+        cat: "dim"
+      }
+    ],
+    picks: [
+      {
+        t: "Rendszergazdai jog távozott kollégánál",
+        cat: "m"
+      },
+      {
+        t: "Mentés 41 napja nem futott",
+        cat: "m"
+      },
+      {
+        t: "7 fiók kétlépcsős belépés nélkül",
+        cat: "m"
+      }
+    ]
   }
 };
 

@@ -73,6 +73,7 @@ const hu = {
     { title: "Toborzási agent", badge: "Bemutató", live: false, desc: "Önéletrajzot előszűr strukturált szempontok szerint. Az EU AI Act miatt audit-napló és emberi felülbírálat is benne van.", price: "1700000-3900000", lead: "3–4 hét + jogi" },
     { title: "IT-üzemeltető agent", badge: "Bemutató", live: false, desc: "Logot néz, riasztást osztályoz, ismert hibára lefuttatja a javítást. Amit nem ismer, azzal felébreszt téged.", price: "600000-2000000", lead: "3–6 hét" },
     { title: "Multi-agent rendszer", badge: "Bemutató", live: false, desc: "Több agent egy folyamaton, átadásokkal és ellenőrzési pontokkal. Akkor van értelme, ha a folyamat tényleg összetett.", price: "6000000-15000000", lead: "10–16 hét" },
+    { title: "NIS2-megfelelési agent", badge: "Bemutató", live: false, desc: "Folyamatosan gyűjti és karbantartja azt, amit az audit kér: ki fér hozzá mihez, mikor volt mentés, hol hiányzik a kétlépcsős belépés. Nem véd — bizonyít.", price: "600000-2000000", lead: "4–8 hét" },
   ],
   proof: {
     tag: "Mielőtt bármit elhiszel",

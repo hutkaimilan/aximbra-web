@@ -59,6 +59,9 @@ const sims = {
                   "09:00:14 — Független ellenőr: HIBA, rossz ÁFA-kulcs, visszaküldve",
                   "09:00:17 — Ajánlatíró: ÁFA javítva (27%)", "09:00:19 — Emberi jóváhagyás",
                   "09:00:20 — Kiküldés"] },
+    12: { start: "Havi megfelelési átvizsgálás", beforeLabel: "ellenőrzött követelmény",
+         afterHead: "3 hiányosság, ami auditon elbukna", closing: "43 követelményhez megvan a bizonyíték, dátumozva.",
+         reasons: ["Távozott kollégának él a rendszergazdai joga", "A mentés 41 napja nem futott le — a vállalt határ 7 nap", "Hét fiók lép be kétlépcsős azonosítás nélkül"] },
   },
 
   en: {
@@ -114,6 +117,9 @@ const sims = {
                   "09:00:14 — Independent reviewer: ERROR, wrong VAT rate, sent back",
                   "09:00:17 — Quote writer: VAT corrected (27%)", "09:00:19 — Human approval",
                   "09:00:20 — Sent out"] },
+    12: { start: "Monthly compliance sweep", beforeLabel: "requirement checked",
+         afterHead: "3 gaps that would fail an audit", closing: "43 requirements have dated evidence on file.",
+         reasons: ["A departed colleague still holds admin rights", "The last backup ran 41 days ago — the stated limit is 7", "Seven accounts sign in without two-factor"] },
   },
 
   de: {
@@ -169,6 +175,9 @@ const sims = {
                   "09:00:14 — Unabhängiger Prüfer: FEHLER, falscher MwSt.-Satz, zurückgeschickt",
                   "09:00:17 — Angebotsschreiber: MwSt. korrigiert (27%)", "09:00:19 — Menschliche Freigabe",
                   "09:00:20 — Versand"] },
+    12: { start: "Monatliche Compliance-Prüfung", beforeLabel: "geprüfte Anforderung",
+         afterHead: "3 Lücken, die ein Audit nicht bestehen würden", closing: "Für 43 Anforderungen liegt datierter Nachweis vor.",
+         reasons: ["Ein ausgeschiedener Kollege hat weiterhin Administratorrechte", "Die letzte Sicherung lief vor 41 Tagen — zugesagt sind 7", "Sieben Konten melden sich ohne Zwei-Faktor an"] },
   },
 
   es: {
@@ -224,6 +233,9 @@ const sims = {
                   "09:00:14 — Revisor independiente: ERROR, tipo de IVA incorrecto, devuelto",
                   "09:00:17 — Redactor: IVA corregido (27%)", "09:00:19 — Aprobación humana",
                   "09:00:20 — Envío"] },
+    12: { start: "Revisión mensual de cumplimiento", beforeLabel: "requisito comprobado",
+         afterHead: "3 carencias que no pasarían una auditoría", closing: "43 requisitos tienen evidencia fechada.",
+         reasons: ["Un compañero que ya no está conserva permisos de administrador", "La última copia de seguridad fue hace 41 días — el límite acordado es 7", "Siete cuentas entran sin doble factor"] },
   },
 
   fr: {
@@ -279,6 +291,9 @@ const sims = {
                   "09:00:14 — Relecteur indépendant : ERREUR, mauvais taux de TVA, renvoyé",
                   "09:00:17 — Rédacteur : TVA corrigée (27%)", "09:00:19 — Validation humaine",
                   "09:00:20 — Envoi"] },
+    12: { start: "Revue de conformité mensuelle", beforeLabel: "exigence vérifiée",
+         afterHead: "3 manques qui échoueraient à un audit", closing: "43 exigences disposent d'une preuve datée.",
+         reasons: ["Un collègue parti conserve des droits d'administrateur", "La dernière sauvegarde date de 41 jours — la limite annoncée est de 7", "Sept comptes se connectent sans double authentification"] },
   },
 
   it: {
@@ -334,6 +349,9 @@ const sims = {
                   "09:00:14 — Revisore indipendente: ERRORE, aliquota IVA sbagliata, rimandato indietro",
                   "09:00:17 — Redattore: IVA corretta (27%)", "09:00:19 — Approvazione umana",
                   "09:00:20 — Invio"] },
+    12: { start: "Verifica mensile di conformità", beforeLabel: "requisito controllato",
+         afterHead: "3 lacune che non supererebbero un audit", closing: "43 requisiti hanno una prova datata.",
+         reasons: ["Un collega uscito conserva i diritti di amministratore", "L'ultimo backup risale a 41 giorni fa — il limite dichiarato è 7", "Sette account accedono senza autenticazione a due fattori"] },
   },
 
   ro: {
@@ -389,6 +407,9 @@ const sims = {
                   "09:00:14 — Verificator independent: EROARE, cotă TVA greșită, trimis înapoi",
                   "09:00:17 — Redactor: TVA corectată (27%)", "09:00:19 — Aprobare umană",
                   "09:00:20 — Trimitere"] },
+    12: { start: "Verificare lunară de conformitate", beforeLabel: "cerință verificată",
+         afterHead: "3 lipsuri care ar pica la audit", closing: "43 de cerințe au dovadă datată.",
+         reasons: ["Un coleg plecat are în continuare drepturi de administrator", "Ultima copie de siguranță a rulat acum 41 de zile — limita asumată este 7", "Șapte conturi se autentifică fără doi pași"] },
   },
 
   sk: {
@@ -444,6 +465,9 @@ const sims = {
                   "09:00:14 — Nezávislý kontrolór: CHYBA, zlá sadzba DPH, vrátené",
                   "09:00:17 — Autor ponuky: DPH opravená (27%)", "09:00:19 — Ľudské schválenie",
                   "09:00:20 — Odoslanie"] },
+    12: { start: "Mesačná kontrola súladu", beforeLabel: "overená požiadavka",
+         afterHead: "3 nedostatky, ktoré by neprešli auditom", closing: "K 43 požiadavkám je datovaný dôkaz.",
+         reasons: ["Kolega, ktorý odišiel, má stále práva správcu", "Posledná záloha prebehla pred 41 dňami — dohodnutý limit je 7", "Sedem účtov sa prihlasuje bez dvojfaktorového overenia"] },
   },
 };
 

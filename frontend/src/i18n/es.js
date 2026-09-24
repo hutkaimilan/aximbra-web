@@ -71,6 +71,7 @@ const es = {
     { title: "Agente de selección", badge: "Demo", desc: "Preselecciona currículums con criterios estructurados. Por el Reglamento de IA de la UE incluye registro de auditoría y revisión humana.", lead: "3–4 semanas + legal" },
     { title: "Agente de operaciones TI", badge: "Demo", desc: "Mira logs, clasifica alertas, ejecuta la solución para fallos conocidos. Lo que no reconoce, te despierta para ello.", lead: "3–6 semanas" },
     { title: "Sistema multiagente", badge: "Demo", desc: "Varios agentes en un proceso, con transferencias y puntos de control. Solo vale la pena si el proceso es realmente complejo.", lead: "10–16 semanas" },
+    { title: "Agente de cumplimiento NIS2", desc: "Recoge y mantiene al día lo que pide la auditoría: quién accede a qué, cuándo fue la última copia de seguridad, dónde falta el doble factor. No protege — demuestra.", lead: "4–8 semanas" },
   ],
   process: {
     tag: "Cómo trabajamos",

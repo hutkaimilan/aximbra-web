@@ -11,7 +11,7 @@ import { mailto } from "../contact";
 import { useLang } from "../i18n";
 import { formatPrice } from "../money";
 
-export const SLUGS = ["email-rendezo", "erdeklodo-minosito", "belso-admin", "kutatasi-monitor", "ugyfelszolgalat", "tartalom", "webshop", "dokumentum-elemzo", "penzugyi", "toborzas", "it-uzemelteto", "multi-agent"];
+export const SLUGS = ["email-rendezo", "erdeklodo-minosito", "belso-admin", "kutatasi-monitor", "ugyfelszolgalat", "tartalom", "webshop", "dokumentum-elemzo", "penzugyi", "toborzas", "it-uzemelteto", "multi-agent", "nis2"];
 
 const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote, simText, lang }) => {
   const simData = simFor(kind, simText);

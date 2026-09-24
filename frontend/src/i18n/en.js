@@ -73,6 +73,7 @@ const en = {
     { title: "Recruitment agent", badge: "Demo", live: false, desc: "Pre-screens CVs by structured criteria. Because of the EU AI Act, it includes an audit log and human override.", price: "1700000-3900000", lead: "3–4 weeks + legal" },
     { title: "IT operations agent", badge: "Demo", live: false, desc: "Watches logs, classifies alerts, runs the fix for known issues. What it doesn't recognize, it wakes you for.", price: "600000-2000000", lead: "3–6 weeks" },
     { title: "Multi-agent system", badge: "Demo", live: false, desc: "Several agents in one process, with handoffs and checkpoints. Worth it only when the process is genuinely complex.", price: "6000000-15000000", lead: "10–16 weeks" },
+    { title: "NIS2 compliance agent", badge: "Demo", live: false, desc: "Continuously collects and maintains what the audit asks for: who can reach what, when the last backup ran, where two-factor is missing. It does not protect — it proves.", price: "600000-2000000", lead: "4–8 weeks" },
   ],
   proof: {
     tag: "Before you believe anything",

@@ -71,6 +71,7 @@ const sk = {
     { title: "Náborový agent", badge: "Demo", desc: "Predfiltruje životopisy podľa štruktúrovaných kritérií. Pre AI Act EÚ obsahuje audit log a ľudské prehodnotenie.", lead: "3–4 týždne + právne" },
     { title: "Agent IT prevádzky", badge: "Demo", desc: "Sleduje logy, klasifikuje výstrahy, pri známych chybách spustí opravu. Na to, čo nepozná, ťa zobudí.", lead: "3–6 týždňov" },
     { title: "Multiagentový systém", badge: "Demo", desc: "Viac agentov v jednom procese, s odovzdávaním a kontrolnými bodmi. Má zmysel len ak je proces naozaj zložitý.", lead: "10–16 týždňov" },
+    { title: "Agent súladu s NIS2", desc: "Priebežne zbiera a udržiava to, čo žiada audit: kto má k čomu prístup, kedy prebehla posledná záloha, kde chýba dvojfaktorové prihlásenie. Nechráni — dokazuje.", lead: "4–8 týždňov" },
   ],
   process: {
     tag: "Ako pracujeme",

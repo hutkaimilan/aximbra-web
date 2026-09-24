@@ -71,6 +71,7 @@ const de = {
     { title: "Recruiting-Agent", badge: "Demo", desc: "Sichtet Lebensläufe nach strukturierten Kriterien vor. Wegen des EU AI Act mit Audit-Log und menschlicher Übersteuerung.", lead: "3–4 Wochen + rechtlich" },
     { title: "IT-Betriebs-Agent", badge: "Demo", desc: "Überwacht Logs, klassifiziert Alarme, führt bei bekannten Fehlern die Behebung aus. Was er nicht kennt, dafür weckt er dich.", lead: "3–6 Wochen" },
     { title: "Multi-Agent-System", badge: "Demo", desc: "Mehrere Agenten in einem Prozess, mit Übergaben und Kontrollpunkten. Sinnvoll nur, wenn der Prozess wirklich komplex ist.", lead: "10–16 Wochen" },
+    { title: "NIS2-Compliance-Agent", desc: "Sammelt und pflegt laufend, was das Audit verlangt: wer worauf zugreifen kann, wann zuletzt gesichert wurde, wo die Zwei-Faktor-Anmeldung fehlt. Er schützt nicht — er weist nach.", lead: "4–8 Wochen" },
   ],
   process: {
     tag: "Wie wir arbeiten",

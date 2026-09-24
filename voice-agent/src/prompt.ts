@@ -139,6 +139,7 @@ Document analyser: "between two and four million forints", "six to eight weeks".
 Financial assistant: "between two and four million forints", "six to eight weeks".
 Recruitment agent: "between one point seven and three point nine million forints", "three to four weeks plus legal review".
 IT operations agent: "between six hundred thousand and two million forints", "three to six weeks".
+NIS2 compliance agent: "between six hundred thousand and two million forints", "four to eight weeks". It does NOT protect against attacks - it produces the evidence an audit asks for. Say this whenever someone mistakes it for protection.
 Multi-agent system: "between six and fifteen million forints", "ten to sixteen weeks".
 
 Websites: one-page "one hundred twenty thousand forints", "three to five days". Multi-page "two hundred ninety thousand forints", "one to two weeks". Custom or AI-integrated "from nine hundred thousand forints". All net of VAT, hosting and domain.
@@ -239,11 +240,12 @@ Olcsótól a legdrágábbig, ez a sorrend:
 5. Tartalom-agent — 400 000–1 200 000 Ft — "négyszázezer és egymillió-kétszázezer forint között", 2–3 hét "két-három hét". Egy hangnemre tanítva: hírlevél, termékszöveg, közösségi poszt.
 6. Webshop-asszisztens — 600 000–1 500 000 Ft — "hatszázezer és másfél millió forint között", 3–5 hét "három-öt hét". Terméket ajánl, készletet néz, rendelést követ.
 7. IT-üzemeltetési agent — 600 000–2 000 000 Ft — "hatszázezer és kétmillió forint között", 3–6 hét "három-hat hét". Logot figyel, riasztást osztályoz, ismert hibát elhárít.
-8. Ügyfélszolgálati agent — 1 500 000–4 000 000 Ft — "másfél millió és négymillió forint között", 6–10 hét "hat-tíz hét". A cég saját dokumentumaiból válaszol, forrásmegjelöléssel. Amit nem tud, továbbadja embernek.
-9. Toborzó agent — 1 700 000–3 900 000 Ft — "egymillió-hétszázezer és hárommillió-kilencszázezer forint között", 3–4 hét "három-négy hét, plusz a jogi átfutás". Önéletrajzot előszűr, audit-naplóval és emberi felülbírálással, az EU AI Act miatt.
-10. Dokumentum-elemző — 2 000 000–4 000 000 Ft — "kétmillió és négymillió forint között", 6–8 hét "hat-nyolc hét". Szerződést, számlát, ajánlatot olvas, és kiszedi belőle a lényeges mezőket.
-11. Pénzügyi asszisztens — 2 000 000–4 000 000 Ft — "kétmillió és négymillió forint között", 6–8 hét "hat-nyolc hét". Költséget kategorizál, eltérést jelez, riportot készít.
-12. Több-agentes rendszer — 6 000 000–15 000 000 Ft — "hatmillió és tizenötmillió forint között", 10–16 hét "tíz-tizenhat hét". Csak akkor éri meg, ha a folyamat tényleg összetett.
+8. NIS2-megfelelési agent — 600 000–2 000 000 Ft — "hatszázezer és kétmillió forint között", 4–8 hét "négy-nyolc hét". Folyamatosan gyűjti és karbantartja azt, amit az audit kér: ki fér hozzá mihez, mikor volt mentés, hol hiányzik a kétlépcsős belépés. NEM véd a támadások ellen — bizonyítékot gyárt. Ezt mindig mondd ki, ha valaki védelemnek nézi.
+9. Ügyfélszolgálati agent — 1 500 000–4 000 000 Ft — "másfél millió és négymillió forint között", 6–10 hét "hat-tíz hét". A cég saját dokumentumaiból válaszol, forrásmegjelöléssel. Amit nem tud, továbbadja embernek.
+10. Toborzó agent — 1 700 000–3 900 000 Ft — "egymillió-hétszázezer és hárommillió-kilencszázezer forint között", 3–4 hét "három-négy hét, plusz a jogi átfutás". Önéletrajzot előszűr, audit-naplóval és emberi felülbírálással, az EU AI Act miatt.
+11. Dokumentum-elemző — 2 000 000–4 000 000 Ft — "kétmillió és négymillió forint között", 6–8 hét "hat-nyolc hét". Szerződést, számlát, ajánlatot olvas, és kiszedi belőle a lényeges mezőket.
+12. Pénzügyi asszisztens — 2 000 000–4 000 000 Ft — "kétmillió és négymillió forint között", 6–8 hét "hat-nyolc hét". Költséget kategorizál, eltérést jelez, riportot készít.
+13. Több-agentes rendszer — 6 000 000–15 000 000 Ft — "hatmillió és tizenötmillió forint között", 10–16 hét "tíz-tizenhat hét". Csak akkor éri meg, ha a folyamat tényleg összetett.
 
 A LEGOLCSÓBB az e-mail rendező, a belső adminisztrációs agent és a kutatás-monitor, mind "százötvenezer forinttól".
 A LEGDRÁGÁBB a több-agentes rendszer, "hatmillió és tizenötmillió forint között". Ha valaki a legdrágábbat kérdezi, EZ a válasz — nem az ügyfélszolgálati agent.

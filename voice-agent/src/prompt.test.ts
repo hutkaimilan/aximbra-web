@@ -258,8 +258,19 @@ test('minden ar-sorhoz tartozik kimondott alak', () => {
     prompt.indexOf('## Weboldal-készítés'),
   );
   const rows = block.split('\n').filter((l) => /^\d+\. /.test(l));
-  assert.equal(rows.length, 12, 'mind a tizenket agent legyen bent');
+  assert.equal(rows.length, 13, 'mind a tizenharom agent legyen bent');
   for (const row of rows) {
     assert.match(row, /Ft — "/, `hianyzik a kimondott alak: ${row.slice(0, 40)}`);
   }
+});
+
+test('a NIS2-agent nem vedelemkent van leirva', () => {
+  // Biztonsagi terméknel a tulvallalas kartéritési per: nem vedunk, bizonyitunk.
+  const hu = buildSystemPrompt(0, facts(), '');
+  assert.match(hu, /NIS2-megfelelési agent — 600 000–2 000 000 Ft/);
+  assert.match(hu, /NEM véd a támadások ellen/);
+
+  const en = buildSystemPrompt(0, facts(), '', 'en');
+  assert.match(en, /NIS2 compliance agent/);
+  assert.match(en, /does NOT protect against attacks/);
 });

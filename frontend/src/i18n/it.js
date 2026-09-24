@@ -71,6 +71,7 @@ const it = {
     { title: "Agente di selezione", badge: "Demo", desc: "Prevaglia i CV secondo criteri strutturati. Per l'AI Act UE include log di audit e revisione umana.", lead: "3–4 settimane + legale" },
     { title: "Agente di operations IT", badge: "Demo", desc: "Guarda i log, classifica gli allarmi, esegue la correzione per i problemi noti. Ciò che non riconosce, ti sveglia per quello.", lead: "3–6 settimane" },
     { title: "Sistema multi-agente", badge: "Demo", desc: "Più agenti in un processo, con passaggi e punti di controllo. Ha senso solo se il processo è davvero complesso.", lead: "10–16 settimane" },
+    { title: "Agente di conformità NIS2", desc: "Raccoglie e mantiene aggiornato ciò che l'audit richiede: chi accede a cosa, quando è stato fatto l'ultimo backup, dove manca l'autenticazione a due fattori. Non protegge — dimostra.", lead: "4–8 settimane" },
   ],
   process: {
     tag: "Come lavoriamo",
