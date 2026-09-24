@@ -143,3 +143,58 @@ test('a telefonszamot nem olvassa vissza szamjegyenkent', () => {
   const prompt = buildSystemPrompt(0, facts(), '+36301300242');
   assert.match(prompt, /SOHA NE OLVASD VISSZA SZÁMJEGYENKÉNT/);
 });
+
+/* ------------------------------------------------------------------ */
+/* A prompt sajat helyessege                                           */
+/* ------------------------------------------------------------------ */
+
+test('a szabalyok szamozasa folytonos', () => {
+  // Ket kulonbozo szabaly futott "9."-kent, es a rajuk valo hivatkozas
+  // igy ketertelmu volt.
+  const prompt = buildSystemPrompt(0, facts(), '');
+  const block = prompt.slice(
+    prompt.indexOf('# AMIT SOHA NE CSINÁLJ'),
+    prompt.indexOf('# A BESZÉLGETÉS MENETE'),
+  );
+  const numbers = [...block.matchAll(/^(\d+)\. /gm)].map((m) => Number(m[1]));
+  assert.ok(numbers.length >= 15, 'legyen meg minden szabaly');
+  numbers.forEach((n, i) => {
+    assert.equal(n, i + 1, `a ${i + 1}. helyen "${n}." all - elcsuszott a szamozas`);
+  });
+});
+
+test('nem igerunk olyan nyelvet, amit a vonal nem tud', () => {
+  // A relay csak hu-HU es en-US <Language> elemet kap (server.ts ALL_LANGS).
+  // A spanyolra valtas ervenytelen nyelvre mutatna es BONTANA a hivast -
+  // a prompt megis ezt igerte, es az ugyfelnek is ezt mondta volna.
+  const prompt = buildSystemPrompt(0, facts(), '');
+  assert.doesNotMatch(prompt, /spanyol/i, 'a spanyol nyelv nincs bekotve');
+});
+
+test('az angol hivas sem a sajat cimunket adja a hivonak', () => {
+  // Ugyanaz a hiba, mint a 16. szabalyban - csak az angol blokkban, ahol
+  // kifejezetten utasitas volt ra.
+  const en = buildSystemPrompt(0, facts(), '', 'en');
+  const enBlock = en.slice(0, en.indexOf('# HOGYAN BESZÉLSZ'));
+  assert.doesNotMatch(
+    enBlock,
+    /aximbra at gmail dot com/i,
+    'ne a sajat cimunket mondassuk ki cimkent',
+  );
+});
+
+test('az angol hivasnak is van kimondhato arlistaja', () => {
+  // A magyar arlista kimondott magyar alakra allt at; anelkul egy angol
+  // hivason nem lenne mibol arat mondani.
+  const en = buildSystemPrompt(0, facts(), '', 'en');
+  assert.match(en, /between one hundred fifty thousand and four hundred thousand forints/);
+  assert.match(en, /between six and fifteen million forints/);
+  assert.match(en, /two to four weeks/);
+});
+
+test('a prompt nem tartalmaz nem letezo arat peldakent', () => {
+  // A javitas indoklasa maga is bekerult a promptba, benne azzal a hibas
+  // arral, amit kerulni akartunk. A modell minden fordulonal elolvassa.
+  const prompt = buildSystemPrompt(0, facts(), '');
+  assert.doesNotMatch(prompt, /sztizenotezer|száztizenötezer/i);
+});
