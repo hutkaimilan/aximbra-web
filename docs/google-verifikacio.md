@@ -225,6 +225,39 @@ piros „nem ellenőrzött" képernyő és 100 felhasználós korlát.
 
 ---
 
+## 7. lépés — CASA biztonsági vizsgálat ⏳ DÖNTÉSRE VÁR
+
+**2026-09-25:** megjött a Google levele (Third Party Data Safety Team,
+projekt `aximbra-mail-organizer`, 449228531600). ADA-CASA **AL1** (a régi
+Tier 2) vizsgálat kell, **határidő: 2026. december 23.** A levél szerint a
+vizsgálat 2–6 hét, tehát legkésőbb **november közepén** el kell indítani.
+
+**Amit tudunk róla** (nyilvános beszámolókból, nem árajánlatból):
+
+- A Google által ajánlott labor a **TAC Security**. Az árlistájuk szerint
+  AL1-re **540–1800 USD** a sáv; egy 2026-os beszámoló szerint az alsó
+  csomag **540 USD** volt.
+- Menete: automatikus sebezhetőség-vizsgálat (DAST) az élő alkalmazáson →
+  jelentés → javítás → **54 kérdéses** biztonsági kérdőív → újravizsgálat.
+  Tipikus találatok: CORS-korlát hiánya, kiszolgáló-azonosító a
+  fejlécekben, TLS-beállítás, külső betűtípus.
+- **Évente** meg kell ismételni.
+
+**Mit NEM old meg és mit nem blokkol:**
+
+- A **mintapostafiókos demó** Google-fiók nélkül fut — arra nincs hatással.
+- Amíg nincs meg: piros „nem ellenőrzött" képernyő és 100 felhasználós
+  korlát a saját fiókos bekötésnél. Ez most nem szűk keresztmetszet.
+- Egy **Google Workspace-t használó ügyfélnél** a folyamatos agent az ügyfél
+  saját Google Cloud projektjében, **Internal** alkalmazásként is futhat —
+  ahhoz nem kell sem jóváhagyás, sem CASA. Magán-Gmailes ügyfélnél ez nem
+  járható út.
+
+**A levélre csak akkor kell válaszolni**, ha a vizsgálat kész (vagy ha le
+akarjuk mondani a kérelmet). Most nincs mit válaszolni.
+
+---
+
 <details><summary>Az eredeti leírás (már nem teendő)</summary>
 
 https://console.cloud.google.com/auth/verification → **Prepare for verification**
