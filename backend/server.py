@@ -313,7 +313,7 @@ async def demo_lead(request: Request, body: DemoRequest):
     return await _run_demo(request, body, LEAD_SYS, LeadResult)
 
 
-# Nyolc nyelven fut az oldal, tehát nyolc nyelven kell a kimenet is. A
+# Kilenc nyelven fut az oldal, tehát kilenc nyelven kell a kimenet is. A
 # kategória viszont NEM fordítás kérdése: kulcsot kérünk a modelltől, és a
 # feliratot a felület adja hozzá. Így egy új nyelv nem érinti a kiszolgálót,
 # és az érvényesítés sem egy lefordítható szövegre épül.
@@ -325,6 +325,7 @@ AGENT_CATEGORIES = {
 AGENT_LANG_NAMES = {
     "hu": "magyarul", "en": "in English", "de": "auf Deutsch", "es": "en español",
     "fr": "en français", "it": "in italiano", "ro": "în română", "sk": "po slovensky",
+    "zh": "in Simplified Chinese (简体中文)",
 }
 
 
@@ -423,6 +424,7 @@ AI_NOTICES = {
     "it": "— Bozza generata dall'IA, rileggila prima di inviarla. —",
     "ro": "— Ciornă generată de AI, citește-o înainte de trimitere. —",
     "sk": "— Návrh od AI, pred odoslaním si ho prečítaj. —",
+    "zh": "— AI 草稿，发送前请通读一遍。—",
 }
 AI_NOTICE = AI_NOTICES["hu"]
 

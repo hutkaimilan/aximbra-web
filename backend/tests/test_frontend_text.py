@@ -363,7 +363,7 @@ def test_the_business_is_not_narrowed_to_hungarian_companies():
 # Arak es penznemek
 # ---------------------------------------------------------------------------
 
-LANG_FILES = ("hu", "en", "de", "es", "fr", "it", "ro", "sk")
+LANG_FILES = ("hu", "en", "de", "es", "fr", "it", "ro", "sk", "zh")
 MONEY_JS = FRONTEND / "money.js"
 PRICE_TOKEN = re.compile(r'price: "(\d+(?:-\d+)?\+?)"')
 
@@ -491,6 +491,8 @@ def test_the_placeholder_is_a_local_number_in_every_language():
     expected = {
         "hu": "+36", "en": "+44", "de": "+49", "es": "+34",
         "fr": "+33", "it": "+39", "ro": "+40", "sk": "+421",
+        # +86 nincs a visszahivhato orszagok kozott; a celcsoport itt el.
+        "zh": "+36",
     }
     for code, prefix in expected.items():
         text = _lang_source(code)
@@ -510,7 +512,9 @@ def test_the_callback_form_says_what_happens_to_the_number():
             r"\n    callback: \{(.*?)\n    \},", _lang_source(code), re.S
         )
         privacy = re.search(r'privacy: "([^"]*)"', block.group(1))
-        assert privacy and len(privacy.group(1)) > 30, (
+        # Egy kinai irasjegy nagyjabol egy szo: ugyanaz a mondat ott ~24 jel.
+        minimum = 15 if code == "zh" else 30
+        assert privacy and len(privacy.group(1)) > minimum, (
             f"{code}.js: hianyzik vagy ures az adatkezelesi mondat"
         )
 

@@ -269,6 +269,28 @@ const demos = {
       email: "office@aegis-demo.hu",
     },
   },
+  // Kinaiul csak a kezdolapon lathato resz es a demolapok kerete; maguk a
+  // kitalalt markak oldalai angolul maradnak, mint a tobbi nem magyar nyelven.
+  zh: {
+    back: "← 返回 AXIMBRA",
+    noticeTag: "演示",
+    noticeText: "这是一个展示页面，不是真实的企业。品牌、地址、价格和员工均为虚构；您在这里输入的任何内容都不会被发送或存储。由 AXIMBRA 制作。",
+    labels: { address: "地址", phone: "电话", email: "邮箱", hours: "营业时间", send: "发送", name: "姓名", message: "我们能帮您做什么？", sent: "谢谢！我们会尽快与您联系。", consent: "我知道这是一个演示表单：我输入的内容不会被发送或存储。", sentDemo: "这是一个演示——没有发送任何内容，也没有存储任何内容。在真实网站上，这里会运行 AXIMBRA 的咨询接收代理。", enlarge: "放大", close: "关闭", demo: "演示" },
+    refs: {
+      tag: "参考网站",
+      heading: "四个演示，四种风格",
+      sub: "每个网站都为一个虚构品牌制作，采用不同的视觉语言——让您看到“真实结构、正式运行”对我们意味着什么。",
+      view: "查看 →",
+      copy: "复制链接",
+      copied: "已复制！",
+      cards: [
+        { tag: "餐厅", title: "OLAJFA · 餐厅", desc: "深色、电影感的氛围，搭配温暖的铜色点缀。" },
+        { tag: "美容院", title: "FLÓRA · 美容工作室", desc: "明亮柔和，粉色与深绿。" },
+        { tag: "诊所", title: "MEDINA · 诊所", desc: "干净、可信赖，冷蓝色调，零装饰。" },
+        { tag: "律师事务所", title: "AEGIS · 律师事务所", desc: "午夜蓝与金色，权威感的字体。" },
+      ],
+    },
+  },
 };
 
 export default demos;

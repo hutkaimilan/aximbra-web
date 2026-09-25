@@ -9,7 +9,7 @@ import pathlib
 import re
 
 SRC = pathlib.Path(__file__).resolve().parents[2] / "frontend" / "src" / "i18n"
-LANGS = ["hu", "en", "de", "es", "fr", "it", "ro", "sk"]
+LANGS = ["hu", "en", "de", "es", "fr", "it", "ro", "sk", "zh"]
 
 
 def test_every_language_defines_its_own_hero_phone_note():

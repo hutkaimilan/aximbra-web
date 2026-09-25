@@ -8,16 +8,22 @@ import fr from "./fr";
 import it from "./it";
 import ro from "./ro";
 import sk from "./sk";
+import zh from "./zh";
 import demos from "./demos";
 import agent from "./agent";
 import simText from "./sims";
 
 export const LANGS = [
   ["hu", "Magyar"], ["en", "English"], ["de", "Deutsch"], ["es", "Español"],
-  ["fr", "Français"], ["it", "Italiano"], ["ro", "Română"], ["sk", "Slovenčina"],
+  ["fr", "Français"], ["it", "Italiano"], ["ro", "Română"], ["sk", "Slovenčina"], ["zh", "中文"],
 ];
 
-const RAW = { hu, en, de, es, fr, it, ro, sk };
+const RAW = { hu, en, de, es, fr, it, ro, sk, zh };
+
+/** The URL keeps the two-letter code; the page and hreflang need the script
+ *  too, or a browser may pick Japanese-style glyphs for the Chinese text. */
+const BCP47 = { zh: "zh-Hans" };
+export const bcp47 = (code) => BCP47[code] || code;
 
 const isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
 
@@ -79,7 +85,7 @@ export const LanguageProvider = ({ children }) => {
   // survive a reload, a shared link and a crawler, and only the address can do
   // all three. localStorage is kept as a courtesy for the next bare visit.
   useEffect(() => {
-    document.documentElement.lang = lang;
+    document.documentElement.lang = bcp47(lang);
     try { localStorage.setItem(STORAGE_KEY, lang); } catch (e) {}
   }, [lang]);
 

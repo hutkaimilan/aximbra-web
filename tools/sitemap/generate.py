@@ -15,7 +15,9 @@ import sys
 
 BASE = "https://aximbra.hu"
 DEFAULT_LANG = "hu"
-LANGS = ["hu", "en", "de", "es", "fr", "it", "ro", "sk"]
+LANGS = ["hu", "en", "de", "es", "fr", "it", "ro", "sk", "zh"]
+# Az URL ketbetus kodot hasznal, a hreflang az irasmodot is (i18n/index.js bcp47).
+BCP47 = {"zh": "zh-Hans"}
 OUT = pathlib.Path("frontend/public/sitemap.xml")
 
 # (útvonal, lefordított?, changefreq, priority)
@@ -58,7 +60,7 @@ def build() -> str:
             out.append(f"    <loc>{url_for(lang, path)}</loc>\n")
             if translated:
                 for alt in LANGS:
-                    out.append(f'    <xhtml:link rel="alternate" hreflang="{alt}" href="{url_for(alt, path)}"/>\n')
+                    out.append(f'    <xhtml:link rel="alternate" hreflang="{BCP47.get(alt, alt)}" href="{url_for(alt, path)}"/>\n')
                 out.append(f'    <xhtml:link rel="alternate" hreflang="x-default" href="{url_for(DEFAULT_LANG, path)}"/>\n')
             out.append(f"    <changefreq>{freq}</changefreq><priority>{prio}</priority>\n")
             out.append("  </url>\n")

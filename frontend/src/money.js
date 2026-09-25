@@ -21,6 +21,9 @@ export const RATES = { EUR: 400, RON: 80 };
 export const CURRENCY_BY_LANG = {
   hu: "HUF", en: "EUR", de: "EUR", es: "EUR",
   fr: "EUR", it: "EUR", ro: "RON", sk: "EUR",
+  // Euro, nem juan: a szerzodes forintban kotodik, es a celcsoport a
+  // Magyarorszagon mukodo kinai cegek, akik forintban/euroban gondolkodnak.
+  zh: "EUR",
 };
 
 export const currencyFor = (lang) => CURRENCY_BY_LANG[lang] || "EUR";
@@ -48,11 +51,13 @@ function roundNice(v) {
   return Math.round(v / step) * step;
 }
 
-/** Ezres tagolas. Angolul vesszo, mindenhol mashol szokoz - ez a ket szokas
- *  fedi le mind a nyolc nyelvet. */
+/** Ezres tagolas es a jel helye: angolul es kinaiul vesszo es elol all
+ *  ("€1,000"), mindenhol mashol szokoz es hatul ("1 000 €"). */
+const LEADING_SYMBOL = new Set(["en", "zh"]);
+
 function group(n, lang) {
   const s = String(Math.round(n));
-  const sep = lang === "en" ? "," : " ";
+  const sep = LEADING_SYMBOL.has(lang) ? "," : " ";
   return s.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
 }
 
@@ -77,7 +82,7 @@ function hufRange(from, to) {
 }
 
 function withSymbol(text, currency, lang) {
-  if (currency === "EUR") return lang === "en" ? `€${text}` : `${text} €`;
+  if (currency === "EUR") return LEADING_SYMBOL.has(lang) ? `€${text}` : `${text} €`;
   if (currency === "RON") return `${text} RON`;
   return `${text} Ft`;
 }
@@ -106,7 +111,7 @@ export function formatPrice(token, lang, style = "full") {
   if (p.to == null) return withSymbol(a, currency, lang);
   const b = group(roundNice(p.to / rate), lang);
   // A jelet egyszer tesszuk ki a tartomanyra: "375–1 000 €", nem "375 € – 1 000 €".
-  return lang === "en"
+  return LEADING_SYMBOL.has(lang)
     ? `${withSymbol(a, currency, lang)}–${b}`
     : `${a}–${withSymbol(b, currency, lang)}`;
 }

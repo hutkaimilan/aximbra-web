@@ -12,7 +12,7 @@ import pathlib
 import re
 
 AGENT_JS = pathlib.Path(__file__).resolve().parents[2] / "frontend" / "src" / "i18n" / "agent.js"
-LANGS = ["hu", "en", "de", "es", "fr", "it", "ro", "sk"]
+LANGS = ["hu", "en", "de", "es", "fr", "it", "ro", "sk", "zh"]
 
 # A szimulációk agens-kulcsai számok (0:, 1:, …), nem azonosítók. Egy soron
 # több kulcs is lehet — a tömör írásmódban a `0: { start: ..., closing: ... }`

@@ -16,7 +16,7 @@ import re
 
 SRC = pathlib.Path(__file__).resolve().parents[2] / "frontend" / "src"
 AGENT_JS = (SRC / "i18n" / "agent.js").read_text(encoding="utf-8")
-LANGS = ["hu", "en", "de", "es", "fr", "it", "ro", "sk"]
+LANGS = ["hu", "en", "de", "es", "fr", "it", "ro", "sk", "zh"]
 
 
 def lang_block(code: str) -> str:

@@ -249,10 +249,10 @@ HTTP_TIMEOUT_SECONDS = 30
 OAUTH_STATE_TTL_SECONDS = 15 * 60
 
 
-# Az oldal nyolc nyelven fut, és a futás kimenete a felület nyelvén készül.
+# Az oldal kilenc nyelven fut, és a futás kimenete a felület nyelvén készül.
 # A kliens küldi, tehát ellenőrizni kell: ismeretlen kód esetén magyar, nem hiba
 # — egy elgépelt nyelvkód miatt nem áll meg egy demó.
-AGENT_LANGS = ("hu", "en", "de", "es", "fr", "it", "ro", "sk")
+AGENT_LANGS = ("hu", "en", "de", "es", "fr", "it", "ro", "sk", "zh")
 
 
 def _safe_lang(value) -> str:

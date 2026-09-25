@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { CONTACT } from "./contact";
-import { LANGS, DEFAULT_LANG, pathFor } from "./i18n";
+import { LANGS, DEFAULT_LANG, pathFor, bcp47 } from "./i18n";
 
 /**
  * Per-route document metadata.
@@ -66,7 +66,7 @@ function setAlternates(path, noindex) {
     el.setAttribute(ALT_MARK, "1");
     document.head.appendChild(el);
   };
-  for (const [code] of LANGS) add(code, `${ORIGIN}${pathFor(code, path)}`);
+  for (const [code] of LANGS) add(bcp47(code), `${ORIGIN}${pathFor(code, path)}`);
   // x-default is what a search engine serves when it knows nothing about the
   // visitor's language; Hungarian owns the bare URL, so it takes that role.
   add("x-default", `${ORIGIN}${pathFor(DEFAULT_LANG, path)}`);
