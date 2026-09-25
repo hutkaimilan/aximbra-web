@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import "./email-agent.css";
 
@@ -345,7 +346,10 @@ function GoogleWarn({ w, connecting, onGo, onCancel }) {
     };
   }, [connecting, onCancel]);
 
-  return (
+  // Portalled to <body>: the homepage embed has backdrop-filter, which makes it
+  // the containing block for position:fixed, so on a phone the dialog was
+  // centred in the tall embed - off screen - behind a backdrop that ate taps.
+  return createPortal(
     <div className="agent-warn-backdrop" data-testid="agent-google-warn"
       onClick={(e) => { if (e.target === e.currentTarget && !connecting) onCancel(); }}>
       <div className="agent-warn" role="dialog" aria-modal="true" aria-labelledby="agent-warn-title">
@@ -378,7 +382,8 @@ function GoogleWarn({ w, connecting, onGo, onCancel }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
