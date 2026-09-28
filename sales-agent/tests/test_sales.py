@@ -494,3 +494,24 @@ def test_due_slot_twice_a_day(monkeypatch, tmp_path):
     assert app_mod.due_slot(datetime(2026, 9, 29, 19, 0, tzinfo=tz), ts, done) == "2026-09-29 19:00"
     monkeypatch.setenv("AUTO_TIMES", "19:00, 7:5, rossz")
     assert app_mod.auto_times() == ["07:05", "19:00"]
+
+
+def test_round_sends_summary(monkeypatch, tmp_path):
+    monkeypatch.setenv("SALES_DB_PATH", str(tmp_path / "n.db"))
+    monkeypatch.setenv("NOTIFY_TO", "milan@example.com")
+    monkeypatch.setenv("GMAIL_USER", "aximbra@gmail.com")
+    import importlib
+    import app as app_mod
+    importlib.reload(app_mod)
+    sent = []
+    monkeypatch.setattr(app_mod.mailer, "send", lambda msg: sent.append(msg) or "<id>")
+    monkeypatch.setattr(app_mod.pipeline, "scan_replies", lambda store, log: log)
+
+    def fake_research(store, plan, log):
+        store.add_lead(dict(CAND, lang="hu"))
+        return log
+    monkeypatch.setattr(app_mod.pipeline, "research_run", fake_research)
+    log = pipeline.RunLog()
+    app_mod._morning(log)
+    assert len(sent) == 1 and sent[0]["To"] == "milan@example.com"
+    assert "1 új vázlat" in sent[0]["Subject"] and "Kert Bisztró" in sent[0].get_content()

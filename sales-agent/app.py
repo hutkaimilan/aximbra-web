@@ -325,13 +325,56 @@ def _auto_plan() -> dict[str, int]:
 
 
 def _morning(log):
+    before = {l["id"] for l in store.list("draft")}
+    replied_before = {l["id"] for l in store.list() if l["reply_kind"] != "none"}
     try:
         pipeline.scan_replies(store, log)
     except (AuthError, MailError) as e:
         log.say(f"Válaszfigyelés kimaradt: {e}")
     n = pipeline.prepare_followups(store)
     log.say(f"{n} utánkövetés vár jóváhagyásra.")
-    pipeline.research_run(store, _auto_plan(), log)
+    try:
+        pipeline.research_run(store, _auto_plan(), log)
+    finally:
+        _notify(log, before, replied_before)
+
+
+def _notify(log, before: set, replied_before: set) -> None:
+    """Összefoglaló e-mail a tulajdonosnak minden automatikus kör után."""
+    to = os.environ.get("NOTIFY_TO", "").strip()
+    if not to:
+        return
+    leads = store.list()
+    new_drafts = [l for l in leads if l["status"] == "draft" and l["id"] not in before]
+    new_replies = [l for l in leads if l["reply_kind"] != "none" and l["id"] not in replied_before]
+    interested = [l for l in new_replies if l["reply_kind"] == "interested"]
+    due = [l for l in leads if l["followup_status"] == "draft"]
+    parts = [f"{len(new_drafts)} új vázlat"]
+    if interested:
+        parts.insert(0, f"{len(interested)} ÉRDEKLŐDŐ")
+    if new_replies:
+        parts.append(f"{len(new_replies)} új válasz")
+    subject = "AXIMBRA értékesítő: " + ", ".join(parts)
+    lines = []
+    if interested:
+        lines += ["ÉRDEKLŐDNEK — a válasz időpontokkal kész a Válaszok fülön:"]
+        lines += [f"  • {l['company']} ({l['email']})" for l in interested] + [""]
+    if new_replies and len(new_replies) > len(interested):
+        lines += ["Egyéb válaszok:"]
+        lines += [f"  • {l['company']}: {l['reply_kind']}" for l in new_replies if l["reply_kind"] != "interested"] + [""]
+    if new_drafts:
+        lines += [f"Új vázlatok ({len(new_drafts)}), pontszám szerint:"]
+        lines += [f"  • {l['score'] or '–'}  {l['company']} ({l['town'] or l['country']})"
+                  for l in sorted(new_drafts, key=lambda x: -(x["score"] or 0))] + [""]
+    if due:
+        lines += [f"Utánkövetésre vár: {len(due)} cég.", ""]
+    lines += [f"Ma elküldve: {store.sent_today()}/{pipeline.DAILY_CAP}", "",
+              "Panel: " + os.environ.get("PANEL_URL", "https://aximbra-sales-production.up.railway.app")]
+    try:
+        mailer.send(mailer.build_message(to, subject, "\n".join(lines)))
+        log.say(f"Értesítés elküldve: {to}")
+    except Exception as e:  # noqa: BLE001 — az értesítés hibája ne rontsa el a kört
+        log.say(f"Az értesítést nem tudtam elküldeni ({e}).")
 
 
 def auto_times() -> list[str]:
