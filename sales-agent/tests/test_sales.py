@@ -474,3 +474,23 @@ def test_revoked_grant_disconnects(gapi, store, monkeypatch):
     with pytest.raises(mailer.AuthError):
         gapi.send(mailer.build_message("a@b.hu", "s", "b"), store)
     assert not gapi.connected(store)
+
+
+def test_due_slot_twice_a_day(monkeypatch, tmp_path):
+    monkeypatch.setenv("SALES_DB_PATH", str(tmp_path / "sch.db"))
+    import importlib
+    import app as app_mod
+    importlib.reload(app_mod)
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo("Europe/Budapest")
+    ts = ["10:00", "19:00"]
+    done = set()
+    assert app_mod.due_slot(datetime(2026, 9, 29, 9, 59, tzinfo=tz), ts, done) is None
+    k = app_mod.due_slot(datetime(2026, 9, 29, 10, 5, tzinfo=tz), ts, done)
+    assert k == "2026-09-29 10:00"
+    done.add(k)
+    assert app_mod.due_slot(datetime(2026, 9, 29, 10, 10, tzinfo=tz), ts, done) is None
+    assert app_mod.due_slot(datetime(2026, 9, 29, 10, 45, tzinfo=tz), ts, set()) is None  # 30 perc után kihagyja
+    assert app_mod.due_slot(datetime(2026, 9, 29, 19, 0, tzinfo=tz), ts, done) == "2026-09-29 19:00"
+    monkeypatch.setenv("AUTO_TIMES", "19:00, 7:5, rossz")
+    assert app_mod.auto_times() == ["07:05", "19:00"]

@@ -79,6 +79,7 @@ th{color:var(--mute);font-weight:500}td.n{text-align:right;font-variant-numeric:
 
   <section id="tab-new" class="hide">
     <div class="card">
+      <p class="mute" style="margin-top:0" id="autoinfo"></p>
       <p class="mute" style="margin-top:0">Hány céget keressen országonként. Összesen legfeljebb 20. A keresés néhány percig tart; a vázlatok a Vázlatok fülre kerülnek, és semmi nem megy ki, amíg nem küldöd el.</p>
       <div class="plan" id="plan"></div>
       <div class="row" style="margin-top:12px"><button class="pri" id="go">Keresés indítása</button></div>
@@ -225,6 +226,7 @@ function render() {
     $("#joblog").textContent = S.job.log.join("\n");
   }
   $("#go").disabled = S.job.running;
+  $("#autoinfo").textContent = S.config.auto ? `Automatikus kör minden nap: ${S.config.auto_times.join(" és ")} — válaszok, utánkövetések, új vázlatok. Küldeni te küldesz.` : "Az automatikus kör ki van kapcsolva.";
 }
 
 function planUI() {

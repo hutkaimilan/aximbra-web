@@ -10,7 +10,7 @@ import os
 import secrets
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -141,6 +141,7 @@ def state():
             "gmail": bool(os.environ.get("GMAIL_USER") and os.environ.get("GMAIL_APP_PASSWORD")),
             "openai": bool(os.environ.get("OPENAI_API_KEY")),
             "auto": _auto_on(),
+            "auto_times": auto_times(),
             # A Railway Hobby csomagon a kimenő SMTP le van tiltva, ezért a
             # küldés alapból a saját Gmailből, kézzel megy; a közvetlen küldés
             # csak akkor jelenik meg, ha SMTP_ENABLED be van kapcsolva.
@@ -333,17 +334,44 @@ def _morning(log):
     pipeline.research_run(store, _auto_plan(), log)
 
 
+def auto_times() -> list[str]:
+    """AUTO_TIMES, pl. "10:00,19:00" (budapesti idő), minden nap."""
+    out = []
+    for part in os.environ.get("AUTO_TIMES", "10:00,19:00").replace(";", ",").split(","):
+        part = part.strip()
+        try:
+            h, m = (int(x) for x in part.split(":"))
+            if 0 <= h < 24 and 0 <= m < 60:
+                out.append(f"{h:02d}:{m:02d}")
+        except ValueError:
+            continue
+    return sorted(set(out))
+
+
+def due_slot(now: datetime, times: list[str], done: set) -> str | None:
+    """Az esedékes időpont, ha még nem futott le ma. 30 percig pótolja,
+    ha épp egy másik munka foglalta a gépet; utána kihagyja."""
+    for t in times:
+        h, m = (int(x) for x in t.split(":"))
+        start = now.replace(hour=h, minute=m, second=0, microsecond=0)
+        key = f"{now.date()} {t}"
+        if key not in done and start <= now < start + timedelta(minutes=30):
+            return key
+    return None
+
+
 def _scheduler():
-    last = None
+    done: set = set()
     while True:
         try:
             now = datetime.now(TZ)
-            if _auto_on() and now.weekday() < 5 and now.hour == 7 and last != now.date():
-                if job.start("reggeli kör", _morning):
-                    last = now.date()
+            key = due_slot(now, auto_times(), done) if _auto_on() else None
+            if key and job.start(f"automatikus kör ({key[-5:]})", _morning):
+                done.add(key)
+                done = {k for k in done if k[:10] >= (now.date() - timedelta(days=2)).isoformat()}
         except Exception:  # noqa: BLE001
             logger.exception("ütemező hiba")
-        time.sleep(60)
+        time.sleep(30)
 
 
 @app.on_event("startup")
