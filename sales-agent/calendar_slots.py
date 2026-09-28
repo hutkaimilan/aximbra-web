@@ -64,7 +64,8 @@ def fetch_ics(url: str) -> str | None:
     return None
 
 
-def free_slots(now: datetime | None = None, ics_text: str | None = None, want: int = 3) -> list[datetime]:
+def free_slots(now: datetime | None = None, ics_text: str | None = None, want: int = 3,
+               ics_texts: list[str] | None = None) -> list[datetime]:
     """`want` darab szabad kezdés, lehetőleg mind más napon.
 
     Legkorábban a következő munkanapon: egy aznapi időpontot egy hideg
@@ -77,10 +78,10 @@ def free_slots(now: datetime | None = None, ics_text: str | None = None, want: i
             days.append(d)
         d += timedelta(days=1)
     busy = []
-    if ics_text:
+    for text in ([ics_text] if ics_text else []) + list(ics_texts or []):
         try:
-            busy = busy_intervals(ics_text, datetime.combine(days[0], time(0), TZ),
-                                  datetime.combine(days[-1], time(23, 59), TZ))
+            busy += busy_intervals(text, datetime.combine(days[0], time(0), TZ),
+                                   datetime.combine(days[-1], time(23, 59), TZ))
         except Exception as e:  # noqa: BLE001 — hibás naptár ne állítsa le a választ
             logger.warning("naptár nem olvasható: %s", e)
     pad = timedelta(minutes=BUFFER_MIN)
@@ -131,12 +132,23 @@ def calendar_link(dt: datetime, company: str, guest: str) -> str:
     return "https://calendar.google.com/calendar/render?" + urlencode(q)
 
 
+def calendar_urls() -> list[str]:
+    """CALENDAR_ICS_URL: egy vagy több naptár (pl. Google + Neptun
+    órarend), vesszővel vagy szóközzel elválasztva."""
+    raw = os.environ.get("CALENDAR_ICS_URL", "")
+    return [u for u in raw.replace(",", " ").split() if u.startswith(("http://", "https://", "webcal://"))]
+
+
 def slots_for(company: str, guest: str, now: datetime | None = None) -> dict:
-    url = os.environ.get("CALENDAR_ICS_URL", "").strip()
-    ics = fetch_ics(url) if url else None
-    slots = free_slots(now=now, ics_text=ics)
+    texts = []
+    for url in calendar_urls():
+        t = fetch_ics(url.replace("webcal://", "https://", 1))
+        if t:
+            texts.append(t)
+    slots = free_slots(now=now, ics_texts=texts)
     return {
-        "calendar": bool(ics),
+        "calendar": bool(texts),
+        "calendars": len(texts),
         "slots": [{"iso": s.isoformat(), "label": label_hu(s), "link": calendar_link(s, company, guest)}
                   for s in slots],
     }

@@ -372,3 +372,17 @@ def test_calendar_link_invites_guest():
     import calendar_slots as cs
     link = cs.calendar_link(datetime(2026, 9, 29, 14, 0, tzinfo=cs.TZ), "Kert Bisztró", "info@kertbisztro.hu")
     assert "action=TEMPLATE" in link and "add=info%40kertbisztro.hu" in link and "20260929T120000Z" in link
+
+
+def test_two_calendars_both_block():
+    import calendar_slots as cs
+    other = ICS.replace("20260929T093000", "20260929T133000").replace("20260929T110000", "20260929T160000")
+    now = datetime(2026, 9, 28, 20, 0, tzinfo=cs.TZ)
+    slots = cs.free_slots(now=now, ics_texts=[ICS, other])
+    assert all(s.date().isoformat() != "2026-09-29" for s in slots)  # kedd délelőtt és délután is foglalt
+
+
+def test_calendar_urls_split(monkeypatch):
+    import calendar_slots as cs
+    monkeypatch.setenv("CALENDAR_ICS_URL", "https://a/x.ics, webcal://b/y.ics  nemurl")
+    assert cs.calendar_urls() == ["https://a/x.ics", "webcal://b/y.ics"]
