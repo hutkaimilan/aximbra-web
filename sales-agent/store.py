@@ -188,6 +188,20 @@ class Store:
             c.execute("UPDATE leads SET status = 'sent', sent_at = ?, message_id = ? WHERE id = ?",
                       (now(), message_id, lead_id))
 
+    def mark_sent_manual(self, lead_id: int) -> bool:
+        """A levelet ember küldte el a saját Gmailjéből; innentől ugyanúgy
+        figyeljük a válaszát, mintha a program küldte volna."""
+        with self._conn() as c:
+            cur = c.execute("UPDATE leads SET status = 'sent', sent_at = ?, last_error = NULL "
+                            "WHERE id = ? AND status IN ('draft','failed')", (now(), lead_id))
+            return cur.rowcount == 1
+
+    def followup_sent_manual(self, lead_id: int) -> bool:
+        with self._conn() as c:
+            cur = c.execute("UPDATE leads SET followup_status = 'sent', followup_sent_at = ? "
+                            "WHERE id = ? AND followup_status = 'draft'", (now(), lead_id))
+            return cur.rowcount == 1
+
     def mark_failed(self, lead_id: int, error: str) -> None:
         with self._conn() as c:
             c.execute("UPDATE leads SET status = 'failed', last_error = ? WHERE id = ?", (error[:500], lead_id))

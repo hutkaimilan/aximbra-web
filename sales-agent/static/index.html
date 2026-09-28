@@ -109,6 +109,15 @@ document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   document.querySelectorAll("main section").forEach((s) => s.classList.toggle("hide", s.id !== "tab-" + tab));
 });
 
+function gmailLink(to, subject, body) {
+  const u = new URLSearchParams({view: "cm", fs: "1", to, su: subject, body});
+  if (S.config.gmail_user) u.set("authuser", S.config.gmail_user);
+  return "https://mail.google.com/mail/?" + u.toString();
+}
+function mailtoLink(to, subject, body) {
+  return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
 function leadHead(l) {
   return `<div class="row" style="justify-content:space-between"><b>${esc(l.company)}</b><span class="mute">${esc(l.town||"")} · ${esc(l.country)}</span></div>
   <div class="mute">${esc(l.email)} · <a href="${esc(l.email_url)}" target="_blank" rel="noopener">cím forrása</a>${l.website?` · <a href="${esc(l.website)}" target="_blank" rel="noopener">weboldal</a>`:""}</div>
@@ -125,8 +134,9 @@ function render() {
   if (miss.length) { $("#warn").textContent = "Hiányzó beállítás: " + miss.join(", "); $("#warn").classList.remove("hide"); }
 
   for (const id of [...selected]) if (!drafts.some((d) => d.id === id)) selected.delete(id);
-  $("#selcount").textContent = drafts.length ? `${selected.size} kijelölve / ${drafts.length} vázlat` : "";
+  $("#selcount").textContent = drafts.length ? (S.config.smtp ? `${selected.size} kijelölve / ${drafts.length} vázlat` : `${drafts.length} vázlat vár`) : "";
   $("#sendAll").disabled = !selected.size || S.job.running;
+  $("#sendAll").classList.toggle("hide", !S.config.smtp);
   const open = document.activeElement && document.activeElement.closest && document.activeElement.closest("[data-id]");
   if (!open) $("#drafts").innerHTML = drafts.length ? drafts.map((l) => `
     <div class="card" data-id="${l.id}">
@@ -136,8 +146,13 @@ function render() {
       <label>Tárgy</label><input class="subj" value="${esc(dirty[l.id]?.subject ?? l.subject)}">
       <label>Levél</label><textarea class="body">${esc(dirty[l.id]?.body ?? l.body)}</textarea>
       <div class="row" style="margin-top:10px">
-        <label style="margin:0;display:flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" class="pick" style="width:auto" ${selected.has(l.id)?"checked":""}> kijelöl</label>
-        <button class="save">Mentés</button><button class="pri one">Küldés most</button><button class="warn skip">Kihagy</button>
+        <button class="pri gm">1. Megnyitás Gmailben</button>
+        <button class="done">2. Kiment ✓</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="save">Mentés</button><button class="warn skip">Kihagy</button>
+        <a class="mute mt" href="#">levelezőben nyitás</a>
+        ${S.config.smtp ? `<label style="margin:0;display:flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" class="pick" style="width:auto" ${selected.has(l.id)?"checked":""}> kijelöl</label><button class="one">Küldés a szerverről</button>` : ""}
       </div>
     </div>`).join("") : `<div class="card mute">Nincs vázlat. Indíts egy keresést az „Új keresés” fülön.</div>`;
 
@@ -157,7 +172,8 @@ function render() {
   const fu = L.filter((l) => l.followup_status === "draft");
   $("#follow").innerHTML = fu.length ? fu.map((l) => `<div class="card" data-fid="${l.id}">${leadHead(l)}
     <pre style="white-space:pre-wrap;font:inherit">${esc(l.followup_body)}</pre>
-    <div class="row"><button class="pri fsend">Utánkövetés küldése</button><button class="warn fdrop">Nem küldöm</button></div></div>`).join("") : `<div class="card mute">Nincs esedékes utánkövetés.</div>`;
+    <div class="row"><button class="pri fgm">1. Megnyitás Gmailben</button><button class="fdone">2. Kiment ✓</button><button class="warn fdrop">Nem küldöm</button></div>
+    <p class="mute">Tipp: a Gmailben a korábbi levélre válaszként is elküldheted, akkor egy szálban marad.</p></div>`).join("") : `<div class="card mute">Nincs esedékes utánkövetés.</div>`;
 
   $("#blocked").innerHTML = S.blocked.length ? S.blocked.map((b) => `<div class="mute">${esc(b.key)} — ${esc(b.reason)}</div>`).join("") : `<span class="mute">Üres.</span>`;
 
@@ -196,12 +212,33 @@ document.addEventListener("click", async (e) => {
         await api(`/api/leads/${id}`, {subject: card.querySelector(".subj").value, body: card.querySelector(".body").value});
         delete dirty[id]; await api("/api/send", {ids: [id]}); flash("Küldés elindítva.");
       }
+      if (e.target.classList.contains("gm") || e.target.classList.contains("mt")) {
+        e.preventDefault();
+        const subj = card.querySelector(".subj").value, body = card.querySelector(".body").value;
+        const l = S.leads.find((x) => x.id === id);
+        if (dirty[id]) { await api(`/api/leads/${id}`, {subject: subj, body}); delete dirty[id]; }
+        window.open(e.target.classList.contains("gm") ? gmailLink(l.email, subj, body) : mailtoLink(l.email, subj, body), "_blank");
+        return;
+      }
+      if (e.target.classList.contains("done")) {
+        if (!confirm("Tényleg elküldted a Gmailből?")) return;
+        await api(`/api/leads/${id}/mark-sent`, {}); flash("Elküldöttnek jelölve. A válaszát figyelem.");
+      }
       if (e.target.classList.contains("skip")) { await api(`/api/leads/${id}/skip`, {}); }
       document.activeElement.blur(); await refresh();
     }
     if (fcard) {
       const id = +fcard.dataset.fid;
-      if (e.target.classList.contains("fsend")) { await api(`/api/followups/${id}/send`, {}); flash("Utánkövetés elküldve."); }
+      if (e.target.classList.contains("fgm")) {
+        const l = S.leads.find((x) => x.id === id);
+        const subj = /^re:/i.test(l.subject) ? l.subject : "Re: " + l.subject;
+        window.open(gmailLink(l.email, subj, l.followup_body), "_blank");
+        return;
+      }
+      if (e.target.classList.contains("fdone")) {
+        if (!confirm("Tényleg elküldted?")) return;
+        await api(`/api/followups/${id}/mark-sent`, {}); flash("Utánkövetés elküldöttnek jelölve.");
+      }
       if (e.target.classList.contains("fdrop")) { await api(`/api/followups/${id}/drop`, {}); }
       await refresh();
     }

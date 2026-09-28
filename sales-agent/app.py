@@ -116,6 +116,11 @@ def state():
             "gmail": bool(os.environ.get("GMAIL_USER") and os.environ.get("GMAIL_APP_PASSWORD")),
             "openai": bool(os.environ.get("OPENAI_API_KEY")),
             "auto": _auto_on(),
+            # A Railway Hobby csomagon a kimenő SMTP le van tiltva, ezért a
+            # küldés alapból a saját Gmailből, kézzel megy; a közvetlen küldés
+            # csak akkor jelenik meg, ha SMTP_ENABLED be van kapcsolva.
+            "smtp": (os.environ.get("SMTP_ENABLED") or "").strip().lower() in ("1", "true", "yes"),
+            "gmail_user": os.environ.get("GMAIL_USER", ""),
         },
     }
 
@@ -140,6 +145,8 @@ class SendIn(BaseModel):
 
 @app.post("/api/send", dependencies=[Depends(auth)])
 def send(body: SendIn):
+    if (os.environ.get("SMTP_ENABLED") or "").strip().lower() not in ("1", "true", "yes"):
+        raise HTTPException(409, "A közvetlen küldés ki van kapcsolva: nyisd meg a levelet a Gmailben.")
     ids = [i for i in body.ids if isinstance(i, int)][:pipeline.DAILY_CAP]
     if not ids:
         raise HTTPException(400, "Nincs kijelölt levél.")
@@ -155,6 +162,20 @@ class EditIn(BaseModel):
 def edit(lead_id: int, body: EditIn):
     if not store.edit(lead_id, body.subject.strip(), body.body.strip()):
         raise HTTPException(409, "Ez már nem szerkeszthető.")
+    return {"ok": True}
+
+
+@app.post("/api/leads/{lead_id}/mark-sent", dependencies=[Depends(auth)])
+def mark_sent(lead_id: int):
+    if not store.mark_sent_manual(lead_id):
+        raise HTTPException(409, "Ez már nincs a vázlatok között.")
+    return {"ok": True}
+
+
+@app.post("/api/followups/{lead_id}/mark-sent", dependencies=[Depends(auth)])
+def followup_mark_sent(lead_id: int):
+    if not store.followup_sent_manual(lead_id):
+        raise HTTPException(409, "Ez az utánkövetés már nincs a listán.")
     return {"ok": True}
 
 

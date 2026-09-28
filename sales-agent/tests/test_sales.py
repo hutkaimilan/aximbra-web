@@ -273,3 +273,18 @@ def test_api_requires_password(tmp_path, monkeypatch):
     r = c.get("/api/state", auth=("x", "helyes-jelszo-123"))
     assert r.status_code == 200 and r.json()["cap"] == pipeline.DAILY_CAP
     assert c.post("/api/research", json={"plan": {"AT": 3}}, auth=("x", "helyes-jelszo-123")).status_code == 400
+    # Hobby csomagon nincs SMTP: a szerver nem küld, csak ha külön bekapcsolják.
+    monkeypatch.delenv("SMTP_ENABLED", raising=False)
+    assert c.post("/api/send", json={"ids": [1]}, auth=("x", "helyes-jelszo-123")).status_code == 409
+
+
+def test_manual_send_marks_sent_once_and_enables_followup(store):
+    run(store, [dict(CAND)])
+    lid = store.list("draft")[0]["id"]
+    assert store.mark_sent_manual(lid) is True
+    assert store.mark_sent_manual(lid) is False
+    with store._conn() as c:
+        c.execute("UPDATE leads SET sent_at = ? WHERE id = ?", ("2026-09-21T08:00:00+00:00", lid))
+    assert pipeline.prepare_followups(store, datetime(2026, 9, 28, 9, tzinfo=timezone.utc)) == 1
+    assert store.followup_sent_manual(lid) is True
+    assert store.followup_sent_manual(lid) is False
