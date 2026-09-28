@@ -47,6 +47,10 @@ CREATE TABLE IF NOT EXISTS leads (
 );
 CREATE INDEX IF NOT EXISTS leads_domain ON leads(domain);
 CREATE INDEX IF NOT EXISTS leads_status ON leads(status);
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
 CREATE TABLE IF NOT EXISTS blocked (
   key TEXT PRIMARY KEY,           -- e-mail cím vagy domain, kisbetűvel
   reason TEXT,
@@ -100,6 +104,18 @@ class Store:
             yield conn
         finally:
             conn.close()
+
+    # ---- beállítások -----------------------------------------------------
+
+    def get_setting(self, key: str) -> str | None:
+        with self._conn() as c:
+            r = c.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+            return r[0] if r and r[0] else None
+
+    def set_setting(self, key: str, value: str) -> None:
+        with self._conn() as c:
+            c.execute("INSERT INTO settings (key, value) VALUES (?, ?) "
+                      "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (key, value))
 
     # ---- tiltólista ----------------------------------------------------
 

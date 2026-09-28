@@ -37,12 +37,28 @@ def _creds() -> tuple[str, str]:
     return user, pw
 
 
+_api_sender = None
+
+
+def set_api_sender(fn) -> None:
+    """Az app itt adja meg a Gmail API-s küldőt; ha össze van kötve, az megy."""
+    global _api_sender
+    _api_sender = fn
+
+
+def sender_address() -> str:
+    addr = (os.environ.get("COMPOSE_ACCOUNT") or os.environ.get("GMAIL_USER", "")).strip()
+    if not addr:
+        raise AuthError("nincs beállítva a küldő cím (GMAIL_USER)")
+    return addr
+
+
 def sender_name() -> str:
     return os.environ.get("SENDER_NAME", "Hutkai Milán")
 
 
 def build_message(to: str, subject: str, body: str, in_reply_to: str | None = None) -> EmailMessage:
-    user, _ = _creds()
+    user = sender_address()
     msg = EmailMessage()
     msg["From"] = email.utils.formataddr((sender_name(), user))
     msg["To"] = to
@@ -60,6 +76,8 @@ def build_message(to: str, subject: str, body: str, in_reply_to: str | None = No
 
 
 def send(msg: EmailMessage) -> str:
+    if _api_sender is not None and _api_sender.available():
+        return _api_sender(msg)
     user, pw = _creds()
     try:
         with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=TIMEOUT,

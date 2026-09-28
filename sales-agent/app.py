@@ -14,10 +14,12 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
+import gmail_api
+import mailer
 import pipeline
 from mailer import AuthError, MailError
 from playbook import COUNTRIES
@@ -29,6 +31,27 @@ logger = logging.getLogger("sales")
 app = FastAPI(title="AXIMBRA értékesítő", docs_url=None, redoc_url=None, openapi_url=None)
 security = HTTPBasic()
 store = Store()
+
+
+class _ApiSender:
+    """A Gmail API-s küldés, ha a tulajdonos összekötötte a fiókot."""
+
+    def available(self) -> bool:
+        return gmail_api.connected(store)
+
+    def __call__(self, msg):
+        return gmail_api.send(msg, store)
+
+
+mailer.set_api_sender(_ApiSender())
+
+
+def _smtp_on() -> bool:
+    return (os.environ.get("SMTP_ENABLED") or "").strip().lower() in ("1", "true", "yes")
+
+
+def _can_send() -> bool:
+    return gmail_api.connected(store) or _smtp_on()
 HERE = os.path.dirname(os.path.abspath(__file__))
 TZ = ZoneInfo("Europe/Budapest")
 
@@ -121,7 +144,9 @@ def state():
             # A Railway Hobby csomagon a kimenő SMTP le van tiltva, ezért a
             # küldés alapból a saját Gmailből, kézzel megy; a közvetlen küldés
             # csak akkor jelenik meg, ha SMTP_ENABLED be van kapcsolva.
-            "smtp": (os.environ.get("SMTP_ENABLED") or "").strip().lower() in ("1", "true", "yes"),
+            "smtp": _can_send(),
+            "gmail_api": gmail_api.connected(store),
+            "gmail_api_ready": gmail_api.configured(),
             # Ebben a Gmail-fiókban nyílik meg a kész levél (a böngészőben
             # több fiók is be lehet lépve); alapból ugyanaz, amit a válaszokhoz olvasunk.
             "gmail_user": os.environ.get("COMPOSE_ACCOUNT") or os.environ.get("GMAIL_USER", ""),
@@ -150,8 +175,8 @@ class SendIn(BaseModel):
 
 @app.post("/api/send", dependencies=[Depends(auth)])
 def send(body: SendIn):
-    if (os.environ.get("SMTP_ENABLED") or "").strip().lower() not in ("1", "true", "yes"):
-        raise HTTPException(409, "A közvetlen küldés ki van kapcsolva: nyisd meg a levelet a Gmailben.")
+    if not _can_send():
+        raise HTTPException(409, "A Gmail nincs összekötve: nyomd meg a „Gmail összekötése” gombot.")
     ids = [i for i in body.ids if isinstance(i, int)][:pipeline.DAILY_CAP]
     if not ids:
         raise HTTPException(400, "Nincs kijelölt levél.")
@@ -182,6 +207,38 @@ def followup_mark_sent(lead_id: int):
     if not store.followup_sent_manual(lead_id):
         raise HTTPException(409, "Ez az utánkövetés már nincs a listán.")
     return {"ok": True}
+
+
+@app.post("/api/gmail/connect", dependencies=[Depends(auth)])
+def gmail_connect():
+    if not gmail_api.configured():
+        raise HTTPException(503, "A Google-összekötés nincs beállítva a szerveren.")
+    return {"url": gmail_api.auth_url()}
+
+
+@app.post("/api/gmail/disconnect", dependencies=[Depends(auth)])
+def gmail_disconnect():
+    gmail_api.disconnect(store)
+    return {"ok": True}
+
+
+@app.get("/oauth/callback")
+def oauth_callback(code: str = "", state: str = "", error: str = ""):
+    # Jelszó nélkül érhető el, mert a Google irányít ide; a védelem az
+    # aláírt, 15 percig érvényes állapot, és hogy csak a beállított fiók köthető be.
+    if error:
+        return RedirectResponse("/?gmail=elutasitva")
+    if not gmail_api.configured() or not gmail_api.state_ok(state) or not code:
+        return RedirectResponse("/?gmail=lejart")
+    try:
+        gmail_api.exchange(code, store)
+    except AuthError as e:
+        logger.warning("gmail összekötés: %s", e)
+        return RedirectResponse("/?gmail=rossz_fiok" if "rossz fiók" in str(e) else "/?gmail=nincs_jog")
+    except MailError as e:
+        logger.warning("gmail összekötés: %s", e)
+        return RedirectResponse("/?gmail=hiba")
+    return RedirectResponse("/?gmail=ok")
 
 
 @app.post("/api/leads/{lead_id}/answer", dependencies=[Depends(auth)])

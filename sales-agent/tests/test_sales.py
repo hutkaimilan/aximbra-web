@@ -386,3 +386,91 @@ def test_calendar_urls_split(monkeypatch):
     import calendar_slots as cs
     monkeypatch.setenv("CALENDAR_ICS_URL", "https://a/x.ics, webcal://b/y.ics  nemurl")
     assert cs.calendar_urls() == ["https://a/x.ics", "webcal://b/y.ics"]
+
+
+# ---- Gmail API-s küldés ----------------------------------------------------------
+
+@pytest.fixture
+def gapi(monkeypatch, store):
+    import gmail_api
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "cid")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "sec")
+    monkeypatch.setenv("OAUTH_REDIRECT_URI", "https://x/oauth/callback")
+    monkeypatch.setenv("SALES_TOKEN_KEY", "k" * 40)
+    monkeypatch.setenv("COMPOSE_ACCOUNT", "aximbra@gmail.com")
+    gmail_api._cache.update(token=None, exp=0.0)
+    return gmail_api
+
+
+def _idtok(email):
+    import base64, json as _j
+    p = base64.urlsafe_b64encode(_j.dumps({"email": email}).encode()).decode().rstrip("=")
+    return f"h.{p}.s"
+
+
+class _Resp:
+    def __init__(self, code, data):
+        self.status_code, self._d = code, data
+
+    def json(self):
+        return self._d
+
+
+def test_oauth_state_signed_and_expires(gapi, monkeypatch):
+    url = gapi.auth_url()
+    state = dict(p.split("=", 1) for p in url.split("?", 1)[1].split("&"))["state"]
+    assert gapi.state_ok(state.replace("%2E", "."))
+    assert not gapi.state_ok("123.abc")
+    import time as _t
+    monkeypatch.setattr(_t, "time", lambda: 10**10)
+    assert not gapi.state_ok(state.replace("%2E", "."))
+
+
+def test_exchange_rejects_other_account(gapi, store, monkeypatch):
+    monkeypatch.setattr(gapi.httpx, "post", lambda *a, **k: _Resp(200, {
+        "id_token": _idtok("valaki@gmail.com"), "refresh_token": "r", "scope": "gmail.send", "access_token": "a"}))
+    with pytest.raises(mailer.AuthError):
+        gapi.exchange("code", store)
+    assert not gapi.connected(store)
+
+
+def test_exchange_then_send_through_api(gapi, store, monkeypatch):
+    calls = []
+
+    def post(url, **k):
+        calls.append(url)
+        if url == gapi.TOKEN_URL:
+            return _Resp(200, {"id_token": _idtok("aximbra@gmail.com"), "refresh_token": "r",
+                               "scope": "openid email https://www.googleapis.com/auth/gmail.send",
+                               "access_token": "a", "expires_in": 3600})
+        assert k["headers"]["Authorization"] == "Bearer a" and k["json"]["raw"]
+        return _Resp(200, {"id": "m1"})
+
+    monkeypatch.setattr(gapi.httpx, "post", post)
+    assert gapi.exchange("code", store) == "aximbra@gmail.com"
+    assert gapi.connected(store)
+    assert store.get_setting("gmail_refresh") != "r"  # titkosítva van
+
+    class S:
+        def available(self):
+            return gapi.connected(store)
+
+        def __call__(self, msg):
+            return gapi.send(msg, store)
+
+    mailer.set_api_sender(S())
+    try:
+        msg = mailer.build_message("info@kertbisztro.hu", "Tárgy", "Szöveg")
+        assert msg["From"].endswith("<aximbra@gmail.com>")
+        assert mailer.send(msg) == msg["Message-ID"]
+        assert calls[-1] == gapi.SEND_URL
+    finally:
+        mailer.set_api_sender(None)
+
+
+def test_revoked_grant_disconnects(gapi, store, monkeypatch):
+    store.set_setting("gmail_refresh", gapi._fernet().encrypt(b"r").decode())
+    monkeypatch.setattr(gapi.httpx, "post", lambda *a, **k: _Resp(400, {"error": "invalid_grant"}))
+    with pytest.raises(mailer.AuthError):
+        gapi.send(mailer.build_message("a@b.hu", "s", "b"), store)
+    assert not gapi.connected(store)

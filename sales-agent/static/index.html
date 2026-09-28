@@ -54,6 +54,9 @@ th{color:var(--mute);font-weight:500}td.n{text-align:right;font-variant-numeric:
 </header>
 <main>
   <div id="warn" class="card hide"></div>
+  <div id="connect" class="card hide"><div class="row" style="justify-content:space-between">
+    <span>A küldéshez kösd össze egyszer az aximbra Gmailt.</span>
+    <button class="pri" id="gconnect">Gmail összekötése</button></div></div>
   <div id="jobbox" class="card hide"><div class="row"><b id="jobtitle"></b></div><div id="joblog" class="log"></div></div>
 
   <section id="tab-drafts">
@@ -153,6 +156,7 @@ function render() {
   const L = S.leads;
   const drafts = L.filter((l) => l.status === "draft" || l.status === "failed");
   $("#stat").textContent = `· ma elküldve ${S.sent_today}/${S.cap}`;
+  $("#connect").classList.toggle("hide", !(S.config.gmail_api_ready && !S.config.gmail_api && !S.config.smtp));
   const miss = [];
   if (!S.config.gmail) miss.push("Gmail (GMAIL_USER, GMAIL_APP_PASSWORD)");
   if (!S.config.openai) miss.push("OPENAI_API_KEY");
@@ -172,12 +176,12 @@ function render() {
       <label>Tárgy</label><input class="subj" value="${esc(dirty[l.id]?.subject ?? l.subject)}">
       <label>Levél</label><textarea class="body">${esc(dirty[l.id]?.body ?? l.body)}</textarea>
       <div class="row" style="margin-top:10px">
-        <button class="pri gm">1. Megnyitás Gmailben</button>
-        <button class="done">2. Kiment ✓</button>
+        ${S.config.smtp ? `<button class="pri one">Küldés</button><button class="gm">Megnyitás Gmailben</button>`
+          : `<button class="pri gm">1. Megnyitás Gmailben</button><button class="done">2. Kiment ✓</button>`}
       </div>
       <div class="row" style="margin-top:8px">
         <button class="save">Mentés</button><button class="warn skip">Kihagy</button>
-        ${S.config.smtp ? `<label style="margin:0;display:flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" class="pick" style="width:auto" ${selected.has(l.id)?"checked":""}> kijelöl</label><button class="one">Küldés a szerverről</button>` : ""}
+        ${S.config.smtp ? `<label style="margin:0;display:flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" class="pick" style="width:auto" ${selected.has(l.id)?"checked":""}> kijelöl</label>` : ""}
       </div>
     </div>`).join("") : `<div class="card mute">Nincs vázlat. Indíts egy keresést az „Új keresés” fülön.</div>`;
 
@@ -258,8 +262,10 @@ document.addEventListener("click", async (e) => {
       if (e.target.classList.contains("pick")) { e.target.checked ? selected.add(id) : selected.delete(id); render(); return; }
       if (e.target.classList.contains("save")) { await api(`/api/leads/${id}`, {subject: card.querySelector(".subj").value, body: card.querySelector(".body").value}); delete dirty[id]; flash("Mentve."); }
       if (e.target.classList.contains("one")) {
+        const l0 = S.leads.find((x) => x.id === id);
+        if (!confirm(`Elküldöm most: ${l0.company} (${l0.email})?`)) return;
         await api(`/api/leads/${id}`, {subject: card.querySelector(".subj").value, body: card.querySelector(".body").value});
-        delete dirty[id]; await api("/api/send", {ids: [id]}); flash("Küldés elindítva.");
+        delete dirty[id]; await api("/api/send", {ids: [id]}); flash("Küldöm…");
       }
       if (e.target.classList.contains("gm")) {
         e.preventDefault();
@@ -294,8 +300,15 @@ document.addEventListener("click", async (e) => {
   } catch (err) { flash(err.message); }
 });
 
+$("#gconnect").onclick = async () => { try { const r = await api("/api/gmail/connect", {}); location.href = r.url; } catch (e) { flash(e.message); } };
+{
+  const g = new URLSearchParams(location.search).get("gmail");
+  const msg = {ok: "A Gmail össze van kötve, mehet a küldés.", elutasitva: "Nem engedélyezted a hozzáférést.", lejart: "Lejárt a folyamat, próbáld újra.",
+               rossz_fiok: "Rossz fiókkal léptél be: az aximbra@gmail.com-mal kell.", nincs_jog: "A küldési jogot pipáld be a Google-oldalon.", hiba: "Nem sikerült, próbáld újra."}[g];
+  if (msg) { setTimeout(() => flash(msg), 300); history.replaceState(null, "", "/"); }
+}
 $("#sendAll").onclick = async () => {
-  if (!confirm(`${selected.size} levél megy ki a Gmailedből, 25–70 másodpercenként egy. Mehet?`)) return;
+  if (!confirm(`${selected.size} levél megy ki az aximbra Gmailből, 25–70 másodpercenként egy. Mehet?`)) return;
   try {
     for (const id of selected) if (dirty[id]) { await api(`/api/leads/${id}`, dirty[id]); delete dirty[id]; }
     await api("/api/send", {ids: [...selected]}); selected.clear(); refresh();
