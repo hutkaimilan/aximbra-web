@@ -122,7 +122,9 @@ def state():
             # küldés alapból a saját Gmailből, kézzel megy; a közvetlen küldés
             # csak akkor jelenik meg, ha SMTP_ENABLED be van kapcsolva.
             "smtp": (os.environ.get("SMTP_ENABLED") or "").strip().lower() in ("1", "true", "yes"),
-            "gmail_user": os.environ.get("GMAIL_USER", ""),
+            # Ebben a Gmail-fiókban nyílik meg a kész levél (a böngészőben
+            # több fiók is be lehet lépve); alapból ugyanaz, amit a válaszokhoz olvasunk.
+            "gmail_user": os.environ.get("COMPOSE_ACCOUNT") or os.environ.get("GMAIL_USER", ""),
             "calendar": bool(os.environ.get("CALENDAR_ICS_URL")),
         },
     }

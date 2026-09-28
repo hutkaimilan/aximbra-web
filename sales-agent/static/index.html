@@ -177,7 +177,6 @@ function render() {
       </div>
       <div class="row" style="margin-top:8px">
         <button class="save">Mentés</button><button class="warn skip">Kihagy</button>
-        <a class="mute mt" href="#">levelezőben nyitás</a>
         ${S.config.smtp ? `<label style="margin:0;display:flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" class="pick" style="width:auto" ${selected.has(l.id)?"checked":""}> kijelöl</label><button class="one">Küldés a szerverről</button>` : ""}
       </div>
     </div>`).join("") : `<div class="card mute">Nincs vázlat. Indíts egy keresést az „Új keresés” fülön.</div>`;
@@ -262,12 +261,12 @@ document.addEventListener("click", async (e) => {
         await api(`/api/leads/${id}`, {subject: card.querySelector(".subj").value, body: card.querySelector(".body").value});
         delete dirty[id]; await api("/api/send", {ids: [id]}); flash("Küldés elindítva.");
       }
-      if (e.target.classList.contains("gm") || e.target.classList.contains("mt")) {
+      if (e.target.classList.contains("gm")) {
         e.preventDefault();
         const subj = card.querySelector(".subj").value, body = card.querySelector(".body").value;
         const l = S.leads.find((x) => x.id === id);
         if (dirty[id]) { await api(`/api/leads/${id}`, {subject: subj, body}); delete dirty[id]; }
-        window.open(e.target.classList.contains("gm") ? gmailLink(l.email, subj, body) : mailtoLink(l.email, subj, body), "_blank");
+        window.open(gmailLink(l.email, subj, body), "_blank");
         return;
       }
       if (e.target.classList.contains("done")) {
