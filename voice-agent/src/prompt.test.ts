@@ -274,3 +274,15 @@ test('a NIS2-agent nem vedelemkent van leirva', () => {
   assert.match(en, /NIS2 compliance agent/);
   assert.match(en, /does NOT protect against attacks/);
 });
+
+test('az egyedi agentre nem mond arat', () => {
+  // Egyedi munkara minden szam kitalalt lenne: az agent a felmeresre mutat.
+  const hu = buildSystemPrompt(0, facts(), '');
+  assert.match(hu, /EGYEDI AGENT[^\n]*NINCS fix ára/);
+  assert.match(hu, /húszperces felmérés után adunk rá ajánlatot/);
+  assert.match(hu, /Árat vagy határidőt SOHA ne találj ki rá/);
+
+  const en = buildSystemPrompt(0, facts(), '', 'en');
+  assert.match(en, /Custom agent: there is NO fixed price/);
+  assert.match(en, /Never invent a price or a timeline for it/);
+});

@@ -45,7 +45,7 @@ const it = {
   },
   agentsSection: {
     tag: "Cosa costruiamo",
-    heading: "Dodici agenti, una logica di costruzione",
+    heading: "Quattordici agenti, una logica di costruzione",
     sub: "Ognuno è costruito dallo stesso set di moduli, perciò il secondo è sempre più veloce del primo. Quelli contrassegnati come live puoi provarli — dietro gira un modello reale.",
     tryOpen: "Provalo dal vivo ↓",
     tryClose: "Chiudi",
@@ -72,6 +72,7 @@ const it = {
     { title: "Agente di operations IT", badge: "Demo", desc: "Guarda i log, classifica gli allarmi, esegue la correzione per i problemi noti. Ciò che non riconosce, ti sveglia per quello.", lead: "3–6 settimane" },
     { title: "Sistema multi-agente", badge: "Demo", desc: "Più agenti in un processo, con passaggi e punti di controllo. Ha senso solo se il processo è davvero complesso.", lead: "10–16 settimane" },
     { title: "Agente di conformità NIS2", desc: "Raccoglie e mantiene aggiornato ciò che l'audit richiede: chi accede a cosa, quando è stato fatto l'ultimo backup, dove manca l'autenticazione a due fattori. Non protegge — dimostra.", lead: "4–8 settimane" },
+    { title: "Agente su misura", badge: "Su richiesta", live: false, custom: true, desc: "Non è nella lista? Se il compito è realistico, lo costruiamo per il tuo processo e i tuoi sistemi. Se non lo è, te lo diciamo.", priceNote: "su preventivo", lead: "dopo la valutazione" },
   ],
   process: {
     tag: "Come lavoriamo",

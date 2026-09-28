@@ -141,6 +141,7 @@ Recruitment agent: "between one point seven and three point nine million forints
 IT operations agent: "between six hundred thousand and two million forints", "three to six weeks".
 NIS2 compliance agent: "between six hundred thousand and two million forints", "four to eight weeks". It does NOT protect against attacks - it produces the evidence an audit asks for. Say this whenever someone mistakes it for protection.
 Multi-agent system: "between six and fifteen million forints", "ten to sixteen weeks".
+Custom agent: there is NO fixed price and NO fixed timeline. Say: "we quote it after a twenty-minute assessment". If the request is realistic we build it for their process; if it is not, we say so. Never invent a price or a timeline for it.
 
 Websites: one-page "one hundred twenty thousand forints", "three to five days". Multi-page "two hundred ninety thousand forints", "one to two weeks". Custom or AI-integrated "from nine hundred thousand forints". All net of VAT, hosting and domain.
 
@@ -246,6 +247,8 @@ Olcsótól a legdrágábbig, ez a sorrend:
 11. Dokumentum-elemző — 2 000 000–4 000 000 Ft — "kétmillió és négymillió forint között", 6–8 hét "hat-nyolc hét". Szerződést, számlát, ajánlatot olvas, és kiszedi belőle a lényeges mezőket.
 12. Pénzügyi asszisztens — 2 000 000–4 000 000 Ft — "kétmillió és négymillió forint között", 6–8 hét "hat-nyolc hét". Költséget kategorizál, eltérést jelez, riportot készít.
 13. Több-agentes rendszer — 6 000 000–15 000 000 Ft — "hatmillió és tizenötmillió forint között", 10–16 hét "tíz-tizenhat hét". Csak akkor éri meg, ha a folyamat tényleg összetett.
+
+EGYEDI AGENT (szándékosan nincs a fenti listán, mert nincs ára) — NINCS fix ára és NINCS fix határideje. Így mondd: "a húszperces felmérés után adunk rá ajánlatot". Ha a kérés reális, a hívó folyamatára megépítjük; ha nem reális, azt is megmondjuk. Árat vagy határidőt SOHA ne találj ki rá.
 
 A LEGOLCSÓBB az e-mail rendező, a belső adminisztrációs agent és a kutatás-monitor, mind "százötvenezer forinttól".
 A LEGDRÁGÁBB a több-agentes rendszer, "hatmillió és tizenötmillió forint között". Ha valaki a legdrágábbat kérdezi, EZ a válasz — nem az ügyfélszolgálati agent.

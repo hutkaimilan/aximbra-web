@@ -171,6 +171,19 @@ const SCENES = [
       </g>
     </svg>
   ),
+  // 13 — Egyedi agent: a meglevo modulok melle egy uj kerul a hianyzo helyre
+  (
+    <svg viewBox="0 0 200 88" key="13">
+      {[[40, 16, "vz-c"], [84, 16, "vz-m"], [128, 16, "vz-v"], [40, 50, "vz-v"], [84, 50, "vz-c"]].map(([x, y, c], i) => (
+        <rect key={i} className={`stroke ${c}`} x={x} y={y} width="36" height="24" rx="4" opacity=".45" />
+      ))}
+      <rect className="stroke vz-a" x="128" y="50" width="36" height="24" rx="4" strokeDasharray="4 4"
+        style={{ animation: "vPulse 2.4s ease-in-out infinite" }} />
+      <g style={{ animation: "vFixIn 2.4s ease-in-out infinite", transformOrigin: "146px 62px", transformBox: "view-box" }}>
+        <rect className="fill-a" x="132" y="54" width="28" height="16" rx="3" opacity=".85" />
+      </g>
+    </svg>
+  ),
 ];
 
 export const AgentViz = ({ kind }) => {

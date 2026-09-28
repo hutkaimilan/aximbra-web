@@ -46,7 +46,7 @@ const en = {
   },
   agentsSection: {
     tag: "What we build",
-    heading: "Twelve agents, one building logic",
+    heading: "Fourteen agents, one building logic",
     sub: "Each is built from the same module set, so the second is always faster than the first. You can try the ones marked live — a real model runs behind them.",
     tryOpen: "Try it live ↓",
     tryClose: "Close",
@@ -74,6 +74,7 @@ const en = {
     { title: "IT operations agent", badge: "Demo", live: false, desc: "Watches logs, classifies alerts, runs the fix for known issues. What it doesn't recognize, it wakes you for.", price: "600000-2000000", lead: "3–6 weeks" },
     { title: "Multi-agent system", badge: "Demo", live: false, desc: "Several agents in one process, with handoffs and checkpoints. Worth it only when the process is genuinely complex.", price: "6000000-15000000", lead: "10–16 weeks" },
     { title: "NIS2 compliance agent", badge: "Demo", live: false, desc: "Continuously collects and maintains what the audit asks for: who can reach what, when the last backup ran, where two-factor is missing. It does not protect — it proves.", price: "600000-2000000", lead: "4–8 weeks" },
+    { title: "Custom agent", badge: "On request", live: false, custom: true, desc: "Not on the list? If the task is realistic, we build it for your process and your systems. If it isn't, we tell you that too.", priceNote: "quote-based", lead: "after assessment" },
   ],
   proof: {
     tag: "Before you believe anything",

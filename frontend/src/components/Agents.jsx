@@ -11,7 +11,7 @@ import { mailto } from "../contact";
 import { useLang } from "../i18n";
 import { formatPrice } from "../money";
 
-export const SLUGS = ["email-rendezo", "erdeklodo-minosito", "belso-admin", "kutatasi-monitor", "ugyfelszolgalat", "tartalom", "webshop", "dokumentum-elemzo", "penzugyi", "toborzas", "it-uzemelteto", "multi-agent", "nis2"];
+export const SLUGS = ["email-rendezo", "erdeklodo-minosito", "belso-admin", "kutatasi-monitor", "ugyfelszolgalat", "tartalom", "webshop", "dokumentum-elemzo", "penzugyi", "toborzas", "it-uzemelteto", "multi-agent", "nis2", "egyedi"];
 
 const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote, simText, lang }) => {
   const simData = simFor(kind, simText);
@@ -35,13 +35,14 @@ const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote, si
       <AgentViz kind={kind} />
       <div className="card-head">
         <div className="card-title">{agent.title}</div>
-        <span className={`badge ${agent.live ? "live" : "demo"}`}>
+        <span className={`badge ${agent.live ? "live" : agent.custom ? "custom" : "demo"}`}>
           {agent.live && <span className="dot" />}{agent.badge}
         </span>
       </div>
       <p className="card-desc">{agent.desc}</p>
       <div className="card-meta">
-        <span className="price">{formatPrice(agent.price, lang, "compact")}</span>
+        {/* Az egyedi agentnek nincs árlistája: egy kitalált sáv hamis állítás lenne. */}
+        <span className="price">{agent.priceNote || formatPrice(agent.price, lang, "compact")}</span>
         <span className="lead">{agent.lead}</span>
       </div>
       <LiquidButton as="a" className="card-quote" data-testid={`agent-quote-${kind}`}

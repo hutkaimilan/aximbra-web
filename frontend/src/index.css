@@ -482,6 +482,7 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
   border-radius: 40px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .badge.live { color: var(--cyan); border: 1px solid rgba(0,233,255,.4); background: rgba(0,233,255,.08); }
 .badge.demo { color: var(--dim); border: 1px solid var(--border); }
+.badge.custom { color: var(--amber); border: 1px solid rgba(255,176,32,.45); background: rgba(255,176,32,.08); }
 .badge .dot { width: 6px; height: 6px; }
 /* A leírás négy sornyi helyet foglal akkor is, ha háromból kijön. Enélkül az
    árválasztó vonal kártyánként más magasságban állna, és egy sorban három
