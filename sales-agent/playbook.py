@@ -140,6 +140,7 @@ The email address must be printed on the business's own website (contact page, f
 
 Answer ONLY with a JSON array, no prose, each item:
 {{"company": "...", "town": "...", "country": "{country}", "sector": "{'|'.join(SECTORS)}", "website": "https://...", "email": "...", "email_url": "https://... (page where the email is printed)", "observation": "exact sentence copied from their site", "observation_url": "https://...", "pain": "phone|email|leads", "signal": "{'|'.join(SIGNAL_TYPES)}", "signal_note": "one line: what the signal is, e.g. 'recepciós álláshirdetés a profession.hu-n, 2026-09'", "signal_url": "https://... or empty", "score": 0-100, "score_reason": "one line"}}
+Write "score_reason" and "signal_note" in Hungarian, short and plain (the owner reads them on his phone).
 Leave out anything you cannot verify. Fewer strong leads beat more weak ones."""
 
 
@@ -184,6 +185,7 @@ Subject: {subject}
 Their website says: "{lead['observation']}"
 
 Score 0–10 against: (a) the first lines are specific to THIS business, not generic; (b) exactly one consequence question the reader can picture; (c) the offer is one concrete sentence; (d) parts before the signature under 75 words; (e) no hype, no price, no link, no flattery, no claims about clients; (f) natural, native {LANG_NAMES[lead['lang']]} a local business owner would not find odd; (g) signature, P.S. and the last opt-out line kept exactly.
+Write the "issues" in Hungarian, each under 15 words (the owner reads them on his phone).
 If the score is below 9, rewrite it fixing every issue, keeping the same structure and the signature, P.S. and opt-out line unchanged.
 Answer ONLY with JSON: {{"score": 0-10, "issues": ["..."], "subject": "...", "body": "..."}}"""
 
