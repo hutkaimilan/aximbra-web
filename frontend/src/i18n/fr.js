@@ -45,7 +45,7 @@ const fr = {
   },
   agentsSection: {
     tag: "Ce que nous construisons",
-    heading: "Quatorze agents, une logique de construction",
+    heading: "Quinze agents, une logique de construction",
     sub: "Chacun est construit à partir du même jeu de modules, c'est pourquoi le deuxième est toujours plus rapide que le premier. Ceux marqués en direct sont à essayer — un vrai modèle tourne derrière.",
     tryOpen: "Essayer en direct ↓",
     tryClose: "Fermer",
@@ -72,6 +72,7 @@ const fr = {
     { title: "Agent d'exploitation IT", badge: "Démo", desc: "Surveille les logs, classe les alertes, exécute le correctif pour les incidents connus. Ce qu'il ne connaît pas, il vous réveille pour.", lead: "3–6 semaines" },
     { title: "Système multi-agent", badge: "Démo", desc: "Plusieurs agents dans un même processus, avec passations et points de contrôle. Utile seulement si le processus est vraiment complexe.", lead: "10–16 semaines" },
     { title: "Agent de conformité NIS2", desc: "Collecte et tient à jour ce que l'audit réclame : qui accède à quoi, quand a eu lieu la dernière sauvegarde, où manque la double authentification. Il ne protège pas — il prouve.", lead: "4–8 semaines" },
+    { title: "Agent commercial", badge: "Démo", desc: "Trouve les entreprises qui vous correspondent, lit leur site et écrit à chacune une courte lettre fondée sur une observation réelle. Il relance, trie les réponses et n’écrit plus jamais à qui dit non. Rien ne part sans votre validation.", lead: "3–5 semaines" },
     { title: "Agent sur mesure", badge: "Sur demande", live: false, custom: true, desc: "Pas dans la liste ? Si la tâche est réaliste, nous le construisons pour votre processus et vos systèmes. Sinon, nous vous le disons aussi.", priceNote: "sur devis", lead: "après l'évaluation" },
   ],
   process: {

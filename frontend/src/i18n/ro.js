@@ -45,7 +45,7 @@ const ro = {
   },
   agentsSection: {
     tag: "Ce construim",
-    heading: "Paisprezece agenți, o logică de construcție",
+    heading: "Cincisprezece agenți, o logică de construcție",
     sub: "Fiecare este construit din același set de module, de aceea al doilea este mereu mai rapid decât primul. Pe cei marcați live îi poți încerca — în spate rulează un model real.",
     tryOpen: "Încearcă live ↓",
     tryClose: "Închide",
@@ -72,6 +72,7 @@ const ro = {
     { title: "Agent de operațiuni IT", badge: "Demo", desc: "Se uită la loguri, clasifică alertele, rulează remedierea pentru erori cunoscute. Ce nu recunoaște, te trezește pentru asta.", lead: "3–6 săptămâni" },
     { title: "Sistem multi-agent", badge: "Demo", desc: "Mai mulți agenți într-un proces, cu predări și puncte de control. Are sens doar dacă procesul e cu adevărat complex.", lead: "10–16 săptămâni" },
     { title: "Agent de conformitate NIS2", desc: "Colectează și menține la zi ce cere auditul: cine are acces la ce, când a fost ultima copie de siguranță, unde lipsește autentificarea în doi pași. Nu protejează — dovedește.", lead: "4–8 săptămâni" },
+    { title: "Agent de vânzări", badge: "Demo", desc: "Găsește firmele potrivite pentru tine, le citește site-ul și scrie fiecăreia o scrisoare scurtă, construită pe o observație reală. Revine, sortează răspunsurile și nu mai scrie niciodată celor care spun nu. Nimic nu pleacă fără aprobarea ta.", lead: "3–5 săptămâni" },
     { title: "Agent personalizat", badge: "La cerere", live: false, custom: true, desc: "Nu e pe listă? Dacă sarcina e realistă, îl construim pentru procesul și sistemele tale. Dacă nu, îți spunem și asta.", priceNote: "pe bază de ofertă", lead: "după evaluare" },
   ],
   process: {

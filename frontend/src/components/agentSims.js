@@ -636,6 +636,23 @@ const sims = {
         cat: "m"
       }
     ]
+  },
+  "13": {
+    total: 60,
+    items: [
+      { t: "Horváth Fogászat", s: "Időpontot csak telefonon ad", cat: "m" },
+      { t: "Tisza Autószerviz", s: "Foglalt vonalnál visszahív", cat: "m" },
+      { t: "Kert Bisztró", s: "Aznapi asztal csak telefonon", cat: "m" },
+      { t: "Nyírség Klíma", s: "Szezonban kéthetes a várólista", cat: "c" },
+      { t: "Duna Bútor", s: "Tavasszal nyit az új üzlet", cat: "c" },
+      { t: "Alfa Holding", s: "Nincs nyilvános elérhetőség", cat: "dim" },
+      { t: "Webáruház Kft.", s: "Már van online foglalása", cat: "dim" }
+    ],
+    picks: [
+      { t: "Horváth Fogászat", cat: "m" },
+      { t: "Tisza Autószerviz", cat: "m" },
+      { t: "Kert Bisztró", cat: "m" }
+    ]
   }
 };
 

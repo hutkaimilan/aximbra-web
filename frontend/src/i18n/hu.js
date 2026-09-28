@@ -46,7 +46,7 @@ const hu = {
   },
   agentsSection: {
     tag: "Amit építünk",
-    heading: "Tizennégy agent, egy építési logika",
+    heading: "Tizenöt agent, egy építési logika",
     sub: "Mindegyik ugyanabból a modulkészletből épül, ezért a második mindig gyorsabb, mint az első. Az élő jelöléssel ellátottakat kipróbálhatod — valódi modell fut mögötte.",
     tryOpen: "Próbáld ki élőben ↓",
     tryClose: "Bezárás",
@@ -74,6 +74,7 @@ const hu = {
     { title: "IT-üzemeltető agent", badge: "Bemutató", live: false, desc: "Logot néz, riasztást osztályoz, ismert hibára lefuttatja a javítást. Amit nem ismer, azzal felébreszt téged.", price: "600000-2000000", lead: "3–6 hét" },
     { title: "Multi-agent rendszer", badge: "Bemutató", live: false, desc: "Több agent egy folyamaton, átadásokkal és ellenőrzési pontokkal. Akkor van értelme, ha a folyamat tényleg összetett.", price: "6000000-15000000", lead: "10–16 hét" },
     { title: "NIS2-megfelelési agent", badge: "Bemutató", live: false, desc: "Folyamatosan gyűjti és karbantartja azt, amit az audit kér: ki fér hozzá mihez, mikor volt mentés, hol hiányzik a kétlépcsős belépés. Nem véd — bizonyít.", price: "600000-2000000", lead: "4–8 hét" },
+    { title: "Értékesítő agent", badge: "Bemutató", live: false, desc: "Megkeresi a hozzád illő cégeket, elolvassa az oldalukat, és mindegyiknek egy valódi megfigyelésre épülő, rövid levelet ír. Utánkövet, szétválogatja a válaszokat, és aki nemet mond, annak többet nem ír. Kiküldés előtt te hagyod jóvá.", price: "600000-1500000", lead: "3–5 hét" },
     { title: "Egyedi agent", badge: "Igény szerint", live: false, custom: true, desc: "Nincs a listán, amire szükséged van? Ha a feladat reális, megépítjük a te folyamatodra és a te rendszereidhez. Ha nem reális, azt is megmondjuk.", priceNote: "ajánlat alapján", lead: "felmérés után" },
   ],
   proof: {

@@ -45,7 +45,7 @@ const sk = {
   },
   agentsSection: {
     tag: "Čo staviame",
-    heading: "Štrnásť agentov, jedna logika stavby",
+    heading: "Pätnásť agentov, jedna logika stavby",
     sub: "Každý je postavený z rovnakej sady modulov, preto je druhý vždy rýchlejší než prvý. Tých označených naživo si môžeš vyskúšať — vzadu beží reálny model.",
     tryOpen: "Vyskúšať naživo ↓",
     tryClose: "Zavrieť",
@@ -72,6 +72,7 @@ const sk = {
     { title: "Agent IT prevádzky", badge: "Demo", desc: "Sleduje logy, klasifikuje výstrahy, pri známych chybách spustí opravu. Na to, čo nepozná, ťa zobudí.", lead: "3–6 týždňov" },
     { title: "Multiagentový systém", badge: "Demo", desc: "Viac agentov v jednom procese, s odovzdávaním a kontrolnými bodmi. Má zmysel len ak je proces naozaj zložitý.", lead: "10–16 týždňov" },
     { title: "Agent súladu s NIS2", desc: "Priebežne zbiera a udržiava to, čo žiada audit: kto má k čomu prístup, kedy prebehla posledná záloha, kde chýba dvojfaktorové prihlásenie. Nechráni — dokazuje.", lead: "4–8 týždňov" },
+    { title: "Obchodný agent", badge: "Demo", desc: "Nájde firmy, ktoré sa k tebe hodia, prečíta ich web a každej napíše krátky list postavený na jednom skutočnom postrehu. Pripomenie sa, roztriedi odpovede a tomu, kto povie nie, už nikdy nenapíše. Nič neodíde bez tvojho schválenia.", lead: "3–5 týždňov" },
     { title: "Agent na mieru", badge: "Na požiadanie", live: false, custom: true, desc: "Nie je v zozname? Ak je úloha realistická, postavíme ho pre tvoj proces a tvoje systémy. Ak nie, povieme ti aj to.", priceNote: "podľa ponuky", lead: "po posúdení" },
   ],
   process: {

@@ -171,9 +171,28 @@ const SCENES = [
       </g>
     </svg>
   ),
-  // 13 — Egyedi agent: a meglevo modulok melle egy uj kerul a hianyzo helyre
+  // 13 — Ertekesito agent: a talalt cegek kozul csak az illok kapnak levelet,
+  // es a valasz visszajon
   (
     <svg viewBox="0 0 200 88" key="13">
+      {[[14, "vz-c", 1], [32, "vz-v", .3], [50, "vz-c", 1], [68, "vz-v", .3]].map(([y, c, o], i) => (
+        <rect key={i} className={`stroke ${c}`} x="12" y={y} width="34" height="10" rx="3" opacity={o} />
+      ))}
+      <g className="stroke vz-c" style={R("vSlideR 3.2s ease-in-out infinite")}>
+        <rect x="58" y="12" width="24" height="16" rx="3" fill="rgba(0,233,255,.08)" />
+        <path d="M58 14 L70 23 L82 14" />
+      </g>
+      <g className="stroke vz-c" style={R("vSlideR 3.2s ease-in-out 1.1s infinite")}>
+        <rect x="58" y="48" width="24" height="16" rx="3" fill="rgba(0,233,255,.08)" />
+        <path d="M58 50 L70 59 L82 50" />
+      </g>
+      <circle className="stroke vz-m" cx="170" cy="44" r="14" opacity=".6" />
+      <circle className="fill-a" r="3.5" style={{ offsetPath: "path('M156 50 L110 70 L50 55')", animation: "vTravel 3.2s ease-in-out 1.6s infinite" }} />
+    </svg>
+  ),
+  // 14 — Egyedi agent: a meglevo modulok melle egy uj kerul a hianyzo helyre
+  (
+    <svg viewBox="0 0 200 88" key="14">
       {[[40, 16, "vz-c"], [84, 16, "vz-m"], [128, 16, "vz-v"], [40, 50, "vz-v"], [84, 50, "vz-c"]].map(([x, y, c], i) => (
         <rect key={i} className={`stroke ${c}`} x={x} y={y} width="36" height="24" rx="4" opacity=".45" />
       ))}

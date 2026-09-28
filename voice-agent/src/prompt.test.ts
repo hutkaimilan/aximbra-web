@@ -258,7 +258,7 @@ test('minden ar-sorhoz tartozik kimondott alak', () => {
     prompt.indexOf('## Weboldal-készítés'),
   );
   const rows = block.split('\n').filter((l) => /^\d+\. /.test(l));
-  assert.equal(rows.length, 13, 'mind a tizenharom agent legyen bent');
+  assert.equal(rows.length, 14, 'mind a tizennegy arazott agent legyen bent');
   for (const row of rows) {
     assert.match(row, /Ft — "/, `hianyzik a kimondott alak: ${row.slice(0, 40)}`);
   }

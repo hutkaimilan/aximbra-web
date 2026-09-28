@@ -45,7 +45,7 @@ const de = {
   },
   agentsSection: {
     tag: "Was wir bauen",
-    heading: "Vierzehn Agenten, eine Baulogik",
+    heading: "Fünfzehn Agenten, eine Baulogik",
     sub: "Jeder wird aus demselben Modulbaukasten gebaut, deshalb ist der zweite immer schneller als der erste. Die als live markierten kannst du ausprobieren — dahinter läuft ein echtes Modell.",
     tryOpen: "Live ausprobieren ↓",
     tryClose: "Schließen",
@@ -72,6 +72,7 @@ const de = {
     { title: "IT-Betriebs-Agent", badge: "Demo", desc: "Überwacht Logs, klassifiziert Alarme, führt bei bekannten Fehlern die Behebung aus. Was er nicht kennt, dafür weckt er dich.", lead: "3–6 Wochen" },
     { title: "Multi-Agent-System", badge: "Demo", desc: "Mehrere Agenten in einem Prozess, mit Übergaben und Kontrollpunkten. Sinnvoll nur, wenn der Prozess wirklich komplex ist.", lead: "10–16 Wochen" },
     { title: "NIS2-Compliance-Agent", desc: "Sammelt und pflegt laufend, was das Audit verlangt: wer worauf zugreifen kann, wann zuletzt gesichert wurde, wo die Zwei-Faktor-Anmeldung fehlt. Er schützt nicht — er weist nach.", lead: "4–8 Wochen" },
+    { title: "Vertriebs-Agent", badge: "Demo", desc: "Findet Firmen, die zu dir passen, liest ihre Website und schreibt jeder einen kurzen Brief, der auf einer echten Beobachtung aufbaut. Er fasst nach, sortiert die Antworten und schreibt niemandem mehr, der Nein sagt. Bevor etwas rausgeht, gibst du es frei.", lead: "3–5 Wochen" },
     { title: "Individueller Agent", badge: "Auf Anfrage", live: false, custom: true, desc: "Nicht auf der Liste? Wenn die Aufgabe realistisch ist, bauen wir ihn für Ihren Prozess und Ihre Systeme. Wenn nicht, sagen wir auch das.", priceNote: "nach Angebot", lead: "nach der Analyse" },
   ],
   process: {

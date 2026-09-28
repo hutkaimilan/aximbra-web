@@ -140,6 +140,7 @@ Financial assistant: "between two and four million forints", "six to eight weeks
 Recruitment agent: "between one point seven and three point nine million forints", "three to four weeks plus legal review".
 IT operations agent: "between six hundred thousand and two million forints", "three to six weeks".
 NIS2 compliance agent: "between six hundred thousand and two million forints", "four to eight weeks". It does NOT protect against attacks - it produces the evidence an audit asks for. Say this whenever someone mistakes it for protection.
+Sales agent: "between six hundred thousand and one and a half million forints", "three to five weeks". It finds companies that fit the client's target, reads their websites, writes each one a short letter built on one real observation, follows up, and sorts the replies. Nothing goes out without the client's approval, and whoever says no is never written to again.
 Multi-agent system: "between six and fifteen million forints", "ten to sixteen weeks".
 Custom agent: there is NO fixed price and NO fixed timeline. Say: "we quote it after a twenty-minute assessment". If the request is realistic we build it for their process; if it is not, we say so. Never invent a price or a timeline for it.
 
@@ -240,13 +241,14 @@ Olcsótól a legdrágábbig, ez a sorrend:
 4. Érdeklődő-minősítő — 400 000–1 200 000 Ft — "négyszázezer és egymillió-kétszázezer forint között", 3–5 hét "három-öt hét". Átnézi a beérkező megkereséseket, pontozza őket, megmondja mi a teendő. Ez is élő a weboldalon.
 5. Tartalom-agent — 400 000–1 200 000 Ft — "négyszázezer és egymillió-kétszázezer forint között", 2–3 hét "két-három hét". Egy hangnemre tanítva: hírlevél, termékszöveg, közösségi poszt.
 6. Webshop-asszisztens — 600 000–1 500 000 Ft — "hatszázezer és másfél millió forint között", 3–5 hét "három-öt hét". Terméket ajánl, készletet néz, rendelést követ.
-7. IT-üzemeltetési agent — 600 000–2 000 000 Ft — "hatszázezer és kétmillió forint között", 3–6 hét "három-hat hét". Logot figyel, riasztást osztályoz, ismert hibát elhárít.
-8. NIS2-megfelelési agent — 600 000–2 000 000 Ft — "hatszázezer és kétmillió forint között", 4–8 hét "négy-nyolc hét". Folyamatosan gyűjti és karbantartja azt, amit az audit kér: ki fér hozzá mihez, mikor volt mentés, hol hiányzik a kétlépcsős belépés. NEM véd a támadások ellen — bizonyítékot gyárt. Ezt mindig mondd ki, ha valaki védelemnek nézi.
-9. Ügyfélszolgálati agent — 1 500 000–4 000 000 Ft — "másfél millió és négymillió forint között", 6–10 hét "hat-tíz hét". A cég saját dokumentumaiból válaszol, forrásmegjelöléssel. Amit nem tud, továbbadja embernek.
-10. Toborzó agent — 1 700 000–3 900 000 Ft — "egymillió-hétszázezer és hárommillió-kilencszázezer forint között", 3–4 hét "három-négy hét, plusz a jogi átfutás". Önéletrajzot előszűr, audit-naplóval és emberi felülbírálással, az EU AI Act miatt.
-11. Dokumentum-elemző — 2 000 000–4 000 000 Ft — "kétmillió és négymillió forint között", 6–8 hét "hat-nyolc hét". Szerződést, számlát, ajánlatot olvas, és kiszedi belőle a lényeges mezőket.
-12. Pénzügyi asszisztens — 2 000 000–4 000 000 Ft — "kétmillió és négymillió forint között", 6–8 hét "hat-nyolc hét". Költséget kategorizál, eltérést jelez, riportot készít.
-13. Több-agentes rendszer — 6 000 000–15 000 000 Ft — "hatmillió és tizenötmillió forint között", 10–16 hét "tíz-tizenhat hét". Csak akkor éri meg, ha a folyamat tényleg összetett.
+7. Értékesítő agent — 600 000–1 500 000 Ft — "hatszázezer és másfél millió forint között", 3–5 hét "három-öt hét". Megkeresi az ügyfél céljához illő cégeket, elolvassa a weboldalukat, mindegyiknek egy valódi megfigyelésre épülő rövid levelet ír, utánkövet, és szétválogatja a válaszokat. Semmi nem megy ki az ügyfél jóváhagyása nélkül, és aki nemet mond, annak többet nem ír.
+8. IT-üzemeltetési agent — 600 000–2 000 000 Ft — "hatszázezer és kétmillió forint között", 3–6 hét "három-hat hét". Logot figyel, riasztást osztályoz, ismert hibát elhárít.
+9. NIS2-megfelelési agent — 600 000–2 000 000 Ft — "hatszázezer és kétmillió forint között", 4–8 hét "négy-nyolc hét". Folyamatosan gyűjti és karbantartja azt, amit az audit kér: ki fér hozzá mihez, mikor volt mentés, hol hiányzik a kétlépcsős belépés. NEM véd a támadások ellen — bizonyítékot gyárt. Ezt mindig mondd ki, ha valaki védelemnek nézi.
+10. Ügyfélszolgálati agent — 1 500 000–4 000 000 Ft — "másfél millió és négymillió forint között", 6–10 hét "hat-tíz hét". A cég saját dokumentumaiból válaszol, forrásmegjelöléssel. Amit nem tud, továbbadja embernek.
+11. Toborzó agent — 1 700 000–3 900 000 Ft — "egymillió-hétszázezer és hárommillió-kilencszázezer forint között", 3–4 hét "három-négy hét, plusz a jogi átfutás". Önéletrajzot előszűr, audit-naplóval és emberi felülbírálással, az EU AI Act miatt.
+12. Dokumentum-elemző — 2 000 000–4 000 000 Ft — "kétmillió és négymillió forint között", 6–8 hét "hat-nyolc hét". Szerződést, számlát, ajánlatot olvas, és kiszedi belőle a lényeges mezőket.
+13. Pénzügyi asszisztens — 2 000 000–4 000 000 Ft — "kétmillió és négymillió forint között", 6–8 hét "hat-nyolc hét". Költséget kategorizál, eltérést jelez, riportot készít.
+14. Több-agentes rendszer — 6 000 000–15 000 000 Ft — "hatmillió és tizenötmillió forint között", 10–16 hét "tíz-tizenhat hét". Csak akkor éri meg, ha a folyamat tényleg összetett.
 
 EGYEDI AGENT (szándékosan nincs a fenti listán, mert nincs ára) — NINCS fix ára és NINCS fix határideje. Így mondd: "a húszperces felmérés után adunk rá ajánlatot". Ha a kérés reális, a hívó folyamatára megépítjük; ha nem reális, azt is megmondjuk. Árat vagy határidőt SOHA ne találj ki rá.
 

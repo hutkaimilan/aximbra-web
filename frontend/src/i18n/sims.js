@@ -62,6 +62,9 @@ const sims = {
     12: { start: "Havi megfelelési átvizsgálás", beforeLabel: "ellenőrzött követelmény",
          afterHead: "3 hiányosság, ami auditon elbukna", closing: "43 követelményhez megvan a bizonyíték, dátumozva.",
          reasons: ["Távozott kollégának él a rendszergazdai joga", "A mentés 41 napja nem futott le — a vállalt határ 7 nap", "Hét fiók lép be kétlépcsős azonosítás nélkül"] },
+    13: { start: "Heti cégkeresés indítása", beforeLabel: "átnézett cég a célpiacodon",
+         afterHead: "3 levél vár a jóváhagyásodra", closing: "Aki nemet mond, annak többet nem ír. Semmi nem megy ki jóváhagyás nélkül.",
+         reasons: ["„Láttam, hogy időpontot csak telefonon adnak. Kezelés közben ki veszi fel?”", "„Azt írják, foglalt vonalnál visszahívnak. Addigra tudják, milyen autóról van szó?”", "„Aznapi asztalt csak telefonon foglalnak. Péntek este ki veszi fel?”"] },
   },
 
   en: {
@@ -120,6 +123,9 @@ const sims = {
     12: { start: "Monthly compliance sweep", beforeLabel: "requirement checked",
          afterHead: "3 gaps that would fail an audit", closing: "43 requirements have dated evidence on file.",
          reasons: ["A departed colleague still holds admin rights", "The last backup ran 41 days ago — the stated limit is 7", "Seven accounts sign in without two-factor"] },
+    13: { start: "Start the weekly company search", beforeLabel: "companies checked in your target market",
+         afterHead: "3 letters waiting for your approval", closing: "Anyone who says no is never written to again. Nothing goes out without approval.",
+         reasons: ["“I saw you only book appointments by phone. Who answers during treatment?”", "“You say you call back when the line is busy. By then, do you know which car it is?”", "“Same-day tables are phone-only. Who picks up on a Friday night?”"] },
   },
 
   de: {
@@ -178,6 +184,9 @@ const sims = {
     12: { start: "Monatliche Compliance-Prüfung", beforeLabel: "geprüfte Anforderung",
          afterHead: "3 Lücken, die ein Audit nicht bestehen würden", closing: "Für 43 Anforderungen liegt datierter Nachweis vor.",
          reasons: ["Ein ausgeschiedener Kollege hat weiterhin Administratorrechte", "Die letzte Sicherung lief vor 41 Tagen — zugesagt sind 7", "Sieben Konten melden sich ohne Zwei-Faktor an"] },
+    13: { start: "Wöchentliche Firmensuche starten", beforeLabel: "geprüfte Firmen in deinem Zielmarkt",
+         afterHead: "3 Briefe warten auf deine Freigabe", closing: "Wer Nein sagt, bekommt keine Mail mehr. Nichts geht ohne Freigabe raus.",
+         reasons: ["„Termine gibt es bei Ihnen nur telefonisch. Wer hebt während der Behandlung ab?“", "„Bei besetzter Leitung rufen Sie zurück. Wissen Sie dann schon, um welches Auto es geht?“", "„Tische für heute nur telefonisch. Wer hebt am Freitagabend ab?“"] },
   },
 
   es: {
@@ -236,6 +245,9 @@ const sims = {
     12: { start: "Revisión mensual de cumplimiento", beforeLabel: "requisito comprobado",
          afterHead: "3 carencias que no pasarían una auditoría", closing: "43 requisitos tienen evidencia fechada.",
          reasons: ["Un compañero que ya no está conserva permisos de administrador", "La última copia de seguridad fue hace 41 días — el límite acordado es 7", "Siete cuentas entran sin doble factor"] },
+    13: { start: "Iniciar la búsqueda semanal de empresas", beforeLabel: "empresas revisadas en tu mercado objetivo",
+         afterHead: "3 cartas esperan tu aprobación", closing: "A quien dice que no, no se le vuelve a escribir. Nada sale sin aprobación.",
+         reasons: ["«Vi que solo dan cita por teléfono. ¿Quién contesta durante un tratamiento?»", "«Dicen que devuelven la llamada si la línea está ocupada. ¿Para entonces saben de qué coche se trata?»", "«Las mesas para hoy solo por teléfono. ¿Quién contesta un viernes por la noche?»"] },
   },
 
   fr: {
@@ -294,6 +306,9 @@ const sims = {
     12: { start: "Revue de conformité mensuelle", beforeLabel: "exigence vérifiée",
          afterHead: "3 manques qui échoueraient à un audit", closing: "43 exigences disposent d'une preuve datée.",
          reasons: ["Un collègue parti conserve des droits d'administrateur", "La dernière sauvegarde date de 41 jours — la limite annoncée est de 7", "Sept comptes se connectent sans double authentification"] },
+    13: { start: "Lancer la recherche hebdomadaire", beforeLabel: "entreprises examinées sur votre marché cible",
+         afterHead: "3 lettres attendent votre validation", closing: "Qui dit non ne reçoit plus rien. Rien ne part sans validation.",
+         reasons: ["« Les rendez-vous se prennent uniquement par téléphone. Qui répond pendant un soin ? »", "« Vous rappelez quand la ligne est occupée. Savez-vous alors de quelle voiture il s’agit ? »", "« Les tables du jour, uniquement par téléphone. Qui décroche le vendredi soir ? »"] },
   },
 
   it: {
@@ -352,6 +367,9 @@ const sims = {
     12: { start: "Verifica mensile di conformità", beforeLabel: "requisito controllato",
          afterHead: "3 lacune che non supererebbero un audit", closing: "43 requisiti hanno una prova datata.",
          reasons: ["Un collega uscito conserva i diritti di amministratore", "L'ultimo backup risale a 41 giorni fa — il limite dichiarato è 7", "Sette account accedono senza autenticazione a due fattori"] },
+    13: { start: "Avvia la ricerca settimanale", beforeLabel: "aziende esaminate nel tuo mercato",
+         afterHead: "3 lettere attendono la tua approvazione", closing: "A chi dice di no non si scrive più. Niente parte senza approvazione.",
+         reasons: ["«Gli appuntamenti si prendono solo per telefono. Chi risponde durante una cura?»", "«Richiamate quando la linea è occupata. A quel punto sapete di che auto si tratta?»", "«I tavoli per oggi solo al telefono. Chi risponde il venerdì sera?»"] },
   },
 
   ro: {
@@ -410,6 +428,9 @@ const sims = {
     12: { start: "Verificare lunară de conformitate", beforeLabel: "cerință verificată",
          afterHead: "3 lipsuri care ar pica la audit", closing: "43 de cerințe au dovadă datată.",
          reasons: ["Un coleg plecat are în continuare drepturi de administrator", "Ultima copie de siguranță a rulat acum 41 de zile — limita asumată este 7", "Șapte conturi se autentifică fără doi pași"] },
+    13: { start: "Pornește căutarea săptămânală", beforeLabel: "firme verificate pe piața ta țintă",
+         afterHead: "3 scrisori așteaptă aprobarea ta", closing: "Cui spune nu nu i se mai scrie. Nimic nu pleacă fără aprobare.",
+         reasons: ["„Programările se fac doar telefonic. Cine răspunde în timpul unui tratament?”", "„Sunați înapoi când linia e ocupată. Știți atunci despre ce mașină e vorba?”", "„Mesele pentru azi doar telefonic. Cine răspunde vineri seara?”"] },
   },
 
   sk: {
@@ -468,6 +489,9 @@ const sims = {
     12: { start: "Mesačná kontrola súladu", beforeLabel: "overená požiadavka",
          afterHead: "3 nedostatky, ktoré by neprešli auditom", closing: "K 43 požiadavkám je datovaný dôkaz.",
          reasons: ["Kolega, ktorý odišiel, má stále práva správcu", "Posledná záloha prebehla pred 41 dňami — dohodnutý limit je 7", "Sedem účtov sa prihlasuje bez dvojfaktorového overenia"] },
+    13: { start: "Spustiť týždenné hľadanie firiem", beforeLabel: "preverených firiem na tvojom cieľovom trhu",
+         afterHead: "3 listy čakajú na tvoje schválenie", closing: "Kto povie nie, tomu sa už nepíše. Nič neodíde bez schválenia.",
+         reasons: ["„Termíny dávate len telefonicky. Kto zdvihne počas ošetrenia?“", "„Pri obsadenej linke voláte späť. Viete vtedy, o aké auto ide?“", "„Stoly na dnes len telefonicky. Kto zdvihne v piatok večer?“"] },
   },
   zh: {
     0: { start: "开始早间处理", beforeLabel: "封共享邮箱中的邮件",
@@ -525,6 +549,9 @@ const sims = {
     12: { start: "每月合规检查", beforeLabel: "项已检查的要求",
          afterHead: "3 个会导致审计不通过的漏洞", closing: "43 项要求都有注明日期的证据存档。",
          reasons: ["已离职同事仍持有管理员权限", "上次备份是 41 天前——约定上限为 7 天", "七个账号登录时没有双重验证"] },
+    13: { start: "开始每周公司搜索", beforeLabel: "家目标市场中已检查的公司",
+         afterHead: "3 封信等待您的批准", closing: "说“不”的人不会再收到信。未经批准，什么都不会发出。",
+         reasons: ["“看到你们只接受电话预约。治疗期间谁来接电话？”", "“你们说占线时会回电。回电时已经知道是哪辆车了吗？”", "“当天订位只能打电话。周五晚上谁来接？”"] },
   },
 };
 
