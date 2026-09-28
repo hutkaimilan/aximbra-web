@@ -35,7 +35,7 @@ TZ = ZoneInfo("Europe/Budapest")
 
 def auth(creds: HTTPBasicCredentials = Depends(security)):
     pw = os.environ.get("ADMIN_PASSWORD", "")
-    if len(pw) < 10:
+    if len(pw) < 8:
         raise HTTPException(503, "Nincs beállítva elég hosszú ADMIN_PASSWORD.")
     ok = secrets.compare_digest(creds.password.encode(), pw.encode())
     if not ok:
