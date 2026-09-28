@@ -77,6 +77,8 @@ A business qualifies only if ITS OWN WEBSITE states one of these concrete pains 
 - phone: bookings/appointments only by phone, "if the line is busy we call back", limited phone hours, same-day booking only by phone.
 - email: a stated email response time (e.g. "1–3 working days"), email as the main customer channel, lots of order/warranty emails.
 - leads: quote requests with callback promises, seasonal backlog, "we call you back within 24 hours".
+The quoted sentence itself must describe the pain (calls cannot always be answered, booking only by phone, replies take days, "we call you back"). A general promise ("we repair your car within 24 hours", "we reply as soon as possible") or a complaints page does NOT qualify.
+If the site says the phone lines are often busy or unreachable, the pain is "phone", even if it also mentions email.
 Good sectors: restaurants, private dental/medical practices, car services, beauty salons, guesthouses, installers, small webshops, driving schools.
 Exclude: public institutions, state hospitals, schools, military, big chains, franchises with central call centers, businesses that already solve the exact pain with online booking, and these domains: {excl}.
 
@@ -107,6 +109,7 @@ Structure, exactly in this order, plain text, formal register:
 7. A postscript (P.S.) in {LANG_NAMES[lang]}: {ps}
 8. Last line exactly: {OPT_OUT[lang]}
 
+Separate the parts with one empty line (greeting, observation, question, offer+interest question, signature, postscript, last line).
 Rules: lines 1–5 together under 75 words. No prices, no links, no hype words, no urgency, no claims about clients or results, no emojis.
 Subject: 3–5 words about THEIR situation, not about us.
 
