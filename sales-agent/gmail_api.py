@@ -38,12 +38,42 @@ _lock = threading.Lock()
 _cache = {"token": None, "exp": 0.0}
 
 
+def _key() -> str:
+    """SALES_TOKEN_KEY, vagy ha nincs megadva, egy első induláskor
+    generált kulcs a köteten (csak a tulajdonos olvashatja)."""
+    env = os.environ.get("SALES_TOKEN_KEY", "").strip()
+    if env:
+        return env
+    path = os.path.join(os.path.dirname(os.environ.get("SALES_DB_PATH", "/data/sales.db")) or ".", ".token_key")
+    try:
+        with open(path) as f:
+            k = f.read().strip()
+            if k:
+                return k
+    except FileNotFoundError:
+        pass
+    except OSError:
+        return ""
+    import secrets as _s
+    k = _s.token_urlsafe(32)
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write(k)
+        return k
+    except FileExistsError:  # egy párhuzamos hívás közben létrehozta
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
 def _cfg() -> dict:
     return {
         "client_id": os.environ.get("GOOGLE_CLIENT_ID", "").strip(),
         "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", "").strip(),
         "redirect": os.environ.get("OAUTH_REDIRECT_URI", "").strip(),
-        "key": os.environ.get("SALES_TOKEN_KEY", "").strip(),
+        "key": _key(),
         "account": (os.environ.get("COMPOSE_ACCOUNT") or os.environ.get("GMAIL_USER", "")).strip().lower(),
     }
 
