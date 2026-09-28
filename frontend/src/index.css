@@ -871,3 +871,58 @@ textarea:focus-visible,
   display: flex; justify-content: center; margin-top: 34px; padding-top: 22px;
   border-top: 1px solid var(--border); font-family: var(--mono); font-size: 11.5px; color: var(--dim);
 }
+
+/* ---------- Megtérülés (Payback.jsx) ---------- */
+/* A két vonalszín a validált sötét paletta (#00A3B8 / #C47A0E): a neon cián és
+   borostyán a sötét felületen túl világos a vonalnak, a szöveg viszont mindig
+   szövegszínű marad, sosem az adat színe. */
+.pb-card { margin-top: 28px; border: 1px solid var(--border); border-radius: 18px;
+  background: #0E1020; padding: 24px 22px; }
+.pb-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.pb-field { display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--muted); }
+.pb-field b { color: var(--text); font-weight: 600; }
+.pb-field select { background: #070914; color: var(--text); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 14px; min-height: 44px; }
+.pb-field input[type="range"] { accent-color: #00A3B8; min-height: 44px; }
+.pb-result { margin: 22px 0 6px; }
+.pb-hero { font-family: var(--body); font-weight: 600; font-size: clamp(22px, 3.4vw, 32px);
+  color: var(--text); margin: 0; }
+.pb-hero.pb-never { font-size: clamp(17px, 2.4vw, 21px); color: var(--muted); font-weight: 500; }
+.pb-hero-sub { color: var(--muted); margin: 6px 0 0; font-size: 15px; }
+.pb-legend { list-style: none; padding: 0; margin: 14px 0 4px; display: flex; flex-wrap: wrap;
+  gap: 8px 22px; font-size: 13px; color: var(--muted); }
+.pb-legend li { display: inline-flex; align-items: center; gap: 8px; }
+.pb-key { display: inline-block; width: 16px; height: 2px; border-radius: 2px; margin-right: 6px;
+  vertical-align: middle; }
+.pb-key-agent { background: #00A3B8; }
+.pb-key-staff { background: #C47A0E; }
+.pb-chart-box { width: 100%; }
+.pb-chart { display: block; touch-action: pan-y; max-width: 100%; }
+.pb-grid { stroke: rgba(120,140,220,.12); stroke-width: 1; }
+.pb-axis { fill: var(--muted); font-family: var(--mono); font-size: 11px;
+  font-variant-numeric: tabular-nums; }
+.pb-line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pb-line-agent { stroke: #00A3B8; }
+.pb-line-staff { stroke: #C47A0E; }
+.pb-dot { stroke: #0E1020; stroke-width: 2; }
+.pb-dot-agent { fill: #00A3B8; }
+.pb-dot-staff { fill: #C47A0E; }
+.pb-dot-cross { fill: var(--text); }
+.pb-cross { stroke: rgba(237,240,255,.35); stroke-width: 1; }
+.pb-hair { stroke: rgba(237,240,255,.25); stroke-width: 1; }
+.pb-tip { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; min-height: 22px;
+  font-size: 13px; color: var(--text); font-variant-numeric: tabular-nums; margin-top: 6px; }
+.pb-tip b { font-weight: 600; }
+.pb-table { margin-top: 14px; font-size: 13px; color: var(--muted); }
+.pb-table summary { cursor: pointer; min-height: 24px; }
+.pb-table table { width: 100%; border-collapse: collapse; margin-top: 10px;
+  font-variant-numeric: tabular-nums; }
+.pb-table th, .pb-table td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.pb-table th:first-child, .pb-table td:first-child { text-align: left; }
+.pb-table td { color: var(--text); }
+.pb-notes { margin: 18px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+.pb-notes li + li { margin-top: 4px; }
+@media (max-width: 760px) {
+  .pb-controls { grid-template-columns: 1fr; }
+  .pb-card { padding: 20px 16px; }
+}
