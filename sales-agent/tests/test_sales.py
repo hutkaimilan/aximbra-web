@@ -515,3 +515,24 @@ def test_round_sends_summary(monkeypatch, tmp_path):
     app_mod._morning(log)
     assert len(sent) == 1 and sent[0]["To"] == "milan@example.com"
     assert "1 új vázlat" in sent[0]["Subject"] and "Kert Bisztró" in sent[0].get_content()
+
+
+def test_organizer_run_counts_only(monkeypatch, tmp_path):
+    monkeypatch.setenv("SALES_DB_PATH", str(tmp_path / "o.db"))
+    monkeypatch.setenv("NOTIFY_SECRET", "s" * 32)
+    monkeypatch.setenv("NOTIFY_TO", "aximbra@gmail.com")
+    monkeypatch.setenv("GMAIL_USER", "aximbra@gmail.com")
+    import importlib
+    import app as app_mod
+    importlib.reload(app_mod)
+    sent = []
+    monkeypatch.setattr(app_mod.mailer, "send", lambda m: sent.append(m) or "<id>")
+    from fastapi.testclient import TestClient
+    c = TestClient(app_mod.app)
+    body = {"counts": {"Ügyfél – kérdés": 3, "Spam / kéretlen": 2, "Titkos tárgy: fizetés": 9}, "urgent": 1}
+    assert c.post("/internal/organizer-run", json=body).status_code == 403
+    assert c.post("/internal/organizer-run", json=body, headers={"X-Notify-Secret": "rossz" * 8}).status_code == 403
+    r = c.post("/internal/organizer-run", json=body, headers={"X-Notify-Secret": "s" * 32})
+    assert r.status_code == 200 and len(sent) == 1
+    text = sent[0].get_content()
+    assert "Ügyfél – kérdés" in text and "Titkos tárgy" not in text and "5 új levél, 1 sürgős" in sent[0]["Subject"]

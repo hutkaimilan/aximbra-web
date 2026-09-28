@@ -13,7 +13,7 @@ import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
@@ -220,6 +220,45 @@ def gmail_connect():
 @app.post("/api/gmail/disconnect", dependencies=[Depends(auth)])
 def gmail_disconnect():
     gmail_api.disconnect(store)
+    return {"ok": True}
+
+
+# Az e-mail rendező (másik szolgáltatás) ide adja át a kör eredményét, és
+# ez küldi ki e-mailben. Szándékosan csak kategórianevet és darabszámot
+# fogad el: levéltartalom, feladó vagy tárgy nem juthat át ezen.
+ORGANIZER_CATEGORIES = {"Ügyfél – kérdés", "Ügyfél – panasz", "Üzleti lehetőség", "Számla / pénzügy",
+                        "Hatóság / hivatalos", "Szolgáltatói értesítés", "Hírlevél / marketing",
+                        "Spam / kéretlen", "Egyéb"}
+
+
+class OrganizerRunIn(BaseModel):
+    counts: dict[str, int] = Field(default_factory=dict)
+    urgent: int = Field(default=0, ge=0, le=10000)
+
+
+@app.post("/internal/organizer-run")
+def organizer_run(body: OrganizerRunIn, x_notify_secret: str = Header(default="")):
+    secret = os.environ.get("NOTIFY_SECRET", "")
+    if len(secret) < 24 or not secrets.compare_digest(x_notify_secret.encode(), secret.encode()):
+        raise HTTPException(403, "tiltott")
+    counts = {k: int(v) for k, v in body.counts.items() if k in ORGANIZER_CATEGORIES and 0 <= int(v) <= 10000}
+    to = os.environ.get("NOTIFY_TO", "").strip()
+    if not to:
+        return {"ok": False, "reason": "nincs NOTIFY_TO"}
+    total = sum(counts.values())
+    when = datetime.now(TZ).strftime("%H:%M")
+    subject = f"E-mail Rendező ({when}): {total} új levél" + (f", {body.urgent} sürgős" if body.urgent else "")
+    lines = [f"Lefutott egy új frissítés ({when}).", ""]
+    if total:
+        lines += [f"  {n:>3}  {k}" for k, n in sorted(counts.items(), key=lambda x: -x[1]) if n]
+        lines += ["", f"Összesen: {total}" + (f", ebből sürgős: {body.urgent}" if body.urgent else "")]
+    else:
+        lines.append("Nem jött új levél.")
+    try:
+        mailer.send(mailer.build_message(to, subject, "\n".join(lines)))
+    except Exception as e:  # noqa: BLE001
+        logger.warning("rendező-értesítés hiba: %s", e)
+        raise HTTPException(502, "nem sikerült elküldeni")
     return {"ok": True}
 
 
