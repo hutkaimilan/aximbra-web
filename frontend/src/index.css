@@ -926,3 +926,44 @@ textarea:focus-visible,
   .pb-controls { grid-template-columns: 1fr; }
   .pb-card { padding: 20px 16px; }
 }
+
+/* ---------- Tagolás: több levegő, rövidebb sorok ----------
+   A szöveg hossza szándékos (docs/meggyozes.md 7. pont), a zsúfoltság nem az.
+   Két dolog tette sűrűvé: a kis hézagok a cím, a szöveg és a következő elem
+   között, és a túl hosszú sor — asztalin a bemutatkozás soronként ~110
+   karakter volt, a kényelmesen olvasható 60–70 helyett. Ez a blokk csak
+   térközt és sorhosszt állít, a szöveghez nem nyúl. */
+.sub { max-width: 640px; }
+.grid, .proof-grid { gap: 28px; }
+.card-head { margin-bottom: 18px; }
+.card-desc, .proof-desc { line-height: 1.75; margin-bottom: 26px; }
+.proof-title { margin-bottom: 12px; }
+
+.obj-q { padding-top: 26px; padding-bottom: 26px; }
+.obj-a { padding-bottom: 34px; }
+.obj-a p { max-width: 62ch; }
+
+.step { padding-bottom: 68px; }
+.step p { max-width: 62ch; }
+
+.case p { margin: 22px 0; max-width: 62ch; }
+.case li { padding: 11px 0; }
+
+.notricks li { gap: 10px; padding-top: 26px; padding-bottom: 26px; }
+.notricks-close { margin-top: 40px; max-width: 62ch; }
+
+.founder { gap: 56px; }
+.founder-body p, .founder-bio p { max-width: 62ch; margin-bottom: 24px; }
+.founder-proof { margin-top: 34px; gap: 16px; max-width: 62ch; }
+.founder-bio { margin-top: 48px; padding-top: 40px; }
+.founder-bio-tag { margin-bottom: 20px; }
+.founder-facts { margin-top: 36px; }
+
+.pb-result { margin-top: 30px; }
+.pb-notes li + li { margin-top: 8px; }
+
+@media (max-width: 820px) {
+  .founder { gap: 32px; }
+  .grid, .proof-grid { gap: 22px; }
+  .step { padding-bottom: 52px; }
+}
