@@ -35,7 +35,10 @@ def extract_json(text: str):
     fenced = re.search(r"```(?:json)?\s*(.+?)```", text, flags=re.S)
     if fenced:
         text = fenced.group(1).strip()
-    for opener, closer in (("[", "]"), ("{", "}")):
+    # Amelyik zárójel előbb jön, az a külső szerkezet: egy objektumon belüli
+    # lista nem lehet a válasz.
+    order = sorted((("[", "]"), ("{", "}")), key=lambda p: (text.find(p[0]) == -1, text.find(p[0])))
+    for opener, closer in order:
         start = text.find(opener)
         end = text.rfind(closer)
         if start != -1 and end > start:
@@ -44,6 +47,12 @@ def extract_json(text: str):
             except json.JSONDecodeError:
                 continue
     raise LLMError("a modell nem adott értelmezhető JSON-t")
+
+
+def paragraphs(body: str) -> str:
+    """Minden sor külön bekezdés, egy üres sorral: telefonon így olvasható."""
+    lines = [l.strip() for l in (body or "").replace("\r", "").split("\n")]
+    return "\n\n".join(l for l in lines if l)
 
 
 def research(country: str, count: int, exclude_domains: list[str], focus: str = "") -> list[dict]:
@@ -65,7 +74,7 @@ def compose(lead: dict) -> dict:
     data = extract_json(resp.output_text)
     if not isinstance(data, dict) or not data.get("body"):
         raise LLMError("a levélíró nem adott levelet")
-    body = data["body"].strip()
+    body = paragraphs(data["body"])
     # A leiratkozó mondat kötelező: ha a modell kihagyta, a kód teszi hozzá.
     opt = playbook.OPT_OUT[lead["lang"]]
     if opt not in body:
@@ -84,7 +93,7 @@ def critique(lead: dict, subject: str, body: str) -> dict:
     except (TypeError, ValueError):
         score = 0
     return {"score": score, "issues": [str(i) for i in (data.get("issues") or [])][:6],
-            "subject": (data.get("subject") or subject).strip(), "body": (data.get("body") or body).strip()}
+            "subject": (data.get("subject") or subject).strip(), "body": paragraphs(data.get("body") or body)}
 
 
 def classify(original: str, reply: str) -> dict:

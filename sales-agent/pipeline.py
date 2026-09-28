@@ -23,7 +23,7 @@ MAX_PER_RUN = 20        # egy kereséssel legfeljebb ennyi vázlat
 BATCH = 6               # egy modellhívásban ennyi céget kérünk
 FOLLOWUP_AFTER_WORKDAYS = 5
 SEND_GAP = (25, 70)     # másodperc két levél között: nem egyszerre zúdul ki
-MIN_SCORE = 40          # ennél gyengébb illeszkedésre nem pazarolunk levelet
+MIN_SCORE = 70          # ennél gyengébb illeszkedésre nem pazarolunk levelet
 
 
 @dataclass

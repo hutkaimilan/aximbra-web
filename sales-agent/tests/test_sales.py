@@ -308,10 +308,10 @@ def test_critique_rewrite_applied_and_recorded(store):
 
 
 def test_drafts_sorted_by_score(store):
-    run(store, [dict(CAND, score=55)])
+    run(store, [dict(CAND, score=75)])
     run(store, [dict(CAND, company="Másik", email="info@masik.hu", website="https://masik.hu", score=95)],
         fetch=lambda url: PAGE.replace("kertbisztro", "masik"))
-    assert [l["score"] for l in store.list("draft")] == [95, 55]
+    assert [l["score"] for l in store.list("draft")] == [95, 75]
 
 
 def test_learning_prefers_sector_with_replies(store):
@@ -325,3 +325,9 @@ def test_learning_prefers_sector_with_replies(store):
     llm = FakeLLM([])
     pipeline.research_run(store, {"HU": 1}, pipeline.RunLog(), llm=llm, mailbox_factory=FakeMailbox)
     assert llm.focus.startswith("dental")
+
+
+def test_extract_json_prefers_outer_object():
+    import llm
+    assert llm.extract_json('Íme: {"score": 7, "issues": ["x"], "body": "b"}')["score"] == 7
+    assert llm.extract_json('```json\n[{"a": 1}]\n```') == [{"a": 1}]
