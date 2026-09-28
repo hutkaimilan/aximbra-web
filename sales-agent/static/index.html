@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>AXIMBRA Értékesítő</title>
+<style>
+:root{--bg:#0b0d12;--card:#141824;--line:#232a3a;--ink:#e8ecf4;--mute:#8d97ab;--c:#00a3b8;--a:#c47a0e;--ok:#1f9d63;--bad:#d24b3e}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;background:rgba(11,13,18,.95);border-bottom:1px solid var(--line);padding:12px 16px}
+h1{font-size:17px;margin:0 0 8px}
+nav{display:flex;gap:6px;overflow-x:auto}
+nav button{flex:none}
+main{max-width:760px;margin:0 auto;padding:16px}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 14px;cursor:pointer}
+button.pri{background:var(--c);border-color:var(--c);color:#001316;font-weight:600}
+button.warn{border-color:var(--bad);color:#ffb4ab}
+button.on{border-color:var(--c);color:var(--c)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.mute{color:var(--mute);font-size:13px}
+.tag{display:inline-block;font-size:12px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin-right:4px}
+.tag.i{border-color:var(--ok);color:#7de2b0}.tag.n{border-color:var(--bad);color:#ffb4ab}.tag.w{border-color:var(--a);color:#f0c27a}
+input,textarea{width:100%;font:inherit;background:#0e1119;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:9px}
+textarea{min-height:220px;resize:vertical}
+label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
+.plan{display:grid;grid-template-columns:1fr 80px;gap:8px;align-items:center}
+.log{font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;background:#0e1119;border-radius:10px;padding:10px;max-height:260px;overflow:auto}
+a{color:var(--c)}
+.obs{border-left:3px solid var(--a);padding-left:10px;margin:8px 0;font-style:italic}
+.stat{font-size:13px;color:var(--mute)}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>AXIMBRA Értékesítő <span id="stat" class="stat"></span></h1>
+  <nav>
+    <button data-tab="drafts" class="on">Vázlatok</button>
+    <button data-tab="sent">Elküldve</button>
+    <button data-tab="replies">Válaszok</button>
+    <button data-tab="follow">Utánkövetés</button>
+    <button data-tab="new">Új keresés</button>
+    <button data-tab="block">Tiltólista</button>
+  </nav>
+</header>
+<main>
+  <div id="warn" class="card hide"></div>
+  <div id="jobbox" class="card hide"><div class="row"><b id="jobtitle"></b></div><div id="joblog" class="log"></div></div>
+
+  <section id="tab-drafts">
+    <div class="row" style="margin-bottom:12px">
+      <button class="pri" id="sendAll">Összes kijelölt küldése</button>
+      <span class="mute" id="selcount"></span>
+    </div>
+    <div id="drafts"></div>
+  </section>
+
+  <section id="tab-sent" class="hide"><div id="sent"></div></section>
+  <section id="tab-replies" class="hide"><div id="replies"></div></section>
+  <section id="tab-follow" class="hide">
+    <div class="row" style="margin-bottom:12px">
+      <button id="prepFollow">Esedékes utánkövetések előkészítése</button>
+      <button id="scan">Válaszok ellenőrzése most</button>
+    </div>
+    <div id="follow"></div>
+  </section>
+
+  <section id="tab-new" class="hide">
+    <div class="card">
+      <p class="mute" style="margin-top:0">Hány céget keressen országonként. Összesen legfeljebb 20. A keresés néhány percig tart; a vázlatok a Vázlatok fülre kerülnek, és semmi nem megy ki, amíg nem küldöd el.</p>
+      <div class="plan" id="plan"></div>
+      <div class="row" style="margin-top:12px"><button class="pri" id="go">Keresés indítása</button></div>
+    </div>
+  </section>
+
+  <section id="tab-block" class="hide">
+    <div class="card">
+      <label>Címek vagy domainek, akiknek soha nem írunk (soronként egy)</label>
+      <textarea id="blockText" style="min-height:120px"></textarea>
+      <div class="row" style="margin-top:10px"><button class="pri" id="blockBtn">Felvétel</button></div>
+    </div>
+    <div id="blocked" class="card"></div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let S = null, tab = "drafts";
+const selected = new Set();
+const dirty = {};  // szerkesztett, még nem mentett szövegek: a frissítés ne írja felül
+const PLAN_DEFAULT = {HU:10, SK:2, RO:2, HR:1, SI:0};
+
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  let data = null; try { data = await r.json(); } catch {}
+  if (!r.ok) throw new Error((data && (data.detail?.[0]?.msg || data.detail)) || ("Hiba " + r.status));
+  return data;
+}
+function flash(msg) { const w = $("#warn"); w.textContent = msg; w.classList.remove("hide"); setTimeout(() => w.classList.add("hide"), 6000); }
+
+document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
+  tab = b.dataset.tab;
+  document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x === b));
+  document.querySelectorAll("main section").forEach((s) => s.classList.toggle("hide", s.id !== "tab-" + tab));
+});
+
+function leadHead(l) {
+  return `<div class="row" style="justify-content:space-between"><b>${esc(l.company)}</b><span class="mute">${esc(l.town||"")} · ${esc(l.country)}</span></div>
+  <div class="mute">${esc(l.email)} · <a href="${esc(l.email_url)}" target="_blank" rel="noopener">cím forrása</a>${l.website?` · <a href="${esc(l.website)}" target="_blank" rel="noopener">weboldal</a>`:""}</div>
+  <div class="obs">„${esc(l.observation)}” <a href="${esc(l.observation_url)}" target="_blank" rel="noopener">forrás</a></div>`;
+}
+
+function render() {
+  const L = S.leads;
+  const drafts = L.filter((l) => l.status === "draft" || l.status === "failed");
+  $("#stat").textContent = `· ma elküldve ${S.sent_today}/${S.cap}`;
+  const miss = [];
+  if (!S.config.gmail) miss.push("Gmail (GMAIL_USER, GMAIL_APP_PASSWORD)");
+  if (!S.config.openai) miss.push("OPENAI_API_KEY");
+  if (miss.length) { $("#warn").textContent = "Hiányzó beállítás: " + miss.join(", "); $("#warn").classList.remove("hide"); }
+
+  for (const id of [...selected]) if (!drafts.some((d) => d.id === id)) selected.delete(id);
+  $("#selcount").textContent = drafts.length ? `${selected.size} kijelölve / ${drafts.length} vázlat` : "";
+  $("#sendAll").disabled = !selected.size || S.job.running;
+  const open = document.activeElement && document.activeElement.closest && document.activeElement.closest("[data-id]");
+  if (!open) $("#drafts").innerHTML = drafts.length ? drafts.map((l) => `
+    <div class="card" data-id="${l.id}">
+      ${leadHead(l)}
+      ${l.warnings ? `<div><span class="tag w">figyelem</span><span class="mute">${esc(l.warnings)}</span></div>` : ""}
+      ${l.status === "failed" ? `<div><span class="tag n">hiba</span><span class="mute">${esc(l.last_error)}</span></div>` : ""}
+      <label>Tárgy</label><input class="subj" value="${esc(dirty[l.id]?.subject ?? l.subject)}">
+      <label>Levél</label><textarea class="body">${esc(dirty[l.id]?.body ?? l.body)}</textarea>
+      <div class="row" style="margin-top:10px">
+        <label style="margin:0;display:flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" class="pick" style="width:auto" ${selected.has(l.id)?"checked":""}> kijelöl</label>
+        <button class="save">Mentés</button><button class="pri one">Küldés most</button><button class="warn skip">Kihagy</button>
+      </div>
+    </div>`).join("") : `<div class="card mute">Nincs vázlat. Indíts egy keresést az „Új keresés” fülön.</div>`;
+
+  const sent = L.filter((l) => l.status === "sent" || l.status === "sending");
+  $("#sent").innerHTML = sent.length ? sent.map((l) => `<div class="card">${leadHead(l)}
+    <div class="mute">${l.status === "sending" ? "<span class='tag n'>megszakadt küldés — nézd meg a Gmail Elküldött mappát</span>" : "elküldve: " + esc((l.sent_at||"").slice(0,16).replace("T"," "))}
+    ${l.followup_status === "sent" ? " · utánkövetés elment" : ""}
+    ${l.reply_kind !== "none" ? ` · <span class="tag ${l.reply_kind==="interested"?"i":l.reply_kind==="no"||l.reply_kind==="bounce"?"n":""}">${esc(l.reply_kind)}</span>` : ""}</div>
+    <details><summary class="mute">levél</summary><p><b>${esc(l.subject)}</b></p><pre style="white-space:pre-wrap;font:inherit">${esc(l.body)}</pre></details></div>`).join("") : `<div class="card mute">Még nem ment ki levél.</div>`;
+
+  const rep = L.filter((l) => l.reply_kind !== "none");
+  $("#replies").innerHTML = rep.length ? rep.map((l) => `<div class="card">${leadHead(l)}
+    <div><span class="tag ${l.reply_kind==="interested"?"i":l.reply_kind==="no"||l.reply_kind==="bounce"?"n":""}">${esc(l.reply_kind)}</span><span class="mute">${esc((l.reply_at||"").slice(0,16).replace("T"," "))}</span></div>
+    <pre style="white-space:pre-wrap;font:inherit">${esc(l.reply_text)}</pre>
+    ${l.reply_suggestion ? `<label>Javasolt válasz (másold be a Gmailben a szálba)</label><textarea readonly style="min-height:160px">${esc(l.reply_suggestion)}</textarea>` : ""}</div>`).join("") : `<div class="card mute">Még nincs válasz.</div>`;
+
+  const fu = L.filter((l) => l.followup_status === "draft");
+  $("#follow").innerHTML = fu.length ? fu.map((l) => `<div class="card" data-fid="${l.id}">${leadHead(l)}
+    <pre style="white-space:pre-wrap;font:inherit">${esc(l.followup_body)}</pre>
+    <div class="row"><button class="pri fsend">Utánkövetés küldése</button><button class="warn fdrop">Nem küldöm</button></div></div>`).join("") : `<div class="card mute">Nincs esedékes utánkövetés.</div>`;
+
+  $("#blocked").innerHTML = S.blocked.length ? S.blocked.map((b) => `<div class="mute">${esc(b.key)} — ${esc(b.reason)}</div>`).join("") : `<span class="mute">Üres.</span>`;
+
+  const jb = $("#jobbox");
+  if (S.job.kind) {
+    jb.classList.remove("hide");
+    $("#jobtitle").textContent = `${S.job.kind} — ${S.job.running ? "fut…" : "kész"}`;
+    $("#joblog").textContent = S.job.log.join("\n");
+  }
+  $("#go").disabled = S.job.running;
+}
+
+function planUI() {
+  $("#plan").innerHTML = Object.entries(S.countries).map(([k, n]) =>
+    `<div>${esc(n)}</div><input type="number" min="0" max="20" data-c="${k}" value="${PLAN_DEFAULT[k] ?? 0}">`).join("");
+}
+
+async function refresh() {
+  try { S = await api("/api/state"); if (!$("#plan").children.length) planUI(); render(); }
+  catch (e) { flash(e.message); }
+}
+
+document.addEventListener("input", (e) => {
+  const card = e.target.closest("[data-id]");
+  if (card && (e.target.classList.contains("subj") || e.target.classList.contains("body")))
+    dirty[card.dataset.id] = {subject: card.querySelector(".subj").value, body: card.querySelector(".body").value};
+});
+document.addEventListener("click", async (e) => {
+  const card = e.target.closest("[data-id]"); const fcard = e.target.closest("[data-fid]");
+  try {
+    if (card) {
+      const id = +card.dataset.id;
+      if (e.target.classList.contains("pick")) { e.target.checked ? selected.add(id) : selected.delete(id); render(); return; }
+      if (e.target.classList.contains("save")) { await api(`/api/leads/${id}`, {subject: card.querySelector(".subj").value, body: card.querySelector(".body").value}); delete dirty[id]; flash("Mentve."); }
+      if (e.target.classList.contains("one")) {
+        await api(`/api/leads/${id}`, {subject: card.querySelector(".subj").value, body: card.querySelector(".body").value});
+        delete dirty[id]; await api("/api/send", {ids: [id]}); flash("Küldés elindítva.");
+      }
+      if (e.target.classList.contains("skip")) { await api(`/api/leads/${id}/skip`, {}); }
+      document.activeElement.blur(); await refresh();
+    }
+    if (fcard) {
+      const id = +fcard.dataset.fid;
+      if (e.target.classList.contains("fsend")) { await api(`/api/followups/${id}/send`, {}); flash("Utánkövetés elküldve."); }
+      if (e.target.classList.contains("fdrop")) { await api(`/api/followups/${id}/drop`, {}); }
+      await refresh();
+    }
+  } catch (err) { flash(err.message); }
+});
+
+$("#sendAll").onclick = async () => {
+  if (!confirm(`${selected.size} levél megy ki a Gmailedből, 25–70 másodpercenként egy. Mehet?`)) return;
+  try {
+    for (const id of selected) if (dirty[id]) { await api(`/api/leads/${id}`, dirty[id]); delete dirty[id]; }
+    await api("/api/send", {ids: [...selected]}); selected.clear(); refresh();
+  } catch (e) { flash(e.message); }
+};
+$("#go").onclick = async () => {
+  const plan = {}; document.querySelectorAll("#plan input").forEach((i) => { if (+i.value > 0) plan[i.dataset.c] = +i.value; });
+  try { await api("/api/research", {plan}); flash("A keresés elindult. Pár perc."); refresh(); } catch (e) { flash(e.message); }
+};
+$("#prepFollow").onclick = async () => { try { const r = await api("/api/followups/prepare", {}); flash(`${r.prepared} utánkövetés előkészítve.`); refresh(); } catch (e) { flash(e.message); } };
+$("#scan").onclick = async () => { try { await api("/api/replies/scan", {}); flash("Válaszok ellenőrzése elindult."); refresh(); } catch (e) { flash(e.message); } };
+$("#blockBtn").onclick = async () => { try { const r = await api("/api/block", {items: $("#blockText").value}); $("#blockText").value = ""; flash(`${r.added} felvéve.`); refresh(); } catch (e) { flash(e.message); } };
+
+refresh();
+setInterval(() => { if (!document.hidden) refresh(); }, 5000);
+</script>
+</body>
+</html>
