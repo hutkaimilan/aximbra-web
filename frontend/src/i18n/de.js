@@ -4,7 +4,7 @@ const CALLBAR = mailto("Wie viele Anrufe verpassen wir?");
 // Per-language search/social copy. Previously every language served the
 // Hungarian, unaccented title and description from index.html.
 const SEO = {
-  title: "AXIMBRA — KI-Agentur Budapest | Maßgeschneiderte KI-Agenten",
+  title: "AXIMBRA — KI-Agentur | Maßgeschneiderte KI-Agenten",
   description: "Wir entwickeln KI-Agenten, die echte Arbeit übernehmen: E-Mail-Triage, Lead-Qualifizierung, telefonischer Kundenservice. Live-Demos direkt auf der Seite.",
 };
 
@@ -16,7 +16,7 @@ const de = {
     callbar: "Wie viele Anrufe verpasst Ihr Betrieb?",
     callbarHref: CALLBAR,
     menu: "Menü",
-    intro: "KI-AGENTEN · BUDAPEST",
+    intro: "KI-AGENTEN · AXIMBRA",
   },
   hero: {
     phoneCta: { badge: "AI", note: "Wird von einem KI-Agenten angenommen · auf Englisch und Ungarisch", origin: "US-Nummer (Twilio) — Anrufe von nicht-ungarischen Nummern nimmt der KI-Agent an; zu Beginn wählen Sie Ungarisch oder Englisch" },
@@ -36,7 +36,7 @@ const de = {
       errFailed: "Der Anruf konnte gerade nicht gestartet werden. Bitte in ein paar Minuten erneut versuchen.",
       privacy: "Die Nummer wird nur für diesen einen Anruf verwendet und nicht weitergegeben.",
     },
-    eyebrow: "Budapest · KI-Agentur",
+    eyebrow: "KI-Agentur · individuelle Agenten",
     h1: ["Wir bauen keine", "Chatbots. Wir bauen", "Mitarbeiter."],
     sub: "Wir bauen KI-Agenten für Unternehmen, die eine konkrete Aufgabe erledigen — E-Mails sortieren, Anfragen qualifizieren, ans Telefon gehen. Wir übergeben keine Demo, sondern ein funktionierendes System, das wir am Leben halten.",
     ctaPrimary: "Agenten ansehen",
@@ -111,7 +111,7 @@ const de = {
   webPage: {
     seo: {
       title: "Webdesign und -entwicklung — AXIMBRA",
-      description: "Website-Pakete mit Preis und Termin: von der einseitigen Präsenz bis zur individuellen, KI-integrierten Entwicklung. Budapest.",
+      description: "Website-Pakete mit Preis und Termin: von der einseitigen Präsenz bis zur individuellen, KI-integrierten Entwicklung.",
     },
   },
   // A nem letezo cimen fogado lap. Nyolc nyelven kell: egy nemet
@@ -150,10 +150,10 @@ const de = {
   footer: {
     imprint: "Impressum",
     privacy: "Datenschutz",
-    left: "AXIMBRA · Budapest · aximbra.hu",
+    left: "AXIMBRA · aximbra.hu",
     right: "EPISTEME ist unser eigenes Demo-System, keine Kundenarbeit.",
   },
-  marquee: ["AGENTEN, KEINE CHATBOTS", "MENSCHLICHE FREIGABE", "BUDAPEST", "HU · EN · ES", "FUNKTIONIERENDES SYSTEM"],
+  marquee: ["AGENTEN, KEINE CHATBOTS", "MENSCHLICHE FREIGABE", "HU · EN · ES", "FUNKTIONIERENDES SYSTEM"],
 };
 
 export default de;

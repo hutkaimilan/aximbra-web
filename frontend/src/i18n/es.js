@@ -4,7 +4,7 @@ const CALLBAR = mailto("¿Cuántas llamadas estamos perdiendo?");
 // Per-language search/social copy. Previously every language served the
 // Hungarian, unaccented title and description from index.html.
 const SEO = {
-  title: "AXIMBRA — Agencia de IA en Budapest | Agentes de IA a medida",
+  title: "AXIMBRA — Agencia de IA | Agentes de IA a medida",
   description: "Creamos agentes de IA que hacen trabajo real: clasificación de correo, cualificación de leads y atención telefónica. Pruébalos en directo en la web.",
 };
 
@@ -16,7 +16,7 @@ const es = {
     callbar: "¿Cuántas llamadas pierde tu local?",
     callbarHref: CALLBAR,
     menu: "Menú",
-    intro: "AGENTES DE IA · BUDAPEST",
+    intro: "AGENTES DE IA · AXIMBRA",
   },
   hero: {
     phoneCta: { badge: "IA", note: "Atendida por un agente de IA · en inglés y húngaro", origin: "Número de EE. UU. (Twilio) — las llamadas de números no húngaros las atiende el agente de IA; al principio eliges húngaro o inglés" },
@@ -36,7 +36,7 @@ const es = {
       errFailed: "No se ha podido iniciar la llamada. Inténtalo de nuevo en unos minutos.",
       privacy: "El número se usa solo para esta llamada y no se comparte.",
     },
-    eyebrow: "Budapest · agencia de IA",
+    eyebrow: "Agencia de IA · agentes a medida",
     h1: ["No creamos", "chatbots. Creamos un", "compañero de trabajo."],
     sub: "Creamos agentes de IA para empresas que hacen un trabajo concreto — ordenan correos, califican consultas, atienden el teléfono. No entregamos una demo, sino un sistema que funciona y que mantenemos vivo.",
     ctaPrimary: "Ver los agentes",
@@ -111,7 +111,7 @@ const es = {
   webPage: {
     seo: {
       title: "Diseño y desarrollo web — AXIMBRA",
-      description: "Paquetes de sitios web con precio y plazo: desde la página única hasta el desarrollo a medida con IA integrada. Budapest.",
+      description: "Paquetes de sitios web con precio y plazo: desde la página única hasta el desarrollo a medida con IA integrada.",
     },
   },
   // A nem letezo cimen fogado lap. Nyolc nyelven kell: egy nemet
@@ -150,10 +150,10 @@ const es = {
   footer: {
     imprint: "Aviso legal",
     privacy: "Privacidad",
-    left: "AXIMBRA · Budapest · aximbra.hu",
+    left: "AXIMBRA · aximbra.hu",
     right: "EPISTEME es nuestro propio sistema de demostración, no trabajo de cliente.",
   },
-  marquee: ["AGENTES, NO CHATBOTS", "APROBACIÓN HUMANA", "BUDAPEST", "HU · EN · ES", "SISTEMA QUE FUNCIONA"],
+  marquee: ["AGENTES, NO CHATBOTS", "APROBACIÓN HUMANA", "HU · EN · ES", "SISTEMA QUE FUNCIONA"],
 };
 
 export default es;

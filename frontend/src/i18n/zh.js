@@ -5,7 +5,7 @@ const CALLBAR = mailto("我们漏接了多少电话？");
 // cegek, ezert a minta-telefonszam magyar, es a lap kimondja, hogy a telefonos
 // agent magyarul es angolul beszel - kinaiul nem.
 const SEO = {
-  title: "AXIMBRA — 布达佩斯 AI 代理工作室 | 为企业定制 AI 代理",
+  title: "AXIMBRA — AI 代理工作室 | 为企业定制 AI 代理",
   description: "我们为企业定制真正干活的 AI 代理：邮件分拣、潜在客户评估、电话接听。在联系我们之前，您可以先在网站上试用在线演示。",
 };
 
@@ -17,10 +17,10 @@ const zh = {
     callbar: "您的店每天漏接多少电话？",
     callbarHref: CALLBAR,
     menu: "菜单",
-    intro: "AI 代理 · 布达佩斯",
+    intro: "AI 代理 · AXIMBRA",
   },
   hero: {
-    eyebrow: "布达佩斯 · AI 代理工作室",
+    eyebrow: "AI 代理工作室 · 定制代理",
     // Kinaiul nincs szokoz, a bongeszo barhol tori a sort: 7 jelnel hosszabb
     // sor telefonon szo kozepen torne.
     h1: ["聊天机器人？", "不，我们做的是", "同事。"],
@@ -194,7 +194,7 @@ const zh = {
   webPage: {
     seo: {
       title: "网站设计与开发 — AXIMBRA",
-      description: "标明价格和工期的网站套餐：从单页展示网站到集成 AI 的定制开发。布达佩斯。",
+      description: "标明价格和工期的网站套餐：从单页展示网站到集成 AI 的定制开发。",
     },
     lead: "我们做两种不同的工作。AI 代理接手一项具体任务；网站则是别人找到贵公司的地方。本页介绍的是后者。",
     includedTitle: "每个套餐都包含",
@@ -219,7 +219,7 @@ const zh = {
   founder: {
     bioTag: "关于我",
     bio: [
-      "我今年二十岁，是布达佩斯技术与经济大学的全日制学生。大约一年来，我的工作是让 AI 代理作为真正可用的业务工具进入企业，而不是停留在演示阶段。",
+      "我今年二十岁，是 BME（技术与经济大学）的全日制学生。大约一年来，我的工作是让 AI 代理作为真正可用的业务工具进入企业，而不是停留在演示阶段。",
       "我直说这些，是因为在这种规模的决定上，问一句“谁在做这件事”是合理的。答案不是我的年龄，而是您现在就能在本页验证的东西：电话代理在真实号码上接听，邮件整理代理以只读权限在您自己的邮箱上运行。",
       "我的目标是打造一项尽可能覆盖企业各类 AI 代理需求的服务——先在中欧，然后走向更远。原因很简单：成长中的企业和大企业如今要与多年来积极使用 AI 的跨国公司竞争。这个差距是可以缩小的，而缩小它正是我工作的意义。",
     ],
@@ -294,16 +294,16 @@ const zh = {
   footer: {
     imprint: "网站信息",
     privacy: "隐私声明",
-    left: "AXIMBRA · 布达佩斯 · aximbra.hu",
+    left: "AXIMBRA · aximbra.hu",
     right: "EPISTEME 是我们自己的内部演示系统，不是客户项目。",
   },
-  marquee: ["是代理，不是聊天机器人", "人工审批", "布达佩斯", "HU · EN · ES", "能运行的系统"],
+  marquee: ["是代理，不是聊天机器人", "人工审批", "HU · EN · ES", "能运行的系统"],
   demo: {
     run: "运行", loading: "分析中…", sample: "示例", error: "无法连接到服务，请稍后再试。",
     lead: {
       placeholder: "用几句话描述这位潜在客户…",
       samples: [
-        "一家 40 人的布达佩斯会计师事务所的总经理联系了我们。他们每月要手工处理数百张进项发票，希望实现自动化。他们有预算，想在今年启动，采购由他本人决定。",
+        "一家 40 人的会计师事务所的总经理联系了我们。他们每月要手工处理数百张进项发票，希望实现自动化。他们有预算，想在今年启动，采购由他本人决定。",
         "一名学生来信，想为毕业论文要一个免费的 AI 代理。没有公司，没有预算，只是好奇这项技术如何运作。",
         "一家中型网店的市场人员对客服代理感兴趣。他们还不清楚具体想要什么，由老板做决定，时间不确定，但问题是真实存在的。",
       ],

@@ -12,7 +12,6 @@ export const CONTACT = {
   // deliberately not reused here.
   phone: "+1 802 424 9852",
   phoneHref: "tel:+18024249852",
-  city: "Budapest",
   domain: "aximbra.hu",
 };
 

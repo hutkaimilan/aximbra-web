@@ -4,7 +4,7 @@ const CALLBAR = mailto("Quante chiamate stiamo perdendo?");
 // Per-language search/social copy. Previously every language served the
 // Hungarian, unaccented title and description from index.html.
 const SEO = {
-  title: "AXIMBRA — Agenzia AI a Budapest | Agenti AI su misura",
+  title: "AXIMBRA — Agenzia AI | Agenti AI su misura",
   description: "Costruiamo agenti AI che fanno lavoro vero: smistamento email, qualificazione lead, assistenza telefonica. Demo dal vivo direttamente sul sito.",
 };
 
@@ -16,7 +16,7 @@ const it = {
     callbar: "Quante chiamate perde il tuo locale?",
     callbarHref: CALLBAR,
     menu: "Menu",
-    intro: "AGENTI IA · BUDAPEST",
+    intro: "AGENTI IA · AXIMBRA",
   },
   hero: {
     phoneCta: { badge: "IA", note: "Risposto da un agente IA · in inglese e ungherese", origin: "Numero USA (Twilio) — le chiamate da numeri non ungheresi le prende l'agente IA; all'inizio scegli ungherese o inglese" },
@@ -36,7 +36,7 @@ const it = {
       errFailed: "Non è stato possibile avviare la chiamata. Riprova tra qualche minuto.",
       privacy: "Il numero viene usato solo per questa chiamata e non viene condiviso.",
     },
-    eyebrow: "Budapest · agenzia AI",
+    eyebrow: "Agenzia AI · agenti su misura",
     h1: ["Non costruiamo", "chatbot. Ma un", "collaboratore."],
     sub: "Costruiamo agenti AI per le aziende che svolgono un lavoro concreto — smistano email, qualificano richieste, rispondono al telefono. Non consegniamo una demo, ma un sistema funzionante che teniamo in vita.",
     ctaPrimary: "Vedi gli agenti",
@@ -111,7 +111,7 @@ const it = {
   webPage: {
     seo: {
       title: "Realizzazione siti web — AXIMBRA",
-      description: "Pacchetti per siti web con prezzo e tempi: dalla pagina singola allo sviluppo su misura con IA integrata. Budapest.",
+      description: "Pacchetti per siti web con prezzo e tempi: dalla pagina singola allo sviluppo su misura con IA integrata.",
     },
   },
   // A nem letezo cimen fogado lap. Nyolc nyelven kell: egy nemet
@@ -150,10 +150,10 @@ const it = {
   footer: {
     imprint: "Note legali",
     privacy: "Privacy",
-    left: "AXIMBRA · Budapest · aximbra.hu",
+    left: "AXIMBRA · aximbra.hu",
     right: "EPISTEME è il nostro sistema dimostrativo interno, non lavoro per clienti.",
   },
-  marquee: ["AGENTI, NON CHATBOT", "APPROVAZIONE UMANA", "BUDAPEST", "HU · EN · ES", "SISTEMA FUNZIONANTE"],
+  marquee: ["AGENTI, NON CHATBOT", "APPROVAZIONE UMANA", "HU · EN · ES", "SISTEMA FUNZIONANTE"],
 };
 
 export default it;

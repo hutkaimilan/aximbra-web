@@ -4,7 +4,7 @@ const CALLBAR = mailto("Hány hívást hagyunk megválaszolatlanul?");
 // Per-language search/social copy. Previously every language served the
 // Hungarian, unaccented title and description from index.html.
 const SEO = {
-  title: "AXIMBRA — AI ügynökség Budapest | Egyedi AI agentek cégeknek",
+  title: "AXIMBRA — AI ügynökség | Egyedi AI agentek cégeknek",
   description: "Egyedi AI agenteket építünk cégeknek: e-mail rendezés, érdeklődő-minősítés, telefonos ügyfélszolgálat. Éles demók, amiket azonnal kipróbálhatsz.",
 };
 
@@ -16,10 +16,10 @@ const hu = {
     callbar: "Hány hívást hagy megválaszolatlanul a helye?",
     callbarHref: CALLBAR,
     menu: "Menü",
-    intro: "AI AGENTEK · BUDAPEST",
+    intro: "AI AGENTEK · AXIMBRA",
   },
   hero: {
-    eyebrow: "Budapest · AI ügynökség",
+    eyebrow: "AI ügynökség · egyedi agentek",
     h1: ["Nem chatbotot", "építünk. Hanem", "munkatársat."],
     sub: "Olyan AI agenteket építünk cégeknek, amelyek elvégeznek egy konkrét munkát — leveleket rendeznek, érdeklődőt minősítenek, telefont vesznek fel. Nem demót adunk át, hanem működő rendszert, amit mi tartunk életben.",
     ctaPrimary: "Nézd meg az agenteket",
@@ -191,7 +191,7 @@ const hu = {
   webPage: {
     seo: {
       title: "Weboldalkészítés — AXIMBRA",
-      description: "Weboldal-csomagok árral és határidővel: egyoldalas bemutatkozótól az AI-integrált egyedi fejlesztésig. Budapest.",
+      description: "Weboldal-csomagok árral és határidővel: egyoldalas bemutatkozótól az AI-integrált egyedi fejlesztésig.",
     },
     lead: "Kétféle munkát végzünk, és a kettő nem ugyanaz. Az AI agentek egy konkrét feladatot vesznek át; a weboldal az, ahol a cégedet megtalálják. Ezen az oldalon az utóbbi.",
     includedTitle: "Ami minden csomagban benne van",
@@ -231,7 +231,7 @@ const hu = {
     ],
     bioTag: "Bemutatkozás",
     bio: [
-      "Húsz éves vagyok, a Budapesti Műszaki és Gazdaságtudományi Egyetem nappali tagozatos hallgatója. Körülbelül egy éve azon dolgozom, hogy az AI-agentek ne bemutatóként, hanem működő üzleti eszközként kerüljenek be a cégekbe.",
+      "Húsz éves vagyok, a BME (Műszaki és Gazdaságtudományi Egyetem) nappali tagozatos hallgatója. Körülbelül egy éve azon dolgozom, hogy az AI-agentek ne bemutatóként, hanem működő üzleti eszközként kerüljenek be a cégekbe.",
       "Ezt azért írom ki, mert egy több milliós döntésnél jogos kérdés, hogy ki áll a munka mögött. A választ nem az életkor adja meg, hanem az, ami ezen az oldalon már most kipróbálható: a telefonos agent valódi számon veszi fel, az e-mail rendező pedig a saját postafiókodon fut le, csak olvasási joggal.",
       "Amit hosszabb távon építek, az egy olyan szolgáltatás, amely a vállalati AI-agent igények lehető legszélesebb körét fedi le — előbb Közép-Európában, majd azon túl. Az ok egyszerű: a növekvő és nagyvállalatok ma olyan multinacionális szereplőkkel versenyeznek, amelyek az AI-t évek óta aktívan használják. Ez a különbség csökkenthető, és a munkám erről szól.",
     ],
@@ -293,16 +293,16 @@ const hu = {
   footer: {
     imprint: "Impresszum",
     privacy: "Adatkezelés",
-    left: "AXIMBRA · Budapest · aximbra.hu",
+    left: "AXIMBRA · aximbra.hu",
     right: "Az EPISTEME saját fejlesztésű bemutató rendszer, nem ügyfélmunka.",
   },
-  marquee: ["AGENTEK, NEM CHATBOTOK", "EMBERI JÓVÁHAGYÁS", "BUDAPEST", "HU · EN · ES", "MŰKÖDŐ RENDSZER"],
+  marquee: ["AGENTEK, NEM CHATBOTOK", "EMBERI JÓVÁHAGYÁS", "HU · EN · ES", "MŰKÖDŐ RENDSZER"],
   demo: {
     run: "Futtatás", loading: "Elemzés…", sample: "Példa", error: "Nem sikerült elérni a szolgáltatást. Próbáld újra később.",
     lead: {
       placeholder: "Írd le pár mondatban a beérkező érdeklődőt…",
       samples: [
-        "Egy 40 fős budapesti könyvelőiroda ügyvezetője keresett meg. Havonta több száz beérkező számlát dolgoznak fel kézzel, ezt szeretnék automatizálni. Van rá keret, idén szeretnék elindulni, ő dönt a beszerzésről.",
+        "Egy 40 fős könyvelőiroda ügyvezetője keresett meg. Havonta több száz beérkező számlát dolgoznak fel kézzel, ezt szeretnék automatizálni. Van rá keret, idén szeretnék elindulni, ő dönt a beszerzésről.",
         "Egy egyetemista írt, hogy szakdolgozathoz szeretne AI agentet, ingyen. Nincs cége, nincs költségvetése, csak kíváncsi hogyan működik a technológia.",
         "Egy közepes webshop marketingese érdeklődik ügyfélszolgálati agent iránt. Még nem tudja pontosan mit szeretne, a döntést a tulajdonos hozza meg, időpont bizonytalan, de a probléma valós.",
       ],

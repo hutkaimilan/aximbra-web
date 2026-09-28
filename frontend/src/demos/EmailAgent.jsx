@@ -716,7 +716,7 @@ export default function EmailAgent({ embedded = false }) {
 
                 <h3>{a.disclosure.whoTitle}</h3>
                 <p>
-                  AXIMBRA · Budapest · <a href={mailto()}>{CONTACT.email}</a>{" "}
+                  AXIMBRA · <a href={mailto()}>{CONTACT.email}</a>{" "}
                   {a.disclosure.whoText}
                 </p>
               </div>

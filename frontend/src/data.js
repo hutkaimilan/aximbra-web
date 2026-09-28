@@ -40,7 +40,7 @@ export const EMAIL_SAMPLES = [
 ];
 
 export const LEAD_SAMPLES = [
-  "Egy 40 fős budapesti könyvelőiroda ügyvezetője keresett meg. Havonta több száz beérkező számlát dolgoznak fel kézzel, ezt szeretnék automatizálni. Van rá keret, idén szeretnék elindulni, ő dönt a beszerzésről.",
+  "Egy 40 fős könyvelőiroda ügyvezetője keresett meg. Havonta több száz beérkező számlát dolgoznak fel kézzel, ezt szeretnék automatizálni. Van rá keret, idén szeretnék elindulni, ő dönt a beszerzésről.",
   "Egy egyetemista írt, hogy szakdolgozathoz szeretne AI agentet, ingyen. Nincs cége, nincs költségvetése, csak kíváncsi hogyan működik a technológia.",
   "Egy közepes webshop marketingese érdeklődik ügyfélszolgálati agent iránt. Még nem tudja pontosan mit szeretne, a döntést a tulajdonos hozza meg, időpont bizonytalan, de a probléma valós.",
 ];

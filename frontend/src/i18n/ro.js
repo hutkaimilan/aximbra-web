@@ -4,7 +4,7 @@ const CALLBAR = mailto("Câte apeluri pierdem?");
 // Per-language search/social copy. Previously every language served the
 // Hungarian, unaccented title and description from index.html.
 const SEO = {
-  title: "AXIMBRA — Agenție AI în Budapesta | Agenți AI personalizați",
+  title: "AXIMBRA — Agenție AI | Agenți AI personalizați",
   description: "Construim agenți AI care fac muncă reală: triere e-mailuri, calificare lead-uri, suport telefonic. Demonstrații live direct pe site.",
 };
 
@@ -16,7 +16,7 @@ const ro = {
     callbar: "Câte apeluri pierde localul tău?",
     callbarHref: CALLBAR,
     menu: "Meniu",
-    intro: "AGENȚI AI · BUDAPESTA",
+    intro: "AGENȚI AI · AXIMBRA",
   },
   hero: {
     phoneCta: { badge: "AI", note: "Preluat de un agent AI · în engleză și maghiară", origin: "Număr din SUA (Twilio) — apelurile de pe numere din afara Ungariei le preia agentul AI; la început alegi maghiară sau engleză" },
@@ -36,7 +36,7 @@ const ro = {
       errFailed: "Apelul nu a putut fi pornit acum. Încearcă din nou peste câteva minute.",
       privacy: "Numărul este folosit doar pentru acest apel și nu este transmis mai departe.",
     },
-    eyebrow: "Budapesta · agenție AI",
+    eyebrow: "Agenție AI · agenți personalizați",
     h1: ["Nu construim", "chatboți. Ci un", "coleg de muncă."],
     sub: "Construim agenți AI pentru companii, care fac o muncă concretă — sortează e-mailuri, califică solicitări, răspund la telefon. Nu predăm o demonstrație, ci un sistem funcțional pe care îl menținem în viață.",
     ctaPrimary: "Vezi agenții",
@@ -111,7 +111,7 @@ const ro = {
   webPage: {
     seo: {
       title: "Creare de site-uri web — AXIMBRA",
-      description: "Pachete de site-uri cu preț și termen: de la pagina unică la dezvoltarea personalizată cu IA integrată. Budapesta.",
+      description: "Pachete de site-uri cu preț și termen: de la pagina unică la dezvoltarea personalizată cu IA integrată.",
     },
   },
   // A nem letezo cimen fogado lap. Nyolc nyelven kell: egy nemet
@@ -150,10 +150,10 @@ const ro = {
   footer: {
     imprint: "Informații legale",
     privacy: "Confidențialitate",
-    left: "AXIMBRA · Budapesta · aximbra.hu",
+    left: "AXIMBRA · aximbra.hu",
     right: "EPISTEME este propriul nostru sistem demonstrativ, nu muncă pentru client.",
   },
-  marquee: ["AGENȚI, NU CHATBOȚI", "APROBARE UMANĂ", "BUDAPESTA", "HU · EN · ES", "SISTEM FUNCȚIONAL"],
+  marquee: ["AGENȚI, NU CHATBOȚI", "APROBARE UMANĂ", "HU · EN · ES", "SISTEM FUNCȚIONAL"],
 };
 
 export default ro;

@@ -4,7 +4,7 @@ const CALLBAR = mailto("How many calls are we missing?");
 // Per-language search/social copy. Previously every language served the
 // Hungarian, unaccented title and description from index.html.
 const SEO = {
-  title: "AXIMBRA — AI agency in Budapest | Custom AI agents for business",
+  title: "AXIMBRA — AI agency | Custom AI agents for business",
   description: "We build custom AI agents that do real work: email triage, lead qualification, phone support. Try the live demos on the site before you talk to us.",
 };
 
@@ -16,10 +16,10 @@ const en = {
     callbar: "How many calls does your venue miss?",
     callbarHref: CALLBAR,
     menu: "Menu",
-    intro: "AI AGENTS · BUDAPEST",
+    intro: "AI AGENTS · AXIMBRA",
   },
   hero: {
-    eyebrow: "Budapest · AI agency",
+    eyebrow: "AI agency · custom agents",
     h1: ["We don't build", "chatbots. We build", "coworkers."],
     sub: "We build AI agents for companies that do one concrete job — sort emails, qualify leads, answer the phone. We don't hand over a demo, but a working system that we keep alive.",
     ctaPrimary: "See the agents",
@@ -191,7 +191,7 @@ const en = {
   webPage: {
     seo: {
       title: "Website design and development — AXIMBRA",
-      description: "Website packages with prices and deadlines: from a one-page presence to custom, AI-integrated development. Budapest.",
+      description: "Website packages with prices and deadlines: from a one-page presence to custom, AI-integrated development.",
     },
     lead: "We do two different kinds of work. AI agents take over one concrete task; a website is where your company gets found. This page is about the latter.",
     includedTitle: "In every package",
@@ -218,7 +218,7 @@ const en = {
   founder: {
     bioTag: "About me",
     bio: [
-      "I am twenty, a full-time student at the Budapest University of Technology and Economics. For about a year my work has been to get AI agents into companies as working business tools rather than demonstrations.",
+      "I am twenty, a full-time student at BME, a university of technology and economics. For about a year my work has been to get AI agents into companies as working business tools rather than demonstrations.",
       "I state this plainly because on a decision of this size it is fair to ask who stands behind the work. The answer is not my age — it is what you can already test on this page: the phone agent answers on a real number, and the email organiser runs on your own mailbox with read-only access.",
       "What I am building toward is a service covering the widest possible range of corporate AI-agent needs — first in Central Europe, then beyond it. The reason is straightforward: growing and large companies now compete with multinationals that have been using AI actively for years. That gap can be narrowed, and narrowing it is what my work is about.",
     ],
@@ -293,16 +293,16 @@ const en = {
   footer: {
     imprint: "Imprint",
     privacy: "Privacy",
-    left: "AXIMBRA · Budapest · aximbra.hu",
+    left: "AXIMBRA · aximbra.hu",
     right: "EPISTEME is our own in-house demo system, not client work.",
   },
-  marquee: ["AGENTS, NOT CHATBOTS", "HUMAN APPROVAL", "BUDAPEST", "HU · EN · ES", "WORKING SYSTEM"],
+  marquee: ["AGENTS, NOT CHATBOTS", "HUMAN APPROVAL", "HU · EN · ES", "WORKING SYSTEM"],
   demo: {
     run: "Run", loading: "Analyzing…", sample: "Example", error: "Couldn't reach the service. Please try again later.",
     lead: {
       placeholder: "Describe the incoming lead in a few sentences…",
       samples: [
-        "The managing director of a 40-person Budapest accounting firm reached out. They process hundreds of incoming invoices manually each month and want to automate it. They have budget, want to start this year, and he makes the purchasing decision.",
+        "The managing director of a 40-person accounting firm reached out. They process hundreds of incoming invoices manually each month and want to automate it. They have budget, want to start this year, and he makes the purchasing decision.",
         "A student wrote asking for a free AI agent for their thesis. No company, no budget, just curious how the technology works.",
         "A marketer at a mid-size webshop is interested in a customer-support agent. They don't know exactly what they want yet, the owner makes the decision, timing is uncertain, but the problem is real.",
       ],

@@ -148,7 +148,6 @@ export const organizationJsonLd = (description) => ({
       description,
       email: CONTACT.email,
       telephone: CONTACT.phone,
-      areaServed: { "@type": "City", name: CONTACT.city },
     },
     {
       "@type": "WebSite",

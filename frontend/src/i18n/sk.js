@@ -4,7 +4,7 @@ const CALLBAR = mailto("Koľko hovorov zmeškávame?");
 // Per-language search/social copy. Previously every language served the
 // Hungarian, unaccented title and description from index.html.
 const SEO = {
-  title: "AXIMBRA — AI agentúra Budapešť | AI agenti na mieru",
+  title: "AXIMBRA — AI agentúra | AI agenti na mieru",
   description: "Staviame AI agentov, ktorí robia skutočnú prácu: triedenie e-mailov, kvalifikácia leadov, telefonická podpora. Živé ukážky priamo na stránke.",
 };
 
@@ -16,7 +16,7 @@ const sk = {
     callbar: "Koľko hovorov zmešká vaša prevádzka?",
     callbarHref: CALLBAR,
     menu: "Menu",
-    intro: "AI AGENTI · BUDAPEŠŤ",
+    intro: "AI AGENTI · AXIMBRA",
   },
   hero: {
     phoneCta: { badge: "AI", note: "Preberá ho AI agent · po anglicky a po maďarsky", origin: "Číslo v USA (Twilio) — hovory z nemaďarských čísel prijíma AI agent; na začiatku si vyberiete maďarčinu alebo angličtinu" },
@@ -36,7 +36,7 @@ const sk = {
       errFailed: "Hovor sa teraz nepodarilo spustiť. Skúste to o pár minút.",
       privacy: "Číslo použijeme len na tento jeden hovor a nikomu ho neposkytneme.",
     },
-    eyebrow: "Budapešť · AI agentúra",
+    eyebrow: "AI agentúra · agenti na mieru",
     h1: ["Nestaviame", "chatboty. Ale", "spolupracovníka."],
     sub: "Staviame AI agentov pre firmy, ktorí vykonávajú konkrétnu prácu — triedia e-maily, kvalifikujú dopyty, dvíhajú telefón. Neodovzdávame demo, ale funkčný systém, ktorý udržiavame nažive.",
     ctaPrimary: "Pozri agentov",
@@ -111,7 +111,7 @@ const sk = {
   webPage: {
     seo: {
       title: "Tvorba webových stránok — AXIMBRA",
-      description: "Balíky webstránok s cenou a termínom: od jednostránkovej prezentácie po individuálny vývoj s integrovanou AI. Budapešť.",
+      description: "Balíky webstránok s cenou a termínom: od jednostránkovej prezentácie po individuálny vývoj s integrovanou AI.",
     },
   },
   // A nem letezo cimen fogado lap. Nyolc nyelven kell: egy nemet
@@ -150,10 +150,10 @@ const sk = {
   footer: {
     imprint: "Právne informácie",
     privacy: "Ochrana údajov",
-    left: "AXIMBRA · Budapešť · aximbra.hu",
+    left: "AXIMBRA · aximbra.hu",
     right: "EPISTEME je náš vlastný demo systém, nie klientska práca.",
   },
-  marquee: ["AGENTI, NIE CHATBOTY", "ĽUDSKÉ SCHVÁLENIE", "BUDAPEŠŤ", "HU · EN · ES", "FUNKČNÝ SYSTÉM"],
+  marquee: ["AGENTI, NIE CHATBOTY", "ĽUDSKÉ SCHVÁLENIE", "HU · EN · ES", "FUNKČNÝ SYSTÉM"],
 };
 
 export default sk;
