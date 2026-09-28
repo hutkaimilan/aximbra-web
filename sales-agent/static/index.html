@@ -127,6 +127,19 @@ function mailtoLink(to, subject, body) {
 
 const SECT = {restaurant:"étterem", dental:"fogászat", auto:"autószerviz", beauty:"szépségszalon", hospitality:"szállás", trades:"szerelő", webshop:"webshop"};
 const SIG = {job_ad:"álláshirdetés", review:"vélemények", notice:"kiírás az oldalon", opening:"új hely"};
+function answerBox(l) {
+  let sl = {slots: [], calendar: false};
+  try { sl = JSON.parse(l.slots || "{}"); sl.slots = sl.slots || []; } catch {}
+  return `<div data-aid="${l.id}">
+    <label>Válasz időpontokkal (szerkeszthető)</label>
+    <textarea class="ans" style="min-height:200px">${esc(l.reply_suggestion || "")}</textarea>
+    <div class="row" style="margin-top:8px"><button class="pri agm">1. Válasz megnyitása Gmailben</button><button class="anew">Új időpontok</button></div>
+    <label>2. Ha választott időpontot: tedd be a naptárba (meghívót kap)</label>
+    <div class="row">${sl.slots.map((x) => `<a class="tag i" style="padding:6px 10px" href="${esc(x.link)}" target="_blank" rel="noopener">📅 ${esc(x.label)}</a>`).join("") || `<span class="mute">Nincs időpont.</span>`}</div>
+    ${sl.calendar ? "" : `<p class="mute">A naptárad nincs bekötve, ezért csak munkaidőből ajánlottam. Kösd be a CALENDAR_ICS_URL-lel, hogy ne ütközzön.</p>`}
+  </div>`;
+}
+
 function leadHead(l) {
   const sc = l.score == null ? "" : `<span class="score ${l.score>=75?"hi":l.score>=55?"mid":""}">${l.score}</span>`;
   return `<div class="row" style="justify-content:space-between"><b>${esc(l.company)}</b><span class="row">${sc}<span class="mute">${esc(l.town||"")} · ${esc(l.country)}</span></span></div>
@@ -177,10 +190,11 @@ function render() {
     <details><summary class="mute">levél</summary><p><b>${esc(l.subject)}</b></p><pre style="white-space:pre-wrap;font:inherit">${esc(l.body)}</pre></details></div>`).join("") : `<div class="card mute">Még nem ment ki levél.</div>`;
 
   const rep = L.filter((l) => l.reply_kind !== "none");
+  if (!(document.activeElement && document.activeElement.closest && document.activeElement.closest("#replies")))
   $("#replies").innerHTML = rep.length ? rep.map((l) => `<div class="card">${leadHead(l)}
     <div><span class="tag ${l.reply_kind==="interested"?"i":l.reply_kind==="no"||l.reply_kind==="bounce"?"n":""}">${esc(l.reply_kind)}</span><span class="mute">${esc((l.reply_at||"").slice(0,16).replace("T"," "))}</span></div>
     <pre style="white-space:pre-wrap;font:inherit">${esc(l.reply_text)}</pre>
-    ${l.reply_suggestion ? `<label>Javasolt válasz (másold be a Gmailben a szálba)</label><textarea readonly style="min-height:160px">${esc(l.reply_suggestion)}</textarea>` : ""}</div>`).join("") : `<div class="card mute">Még nincs válasz.</div>`;
+    ${l.reply_kind === "interested" ? answerBox(l) : ""}</div>`).join("") : `<div class="card mute">Még nincs válasz.</div>`;
 
   const fu = L.filter((l) => l.followup_status === "draft");
   $("#follow").innerHTML = fu.length ? fu.map((l) => `<div class="card" data-fid="${l.id}">${leadHead(l)}
@@ -226,6 +240,18 @@ document.addEventListener("input", (e) => {
     dirty[card.dataset.id] = {subject: card.querySelector(".subj").value, body: card.querySelector(".body").value};
 });
 document.addEventListener("click", async (e) => {
+  const abox = e.target.closest("[data-aid]");
+  if (abox) {
+    const id = +abox.dataset.aid, l = S.leads.find((x) => x.id === id);
+    try {
+      if (e.target.classList.contains("agm")) {
+        const subj = /^re:/i.test(l.subject) ? l.subject : "Re: " + l.subject;
+        window.open(gmailLink(l.email, subj, abox.querySelector(".ans").value), "_blank");
+      }
+      if (e.target.classList.contains("anew")) { e.target.disabled = true; await api(`/api/leads/${id}/answer`, {}); flash("Új időpontok és válasz kész."); await refresh(); }
+    } catch (err) { flash(err.message); }
+    return;
+  }
   const card = e.target.closest("[data-id]"); const fcard = e.target.closest("[data-fid]");
   try {
     if (card) {

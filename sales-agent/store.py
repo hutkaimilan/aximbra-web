@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS blocked (
 # indításkor pótoljuk őket, adatvesztés nélkül.
 EXTRA_COLUMNS = {
     "sector": "TEXT", "signal": "TEXT", "signal_note": "TEXT", "signal_url": "TEXT",
-    "score": "INTEGER", "score_reason": "TEXT", "critique": "TEXT",
+    "score": "INTEGER", "score_reason": "TEXT", "critique": "TEXT", "slots": "TEXT",
 }
 
 # draft -> sending -> sent | failed ; draft -> skipped ; failed -> draft (újra)
@@ -287,6 +287,11 @@ class Store:
                       (lead_id,))
 
     # ---- válaszok ----------------------------------------------------------
+
+    def set_suggestion(self, lead_id: int, suggestion: str, slots_json: str) -> None:
+        with self._conn() as c:
+            c.execute("UPDATE leads SET reply_suggestion = ?, slots = ? WHERE id = ?",
+                      (suggestion[:4000], slots_json, lead_id))
 
     def set_reply(self, lead_id: int, kind: str, text: str, suggestion: str = "") -> None:
         with self._conn() as c:

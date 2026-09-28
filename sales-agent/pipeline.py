@@ -10,6 +10,9 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
+import json
+
+import calendar_slots
 import llm as llm_mod
 import mailer as mailer_mod
 import verify
@@ -248,7 +251,22 @@ def send_followup(store: Store, lead_id: int, *, mailer=mailer_mod) -> tuple[boo
     return True, "elküldve"
 
 
-def scan_replies(store: Store, log: RunLog, *, llm=llm_mod, mailbox_factory=mailer_mod.Mailbox) -> RunLog:
+def prepare_answer(store: Store, lead_id: int, *, llm=llm_mod, slots_fn=calendar_slots.slots_for) -> dict:
+    """Érdeklődőnek: 3 szabad időpont a naptárból, és a válasz megírva."""
+    lead = store.get(lead_id)
+    if not lead:
+        raise ValueError("nincs ilyen")
+    sl = slots_fn(lead["company"], lead["email"])
+    try:
+        text = llm.draft_reply(lead["body"], lead["reply_text"] or "", [s["label"] for s in sl["slots"]], lead["lang"])
+    except Exception as e:  # noqa: BLE001
+        text = f"(A válasz megírása nem sikerült: {e}. Az időpontok lent vannak.)"
+    store.set_suggestion(lead_id, text, json.dumps(sl, ensure_ascii=False))
+    return sl
+
+
+def scan_replies(store: Store, log: RunLog, *, llm=llm_mod, mailbox_factory=mailer_mod.Mailbox,
+                 slots_fn=calendar_slots.slots_for) -> RunLog:
     sent = [l for l in store.list("sent") if l["reply_kind"] in ("none", "auto")]
     with mailbox_factory() as mb:
         # Visszapattanók: a hibaüzenet szövegében ott a címzett címe.
@@ -271,13 +289,15 @@ def scan_replies(store: Store, log: RunLog, *, llm=llm_mod, mailbox_factory=mail
             if lead["reply_kind"] == "auto" and reply[:4000] == (lead["reply_text"] or ""):
                 continue  # ugyanaz az automatikus válasz, már láttuk
             try:
-                res = llm.classify(lead["body"], reply)
+                kind = llm.classify(lead["body"], reply)
             except Exception as e:  # noqa: BLE001
                 log.say(f"? {lead['company']}: válasz jött, de nem tudtam besorolni ({e})")
                 store.set_reply(lead["id"], "other", reply)
                 continue
-            store.set_reply(lead["id"], res["kind"], reply, res["suggestion"])
-            label = {"no": "nem kér — tiltólistára került", "interested": "ÉRDEKLŐDIK",
-                     "auto": "automatikus válasz", "other": "válaszolt"}[res["kind"]]
+            store.set_reply(lead["id"], kind, reply)
+            if kind == "interested":
+                prepare_answer(store, lead["id"], llm=llm, slots_fn=slots_fn)
+            label = {"no": "nem kér — tiltólistára került", "interested": "ÉRDEKLŐDIK — válasz időpontokkal kész",
+                     "auto": "automatikus válasz", "other": "válaszolt"}[kind]
             log.say(f"• {lead['company']}: {label}")
     return log

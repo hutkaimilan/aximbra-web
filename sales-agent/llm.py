@@ -96,10 +96,18 @@ def critique(lead: dict, subject: str, body: str) -> dict:
             "subject": (data.get("subject") or subject).strip(), "body": paragraphs(data.get("body") or body)}
 
 
-def classify(original: str, reply: str) -> dict:
+def classify(original: str, reply: str) -> str:
     resp = _client().responses.create(model=WRITE_MODEL, input=playbook.classify_prompt(original, reply))
     data = extract_json(resp.output_text)
     kind = data.get("kind") if isinstance(data, dict) else None
-    if kind not in ("no", "interested", "auto", "other"):
-        kind = "other"
-    return {"kind": kind, "suggestion": (data.get("suggestion") or "") if kind == "interested" else ""}
+    return kind if kind in ("no", "interested", "auto", "other") else "other"
+
+
+def draft_reply(original: str, reply: str, slots: list[str], lang: str) -> str:
+    resp = _client().responses.create(model=WRITE_MODEL,
+                                      input=playbook.reply_prompt(original, reply, slots, lang))
+    data = extract_json(resp.output_text)
+    body = (data.get("body") if isinstance(data, dict) else "") or ""
+    if not body.strip():
+        raise LLMError("a válaszíró nem adott szöveget")
+    return paragraphs(body)

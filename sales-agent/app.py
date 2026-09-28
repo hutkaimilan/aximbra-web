@@ -123,6 +123,7 @@ def state():
             # csak akkor jelenik meg, ha SMTP_ENABLED be van kapcsolva.
             "smtp": (os.environ.get("SMTP_ENABLED") or "").strip().lower() in ("1", "true", "yes"),
             "gmail_user": os.environ.get("GMAIL_USER", ""),
+            "calendar": bool(os.environ.get("CALENDAR_ICS_URL")),
         },
     }
 
@@ -179,6 +180,18 @@ def followup_mark_sent(lead_id: int):
     if not store.followup_sent_manual(lead_id):
         raise HTTPException(409, "Ez az utánkövetés már nincs a listán.")
     return {"ok": True}
+
+
+@app.post("/api/leads/{lead_id}/answer", dependencies=[Depends(auth)])
+def answer(lead_id: int):
+    """Friss időpontok a naptárból és újraírt válasz az érdeklődőnek."""
+    lead = store.get(lead_id)
+    if not lead or lead["reply_kind"] != "interested":
+        raise HTTPException(409, "Ez nem érdeklődő válasz.")
+    try:
+        return pipeline.prepare_answer(store, lead_id)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, f"Nem sikerült: {e}")
 
 
 @app.post("/api/leads/{lead_id}/skip", dependencies=[Depends(auth)])

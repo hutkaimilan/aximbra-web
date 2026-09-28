@@ -197,6 +197,27 @@ They replied:
 ---
 {reply[:3000]}
 ---
-Classify the reply as one of: "no" (not interested, unsubscribe, stop, hostile), "interested" (wants info, price, call, asks a question), "auto" (out-of-office or automatic reply), "other".
-If "interested", also draft a short answer in the same language: answer exactly what they asked, propose a 20-minute call, never state a price that is not one of: e-mail rendező 150 000–400 000 Ft, érdeklődő-minősítő 400 000–1 200 000 Ft; for the phone AI say the price comes after a 20-minute assessment. Sign "Hutkai Milán · AXIMBRA · aximbra.hu".
-Answer ONLY with JSON: {{"kind": "no|interested|auto|other", "suggestion": "..."}}"""
+Classify the reply as one of: "no" (not interested, unsubscribe, stop, hostile), "interested" (wants info, price, a call, asks any question about the offer), "auto" (out-of-office or automatic reply), "other".
+Answer ONLY with JSON: {{"kind": "no|interested|auto|other"}}"""
+
+
+def reply_prompt(original: str, reply: str, slots: list[str], lang: str) -> str:
+    slot_lines = "\n".join(f"- {s}" for s in slots) or "- (no free slot found: ask them which day suits them)"
+    tz_note = " Times are Budapest time (CET/CEST); Romania is one hour ahead, so give their local time too." if lang == "ro" else ""
+    return f"""You are Milán Hutkai, founder of AXIMBRA (a small AI agent studio). A business replied with interest to your cold email. Write the answer in the SAME language they wrote in.
+
+Your email:
+---
+{original[:1500]}
+---
+Their reply:
+---
+{reply[:3000]}
+---
+Rules:
+- Answer exactly what they asked, briefly and honestly. If they ask about price: e-mail rendező 150 000–400 000 Ft; érdeklődő-minősítő 400 000–1 200 000 Ft; the telephone AI and anything custom is priced after a 20-minute assessment. Never invent other prices, clients or results.
+- Propose a 20-minute call and offer exactly these times (convert the date format naturally into their language):{tz_note}
+{slot_lines}
+- Ask them to reply with the one that suits them, or suggest another.
+- Under 110 words, warm but not salesy, no emojis. Sign "Hutkai Milán · AXIMBRA · aximbra.hu".
+Answer ONLY with JSON: {{"body": "..."}}"""

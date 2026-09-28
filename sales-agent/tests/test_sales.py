@@ -42,9 +42,15 @@ class FakeLLM:
                 "body": body.replace("foglalnak.", "foglalnak.\n\nPéntek este ki veszi fel?")}
 
     def classify(self, original, reply):
-        if "nem" in reply.lower():
-            return {"kind": "no", "suggestion": ""}
-        return {"kind": "interested", "suggestion": "Köszönöm! Mikor beszélhetnénk 20 percet?"}
+        return "no" if "nem" in reply.lower() else "interested"
+
+    def draft_reply(self, original, reply, slots, lang):
+        return "Köszönöm! Mikor beszélhetnénk 20 percet? " + " / ".join(slots)
+
+
+def FAKE_SLOTS(company, guest):
+    return {"calendar": True, "slots": [{"iso": "2026-09-29T10:00:00+02:00", "label": "szeptember 29. (kedd) 10:00",
+                                         "link": "https://calendar.google.com/x"}]}
 
 
 class FakeMailbox:
@@ -232,7 +238,7 @@ def test_no_reply_blocks_and_cancels_followup(store):
     lid = _sent(store)
     FakeMailbox.inbox = [{"from": "info@kertbisztro.hu", "text": "Köszönjük, nem kérjük.", "in_reply_to": "",
                           "references": "", "message_id": "<r1>", "subject": "Re", "date": ""}]
-    pipeline.scan_replies(store, pipeline.RunLog(), llm=FakeLLM([]), mailbox_factory=FakeMailbox)
+    pipeline.scan_replies(store, pipeline.RunLog(), llm=FakeLLM([]), mailbox_factory=FakeMailbox, slots_fn=FAKE_SLOTS)
     lead = store.get(lid)
     assert lead["reply_kind"] == "no" and store.is_blocked("info@kertbisztro.hu")
     assert pipeline.prepare_followups(store, datetime(2027, 1, 1, tzinfo=timezone.utc)) == 0
@@ -242,16 +248,17 @@ def test_interested_reply_gets_suggestion(store):
     lid = _sent(store)
     FakeMailbox.inbox = [{"from": "info@kertbisztro.hu", "text": "Érdekel, mennyibe kerül?\n\n> régi levél",
                           "in_reply_to": "", "references": "", "message_id": "<r2>", "subject": "Re", "date": ""}]
-    pipeline.scan_replies(store, pipeline.RunLog(), llm=FakeLLM([]), mailbox_factory=FakeMailbox)
+    pipeline.scan_replies(store, pipeline.RunLog(), llm=FakeLLM([]), mailbox_factory=FakeMailbox, slots_fn=FAKE_SLOTS)
     lead = store.get(lid)
     assert lead["reply_kind"] == "interested" and "20 percet" in lead["reply_suggestion"]
+    assert "szeptember 29. (kedd) 10:00" in lead["reply_suggestion"] and "calendar.google.com" in lead["slots"]
     assert "régi levél" not in lead["reply_text"]
 
 
 def test_bounce_blocks(store):
     lid = _sent(store)
     FakeMailbox.bounces = [{"from": "mailer-daemon@googlemail.com", "text": "Address not found: info@kertbisztro.hu"}]
-    pipeline.scan_replies(store, pipeline.RunLog(), llm=FakeLLM([]), mailbox_factory=FakeMailbox)
+    pipeline.scan_replies(store, pipeline.RunLog(), llm=FakeLLM([]), mailbox_factory=FakeMailbox, slots_fn=FAKE_SLOTS)
     assert store.get(lid)["reply_kind"] == "bounce" and store.is_blocked("info@kertbisztro.hu")
 
 
@@ -331,3 +338,37 @@ def test_extract_json_prefers_outer_object():
     import llm
     assert llm.extract_json('Íme: {"score": 7, "issues": ["x"], "body": "b"}')["score"] == 7
     assert llm.extract_json('```json\n[{"a": 1}]\n```') == [{"a": 1}]
+
+
+ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:1
+DTSTART;TZID=Europe/Budapest:20260929T093000
+DTEND;TZID=Europe/Budapest:20260929T110000
+SUMMARY:Egyetem
+END:VEVENT
+BEGIN:VEVENT
+UID:2
+DTSTART;VALUE=DATE:20260930
+DTEND;VALUE=DATE:20261001
+SUMMARY:Egész nap
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_free_slots_avoid_busy_and_all_day_and_spread_days():
+    import calendar_slots as cs
+    now = datetime(2026, 9, 28, 20, 0, tzinfo=cs.TZ)  # hétfő este
+    slots = cs.free_slots(now=now, ics_text=ICS)
+    assert len(slots) == 3 and len({s.date() for s in slots}) == 3
+    assert slots[0].date().isoformat() == "2026-09-29" and slots[0].hour >= 11  # a 9:30–11 foglalt
+    assert all(s.date().isoformat() != "2026-09-30" for s in slots)            # egész napos
+    assert all(s.weekday() < 5 for s in slots)
+
+
+def test_calendar_link_invites_guest():
+    import calendar_slots as cs
+    link = cs.calendar_link(datetime(2026, 9, 29, 14, 0, tzinfo=cs.TZ), "Kert Bisztró", "info@kertbisztro.hu")
+    assert "action=TEMPLATE" in link and "add=info%40kertbisztro.hu" in link and "20260929T120000Z" in link
