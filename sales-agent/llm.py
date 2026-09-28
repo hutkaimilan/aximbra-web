@@ -46,11 +46,11 @@ def extract_json(text: str):
     raise LLMError("a modell nem adott értelmezhető JSON-t")
 
 
-def research(country: str, count: int, exclude_domains: list[str]) -> list[dict]:
+def research(country: str, count: int, exclude_domains: list[str], focus: str = "") -> list[dict]:
     resp = _client().responses.create(
         model=RESEARCH_MODEL,
         tools=[{"type": "web_search", "user_location": {"type": "approximate", "country": country}}],
-        input=playbook.research_prompt(country, count, exclude_domains),
+        input=playbook.research_prompt(country, count, exclude_domains, focus),
     )
     data = extract_json(resp.output_text)
     if isinstance(data, dict):
@@ -71,6 +71,20 @@ def compose(lead: dict) -> dict:
     if opt not in body:
         body = body.rstrip() + "\n\n" + opt
     return {"subject": (data.get("subject") or "").strip(), "body": body}
+
+
+def critique(lead: dict, subject: str, body: str) -> dict:
+    """Második kör: egy szigorú bíráló pontoz, és ha kell, átírja."""
+    resp = _client().responses.create(model=WRITE_MODEL, input=playbook.critique_prompt(lead, subject, body))
+    data = extract_json(resp.output_text)
+    if not isinstance(data, dict):
+        raise LLMError("a bíráló nem adott értékelést")
+    try:
+        score = max(0, min(10, int(data.get("score", 0))))
+    except (TypeError, ValueError):
+        score = 0
+    return {"score": score, "issues": [str(i) for i in (data.get("issues") or [])][:6],
+            "subject": (data.get("subject") or subject).strip(), "body": (data.get("body") or body).strip()}
 
 
 def classify(original: str, reply: str) -> dict:

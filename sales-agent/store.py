@@ -5,6 +5,8 @@ megmarad az újraindítások között. Minden állapotváltás egyetlen feltéte
 UPDATE, így két párhuzamos kérés sem tud ugyanarra a levélre kétszer
 "küldést" indítani.
 """
+from __future__ import annotations
+
 import os
 import sqlite3
 import threading
@@ -52,6 +54,13 @@ CREATE TABLE IF NOT EXISTS blocked (
 );
 """
 
+# Később hozzáadott oszlopok: a meglévő adatbázis a köteten van, ezért
+# indításkor pótoljuk őket, adatvesztés nélkül.
+EXTRA_COLUMNS = {
+    "sector": "TEXT", "signal": "TEXT", "signal_note": "TEXT", "signal_url": "TEXT",
+    "score": "INTEGER", "score_reason": "TEXT", "critique": "TEXT",
+}
+
 # draft -> sending -> sent | failed ; draft -> skipped ; failed -> draft (újra)
 STATUSES = ("draft", "sending", "sent", "failed", "skipped")
 
@@ -77,6 +86,10 @@ class Store:
         self._lock = threading.Lock()
         with self._conn() as c:
             c.executescript(SCHEMA)
+            have = {r[1] for r in c.execute("PRAGMA table_info(leads)")}
+            for col, typ in EXTRA_COLUMNS.items():
+                if col not in have:
+                    c.execute(f"ALTER TABLE leads ADD COLUMN {col} {typ}")
 
     @contextmanager
     def _conn(self):
@@ -140,13 +153,16 @@ class Store:
             try:
                 cur = c.execute(
                     """INSERT INTO leads (created_at, company, town, country, lang, website, domain, email,
-                       email_url, observation, observation_url, pain, subject, body, warnings, status)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'draft')""",
+                       email_url, observation, observation_url, pain, subject, body, warnings, status,
+                       sector, signal, signal_note, signal_url, score, score_reason, critique)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'draft', ?,?,?,?,?,?,?)""",
                     (now(), lead["company"], lead.get("town"), lead["country"], lead["lang"],
                      lead.get("website"), domain_of(email if domain_of(email) not in FREEMAIL
                                                      else lead.get("website") or email),
                      email, lead.get("email_url"), lead.get("observation"), lead.get("observation_url"),
-                     lead["pain"], lead.get("subject"), lead.get("body"), lead.get("warnings")))
+                     lead["pain"], lead.get("subject"), lead.get("body"), lead.get("warnings"),
+                     lead.get("sector"), lead.get("signal"), lead.get("signal_note"), lead.get("signal_url"),
+                     _int(lead.get("score")), lead.get("score_reason"), lead.get("critique")))
                 return cur.lastrowid
             except sqlite3.IntegrityError:
                 return None
@@ -158,7 +174,10 @@ class Store:
 
     def list(self, status: str | None = None) -> list[dict]:
         with self._conn() as c:
-            if status:
+            if status == "draft":
+                rows = c.execute("SELECT * FROM leads WHERE status = ? ORDER BY COALESCE(score, 0) DESC, id DESC",
+                                 (status,))
+            elif status:
                 rows = c.execute("SELECT * FROM leads WHERE status = ? ORDER BY id DESC", (status,))
             else:
                 rows = c.execute("SELECT * FROM leads ORDER BY id DESC")
@@ -205,6 +224,33 @@ class Store:
     def mark_failed(self, lead_id: int, error: str) -> None:
         with self._conn() as c:
             c.execute("UPDATE leads SET status = 'failed', last_error = ? WHERE id = ?", (error[:500], lead_id))
+
+    def stats(self) -> dict:
+        """Kiment / válaszolt / érdeklődik, iparág, ország és igény szerint."""
+        out = {}
+        with self._conn() as c:
+            for dim in ("sector", "country", "pain", "signal"):
+                rows = c.execute(f"""SELECT COALESCE({dim}, '?') AS k,
+                        SUM(status = 'sent') AS sent,
+                        SUM(status = 'sent' AND reply_kind IN ('interested','no','other')) AS replied,
+                        SUM(reply_kind = 'interested') AS interested,
+                        SUM(reply_kind = 'no') AS no,
+                        SUM(reply_kind = 'bounce') AS bounced
+                        FROM leads GROUP BY k ORDER BY sent DESC""").fetchall()
+                out[dim] = [dict(r) for r in rows]
+            t = c.execute("""SELECT SUM(status='sent') AS sent,
+                        SUM(status='sent' AND reply_kind IN ('interested','no','other')) AS replied,
+                        SUM(reply_kind='interested') AS interested, SUM(status='draft') AS drafts,
+                        SUM(followup_status='sent') AS followups FROM leads""").fetchone()
+            out["total"] = {k: (t[k] or 0) for k in t.keys()}
+        return out
+
+    def best_sectors(self, min_sent: int = 5, top: int = 2) -> list[str]:
+        """A tanulás: ahol legalább min_sent levél kiment, a válaszarány
+        szerint a legjobbak. Kevés adatnál üres — akkor mindent egyformán keres."""
+        rows = [r for r in self.stats()["sector"] if (r["sent"] or 0) >= min_sent and r["k"] != "?"]
+        rows.sort(key=lambda r: ((r["interested"] or 0) * 3 + (r["replied"] or 0)) / r["sent"], reverse=True)
+        return [r["k"] for r in rows[:top]]
 
     def sent_today(self) -> int:
         today = datetime.now(timezone.utc).date().isoformat()
@@ -257,3 +303,10 @@ class Store:
 FREEMAIL = {"gmail.com", "googlemail.com", "freemail.hu", "citromail.hu", "t-online.hu", "yahoo.com",
             "outlook.com", "hotmail.com", "outlook.hu", "azet.sk", "centrum.sk", "zoznam.sk", "yahoo.ro",
             "gmail.hr", "net.hr", "siol.net", "icloud.com", "mail.com"}
+
+
+def _int(v):
+    try:
+        return max(0, min(100, int(v)))
+    except (TypeError, ValueError):
+        return None

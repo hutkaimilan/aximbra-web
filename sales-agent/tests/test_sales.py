@@ -19,7 +19,7 @@ PAGE = """<html><body><p>Asztalfoglalás kizárólag telefonon: +36 1 234 5678.<
 CAND = {"company": "Kert Bisztró", "town": "Szeged", "country": "HU", "website": "https://kertbisztro.hu",
         "email": "info@kertbisztro.hu", "email_url": "https://kertbisztro.hu/kapcsolat",
         "observation": "Asztalfoglalás kizárólag telefonon", "observation_url": "https://kertbisztro.hu/kapcsolat",
-        "pain": "phone"}
+        "pain": "phone", "sector": "restaurant", "signal": "notice", "score": 80}
 
 
 class FakeLLM:
@@ -27,7 +27,8 @@ class FakeLLM:
         self.cands = cands
         self.calls = 0
 
-    def research(self, country, count, exclude):
+    def research(self, country, count, exclude, focus=""):
+        self.focus = focus
         self.calls += 1
         return self.cands if self.calls == 1 else []
 
@@ -35,6 +36,10 @@ class FakeLLM:
         return {"subject": "Esti foglalások telefonon",
                 "body": "Jó napot!\n\nAz oldalukon azt írják, hogy asztalt csak telefonon foglalnak.\n\n"
                         "Hutkai Milán · AXIMBRA · aximbra.hu\n\n" + OPT_OUT["hu"]}
+
+    def critique(self, lead, subject, body):
+        return {"score": 7, "issues": ["túl általános kérdés"], "subject": subject,
+                "body": body.replace("foglalnak.", "foglalnak.\n\nPéntek este ki veszi fel?")}
 
     def classify(self, original, reply):
         if "nem" in reply.lower():
@@ -288,3 +293,35 @@ def test_manual_send_marks_sent_once_and_enables_followup(store):
     assert pipeline.prepare_followups(store, datetime(2026, 9, 28, 9, tzinfo=timezone.utc)) == 1
     assert store.followup_sent_manual(lid) is True
     assert store.followup_sent_manual(lid) is False
+
+
+def test_weak_fit_rejected(store):
+    log = run(store, [dict(CAND, score=20)])
+    assert log.added == 0 and "gyenge" in "\n".join(log.lines)
+
+
+def test_critique_rewrite_applied_and_recorded(store):
+    run(store, [dict(CAND)])
+    lead = store.list("draft")[0]
+    assert "Péntek este" in lead["body"] and lead["critique"].startswith("7/10")
+    assert lead["sector"] == "restaurant" and lead["score"] == 80
+
+
+def test_drafts_sorted_by_score(store):
+    run(store, [dict(CAND, score=55)])
+    run(store, [dict(CAND, company="Másik", email="info@masik.hu", website="https://masik.hu", score=95)],
+        fetch=lambda url: PAGE.replace("kertbisztro", "masik"))
+    assert [l["score"] for l in store.list("draft")] == [95, 55]
+
+
+def test_learning_prefers_sector_with_replies(store):
+    for i, (sector, kind) in enumerate([("dental", "interested")] * 5 + [("auto", "none")] * 5):
+        lid = store.add_lead(dict(CAND, email=f"a{i}@c{i}.hu", website=f"https://c{i}.hu", lang="hu",
+                                  sector=sector))
+        store.mark_sent_manual(lid)
+        if kind != "none":
+            store.set_reply(lid, kind, "érdekel")
+    assert store.best_sectors()[0] == "dental"
+    llm = FakeLLM([])
+    pipeline.research_run(store, {"HU": 1}, pipeline.RunLog(), llm=llm, mailbox_factory=FakeMailbox)
+    assert llm.focus.startswith("dental")

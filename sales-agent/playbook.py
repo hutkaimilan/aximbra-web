@@ -67,26 +67,80 @@ FOLLOW_UP = {
 
 MAX_WORDS = 110  # a törzs + aláírás + ui. + leiratkozás együtt; maga az üzenet 75 alatt
 
+# Iparági tudás: mi fáj nekik valójában, milyen jel mutatja, hogy most fáj,
+# és melyik mondat szól a saját nyelvükön. A kutató és a levélíró is ebből dolgozik.
+SECTORS = {
+    "restaurant": {
+        "hu": "étterem",
+        "pain": "Evening and weekend rush: the phone rings while every hand is serving; missed calls are lost tables that book elsewhere within minutes.",
+        "signals": "phone-only or same-day phone-only booking, limited phone hours, reviews saying nobody answers, hiring a host/waiter who also takes calls",
+        "value": "the AI picks up during the rush and writes down name, party size, time and phone number",
+    },
+    "dental": {
+        "hu": "fogászat / magánrendelő",
+        "pain": "Staff are chairside during treatment; the phone rings out and new patients call the next clinic. Receptionist turnover is high.",
+        "signals": "appointments only by phone, 'we call you back' after online requests, hiring a receptionist/assistant, reviews about unreachable phone",
+        "value": "the AI answers during treatment and writes down who wants to come, when and why",
+    },
+    "auto": {
+        "hu": "autószerviz",
+        "pain": "Mechanics are under the car; calls go unanswered or the callback starts with a second interrogation about make, model and fault.",
+        "signals": "booking only by phone, 'if busy we call back', overbooked notices, seasonal tyre-change rush",
+        "value": "the AI answers and writes down make, model, fault and callback number",
+    },
+    "beauty": {
+        "hu": "szépségszalon / fodrász",
+        "pain": "Hands are busy with clients; bookings and rescheduling calls interrupt work or get missed.",
+        "signals": "booking only by phone or Messenger, 'we call you back', one-person salons with long hours",
+        "value": "the AI takes the booking or rescheduling while hands are busy",
+    },
+    "hospitality": {
+        "hu": "szállás / panzió",
+        "pain": "Enquiries arrive by phone and email at all hours; answering the same questions about availability and prices eats the day.",
+        "signals": "stated email reply times, 'call us for availability', event/group enquiries only by phone",
+        "value": "enquiries are sorted and answered drafts are ready by morning; the phone AI takes availability questions",
+    },
+    "trades": {
+        "hu": "szerelő / kivitelező / klíma",
+        "pain": "Quote requests pile up in season; nobody knows which caller is urgent, serious, or just comparing prices.",
+        "signals": "callback within 24/48 hours promises, seasonal backlog notices, long quote forms",
+        "value": "the lead qualifier ranks every request: urgent, serious, just browsing",
+    },
+    "webshop": {
+        "hu": "webshop / kereskedés",
+        "pain": "Order, delivery and warranty emails mix in one inbox; urgent ones drown under routine questions.",
+        "signals": "stated email reply times (1–3 working days), email-first customer service, busy-line notices",
+        "value": "the email triage sorts the inbox by morning so staff only has to answer",
+    },
+}
 
-def research_prompt(country: str, count: int, exclude_domains: list[str]) -> str:
+SIGNAL_TYPES = ("job_ad", "review", "notice", "opening", "none")
+
+
+def research_prompt(country: str, count: int, exclude_domains: list[str], focus: str = "") -> str:
     c = COUNTRIES[country]
     excl = ", ".join(exclude_domains[:300]) or "none"
-    return f"""Find {count} small or medium PRIVATE businesses in {c['name']} ({country}) for B2B outreach.
+    sectors = "\n".join(f"- {k}: pain = {v['pain']} Buying signals = {v['signals']}." for k, v in SECTORS.items())
+    focus_line = f"\nPrioritise these sectors, they reply best so far: {focus}. Still include 1–2 from others to keep learning." if focus else ""
+    return f"""You are a senior B2B sales researcher. Find {count} small or medium PRIVATE businesses in {c['name']} ({country}) that need what we sell RIGHT NOW.
 
-A business qualifies only if ITS OWN WEBSITE states one of these concrete pains (quote it word for word, in the original language):
-- phone: bookings/appointments only by phone, "if the line is busy we call back", limited phone hours, same-day booking only by phone.
-- email: a stated email response time (e.g. "1–3 working days"), email as the main customer channel, lots of order/warranty emails.
-- leads: quote requests with callback promises, seasonal backlog, "we call you back within 24 hours".
-The quoted sentence itself must describe the pain (calls cannot always be answered, booking only by phone, replies take days, "we call you back"). A general promise ("we repair your car within 24 hours", "we reply as soon as possible") or a complaints page does NOT qualify.
-If the site says the phone lines are often busy or unreachable, the pain is "phone", even if it also mentions email.
-Good sectors: restaurants, private dental/medical practices, car services, beauty salons, guesthouses, installers, small webshops, driving schools.
-Exclude: public institutions, state hospitals, schools, military, big chains, franchises with central call centers, businesses that already solve the exact pain with online booking, and these domains: {excl}.
+What we sell: a telephone AI receptionist, an email triage tool, and a lead qualifier — built for small businesses.
 
+Sector knowledge:
+{sectors}
+{focus_line}
+Method, like an expert SDR:
+1. Start from BUYING SIGNALS, strongest first: a current job ad for a receptionist / customer service / booking person (search job sites like profession.hu, jobs.hu, cvonline, profesia.sk, ejobs.ro, moj-posao.net, mojedelo.com); public reviews complaining that nobody answers the phone; a notice on their site about overload, busy lines or limited phone hours; a new location opening.
+2. Then confirm on the business's OWN WEBSITE a sentence that states the pain (quote it word for word, original language). The quoted sentence must itself describe the pain: bookings only by phone, busy line / call back, limited phone hours, replies take days, overload. A generic promise ("we repair within 24 hours", "we reply as soon as possible") or a complaints page does NOT qualify.
+3. If the site says phone lines are often busy or unreachable, the pain is "phone", even if it also mentions email.
+4. Score fit 0–100: signal strength (job ad/review = strongest), how clearly the pain is stated, size (5–50 staff ideal), whether our tool removes the pain directly.
+
+Exclude: public institutions, state hospitals, schools, military, big chains, franchises with central call centers, businesses already solving the exact pain with online booking, and these domains: {excl}.
 The email address must be printed on the business's own website (contact page, footer or imprint). Prefer generic addresses (info@, office@, hello@, recepcio@, a business gmail shown on the site). Never guess an address.
 
 Answer ONLY with a JSON array, no prose, each item:
-{{"company": "...", "town": "...", "country": "{country}", "website": "https://...", "email": "...", "email_url": "https://... (page where the email is printed)", "observation": "exact sentence copied from their site", "observation_url": "https://... (page where the sentence is)", "pain": "phone|email|leads"}}
-If you cannot verify an item, leave it out. Fewer good items beat more weak ones."""
+{{"company": "...", "town": "...", "country": "{country}", "sector": "{'|'.join(SECTORS)}", "website": "https://...", "email": "...", "email_url": "https://... (page where the email is printed)", "observation": "exact sentence copied from their site", "observation_url": "https://...", "pain": "phone|email|leads", "signal": "{'|'.join(SIGNAL_TYPES)}", "signal_note": "one line: what the signal is, e.g. 'recepciós álláshirdetés a profession.hu-n, 2026-09'", "signal_url": "https://... or empty", "score": 0-100, "score_reason": "one line"}}
+Leave out anything you cannot verify. Fewer strong leads beat more weak ones."""
 
 
 def compose_prompt(lead: dict) -> str:
@@ -94,26 +148,44 @@ def compose_prompt(lead: dict) -> str:
     site = COUNTRIES[lead["country"]]["site"]
     ps = DEMO_PS[lead["pain"]]["hu" if lang == "hu" else "other"].format(site=site)
     sig = SIGNATURE["hu" if lang == "hu" else "other"].format(site=site)
-    return f"""Write a cold B2B email in {LANG_NAMES[lang]} to {lead['company']} ({lead['town']}).
+    sec = SECTORS.get(lead.get("sector") or "", {})
+    signal = (lead.get("signal_note") or "").strip()
+    return f"""You are an expert cold-email writer for small-business B2B in Central Europe. Write one email in {LANG_NAMES[lang]} to {lead['company']} ({lead.get('town') or ''}).
 
-Their website says: "{lead['observation']}"
-What we offer: a {PAINS[lead['pain']]}. Built by Milán Hutkai, AXIMBRA.
+Facts you may use (and nothing else):
+- Their website says: "{lead['observation']}"
+{f'- Buying signal found: {signal}' if signal else ''}
+- Their sector's real pain: {sec.get('pain', 'n/a')}
+- What we offer: a {PAINS[lead['pain']]}. Concretely: {sec.get('value', PAINS[lead['pain']])}. Built by Milán Hutkai, AXIMBRA.
 
-Structure, exactly in this order, plain text, formal register:
+Proven structure (observation → consequence question → one-line offer → interest question), plain text, formal register, parts separated by one empty line:
 1. Greeting ("Jó napot!" in Hungarian, the normal formal greeting otherwise).
-2. One sentence restating what their site says ("Az oldalukon azt írják, hogy…").
-3. One question about the consequence of that situation for them.
-4. One sentence: "I built a …" describing our tool in their situation, concrete (what it writes down / sorts).
+2. One sentence restating what their site says ("Az oldalukon azt írják, hogy…"). If there is a job-ad signal, you may mention it instead ("Láttam, hogy recepcióst keresnek.").
+3. One question about the concrete consequence for THEM (lost bookings, the next clinic/service gets the call, a second round of questions at callback). Make them picture the moment.
+4. One sentence: "Építettem egy …" / "I built a …" — our tool in their exact situation, naming what it writes down or sorts.
 5. The question "Would this be interesting for you?" in {LANG_NAMES[lang]}.
 6. Signature line exactly: {sig}
 7. A postscript (P.S.) in {LANG_NAMES[lang]}: {ps}
 8. Last line exactly: {OPT_OUT[lang]}
 
-Separate the parts with one empty line (greeting, observation, question, offer+interest question, signature, postscript, last line).
-Rules: lines 1–5 together under 75 words. No prices, no links, no hype words, no urgency, no claims about clients or results, no emojis.
-Subject: 3–5 words about THEIR situation, not about us.
+Rules: parts 1–5 together under 75 words. You-focused, not we-focused. No prices, no links, no hype ("revolutionary", "cutting-edge"), no urgency, no claims about clients or results, no emojis, no flattery.
+Subject: 3–5 words about THEIR situation, lowercase except the first word, no punctuation tricks.
 
 Answer ONLY with JSON: {{"subject": "...", "body": "..."}}"""
+
+
+def critique_prompt(lead: dict, subject: str, body: str) -> str:
+    return f"""You are a demanding cold-email reviewer. Review this {LANG_NAMES[lead['lang']]} email to {lead['company']}.
+
+Subject: {subject}
+---
+{body}
+---
+Their website says: "{lead['observation']}"
+
+Score 0–10 against: (a) the first lines are specific to THIS business, not generic; (b) exactly one consequence question the reader can picture; (c) the offer is one concrete sentence; (d) parts before the signature under 75 words; (e) no hype, no price, no link, no flattery, no claims about clients; (f) natural, native {LANG_NAMES[lead['lang']]} a local business owner would not find odd; (g) signature, P.S. and the last opt-out line kept exactly.
+If the score is below 9, rewrite it fixing every issue, keeping the same structure and the signature, P.S. and opt-out line unchanged.
+Answer ONLY with JSON: {{"score": 0-10, "issues": ["..."], "subject": "...", "body": "..."}}"""
 
 
 def classify_prompt(original: str, reply: str) -> str:

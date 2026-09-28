@@ -33,6 +33,10 @@ a{color:var(--c)}
 .obs{border-left:3px solid var(--a);padding-left:10px;margin:8px 0;font-style:italic}
 .stat{font-size:13px;color:var(--mute)}
 .hide{display:none}
+.score{font:600 13px ui-monospace,Menlo,monospace;border-radius:8px;padding:2px 8px;border:1px solid var(--line)}
+.score.hi{color:#7de2b0;border-color:var(--ok)}.score.mid{color:#f0c27a;border-color:var(--a)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--line)}
+th{color:var(--mute);font-weight:500}td.n{text-align:right;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -44,6 +48,7 @@ a{color:var(--c)}
     <button data-tab="replies">Válaszok</button>
     <button data-tab="follow">Utánkövetés</button>
     <button data-tab="new">Új keresés</button>
+    <button data-tab="stats">Statisztika</button>
     <button data-tab="block">Tiltólista</button>
   </nav>
 </header>
@@ -76,6 +81,8 @@ a{color:var(--c)}
       <div class="row" style="margin-top:12px"><button class="pri" id="go">Keresés indítása</button></div>
     </div>
   </section>
+
+  <section id="tab-stats" class="hide"><div id="stats"></div></section>
 
   <section id="tab-block" class="hide">
     <div class="card">
@@ -118,8 +125,13 @@ function mailtoLink(to, subject, body) {
   return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
+const SECT = {restaurant:"étterem", dental:"fogászat", auto:"autószerviz", beauty:"szépségszalon", hospitality:"szállás", trades:"szerelő", webshop:"webshop"};
+const SIG = {job_ad:"álláshirdetés", review:"vélemények", notice:"kiírás az oldalon", opening:"új hely"};
 function leadHead(l) {
-  return `<div class="row" style="justify-content:space-between"><b>${esc(l.company)}</b><span class="mute">${esc(l.town||"")} · ${esc(l.country)}</span></div>
+  const sc = l.score == null ? "" : `<span class="score ${l.score>=75?"hi":l.score>=55?"mid":""}">${l.score}</span>`;
+  return `<div class="row" style="justify-content:space-between"><b>${esc(l.company)}</b><span class="row">${sc}<span class="mute">${esc(l.town||"")} · ${esc(l.country)}</span></span></div>
+  <div class="mute">${l.sector?esc(SECT[l.sector]||l.sector):""}${l.signal&&l.signal!=="none"?` · <span class="tag i">${esc(SIG[l.signal]||l.signal)}</span>`:""}${l.score_reason?" · "+esc(l.score_reason):""}</div>
+  ${l.signal_note?`<div class="mute">Jel: ${esc(l.signal_note)}${l.signal_url?` <a href="${esc(l.signal_url)}" target="_blank" rel="noopener">forrás</a>`:""}</div>`:""}
   <div class="mute">${esc(l.email)} · <a href="${esc(l.email_url)}" target="_blank" rel="noopener">cím forrása</a>${l.website?` · <a href="${esc(l.website)}" target="_blank" rel="noopener">weboldal</a>`:""}</div>
   <div class="obs">„${esc(l.observation)}” <a href="${esc(l.observation_url)}" target="_blank" rel="noopener">forrás</a></div>`;
 }
@@ -141,6 +153,7 @@ function render() {
   if (!open) $("#drafts").innerHTML = drafts.length ? drafts.map((l) => `
     <div class="card" data-id="${l.id}">
       ${leadHead(l)}
+      ${l.critique ? `<div class="mute">Bíráló: ${esc(l.critique)}</div>` : ""}
       ${l.warnings ? `<div><span class="tag w">figyelem</span><span class="mute">${esc(l.warnings)}</span></div>` : ""}
       ${l.status === "failed" ? `<div><span class="tag n">hiba</span><span class="mute">${esc(l.last_error)}</span></div>` : ""}
       <label>Tárgy</label><input class="subj" value="${esc(dirty[l.id]?.subject ?? l.subject)}">
@@ -174,6 +187,17 @@ function render() {
     <pre style="white-space:pre-wrap;font:inherit">${esc(l.followup_body)}</pre>
     <div class="row"><button class="pri fgm">1. Megnyitás Gmailben</button><button class="fdone">2. Kiment ✓</button><button class="warn fdrop">Nem küldöm</button></div>
     <p class="mute">Tipp: a Gmailben a korábbi levélre válaszként is elküldheted, akkor egy szálban marad.</p></div>`).join("") : `<div class="card mute">Nincs esedékes utánkövetés.</div>`;
+
+  const T = S.stats.total, pct = (a, b) => b ? Math.round(100 * a / b) + "%" : "–";
+  const tbl = (rows, name, map) => `<div class="card"><b>${name}</b><table><tr><th></th><th>kiment</th><th>válasz</th><th>érdeklődik</th><th>nem</th></tr>${
+    rows.filter((r) => r.sent || r.interested).map((r) => `<tr><td>${esc((map && map[r.k]) || r.k)}</td><td class="n">${r.sent||0}</td><td class="n">${pct(r.replied||0, r.sent||0)}</td><td class="n">${r.interested||0}</td><td class="n">${r.no||0}</td></tr>`).join("") || `<tr><td colspan="5" class="mute">Még nincs adat.</td></tr>`}</table></div>`;
+  $("#stats").innerHTML = `<div class="card"><div class="row" style="gap:18px">
+      <div><div class="mute">kiment</div><b style="font-size:22px">${T.sent}</b></div>
+      <div><div class="mute">válaszarány</div><b style="font-size:22px">${pct(T.replied, T.sent)}</b></div>
+      <div><div class="mute">érdeklődik</div><b style="font-size:22px">${T.interested}</b></div>
+      <div><div class="mute">vázlat vár</div><b style="font-size:22px">${T.drafts}</b></div></div>
+      <p class="mute" style="margin-bottom:0">${S.focus.length ? "A reggeli keresés most ezekre fókuszál: " + S.focus.map((k) => SECT[k]||k).join(", ") + "." : "Tanulás: iparáganként legalább 5 kiment levél után kezdi el eltolni a keresést a jobban válaszoló iparágak felé."}</p></div>
+    ${tbl(S.stats.sector, "Iparág", SECT)}${tbl(S.stats.country, "Ország")}${tbl(S.stats.signal, "Vásárlási jel", SIG)}`;
 
   $("#blocked").innerHTML = S.blocked.length ? S.blocked.map((b) => `<div class="mute">${esc(b.key)} — ${esc(b.reason)}</div>`).join("") : `<span class="mute">Üres.</span>`;
 

@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 import llm as llm_mod
 import mailer as mailer_mod
 import verify
-from playbook import COUNTRIES, FOLLOW_UP
+from playbook import COUNTRIES, FOLLOW_UP, OPT_OUT, SECTORS, SIGNAL_TYPES
 from store import Store, domain_of
 
 logger = logging.getLogger(__name__)
@@ -23,6 +23,7 @@ MAX_PER_RUN = 20        # egy kereséssel legfeljebb ennyi vázlat
 BATCH = 6               # egy modellhívásban ennyi céget kérünk
 FOLLOWUP_AFTER_WORKDAYS = 5
 SEND_GAP = (25, 70)     # másodperc két levél között: nem egyszerre zúdul ki
+MIN_SCORE = 40          # ennél gyengébb illeszkedésre nem pazarolunk levelet
 
 
 @dataclass
@@ -52,6 +53,9 @@ def research_run(store: Store, plan: dict[str, int], log: RunLog, *, llm=llm_mod
         # Gmail nélkül is lehet vázlatot írni; a küldés előtt úgyis kell.
         log.say(f"Figyelem: a Gmail-előzményt nem tudtam megnézni ({e}). Csak a saját naplóból szűrök.")
 
+    focus = ", ".join(store.best_sectors())
+    if focus:
+        log.say(f"Tanulás: eddig itt válaszolnak a legtöbben: {focus}. Ezeket veszem előre.")
     try:
         for country, want in plan.items():
             got, attempts = 0, 0
@@ -59,12 +63,13 @@ def research_run(store: Store, plan: dict[str, int], log: RunLog, *, llm=llm_mod
                 attempts += 1
                 ask = min(BATCH, want - got + 2)
                 try:
-                    cands = llm.research(country, ask, store.known_domains())
+                    cands = llm.research(country, ask, store.known_domains(), focus)
                 except Exception as e:  # noqa: BLE001 — egy hibás kör ne állítsa le a többit
                     log.say(f"{country}: a keresés hibára futott ({e}).")
                     continue
                 if not cands:
                     log.say(f"{country}: ebben a körben nem talált jelöltet.")
+                cands.sort(key=lambda c: _score(c.get("score")), reverse=True)
                 for cand in cands:
                     if got >= want:
                         break
@@ -90,6 +95,11 @@ def _consider(store, cand, country, log, *, llm, fetch, mailbox) -> bool:
     probs = verify.candidate_problems(cand)
     if probs:
         return reject(", ".join(probs))
+    cand["score"] = _score(cand.get("score"))
+    if cand["score"] < MIN_SCORE:
+        return reject(f"gyenge illeszkedés ({cand['score']}/100)")
+    cand["sector"] = cand.get("sector") if cand.get("sector") in SECTORS else None
+    cand["signal"] = cand.get("signal") if cand.get("signal") in SIGNAL_TYPES else "none"
     known = store.is_known(cand["email"], cand.get("website"))
     if known:
         return reject(known)
@@ -114,12 +124,31 @@ def _consider(store, cand, country, log, *, llm, fetch, mailbox) -> bool:
         lead.update(llm.compose(lead))
     except Exception as e:  # noqa: BLE001
         return reject(f"a levélírás nem sikerült ({e})")
-    lead["warnings"] = "; ".join(verify.check_letter(lead))
+    before = verify.check_letter(lead)
+    try:
+        rev = llm.critique(lead, lead["subject"], lead["body"])
+        cand_letter = {**lead, "subject": rev["subject"], "body": rev["body"]}
+        after = verify.check_letter(cand_letter)
+        # Az átírást csak akkor vesszük át, ha a gépi ellenőrzés szerint sem rosszabb.
+        if rev["score"] < 9 and len(after) <= len(before) and OPT_OUT[lead["lang"]] in rev["body"]:
+            lead.update(subject=rev["subject"], body=rev["body"])
+            before = after
+        lead["critique"] = f"{rev['score']}/10" + (f" — {'; '.join(rev['issues'])}" if rev["issues"] else "")
+    except Exception as e:  # noqa: BLE001 — a bírálat hiánya nem ok a vázlat eldobására
+        lead["critique"] = f"a bírálat kimaradt ({e})"
+    lead["warnings"] = "; ".join(before)
     if store.add_lead(lead) is None:
         return reject("közben már bekerült")
     log.added += 1
     log.say(f"  ✓ {name} ({cand.get('town') or country}) — {cand['email']}")
     return True
+
+
+def _score(v) -> int:
+    try:
+        return max(0, min(100, int(v)))
+    except (TypeError, ValueError):
+        return 50
 
 
 def _free():

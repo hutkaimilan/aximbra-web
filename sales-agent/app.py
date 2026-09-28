@@ -110,6 +110,8 @@ def state():
         "leads": store.list(),
         "blocked": store.blocked_keys()[:300],
         "sent_today": store.sent_today(),
+        "stats": store.stats(),
+        "focus": store.best_sectors(),
         "cap": pipeline.DAILY_CAP,
         "countries": {k: v["name"] for k, v in COUNTRIES.items()},
         "config": {
