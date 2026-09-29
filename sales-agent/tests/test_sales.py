@@ -322,16 +322,17 @@ def test_drafts_sorted_by_score(store):
 
 
 def test_learning_prefers_sector_with_replies(store):
-    for i, (sector, kind) in enumerate([("dental", "interested")] * 5 + [("auto", "none")] * 5):
+    for i, (sector, kind) in enumerate([("logistics", "interested")] * 5 + [("energy", "none")] * 5
+                                       + [("restaurant", "interested")] * 6):
         lid = store.add_lead(dict(CAND, email=f"a{i}@c{i}.hu", website=f"https://c{i}.hu", lang="hu",
                                   sector=sector))
         store.mark_sent_manual(lid)
         if kind != "none":
             store.set_reply(lid, kind, "érdekel")
-    assert store.best_sectors()[0] == "dental"
+    assert store.best_sectors()[0] == "logistics" and "restaurant" not in store.best_sectors()
     llm = FakeLLM([])
     pipeline.research_run(store, {"HU": 1}, pipeline.RunLog(), llm=llm, mailbox_factory=FakeMailbox)
-    assert llm.focus.startswith("dental")
+    assert llm.focus.startswith("logistics")
 
 
 def test_extract_json_prefers_outer_object():

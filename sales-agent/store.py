@@ -264,7 +264,8 @@ class Store:
     def best_sectors(self, min_sent: int = 5, top: int = 2) -> list[str]:
         """A tanulás: ahol legalább min_sent levél kiment, a válaszarány
         szerint a legjobbak. Kevés adatnál üres — akkor mindent egyformán keres."""
-        rows = [r for r in self.stats()["sector"] if (r["sent"] or 0) >= min_sent and r["k"] != "?"]
+        from playbook import SECTORS  # csak a mostani célcsoport iparágai számítanak
+        rows = [r for r in self.stats()["sector"] if (r["sent"] or 0) >= min_sent and r["k"] in SECTORS]
         rows.sort(key=lambda r: ((r["interested"] or 0) * 3 + (r["replied"] or 0)) / r["sent"], reverse=True)
         return [r["k"] for r in rows[:top]]
 
