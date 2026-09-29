@@ -129,7 +129,7 @@ function mailtoLink(to, subject, body) {
   return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
-const SECT = {restaurant:"étterem", dental:"fogászat", auto:"autószerviz", beauty:"szépségszalon", hospitality:"szállás", trades:"szerelő", webshop:"webshop"};
+const SECT = {logistics:"logisztika", manufacturing:"gyártás", healthcare:"klinikahálózat", automotive:"autókereskedés", finance:"pénzügyi közvetítő", property:"ingatlankezelés", ecommerce:"webshop", hospitality:"szálloda", energy:"energetika", it_services:"IT-szolgáltató", restaurant:"étterem", dental:"fogászat", auto:"autószerviz", beauty:"szépségszalon", trades:"szerelő", webshop:"webshop"};
 const SIG = {job_ad:"álláshirdetés", review:"vélemények", notice:"kiírás az oldalon", opening:"új hely"};
 function answerBox(l) {
   let sl = {slots: [], calendar: false};

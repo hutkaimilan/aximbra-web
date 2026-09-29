@@ -19,7 +19,7 @@ PAGE = """<html><body><p>Asztalfoglalás kizárólag telefonon: +36 1 234 5678.<
 CAND = {"company": "Kert Bisztró", "town": "Szeged", "country": "HU", "website": "https://kertbisztro.hu",
         "email": "info@kertbisztro.hu", "email_url": "https://kertbisztro.hu/kapcsolat",
         "observation": "Asztalfoglalás kizárólag telefonon", "observation_url": "https://kertbisztro.hu/kapcsolat",
-        "pain": "phone", "sector": "restaurant", "signal": "notice", "score": 80}
+        "pain": "phone", "sector": "hospitality", "signal": "notice", "score": 80}
 
 
 class FakeLLM:
@@ -311,7 +311,7 @@ def test_critique_rewrite_applied_and_recorded(store):
     run(store, [dict(CAND)])
     lead = store.list("draft")[0]
     assert "Péntek este" in lead["body"] and lead["critique"].startswith("7/10")
-    assert lead["sector"] == "restaurant" and lead["score"] == 80
+    assert lead["sector"] == "hospitality" and lead["score"] == 80
 
 
 def test_drafts_sorted_by_score(store):

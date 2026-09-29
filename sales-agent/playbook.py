@@ -24,11 +24,19 @@ LANG_NAMES = {
 }
 
 PAINS = {
-    "phone": "telephone AI receptionist that answers when nobody can and writes down the booking/appointment/callback details",
-    "email": "email triage tool that sorts the incoming mail by morning so staff only has to answer",
-    "leads": "lead qualifier that ranks incoming quote requests: urgent, serious, just browsing",
+    "support": "customer service agent that answers routine customer emails from the company's own documents, with sources, and hands everything else to staff",
+    "documents": "document analyser that reads contracts, invoices and delivery notes and extracts the fields staff re-type by hand today",
+    "compliance": "NIS2 compliance agent that continuously collects the evidence an audit asks for (who can access what, when backups ran, where MFA is missing); it produces evidence, it does not protect against attacks",
+    "email": "email triage for shared inboxes: sorts, prioritises and routes incoming mail by morning so staff only has to answer",
+    "phone": "telephone AI that answers overflow calls and records the caller's request for staff",
+    "leads": "lead qualifier that ranks incoming quote requests: urgent, serious, just comparing prices",
 }
+PAIN_KEYS = tuple(PAINS)
 
+_GENERIC_PS = {
+    "hu": "Ui.: Élő demók az aximbra.hu-n, regisztráció nélkül kipróbálhatók.",
+    "other": "tell them live demos are on {site}, no sign-up needed.",
+}
 DEMO_PS = {
     "phone": {
         "hu": "Ui.: Ha kíváncsi, milyen egy ilyen hívás: az aximbra.hu-n beírja a számát, és a mi telefonos AI-nk 10 másodpercen belül felhívja.",
@@ -42,6 +50,9 @@ DEMO_PS = {
         "hu": "Ui.: Egy minta-érdeklődőn ki is próbálható az aximbra.hu-n.",
         "other": "tell them it can be tried on a sample lead on {site}.",
     },
+    "support": _GENERIC_PS,
+    "documents": _GENERIC_PS,
+    "compliance": _GENERIC_PS,
 }
 
 OPT_OUT = {
@@ -70,47 +81,65 @@ MAX_WORDS = 110  # a törzs + aláírás + ui. + leiratkozás együtt; maga az �
 # Iparági tudás: mi fáj nekik valójában, milyen jel mutatja, hogy most fáj,
 # és melyik mondat szól a saját nyelvükön. A kutató és a levélíró is ebből dolgozik.
 SECTORS = {
-    "restaurant": {
-        "hu": "étterem",
-        "pain": "Evening and weekend rush: the phone rings while every hand is serving; missed calls are lost tables that book elsewhere within minutes.",
-        "signals": "phone-only or same-day phone-only booking, limited phone hours, reviews saying nobody answers, hiring a host/waiter who also takes calls",
-        "value": "the AI picks up during the rush and writes down name, party size, time and phone number",
+    "logistics": {
+        "hu": "logisztika / szállítmányozás",
+        "pain": "Shipment status questions, delivery notes and CMR documents flood a shared inbox; staff re-type data between systems.",
+        "signals": "hiring several customer service or dispatcher staff, new warehouse or route, published email response times",
+        "value": "status questions answered from their own system data, delivery documents read into structured fields",
     },
-    "dental": {
-        "hu": "fogászat / magánrendelő",
-        "pain": "Staff are chairside during treatment; the phone rings out and new patients call the next clinic. Receptionist turnover is high.",
-        "signals": "appointments only by phone, 'we call you back' after online requests, hiring a receptionist/assistant, reviews about unreachable phone",
-        "value": "the AI answers during treatment and writes down who wants to come, when and why",
+    "manufacturing": {
+        "hu": "gyártás",
+        "pain": "Orders, delivery notes and supplier invoices are re-keyed by hand; NIS2 now covers many manufacturers and the audit evidence is scattered.",
+        "signals": "hiring data entry / back-office staff, new plant or line, sector in NIS2 scope, EU-funded expansion",
+        "value": "documents read into the ERP fields automatically; NIS2 evidence collected continuously",
     },
-    "auto": {
-        "hu": "autószerviz",
-        "pain": "Mechanics are under the car; calls go unanswered or the callback starts with a second interrogation about make, model and fault.",
-        "signals": "booking only by phone, 'if busy we call back', overbooked notices, seasonal tyre-change rush",
-        "value": "the AI answers and writes down make, model, fault and callback number",
+    "healthcare": {
+        "hu": "magánklinika-hálózat",
+        "pain": "Several locations, one call centre; appointment and results questions swamp phone and email, receptionist turnover is high.",
+        "signals": "hiring receptionists or call-centre staff, new clinic opening, reviews about unreachable phones",
+        "value": "overflow calls answered, routine patient emails answered from their own policies, the rest routed",
     },
-    "beauty": {
-        "hu": "szépségszalon / fodrász",
-        "pain": "Hands are busy with clients; bookings and rescheduling calls interrupt work or get missed.",
-        "signals": "booking only by phone or Messenger, 'we call you back', one-person salons with long hours",
-        "value": "the AI takes the booking or rescheduling while hands are busy",
+    "automotive": {
+        "hu": "autókereskedés / márkaszerviz",
+        "pain": "Service bookings and sales enquiries come in by phone, email and web; slow answers lose customers to the next dealer.",
+        "signals": "hiring service advisors or call-centre staff, new showroom, busy-line notices",
+        "value": "enquiries ranked and answered, overflow calls taken, service bookings recorded",
+    },
+    "finance": {
+        "hu": "biztosítási / pénzügyi közvetítő",
+        "pain": "Claims, contracts and client documents arrive by email; staff read and re-type the same fields all day.",
+        "signals": "hiring back-office or claims staff, NIS2/DORA pressure, growth announcements",
+        "value": "contracts and claims read into the fields they need, every value traceable to its source line",
+    },
+    "property": {
+        "hu": "ingatlankezelés / társasházkezelés",
+        "pain": "Tenants and owners email and call about the same few issues; urgent faults drown in routine questions.",
+        "signals": "hiring customer service or property administrators, stated response times, portfolio growth",
+        "value": "the shared inbox sorted by urgency every morning, routine questions answered from their own house rules",
+    },
+    "ecommerce": {
+        "hu": "nagyobb webshop / kereskedelem",
+        "pain": "Order, delivery and returns emails pile up in season; the customer service team grows every Q4.",
+        "signals": "hiring seasonal customer service staff, stated 1–3 day email response times",
+        "value": "routine order and returns questions answered with sources, urgent ones first",
     },
     "hospitality": {
-        "hu": "szállás / panzió",
-        "pain": "Enquiries arrive by phone and email at all hours; answering the same questions about availability and prices eats the day.",
-        "signals": "stated email reply times, 'call us for availability', event/group enquiries only by phone",
-        "value": "enquiries are sorted and answered drafts are ready by morning; the phone AI takes availability questions",
+        "hu": "szállodalánc / hotel",
+        "pain": "Group, event and availability enquiries by email and phone at all hours; sales staff answer the same questions repeatedly.",
+        "signals": "hiring reservation or sales staff, new property, event season",
+        "value": "enquiries ranked and drafted by morning, overflow calls answered",
     },
-    "trades": {
-        "hu": "szerelő / kivitelező / klíma",
-        "pain": "Quote requests pile up in season; nobody knows which caller is urgent, serious, or just comparing prices.",
-        "signals": "callback within 24/48 hours promises, seasonal backlog notices, long quote forms",
-        "value": "the lead qualifier ranks every request: urgent, serious, just browsing",
+    "energy": {
+        "hu": "energetika / közmű-szolgáltató",
+        "pain": "Directly in NIS2 scope; audits need continuous evidence, and customer mail volume is high.",
+        "signals": "NIS2 scope, hiring compliance or IT security roles, customer service expansion",
+        "value": "NIS2 evidence collected continuously; customer mail sorted and routed",
     },
-    "webshop": {
-        "hu": "webshop / kereskedés",
-        "pain": "Order, delivery and warranty emails mix in one inbox; urgent ones drown under routine questions.",
-        "signals": "stated email reply times (1–3 working days), email-first customer service, busy-line notices",
-        "value": "the email triage sorts the inbox by morning so staff only has to answer",
+    "it_services": {
+        "hu": "IT-szolgáltató",
+        "pain": "Tickets and alerts arrive faster than the team triages them; NIS2 makes them part of their clients' supply-chain audits.",
+        "signals": "hiring helpdesk or NOC staff, NIS2 supply-chain requirements from clients",
+        "value": "tickets and alerts triaged, known issues handled, NIS2 evidence kept ready",
     },
 }
 
@@ -127,24 +156,25 @@ def research_prompt(country: str, count: int, exclude_domains: list[str], focus:
     excl = ", ".join(exclude_domains[:300]) or "none"
     sectors = "\n".join(f"- {k}: pain = {v['pain']} Buying signals = {v['signals']}." for k, v in SECTORS.items())
     focus_line = f"\nPrioritise these sectors, they reply best so far: {focus}. Still include 1–2 from others to keep learning." if focus else ""
-    return f"""You are a senior B2B sales researcher. Find {count} small or medium PRIVATE businesses in {c['name']} ({country}) that need what we sell RIGHT NOW.
+    pains = "\n".join(f"- {k}: {v}" for k, v in PAINS.items())
+    return f"""You are a senior B2B sales researcher. Find {count} MID-SIZED to LARGE PRIVATE companies in {c['name']} ({country}), roughly 50–1000 employees, that need what we sell RIGHT NOW.
 
-What we sell: a telephone AI receptionist, an email triage tool, and a lead qualifier — built for small businesses.
+What we sell (AI agents built into the company's own systems):
+{pains}
 
 Sector knowledge:
 {sectors}
 {focus_line}
 Method, like an expert SDR:
-1. Start from BUYING SIGNALS, strongest first: a current job ad for a receptionist / customer service / booking person (search job sites like profession.hu, jobs.hu, cvonline, profesia.sk, ejobs.ro, moj-posao.net, mojedelo.com); public reviews complaining that nobody answers the phone; a notice on their site about overload, busy lines or limited phone hours; a new location opening.
-2. Then confirm on the business's OWN WEBSITE a sentence that states the pain (quote it word for word, original language). The quoted sentence must itself describe the pain: bookings only by phone, busy line / call back, limited phone hours, replies take days, overload. A generic promise ("we repair within 24 hours", "we reply as soon as possible") or a complaints page does NOT qualify.
-3. If the site says phone lines are often busy or unreachable, the pain is "phone", even if it also mentions email.
-4. Score fit 0–100: signal strength (job ad/review = strongest), how clearly the pain is stated, size (5–50 staff ideal), whether our tool removes the pain directly.
+1. Start from BUYING SIGNALS, strongest first: the company is hiring several customer service, back-office, data entry, receptionist or dispatcher people at once (their own careers page, or job sites like profession.hu, jobs.hu, cvonline, profesia.sk, ejobs.ro, moj-posao.net, mojedelo.com); the company is in NIS2 scope (energy, transport, logistics, manufacturing of critical products, health, digital providers, waste, food production) and 50+ staff; a new site, plant or clinic; published slow response times.
+2. Then quote one sentence word for word (original language) from a page that shows the pain: their own site or careers page, or the job ad itself. It must describe the pain or the workload (hiring for repetitive work, stated response times, overload, many documents, compliance obligation). A generic slogan does NOT qualify.
+3. Score fit 0–100: signal strength (active hiring for the repetitive role = strongest), company size (50–1000 ideal), how directly one of our agents removes the pain, and whether a decision can be made locally (a local HQ, not a foreign group's branch).
 
-Exclude: public institutions, state hospitals, schools, military, big chains, franchises with central call centers, businesses already solving the exact pain with online booking, and these domains: {excl}.
-The email address must be printed on the business's own website (contact page, footer or imprint). Prefer generic addresses (info@, office@, hello@, recepcio@, a business gmail shown on the site). Never guess an address.
+Exclude: micro businesses under 20 staff, restaurants, cafés, beauty salons, small repair shops, public institutions, state-owned companies, hospitals run by the state, schools, military, multinationals whose decisions are made abroad, and these domains: {excl}.
+The email address must be printed on the company's own website (contact page, footer or imprint) and must be a company role address (info@, office@, ugyfelszolgalat@, sales@, kapcsolat@, iroda@ …). Never a private person's address, never a guessed one.
 
 Answer ONLY with a JSON array, no prose, each item:
-{{"company": "...", "town": "...", "country": "{country}", "sector": "{'|'.join(SECTORS)}", "website": "https://...", "email": "...", "email_url": "https://... (page where the email is printed)", "observation": "exact sentence copied from their site", "observation_url": "https://...", "pain": "phone|email|leads", "signal": "{'|'.join(SIGNAL_TYPES)}", "signal_note": "one line: what the signal is, e.g. 'recepciós álláshirdetés a profession.hu-n, 2026-09'", "signal_url": "https://... or empty", "score": 0-100, "score_reason": "one line"}}
+{{"company": "...", "town": "...", "country": "{country}", "sector": "{'|'.join(SECTORS)}", "website": "https://...", "email": "...", "email_url": "https://... (page where the email is printed)", "observation": "exact sentence copied from their site", "observation_url": "https://...", "pain": "{'|'.join(PAINS)}", "signal": "{'|'.join(SIGNAL_TYPES)}", "signal_note": "one line: what the signal is, e.g. '3 ügyfélszolgálati munkatársat keresnek a karrieroldalukon, 2026-09'", "signal_url": "https://... or empty", "score": 0-100, "score_reason": "one line"}}
 Write "score_reason" and "signal_note" in Hungarian, short and plain (the owner reads them on his phone).
 Leave out anything you cannot verify. Fewer strong leads beat more weak ones."""
 
@@ -156,7 +186,7 @@ def compose_prompt(lead: dict) -> str:
     sig = SIGNATURE["hu" if lang == "hu" else "other"].format(site=site)
     sec = SECTORS.get(lead.get("sector") or "", {})
     signal = (lead.get("signal_note") or "").strip()
-    return f"""You are an expert cold-email writer for small-business B2B in Central Europe. Write one email ENTIRELY in {LANG_NAMES[lang]} — every sentence, the subject, the P.S. — to {lead['company']} ({lead.get('town') or ''}).
+    return f"""You are an expert cold-email writer for mid-sized and large companies in Central Europe, writing to the person who owns the process (operations, customer service, finance or IT lead). Write one email ENTIRELY in {LANG_NAMES[lang]} — every sentence, the subject, the P.S. — to {lead['company']} ({lead.get('town') or ''}).
 
 Facts you may use (and nothing else):
 - Their website says: "{lead['observation']}"
@@ -166,8 +196,8 @@ Facts you may use (and nothing else):
 
 Proven structure (observation → consequence question → one-line offer → interest question), plain text, formal register, parts separated by one empty line:
 1. Greeting ("Jó napot!" in Hungarian, the normal formal greeting otherwise).
-2. One sentence restating what their site says ("Az oldalukon azt írják, hogy…"). If there is a job-ad signal, you may mention it instead ("Láttam, hogy recepcióst keresnek.").
-3. One question about the concrete consequence for THEM (lost bookings, the next clinic/service gets the call, a second round of questions at callback). Make them picture the moment.
+2. One sentence with the specific observation ("Láttam, hogy három ügyfélszolgálati munkatársat keresnek." / "Az oldalukon azt írják, hogy…").
+3. One question about the business consequence for THEM (headcount that grows with volume, hours spent re-typing, audit evidence scattered). Concrete, no jargon.
 4. One sentence: "Építettem egy …" / "I built a …" — our tool in their exact situation, naming what it writes down or sorts.
 5. The question "Would this be interesting for you?" in {LANG_NAMES[lang]}.
 6. Signature line exactly: {sig}

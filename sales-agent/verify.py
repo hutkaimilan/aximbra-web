@@ -10,7 +10,7 @@ import unicodedata
 
 import httpx
 
-from playbook import BLOCKED_TLDS, COUNTRIES, MAX_WORDS, OPT_OUT
+from playbook import BLOCKED_TLDS, COUNTRIES, MAX_WORDS, OPT_OUT, PAIN_KEYS
 
 FETCH_TIMEOUT = 15
 MAX_BYTES = 1_500_000
@@ -103,7 +103,7 @@ def candidate_problems(c: dict) -> list[str]:
         if host.endswith(BLOCKED_TLDS):
             p.append("osztrák/német domain")
             break
-    if c.get("pain") not in ("phone", "email", "leads"):
+    if c.get("pain") not in PAIN_KEYS:
         p.append("ismeretlen igény")
     if not (c.get("observation") or "").strip():
         p.append("nincs megfigyelés")
