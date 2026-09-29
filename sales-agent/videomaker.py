@@ -69,7 +69,9 @@ Structure it as hook → problem → proof (the live site / a call) → benefit 
 - "hook": a punchy first line that stops the scroll in 2 seconds (a sharp question or a bold claim that is TRUE). 2–3 seconds.
 - "problem": headline + 2–3 "lines" (each max 6 words), the everyday pain. 4–5 s.
 - "site": headline + short "sub"; the video shows aximbra.hu scrolling on a phone. 5–7 s.
-- "call": the phone AI answering a call; "lines" = 3–4 very short alternating turns, AI first (max 9 words each), realistic, no invented customer names. 6–8 s.
+- "call": the phone AI answering an incoming call and taking the caller's request for staff; "lines" = 3–4 very short alternating turns,
+  AI first (max 9 words each), realistic, no speaker labels, no invented customer names. The AI never promises a price or a deadline. 6–8 s.
+  (The "calls you back within 10 seconds" feature is the WEBSITE demo — mention it in "site" or "cta", not inside the call.)
 - "benefit": headline + 2–3 "lines" (max 6 words each), what changes. 4–5 s.
 - "agents": headline + 4–6 "lines" = agent names from the list. 4–5 s.
 - "cta": headline + "sub" + "button" (e.g. "Élő demó · regisztráció nélkül"); url is aximbra.hu. 4–5 s. Always last.
@@ -108,7 +110,9 @@ def normalize(data: dict, seconds: int) -> dict:
             "kicker": _clip(s.get("kicker"), 28),
             "headline": _clip(s.get("headline"), 70),
             "sub": _clip(s.get("sub"), 120),
-            "lines": [_clip(l, 60) for l in (s.get("lines") or []) if str(l).strip()][:6],
+            # A buborék oldala mutatja, ki beszél: az „AI:”, „Ügyfél:” előtag felesleges.
+            "lines": [_clip(re.sub(r"^\s*(AI|Ügyfél|Hívó|Caller|Customer|Agent)\s*:\s*", "", str(l), flags=re.I), 60)
+                      for l in (s.get("lines") or []) if str(l).strip()][:6],
             "button": _clip(s.get("button"), 40),
             "seconds": max(2.0, min(9.0, sec)),
         })

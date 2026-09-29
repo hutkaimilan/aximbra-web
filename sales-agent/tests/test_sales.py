@@ -697,12 +697,14 @@ def test_video_script_is_normalized_and_ends_with_cta():
     raw = {"title": "T", "scenes": [
         {"kind": "cta", "headline": "Korai CTA", "seconds": 4},
         {"kind": "hook", "headline": "Ki veszi fel?", "seconds": 3},
+        {"kind": "call", "headline": "", "lines": ["AI: Jó napot!", "Ügyfél: Ajánlatot kérnék."], "seconds": 6},
         {"kind": "bogus", "headline": "x"},
         {"kind": "problem", "headline": "Ismerős?", "lines": ["a", "b", "c", "d", "e", "f", "g"], "seconds": 99},
     ]}
     s = videomaker.normalize(raw, 30)
-    assert [x["kind"] for x in s["scenes"]] == ["hook", "problem", "cta"]
-    assert len(s["scenes"][1]["lines"]) == 6
+    assert [x["kind"] for x in s["scenes"]] == ["hook", "call", "problem", "cta"]
+    assert s["scenes"][1]["lines"] == ["Jó napot!", "Ajánlatot kérnék."]
+    assert len(s["scenes"][2]["lines"]) == 6
     assert all(2 <= x["seconds"] <= 10 for x in s["scenes"])
     assert s["first_comment"]
 
