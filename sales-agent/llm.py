@@ -47,7 +47,10 @@ def _gemini(prompt: str, search: bool) -> str:
     # és újrapróbáljuk. A napi keret kifogyása viszont végleges aznapra.
     for attempt in range(5):
         try:
-            r = httpx.post(GEMINI_URL.format(model=GEMINI_MODEL), params={"key": key}, json=body, timeout=TIMEOUT)
+            # Fejlécben küldjük: így a régi (AIza…) és az új (AQ.…) kulcsformátum is működik,
+            # és a kulcs nem kerül bele az URL-be (naplókba).
+            r = httpx.post(GEMINI_URL.format(model=GEMINI_MODEL), headers={"x-goog-api-key": key},
+                           json=body, timeout=TIMEOUT)
         except httpx.HTTPError as e:
             raise LLMError(f"a Gemini nem érhető el ({type(e).__name__})") from e
         if r.status_code == 429:
