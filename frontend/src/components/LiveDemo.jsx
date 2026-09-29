@@ -22,6 +22,8 @@ export const LiveDemo = ({ type }) => {
       body: JSON.stringify(payload),
     });
     const data = await res.json();
+    // 503: a demó szünetel (pl. elfogyott a modellkeret) — a látogató nyelvén mondjuk meg.
+    if (res.status === 503) throw new Error(d.paused || d.error);
     if (!res.ok) throw new Error(data.detail || d.error);
     return data;
   };

@@ -300,7 +300,7 @@ const zh = {
   },
   marquee: ["是代理，不是聊天机器人", "人工审批", "HU · EN · ES", "能运行的系统"],
   demo: {
-    run: "运行", loading: "分析中…", sample: "示例", error: "无法连接到服务，请稍后再试。",
+    run: "运行", loading: "分析中…", sample: "示例", error: "无法连接到服务，请稍后再试。", paused: "演示暂时暂停。请联系我们，我们会为您现场演示。",
     lead: {
       placeholder: "用几句话描述这位潜在客户…",
       samples: [

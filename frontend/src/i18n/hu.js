@@ -299,7 +299,7 @@ const hu = {
   },
   marquee: ["AGENTEK, NEM CHATBOTOK", "EMBERI JÓVÁHAGYÁS", "HU · EN · ES", "MŰKÖDŐ RENDSZER"],
   demo: {
-    run: "Futtatás", loading: "Elemzés…", sample: "Példa", error: "Nem sikerült elérni a szolgáltatást. Próbáld újra később.",
+    run: "Futtatás", loading: "Elemzés…", sample: "Példa", error: "Nem sikerült elérni a szolgáltatást. Próbáld újra később.", paused: "A demó most szünetel. Írj nekünk, és élőben megmutatjuk.",
     lead: {
       placeholder: "Írd le pár mondatban a beérkező érdeklődőt…",
       samples: [

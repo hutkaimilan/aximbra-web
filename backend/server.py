@@ -188,6 +188,12 @@ def _parse_json(raw: str) -> dict:
     return json.loads(raw)
 
 
+def _quota_exhausted(e: Exception) -> bool:
+    text = str(e)
+    return getattr(e, "code", None) == "insufficient_quota" or "insufficient_quota" in text \
+        or "credit_balance_exhausted" in text
+
+
 async def _run_demo(request: Request, body: DemoRequest, system_msg: str, model_cls, max_tokens: int = 600):
     session_id = request.headers.get("X-Session-Id", "anon")
     _check_limits(request, session_id)
@@ -205,6 +211,11 @@ async def _run_demo(request: Request, body: DemoRequest, system_msg: str, model_
         except HTTPException:
             raise
         except Exception as e:
+            if _quota_exhausted(e):
+                # Elfogyott a modellkeret: az újrapróbálás és az "fogalmazd át"
+                # tanács is félrevezető lenne. A felület a látogató nyelvén írja ki.
+                logger.error("demo paused: model quota exhausted")
+                raise HTTPException(status_code=503, detail="demo_paused")
             last_err = e
             logger.error(f"demo llm error: {e}")
             continue

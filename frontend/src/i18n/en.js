@@ -299,7 +299,7 @@ const en = {
   },
   marquee: ["AGENTS, NOT CHATBOTS", "HUMAN APPROVAL", "HU · EN · ES", "WORKING SYSTEM"],
   demo: {
-    run: "Run", loading: "Analyzing…", sample: "Example", error: "Couldn't reach the service. Please try again later.",
+    run: "Run", loading: "Analyzing…", sample: "Example", error: "Couldn't reach the service. Please try again later.", paused: "The demo is paused right now. Write to us and we'll show it to you live.",
     lead: {
       placeholder: "Describe the incoming lead in a few sentences…",
       samples: [
