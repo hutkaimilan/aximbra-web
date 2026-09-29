@@ -122,29 +122,54 @@ def _consider(store, cand, country, log, *, llm, fetch, mailbox) -> bool:
     if not obs_page or not verify.quote_on_page(cand["observation"], obs_page):
         return reject("az idézett mondat nincs rajta az oldalon")
 
-    lead = {**cand, "lang": COUNTRIES[cand["country"]]["lang"]}
+    # A levél az ország nyelvén megy. Ha a hely oldala magyar (dél-szlovákiai,
+    # erdélyi magyar vállalkozás), előtte egy teljes magyar változat is.
+    country_lang = COUNTRIES[cand["country"]]["lang"]
+    site_lang = verify.detect_lang(cand["observation"]) or verify.detect_lang((obs_page or "")[:3000])
+    lead = {**cand, "lang": country_lang, "lang2": "hu" if site_lang == "hu" and country_lang != "hu" else None}
+    langs = verify.letter_langs(lead)
+    versions = {}
     try:
-        lead.update(llm.compose(lead))
+        for lang in langs:
+            one = {**lead, "lang": lang, "lang2": None}
+            for _ in range(2):
+                one.update(llm.compose(one))
+                if not verify.mixed_language(one):
+                    break
+            else:
+                return reject(f"kétszer is vegyes nyelvű lett a(z) {lang} változat")
+            one.update(_reviewed(llm, one))
+            versions[lang] = one
     except Exception as e:  # noqa: BLE001
         return reject(f"a levélírás nem sikerült ({e})")
-    before = verify.check_letter(lead)
-    try:
-        rev = llm.critique(lead, lead["subject"], lead["body"])
-        cand_letter = {**lead, "subject": rev["subject"], "body": rev["body"]}
-        after = verify.check_letter(cand_letter)
-        # Az átírást csak akkor vesszük át, ha a gépi ellenőrzés szerint sem rosszabb.
-        if rev["score"] < 9 and len(after) <= len(before) and OPT_OUT[lead["lang"]] in rev["body"]:
-            lead.update(subject=rev["subject"], body=rev["body"])
-            before = after
-        lead["critique"] = f"{rev['score']}/10" + (f" — {'; '.join(rev['issues'])}" if rev["issues"] else "")
-    except Exception as e:  # noqa: BLE001 — a bírálat hiánya nem ok a vázlat eldobására
-        lead["critique"] = f"a bírálat kimaradt ({e})"
-    lead["warnings"] = "; ".join(before)
+    lead["subject"] = " / ".join(versions[l]["subject"] for l in langs)
+    lead["body"] = f"\n\n{verify.SEPARATOR}\n\n".join(versions[l]["body"] for l in langs)
+    lead["critique"] = " | ".join(f"{l}: {versions[l]['critique']}" for l in langs) if len(langs) > 1 \
+        else versions[langs[0]]["critique"]
+    if verify.mixed_language(lead):
+        return reject("vegyes nyelvű levél lett")
+    lead["warnings"] = "; ".join(verify.check_letter(lead))
     if store.add_lead(lead) is None:
         return reject("közben már bekerült")
     log.added += 1
     log.say(f"  ✓ {name} ({cand.get('town') or country}) — {cand['email']}")
     return True
+
+
+def _reviewed(llm, one: dict) -> dict:
+    """A bíráló kör egy egynyelvű változatra. Az átírást csak akkor vesszük
+    át, ha a gépi ellenőrzés szerint sem rosszabb, és nem lett vegyes nyelvű."""
+    before = verify.check_letter(one)
+    try:
+        rev = llm.critique(one, one["subject"], one["body"])
+    except Exception as e:  # noqa: BLE001 — a bírálat hiánya nem ok a vázlat eldobására
+        return {"critique": f"a bírálat kimaradt ({e})"}
+    cand = {**one, "subject": rev["subject"], "body": rev["body"]}
+    out = {"critique": f"{rev['score']}/10" + (f" — {'; '.join(rev['issues'])}" if rev["issues"] else "")}
+    if (rev["score"] < 9 and len(verify.check_letter(cand)) <= len(before)
+            and OPT_OUT[one["lang"]] in rev["body"] and not verify.mixed_language(cand)):
+        out.update(subject=rev["subject"], body=rev["body"])
+    return out
 
 
 def _score(v) -> int:
@@ -173,6 +198,8 @@ def send_one(store: Store, lead_id: int, *, mailer=mailer_mod) -> tuple[bool, st
         return False, "tiltólistán van"
     if not (lead.get("subject") and lead.get("body")):
         return False, "hiányzik a tárgy vagy a szöveg"
+    if verify.mixed_language(lead):
+        return False, "vegyes nyelvű levél — javítsd, mielőtt kimegy"
     if not store.claim_for_send(lead_id):
         return False, "már küldés alatt vagy elküldve"
     try:
@@ -222,7 +249,8 @@ def prepare_followups(store: Store, now: datetime | None = None) -> int:
         if store.is_blocked(lead["email"]):
             continue
         if workdays_between(datetime.fromisoformat(lead["sent_at"]), now) >= FOLLOWUP_AFTER_WORKDAYS:
-            store.set_followup_draft(lead["id"], FOLLOW_UP[lead["lang"]])
+            langs = [lead["lang2"], lead["lang"]] if lead.get("lang2") else [lead["lang"]]
+            store.set_followup_draft(lead["id"], f"\n\n{verify.SEPARATOR}\n\n".join(FOLLOW_UP[l] for l in langs))
             n += 1
     return n
 

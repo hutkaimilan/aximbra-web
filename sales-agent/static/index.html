@@ -147,7 +147,7 @@ function answerBox(l) {
 function leadHead(l) {
   const sc = l.score == null ? "" : `<span class="score ${l.score>=75?"hi":l.score>=55?"mid":""}">${l.score}</span>`;
   return `<div class="row" style="justify-content:space-between"><b>${esc(l.company)}</b><span class="row">${sc}<span class="mute">${esc(l.town||"")} · ${esc(l.country)}</span></span></div>
-  <div class="mute">${l.sector?esc(SECT[l.sector]||l.sector):""}${l.signal&&l.signal!=="none"?` · <span class="tag i">${esc(SIG[l.signal]||l.signal)}</span>`:""}${l.score_reason?" · "+esc(l.score_reason):""}</div>
+  <div class="mute">${l.lang2?`<span class="tag">${esc(l.lang2.toUpperCase())} + ${esc(l.lang.toUpperCase())}</span> `:""}${l.sector?esc(SECT[l.sector]||l.sector):""}${l.signal&&l.signal!=="none"?` · <span class="tag i">${esc(SIG[l.signal]||l.signal)}</span>`:""}${l.score_reason?" · "+esc(l.score_reason):""}</div>
   ${l.signal_note?`<div class="mute">Jel: ${esc(l.signal_note)}${l.signal_url?` <a href="${esc(l.signal_url)}" target="_blank" rel="noopener">forrás</a>`:""}</div>`:""}
   <div class="mute">${esc(l.email)} · <a href="${esc(l.email_url)}" target="_blank" rel="noopener">cím forrása</a>${l.website?` · <a href="${esc(l.website)}" target="_blank" rel="noopener">weboldal</a>`:""}</div>
   <div class="obs">„${esc(l.observation)}” <a href="${esc(l.observation_url)}" target="_blank" rel="noopener">forrás</a></div>`;
@@ -177,7 +177,8 @@ function render() {
       <label>Tárgy</label><input class="subj" value="${esc(dirty[l.id]?.subject ?? l.subject)}">
       <label>Levél</label><textarea class="body">${esc(dirty[l.id]?.body ?? l.body)}</textarea>
       <div class="row" style="margin-top:10px">
-        ${S.config.smtp ? `<button class="pri one">Küldés</button><button class="gm">Megnyitás Gmailben</button>`
+        ${l.mixed ? `<span class="tag n">VEGYES NYELV — javítsd vagy hagyd ki, így nem küldhető</span>`
+          : S.config.smtp ? `<button class="pri one">Küldés</button><button class="gm">Megnyitás Gmailben</button>`
           : `<button class="pri gm">1. Megnyitás Gmailben</button><button class="done">2. Kiment ✓</button>`}
       </div>
       <div class="row" style="margin-top:8px">

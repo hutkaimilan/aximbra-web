@@ -536,3 +536,52 @@ def test_organizer_run_counts_only(monkeypatch, tmp_path):
     assert r.status_code == 200 and len(sent) == 1
     text = sent[0].get_content()
     assert "Ügyfél – kérdés" in text and "Titkos tárgy" not in text and "5 új levél, 1 sürgős" in sent[0]["Subject"]
+
+
+MIXED = {"lang": "sk", "subject": "Rezervácia – nie každý vie vždy zdvihnúť telefón", "body": (
+    "Jó napot kívánok!\n\nNálatok az asztalfoglalás csak telefonon megy. Ha épp tele vagytok, vendégek meg "
+    "folyamatosan csörögnek, előfordult már, hogy lemaradtak róluk?\n\nMám riešenie – AI recepčný príjme hovor, "
+    "keď personál práve obsluhuje, a zapíše meno, počet osôb, čas a číslo.\n\nBolo by to pre vás zaujímavé?\n\n"
+    "Milán Hutkai · AXIMBRA · aximbra.hu/sk")}
+
+
+def test_mixed_language_letter_is_caught_and_blocked(store):
+    assert verify.mixed_language(MIXED)
+    assert any("VEGYES" in w for w in verify.check_letter(dict(MIXED, body=MIXED["body"] + "\n\n" + OPT_OUT["sk"])))
+    lid = store.add_lead(dict(CAND, lang="sk", country="SK", subject=MIXED["subject"], body=MIXED["body"]))
+    m = FakeMailer()
+    ok, why = pipeline.send_one(store, lid, mailer=m)
+    assert ok is False and "vegyes" in why and not m.sent
+
+
+def test_pure_letters_pass():
+    sk = dict(MIXED, body="Dobrý deň,\n\nna vašej stránke píšete, že rezervácie sú len telefonicky.\n\n"
+                          "Kto zdvihne telefón v piatok večer, keď je plno?\n\nBolo by to pre vás zaujímavé?")
+    assert not verify.mixed_language(sk)
+    hu = {"lang": "hu", "subject": "Esti foglalások", "body": "Jó napot!\n\nAz oldalukon azt írják, hogy asztalt csak "
+          "telefonon foglalnak.\n\nPéntek este ki veszi fel a telefont, amikor tele van a terem?"}
+    assert not verify.mixed_language(hu)
+
+
+def test_hungarian_business_abroad_gets_both_languages(store):
+    llm = FakeLLM([dict(CAND, country="SK", email="info@kertbisztro.sk", website="https://kertbisztro.sk",
+                        email_url="https://kertbisztro.sk", observation_url="https://kertbisztro.sk",
+                        observation="Asztalfoglalás kizárólag telefonon")])
+    seen = []
+
+    def compose(lead):
+        seen.append(lead["lang"])
+        if lead["lang"] == "hu":
+            return {"subject": "Esti foglalások", "body": "Jó napot!\n\nAz oldalukon azt írják, hogy asztalt csak "
+                    "telefonon foglalnak, és ez nem mindig könnyű.\n\nMilán · AXIMBRA · aximbra.hu\n\n" + OPT_OUT["hu"]}
+        return {"subject": "Večerné rezervácie", "body": "Dobrý deň,\n\nna vašej stránke píšete, že rezervácie sú "
+                "len telefonicky a že to nie je vždy ľahké.\n\nMilán · AXIMBRA · aximbra.hu/sk\n\n" + OPT_OUT["sk"]}
+    llm.compose = compose
+    llm.critique = lambda lead, s, b: {"score": 9, "issues": [], "subject": s, "body": b}
+    pipeline.research_run(store, {"SK": 1}, pipeline.RunLog(), llm=llm,
+                          fetch=lambda url: PAGE.replace("kertbisztro.hu", "kertbisztro.sk"), mailbox_factory=FakeMailbox)
+    lead = store.list("draft")[0]
+    assert seen == ["hu", "sk"] and lead["lang"] == "sk" and lead["lang2"] == "hu"
+    hu_part, sk_part = lead["body"].split(verify.SEPARATOR)
+    assert "Jó napot" in hu_part and "Dobrý deň" in sk_part and lead["subject"] == "Esti foglalások / Večerné rezervácie"
+    assert not verify.mixed_language(lead) and "VEGYES" not in (lead["warnings"] or "")

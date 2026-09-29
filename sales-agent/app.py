@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 import gmail_api
 import mailer
 import pipeline
+import verify
 from mailer import AuthError, MailError
 from playbook import COUNTRIES
 from store import Store
@@ -130,7 +131,7 @@ def index():
 def state():
     return {
         "job": job.state(),
-        "leads": store.list(),
+        "leads": [dict(l, mixed=bool(l["status"] == "draft" and verify.mixed_language(l))) for l in store.list()],
         "blocked": store.blocked_keys()[:300],
         "sent_today": store.sent_today(),
         "stats": store.stats(),

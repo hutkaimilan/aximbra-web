@@ -110,22 +110,96 @@ def candidate_problems(c: dict) -> list[str]:
     return p
 
 
+# Nyelvfelismerés a levél ellenőrzéséhez. Nem kell tökéletesnek lennie,
+# csak annyinak, hogy egy magyar és egy szlovák bekezdést egy levélen belül
+# biztosan megkülönböztessen.
+_LANG_WORDS = {
+    "hu": {"és", "hogy", "nem", "az", "egy", "van", "csak", "önöknek", "önök", "kérjük", "ha", "vagy",
+           "amikor", "ami", "lenne", "ez", "is", "már", "jó", "napot", "oldalukon", "írják", "többet", "írok",
+           "nekünk", "kérem", "kapcsolat", "nyitvatartás", "asztalfoglalás", "foglalás", "étterem",
+           "kizárólag", "telefonon", "hétfő", "vasárnap", "szombat", "időpont", "ügyfél", "írjon"},
+    "sk": {"je", "na", "sa", "že", "pre", "vám", "ako", "sú", "alebo", "keď", "by", "to", "nie", "vás",
+           "stačí", "viac", "napíšem", "dobrý", "deň", "môžete", "ktorý", "rezervácia", "rezervácie",
+           "telefonicky", "otváracie", "hodiny", "kontakt", "pondelok", "nedeľa", "objednávka"},
+    "ro": {"și", "este", "pentru", "nu", "la", "vă", "sunt", "că", "cu", "pe", "dumneavoastră", "bună",
+           "ziua", "mai", "scriu", "dacă", "sau"},
+    "hr": {"je", "i", "za", "vam", "nije", "su", "ili", "što", "kada", "vas", "poštovani", "bi", "li",
+           "neću", "više", "pisati", "ako"},
+    "sl": {"je", "in", "za", "vam", "ni", "so", "ali", "kaj", "ko", "vas", "pozdravljeni", "bi", "če",
+           "ne", "bom", "več", "pisal"},
+}
+_LANG_CHARS = {"hu": "őűáéíóöúü", "sk": "ľťďňôäŕĺ", "ro": "ășțâî", "hr": "ćđ", "sl": ""}
+
+
+def detect_lang(text: str) -> str | None:
+    words = re.findall(r"[^\W\d_]+", (text or "").lower())
+    if len(words) < 4:
+        return None
+    scores, hits = {}, {}
+    for lang, vocab in _LANG_WORDS.items():
+        hits[lang] = sum(1 for w in words if w in vocab)
+        scores[lang] = hits[lang] * 2 + sum(1 for ch in (text or "").lower() if ch in _LANG_CHARS[lang]) * 0.5
+    best = max(scores, key=scores.get)
+    ranked = sorted(scores.values(), reverse=True)
+    # Legalább két jellemző szó kell: egy rövid mondatban egyetlen közös
+    # szó (pl. "este") még nem dönti el a nyelvet.
+    if hits[best] < 2 or ranked[0] - ranked[1] < 1:
+        return None
+    return best
+
+
+SEPARATOR = "— — —"
+
+
+def letter_langs(lead: dict) -> list[str]:
+    """A levél szakaszainak nyelve sorrendben: kétnyelvű levélnél előbb a
+    magyar, alatta az ország nyelve."""
+    return [lead["lang2"], lead["lang"]] if lead.get("lang2") else [lead["lang"]]
+
+
+def mixed_language(lead: dict) -> list[str]:
+    """Azok a bekezdések, amelyek nem a saját szakaszuk nyelvén vannak.
+    A szlovén és a horvát közeli rokon: egymással nem számít keveredésnek."""
+    close = {frozenset({"hr", "sl"})}
+    langs = letter_langs(lead)
+    sections = (lead.get("body") or "").split(SEPARATOR)
+    if len(sections) != len(langs):
+        return [f"{len(langs)} nyelvi szakasz kellene, {len(sections)} van"]
+    bad = []
+    for want, section in zip(langs, sections):
+        for para in section.strip().split("\n\n"):
+            if "aximbra.hu" in para and len(para.split()) < 10:
+                continue  # aláírás
+            got = detect_lang(para)
+            if got and got != want and frozenset({got, want}) not in close:
+                bad.append(para[:60])
+    subjects = (lead.get("subject") or "").split(" / ") if len(langs) == 2 else [lead.get("subject") or ""]
+    for want, subj in zip(langs, subjects):
+        got = detect_lang(subj)
+        if got and got != want and frozenset({got, want}) not in close:
+            bad.append("tárgy: " + subj[:40])
+    return bad
+
+
 def check_letter(lead: dict) -> list[str]:
     """A megírt levél gépi ellenőrzése. Figyelmeztet, nem tilt: a
     jóváhagyó ember látja, és javíthatja."""
     w = []
     body = lead.get("body") or ""
     subj = lead.get("subject") or ""
-    if not subj.strip() or len(subj.split()) > 8:
+    n = len(letter_langs(lead))
+    if not subj.strip() or len(subj.split()) > 8 * n + (n - 1):
         w.append("a tárgysor hiányzik vagy túl hosszú")
-    if len(body.split()) > MAX_WORDS:
+    if len(body.split()) > MAX_WORDS * n + 5:
         w.append(f"túl hosszú ({len(body.split())} szó)")
-    if OPT_OUT[lead["lang"]] not in body:
+    if any(OPT_OUT[l] not in body for l in letter_langs(lead)):
         w.append("hiányzik a leiratkozó mondat")
     if "aximbra.hu" not in body:
         w.append("hiányzik az aximbra.hu")
     if re.search(r"https?://", body):
         w.append("link van benne")
+    if mixed_language(lead):
+        w.append("VEGYES NYELV — ne küldd el")
     if re.search(r"\d[\d\s.]*\s?(ft|huf|eur|€|lei|ron)\b", body, flags=re.I):
         w.append("ár van benne")
     return w

@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS blocked (
 # indításkor pótoljuk őket, adatvesztés nélkül.
 EXTRA_COLUMNS = {
     "sector": "TEXT", "signal": "TEXT", "signal_note": "TEXT", "signal_url": "TEXT",
-    "score": "INTEGER", "score_reason": "TEXT", "critique": "TEXT", "slots": "TEXT",
+    "score": "INTEGER", "score_reason": "TEXT", "critique": "TEXT", "slots": "TEXT", "lang2": "TEXT",
 }
 
 # draft -> sending -> sent | failed ; draft -> skipped ; failed -> draft (újra)
@@ -170,15 +170,15 @@ class Store:
                 cur = c.execute(
                     """INSERT INTO leads (created_at, company, town, country, lang, website, domain, email,
                        email_url, observation, observation_url, pain, subject, body, warnings, status,
-                       sector, signal, signal_note, signal_url, score, score_reason, critique)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'draft', ?,?,?,?,?,?,?)""",
+                       sector, signal, signal_note, signal_url, score, score_reason, critique, lang2)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'draft', ?,?,?,?,?,?,?,?)""",
                     (now(), lead["company"], lead.get("town"), lead["country"], lead["lang"],
                      lead.get("website"), domain_of(email if domain_of(email) not in FREEMAIL
                                                      else lead.get("website") or email),
                      email, lead.get("email_url"), lead.get("observation"), lead.get("observation_url"),
                      lead["pain"], lead.get("subject"), lead.get("body"), lead.get("warnings"),
                      lead.get("sector"), lead.get("signal"), lead.get("signal_note"), lead.get("signal_url"),
-                     _int(lead.get("score")), lead.get("score_reason"), lead.get("critique")))
+                     _int(lead.get("score")), lead.get("score_reason"), lead.get("critique"), lead.get("lang2")))
                 return cur.lastrowid
             except sqlite3.IntegrityError:
                 return None

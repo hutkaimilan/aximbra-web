@@ -117,6 +117,11 @@ SECTORS = {
 SIGNAL_TYPES = ("job_ad", "review", "notice", "opening", "none")
 
 
+def site_for(lead: dict) -> str:
+    """Magyar változathoz a magyar oldal, akárhol van a cég."""
+    return "aximbra.hu" if lead["lang"] == "hu" else COUNTRIES[lead["country"]]["site"]
+
+
 def research_prompt(country: str, count: int, exclude_domains: list[str], focus: str = "") -> str:
     c = COUNTRIES[country]
     excl = ", ".join(exclude_domains[:300]) or "none"
@@ -146,12 +151,12 @@ Leave out anything you cannot verify. Fewer strong leads beat more weak ones."""
 
 def compose_prompt(lead: dict) -> str:
     lang = lead["lang"]
-    site = COUNTRIES[lead["country"]]["site"]
+    site = site_for(lead)
     ps = DEMO_PS[lead["pain"]]["hu" if lang == "hu" else "other"].format(site=site)
     sig = SIGNATURE["hu" if lang == "hu" else "other"].format(site=site)
     sec = SECTORS.get(lead.get("sector") or "", {})
     signal = (lead.get("signal_note") or "").strip()
-    return f"""You are an expert cold-email writer for small-business B2B in Central Europe. Write one email in {LANG_NAMES[lang]} to {lead['company']} ({lead.get('town') or ''}).
+    return f"""You are an expert cold-email writer for small-business B2B in Central Europe. Write one email ENTIRELY in {LANG_NAMES[lang]} — every sentence, the subject, the P.S. — to {lead['company']} ({lead.get('town') or ''}).
 
 Facts you may use (and nothing else):
 - Their website says: "{lead['observation']}"
