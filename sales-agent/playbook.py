@@ -205,6 +205,7 @@ Proven structure (observation → consequence question → one-line offer → in
 7. A postscript (P.S.) in {LANG_NAMES[lang]}: {ps}
 8. Last line exactly: {OPT_OUT[lang]}
 
+Never name or describe individual employees (no personal names, no "X's position"); talk about the company, its team or its processes.
 Rules: parts 1–5 together under 75 words. You-focused, not we-focused. No prices, no links, no hype ("revolutionary", "cutting-edge"), no urgency, no claims about clients or results, no emojis, no flattery.
 Subject: 3–5 words about THEIR situation, lowercase except the first word, no punctuation tricks.
 
@@ -220,7 +221,7 @@ Subject: {subject}
 ---
 Their website says: "{lead['observation']}"
 
-Score 0–10 against: (a) the first lines are specific to THIS business, not generic; (b) exactly one consequence question the reader can picture; (c) the offer is one concrete sentence; (d) parts before the signature under 75 words; (e) no hype, no price, no link, no flattery, no claims about clients; (f) natural, native {LANG_NAMES[lead['lang']]} a local business owner would not find odd; (g) signature, P.S. and the last opt-out line kept exactly.
+Score 0–10 against: (a) the first lines are specific to THIS business, not generic; (b) exactly one consequence question the reader can picture; (c) the offer is one concrete sentence; (d) parts before the signature under 75 words; (e) no hype, no price, no link, no flattery, no claims about clients, no named individuals; (f) natural, native {LANG_NAMES[lead['lang']]} a local business owner would not find odd; (g) signature, P.S. and the last opt-out line kept exactly.
 Write the "issues" in Hungarian, each under 15 words (the owner reads them on his phone).
 If the score is below 9, rewrite it fixing every issue, keeping the same structure and the signature, P.S. and opt-out line unchanged.
 Answer ONLY with JSON: {{"score": 0-10, "issues": ["..."], "subject": "...", "body": "..."}}"""
@@ -283,7 +284,7 @@ Our agents:
 
 From the text, pick ONE specific fact, copied WORD FOR WORD from the text (original language, 8–40 words), that shows which agent fits:
 customer service hours or channels, number of locations, volumes, documents they handle, enquiries they receive, hiring for repetitive roles, NIS2 sector.
-A generic slogan does not qualify. If nothing specific is in the text, answer {{"skip": true}}.
+A generic slogan does not qualify, and neither does a sentence that names individual employees. If nothing specific is in the text, answer {{"skip": true}}.
 
 Company role email addresses found on the site (choose the best one for a first business contact): {", ".join(emails)}
 
