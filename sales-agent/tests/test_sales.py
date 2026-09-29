@@ -586,3 +586,13 @@ def test_hungarian_business_abroad_gets_both_languages(store):
     hu_part, sk_part = lead["body"].split(verify.SEPARATOR)
     assert "Jó napot" in hu_part and "Dobrý deň" in sk_part and lead["subject"] == "Esti foglalások / Večerné rezervácie"
     assert not verify.mixed_language(lead) and "VEGYES" not in (lead["warnings"] or "")
+
+
+def test_stops_at_once_when_openai_credit_runs_out(store):
+    class Broke(FakeLLM):
+        def research(self, *a, **k):
+            self.calls += 1
+            raise RuntimeError("Error code: 429 - insufficient_quota")
+    llm = Broke([])
+    log = pipeline.research_run(store, {"HU": 3, "SK": 2}, pipeline.RunLog(), llm=llm, mailbox_factory=FakeMailbox)
+    assert llm.calls == 1 and "OpenAI-egyenleg" in log.lines[-1]

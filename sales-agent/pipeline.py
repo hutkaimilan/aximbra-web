@@ -68,6 +68,11 @@ def research_run(store: Store, plan: dict[str, int], log: RunLog, *, llm=llm_mod
                 try:
                     cands = llm.research(country, ask, store.known_domains(), focus)
                 except Exception as e:  # noqa: BLE001 — egy hibás kör ne állítsa le a többit
+                    if "insufficient_quota" in str(e) or "credit_balance_exhausted" in str(e):
+                        # Elfogyott az OpenAI-egyenleg: minden további hívás ugyanígy járna.
+                        log.say("Leálltam: elfogyott az OpenAI-egyenleg. Tölts fel: "
+                                "https://platform.openai.com/settings/organization/billing/")
+                        return log
                     log.say(f"{country}: a keresés hibára futott ({e}).")
                     continue
                 if not cands:
