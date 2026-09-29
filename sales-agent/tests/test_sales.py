@@ -647,7 +647,7 @@ def test_advisor_searches_reads_pages_and_saves_turns(store, monkeypatch):
         {"title": "Cikk", "url": "https://cikk.hu", "text": "videós tippek"}])
     monkeypatch.setattr(websearch, "read_page", lambda u: {"title": u, "url": u, "text": "AXIMBRA oldal"})
 
-    out = advisor.ask(store, "Videót akarok az aximbráról")
+    out = advisor.ask(store, "Videót akarok az aximbráról, ilyesmit: aximbra.hu")
 
     assert searched == ["AI ügynökség bemutató videó"]
     assert out["answer"].startswith("Lényeg: 60 mp")  # markdown nélkül

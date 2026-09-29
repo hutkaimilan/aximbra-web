@@ -80,9 +80,6 @@ def ask(store, question: str, lead_id: int | None = None) -> dict:
                 sources.append(s)
 
     urls = websearch.urls_in(question)
-    # „aximbráról”, „aximbrának”: a toldalék ékezetes, ezért csak a tőre nézünk.
-    if "aximbr" in question.lower() and not any("aximbra.hu" in u for u in urls):
-        urls.append("https://aximbra.hu")
     add(filter(None, (websearch.read_page(u) for u in urls)))
 
     queries = _queries(question, history)
