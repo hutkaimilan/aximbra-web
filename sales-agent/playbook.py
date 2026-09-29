@@ -166,15 +166,16 @@ Sector knowledge:
 {sectors}
 {focus_line}
 Method, like an expert SDR:
-1. Start from BUYING SIGNALS, strongest first: the company is hiring several customer service, back-office, data entry, receptionist or dispatcher people at once (their own careers page, or job sites like profession.hu, jobs.hu, cvonline, profesia.sk, ejobs.ro, moj-posao.net, mojedelo.com); the company is in NIS2 scope (energy, transport, logistics, manufacturing of critical products, health, digital providers, waste, food production) and 50+ staff; a new site, plant or clinic; published slow response times.
-2. Then quote one sentence word for word (original language) from a page that shows the pain: their own site or careers page, or the job ad itself. It must describe the pain or the workload (hiring for repetitive work, stated response times, overload, many documents, compliance obligation). A generic slogan does NOT qualify.
-3. Score fit 0–100: signal strength (active hiring for the repetitive role = strongest), company size (50–1000 ideal), how directly one of our agents removes the pain, and whether a decision can be made locally (a local HQ, not a foreign group's branch).
+1. Any company qualifies that could realistically put one of our agents to work: shared customer inboxes, a customer service or call centre team, many documents (orders, invoices, contracts, delivery notes), several locations, lots of incoming enquiries, or NIS2 obligations. A stated problem is NOT required.
+2. Quote one specific FACT word for word (original language) from the company's own website that shows which agent fits: their customer service hours or channels, number of locations, volume ("5000 shipments a month"), the documents they handle, the enquiries they receive, their NIS2 sector. A generic slogan ("quality is our priority") does NOT qualify.
+3. Buying signals are a bonus, not a requirement: hiring several people for repetitive work (their careers page or job sites like profession.hu, jobs.hu, cvonline, profesia.sk, ejobs.ro, moj-posao.net, mojedelo.com), a new site or plant, NIS2 scope, growth news.
+4. Score fit 0–100: how clearly one specific agent maps to that fact, company size (50–1000 ideal), local decision-making (a local HQ, not a foreign group's branch), and any buying signal.
 
 Exclude: micro businesses under 20 staff, restaurants, cafés, beauty salons, small repair shops, public institutions, state-owned companies, hospitals run by the state, schools, military, multinationals whose decisions are made abroad, and these domains: {excl}.
 The email address must be printed on the company's own website (contact page, footer or imprint) and must be a company role address (info@, office@, ugyfelszolgalat@, sales@, kapcsolat@, iroda@ …). Never a private person's address, never a guessed one.
 
 Answer ONLY with a JSON array, no prose, each item:
-{{"company": "...", "town": "...", "country": "{country}", "sector": "{'|'.join(SECTORS)}", "website": "https://...", "email": "...", "email_url": "https://... (page where the email is printed)", "observation": "exact sentence copied from their site", "observation_url": "https://...", "pain": "{'|'.join(PAINS)}", "signal": "{'|'.join(SIGNAL_TYPES)}", "signal_note": "one line: what the signal is, e.g. '3 ügyfélszolgálati munkatársat keresnek a karrieroldalukon, 2026-09'", "signal_url": "https://... or empty", "score": 0-100, "score_reason": "one line"}}
+{{"company": "...", "town": "...", "country": "{country}", "sector": "{'|'.join(SECTORS)}", "website": "https://...", "email": "...", "email_url": "https://... (page where the email is printed)", "observation": "exact sentence copied from their site (the fact)", "observation_url": "https://...", "pain": "{'|'.join(PAINS)}", "signal": "{'|'.join(SIGNAL_TYPES)}", "signal_note": "one line: what the signal is, e.g. '3 ügyfélszolgálati munkatársat keresnek a karrieroldalukon, 2026-09'", "signal_url": "https://... or empty", "score": 0-100, "score_reason": "one line"}}
 Write "score_reason" and "signal_note" in Hungarian, short and plain (the owner reads them on his phone).
 Leave out anything you cannot verify. Fewer strong leads beat more weak ones."""
 
@@ -189,15 +190,15 @@ def compose_prompt(lead: dict) -> str:
     return f"""You are an expert cold-email writer for mid-sized and large companies in Central Europe, writing to the person who owns the process (operations, customer service, finance or IT lead). Write one email ENTIRELY in {LANG_NAMES[lang]} — every sentence, the subject, the P.S. — to {lead['company']} ({lead.get('town') or ''}).
 
 Facts you may use (and nothing else):
-- Their website says: "{lead['observation']}"
+- A fact from their website: "{lead['observation']}"
 {f'- Buying signal found: {signal}' if signal else ''}
 - Their sector's real pain: {sec.get('pain', 'n/a')}
 - What we offer: a {PAINS[lead['pain']]}. Concretely: {sec.get('value', PAINS[lead['pain']])}. Built by Milán Hutkai, AXIMBRA.
 
 Proven structure (observation → consequence question → one-line offer → interest question), plain text, formal register, parts separated by one empty line:
 1. Greeting ("Jó napot!" in Hungarian, the normal formal greeting otherwise).
-2. One sentence with the specific observation ("Láttam, hogy három ügyfélszolgálati munkatársat keresnek." / "Az oldalukon azt írják, hogy…").
-3. One question about the business consequence for THEM (headcount that grows with volume, hours spent re-typing, audit evidence scattered). Concrete, no jargon.
+2. One sentence with that specific fact ("Láttam, hogy 12 telephelyük van." / "Az oldalukon azt írják, hogy…").
+3. One question that turns the fact into a likely workload for THEM, as a hypothesis, not an accusation ("Ennyi telephelynél gondolom sok ugyanolyan kérdés fut be naponta — ezt most kézzel válaszolják meg?"). Concrete, no jargon.
 4. One sentence: "Építettem egy …" / "I built a …" — our tool in their exact situation, naming what it writes down or sorts.
 5. The question "Would this be interesting for you?" in {LANG_NAMES[lang]}.
 6. Signature line exactly: {sig}
