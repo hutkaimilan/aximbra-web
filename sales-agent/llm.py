@@ -6,7 +6,9 @@ import json
 import logging
 import os
 import re
+import time
 
+import httpx
 from openai import OpenAI
 
 import playbook
@@ -20,6 +22,55 @@ TIMEOUT = 180
 
 class LLMError(RuntimeError):
     pass
+
+
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+
+def provider() -> str:
+    """LLM_PROVIDER=gemini|openai; ha nincs megadva, a Gemini, ha van kulcsa."""
+    p = (os.environ.get("LLM_PROVIDER") or "").strip().lower()
+    if p in ("gemini", "openai"):
+        return p
+    return "gemini" if os.environ.get("GEMINI_API_KEY") else "openai"
+
+
+def _gemini(prompt: str, search: bool) -> str:
+    key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not key:
+        raise LLMError("nincs beállítva a GEMINI_API_KEY")
+    body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}]}
+    if search:
+        body["tools"] = [{"google_search": {}}]
+    # Az ingyenes szint percenkénti korlátja gyorsan betelik: ilyenkor várunk
+    # és újrapróbáljuk. A napi keret kifogyása viszont végleges aznapra.
+    for attempt in range(5):
+        try:
+            r = httpx.post(GEMINI_URL.format(model=GEMINI_MODEL), params={"key": key}, json=body, timeout=TIMEOUT)
+        except httpx.HTTPError as e:
+            raise LLMError(f"a Gemini nem érhető el ({type(e).__name__})") from e
+        if r.status_code == 429:
+            text = r.text
+            if "PerDay" in text or "per day" in text.lower():
+                raise LLMError("insufficient_quota: elfogyott a Gemini napi ingyenes kerete")
+            time.sleep(min(60, 15 * (attempt + 1)))
+            continue
+        if r.status_code >= 400:
+            raise LLMError(f"Gemini hiba ({r.status_code}): {r.text[:200]}")
+        data = r.json()
+        parts = ((data.get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
+        return "".join(p.get("text", "") for p in parts)
+    raise LLMError("a Gemini percenkénti kerete többszöri várakozás után is tele volt")
+
+
+def _ask(prompt: str, search: bool = False, country: str | None = None, model: str | None = None) -> str:
+    if provider() == "gemini":
+        return _gemini(prompt, search)
+    kwargs = {"model": model or WRITE_MODEL, "input": prompt}
+    if search:
+        kwargs["tools"] = [{"type": "web_search", "user_location": {"type": "approximate", "country": country}}]
+    return _client().responses.create(**kwargs).output_text
 
 
 def _client() -> OpenAI:
@@ -56,12 +107,8 @@ def paragraphs(body: str) -> str:
 
 
 def research(country: str, count: int, exclude_domains: list[str], focus: str = "") -> list[dict]:
-    resp = _client().responses.create(
-        model=RESEARCH_MODEL,
-        tools=[{"type": "web_search", "user_location": {"type": "approximate", "country": country}}],
-        input=playbook.research_prompt(country, count, exclude_domains, focus),
-    )
-    data = extract_json(resp.output_text)
+    data = extract_json(_ask(playbook.research_prompt(country, count, exclude_domains, focus),
+                             search=True, country=country, model=RESEARCH_MODEL))
     if isinstance(data, dict):
         data = data.get("items") or data.get("companies") or [data]
     if not isinstance(data, list):
@@ -70,8 +117,7 @@ def research(country: str, count: int, exclude_domains: list[str], focus: str = 
 
 
 def compose(lead: dict) -> dict:
-    resp = _client().responses.create(model=WRITE_MODEL, input=playbook.compose_prompt(lead))
-    data = extract_json(resp.output_text)
+    data = extract_json(_ask(playbook.compose_prompt(lead)))
     if not isinstance(data, dict) or not data.get("body"):
         raise LLMError("a levélíró nem adott levelet")
     body = paragraphs(data["body"])
@@ -84,8 +130,7 @@ def compose(lead: dict) -> dict:
 
 def critique(lead: dict, subject: str, body: str) -> dict:
     """Második kör: egy szigorú bíráló pontoz, és ha kell, átírja."""
-    resp = _client().responses.create(model=WRITE_MODEL, input=playbook.critique_prompt(lead, subject, body))
-    data = extract_json(resp.output_text)
+    data = extract_json(_ask(playbook.critique_prompt(lead, subject, body)))
     if not isinstance(data, dict):
         raise LLMError("a bíráló nem adott értékelést")
     try:
@@ -97,16 +142,13 @@ def critique(lead: dict, subject: str, body: str) -> dict:
 
 
 def classify(original: str, reply: str) -> str:
-    resp = _client().responses.create(model=WRITE_MODEL, input=playbook.classify_prompt(original, reply))
-    data = extract_json(resp.output_text)
+    data = extract_json(_ask(playbook.classify_prompt(original, reply)))
     kind = data.get("kind") if isinstance(data, dict) else None
     return kind if kind in ("no", "interested", "auto", "other") else "other"
 
 
 def draft_reply(original: str, reply: str, slots: list[str], lang: str) -> str:
-    resp = _client().responses.create(model=WRITE_MODEL,
-                                      input=playbook.reply_prompt(original, reply, slots, lang))
-    data = extract_json(resp.output_text)
+    data = extract_json(_ask(playbook.reply_prompt(original, reply, slots, lang)))
     body = (data.get("body") if isinstance(data, dict) else "") or ""
     if not body.strip():
         raise LLMError("a válaszíró nem adott szöveget")

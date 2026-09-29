@@ -596,3 +596,25 @@ def test_stops_at_once_when_openai_credit_runs_out(store):
     llm = Broke([])
     log = pipeline.research_run(store, {"HU": 3, "SK": 2}, pipeline.RunLog(), llm=llm, mailbox_factory=FakeMailbox)
     assert llm.calls == 1 and "OpenAI-egyenleg" in log.lines[-1]
+
+
+def test_gemini_path_retries_minute_limit_and_stops_on_daily(monkeypatch):
+    import llm
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+    calls = []
+
+    class R:
+        def __init__(self, code, data=None, text=""):
+            self.status_code, self._d, self.text = code, data, text
+
+        def json(self):
+            return self._d
+
+    seq = [R(429, text="RATE_LIMIT per minute"), R(200, {"candidates": [{"content": {"parts": [{"text": '{"kind": "no"}'}]}}]})]
+    monkeypatch.setattr(llm.httpx, "post", lambda *a, **k: calls.append(k["json"]) or seq.pop(0))
+    assert llm.provider() == "gemini" and llm.classify("a", "nem") == "no" and len(calls) == 2
+    monkeypatch.setattr(llm.httpx, "post", lambda *a, **k: R(429, text="GenerateRequestsPerDayPerProjectPerModel"))
+    with pytest.raises(llm.LLMError, match="insufficient_quota"):
+        llm.research("HU", 2, [])
