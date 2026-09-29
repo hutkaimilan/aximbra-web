@@ -18,7 +18,10 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
+import advisor
 import gmail_api
+import llm
+import websearch
 import mailer
 import pipeline
 import verify
@@ -140,7 +143,7 @@ def state():
         "countries": {k: v["name"] for k, v in COUNTRIES.items()},
         "config": {
             "gmail": bool(os.environ.get("GMAIL_USER") and os.environ.get("GMAIL_APP_PASSWORD")),
-            "openai": bool(os.environ.get("OPENAI_API_KEY")),
+            "openai": bool(os.environ.get("OPENAI_API_KEY") or os.environ.get("GEMINI_API_KEY")),
             "auto": _auto_on(),
             "auto_times": auto_times(),
             # A Railway Hobby csomagon a kimenő SMTP le van tiltva, ezért a
@@ -153,6 +156,7 @@ def state():
             # több fiók is be lehet lépve); alapból ugyanaz, amit a válaszokhoz olvasunk.
             "gmail_user": os.environ.get("COMPOSE_ACCOUNT") or os.environ.get("GMAIL_USER", ""),
             "calendar": bool(os.environ.get("CALENDAR_ICS_URL")),
+            "web_search": websearch.tavily_on(),
         },
     }
 
@@ -328,6 +332,46 @@ def followup_drop(lead_id: int):
 @app.post("/api/replies/scan", dependencies=[Depends(auth)])
 def replies_scan():
     return _require_start(job.start("válaszok", lambda log: pipeline.scan_replies(store, log)))
+
+
+# ---- tanácsadó --------------------------------------------------------------
+
+# Egyszerre egy kérdés: az ingyenes Gemini percenkénti kerete szűk, és két
+# párhuzamos kérdés egymás elől enné el.
+_advisor_lock = threading.Lock()
+
+
+class AskIn(BaseModel):
+    question: str = Field(min_length=1, max_length=4000)
+    lead_id: int | None = None
+
+
+@app.get("/api/advisor", dependencies=[Depends(auth)])
+def advisor_history():
+    return {"messages": store.advisor_history(60), "web_search": websearch.tavily_on()}
+
+
+@app.post("/api/advisor", dependencies=[Depends(auth)])
+def advisor_ask(body: AskIn):
+    if not _advisor_lock.acquire(blocking=False):
+        raise HTTPException(409, "Még az előző kérdésen dolgozom, várd meg.")
+    try:
+        return advisor.ask(store, body.question, body.lead_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except llm.LLMError as e:
+        if "insufficient_quota" in str(e):
+            raise HTTPException(429, "Elfogyott a mai ingyenes AI-keret, holnap újra megy.")
+        logger.warning("tanácsadó hiba: %s", e)
+        raise HTTPException(502, f"Nem sikerült választ kapni: {e}")
+    finally:
+        _advisor_lock.release()
+
+
+@app.post("/api/advisor/clear", dependencies=[Depends(auth)])
+def advisor_clear():
+    store.advisor_clear()
+    return {"ok": True}
 
 
 class BlockIn(BaseModel):

@@ -618,3 +618,71 @@ def test_gemini_path_retries_minute_limit_and_stops_on_daily(monkeypatch):
     monkeypatch.setattr(llm.httpx, "post", lambda *a, **k: R(429, text="GenerateRequestsPerDayPerProjectPerModel"))
     with pytest.raises(llm.LLMError, match="insufficient_quota"):
         llm.research("HU", 2, [])
+
+
+# ---- tanácsadó ----
+
+import advisor  # noqa: E402
+import llm  # noqa: E402
+import websearch  # noqa: E402
+
+
+def test_urls_in_finds_links_and_bare_domains():
+    got = websearch.urls_in("Nézd meg: https://pelda.hu/rolunk, és az aximbra.hu oldalt.")
+    assert got == ["https://pelda.hu/rolunk", "https://aximbra.hu"]
+
+
+def test_advisor_searches_reads_pages_and_saves_turns(store, monkeypatch):
+    prompts = []
+
+    def fake_ask(prompt, **kw):
+        prompts.append(prompt)
+        if len(prompts) == 1:
+            return '{"queries": ["AI ügynökség bemutató videó"], "reason": "trend"}'
+        return "**Lényeg:** 60 mp-es demó [1].\n# Cím\nKövetkező lépés: forgass."
+
+    monkeypatch.setattr(llm, "_ask", fake_ask)
+    searched = []
+    monkeypatch.setattr(websearch, "search", lambda q, n=4: searched.append(q) or [
+        {"title": "Cikk", "url": "https://cikk.hu", "text": "videós tippek"}])
+    monkeypatch.setattr(websearch, "read_page", lambda u: {"title": u, "url": u, "text": "AXIMBRA oldal"})
+
+    out = advisor.ask(store, "Videót akarok az aximbráról")
+
+    assert searched == ["AI ügynökség bemutató videó"]
+    assert out["answer"].startswith("Lényeg: 60 mp")  # markdown nélkül
+    assert "# " not in out["answer"]
+    assert [s["url"] for s in out["sources"]] == ["https://aximbra.hu", "https://cikk.hu"]
+    assert "videós tippek" in prompts[1] and "AXIMBRA oldal" in prompts[1]
+    hist = store.advisor_history()
+    assert [m["role"] for m in hist] == ["user", "assistant"]
+
+
+def test_advisor_answers_without_search_when_planner_fails(store, monkeypatch):
+    calls = []
+
+    def fake_ask(prompt, **kw):
+        calls.append(prompt)
+        if len(calls) == 1:
+            raise llm.LLMError("a modell nem adott értelmezhető JSON-t")
+        return "Válasz."
+
+    monkeypatch.setattr(llm, "_ask", fake_ask)
+    monkeypatch.setattr(websearch, "search", lambda q, n=4: pytest.fail("nem kellett volna keresni"))
+    assert advisor.ask(store, "Mi a SPIN módszer?")["answer"] == "Válasz."
+
+
+def test_advisor_quota_error_saves_nothing(store, monkeypatch):
+    def fake_ask(prompt, **kw):
+        raise llm.LLMError("insufficient_quota: elfogyott")
+
+    monkeypatch.setattr(llm, "_ask", fake_ask)
+    with pytest.raises(llm.LLMError):
+        advisor.ask(store, "Kérdés")
+    assert store.advisor_history() == []
+
+
+def test_web_search_falls_back_to_nothing_without_keys(monkeypatch):
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    assert websearch.search("bármi") == []

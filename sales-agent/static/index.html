@@ -33,6 +33,11 @@ a{color:var(--c)}
 .obs{border-left:3px solid var(--a);padding-left:10px;margin:8px 0;font-style:italic}
 .stat{font-size:13px;color:var(--mute)}
 .hide{display:none}
+.msg{white-space:pre-wrap}
+.msg.me{border-color:var(--c)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chips button{font-size:13px;padding:6px 10px}
+.src{font-size:12px;margin-top:8px}.src a{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .score{font:600 13px ui-monospace,Menlo,monospace;border-radius:8px;padding:2px 8px;border:1px solid var(--line)}
 .score.hi{color:#7de2b0;border-color:var(--ok)}.score.mid{color:#f0c27a;border-color:var(--a)}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--line)}
@@ -44,6 +49,7 @@ th{color:var(--mute);font-weight:500}td.n{text-align:right;font-variant-numeric:
   <h1>AXIMBRA Értékesítő <span id="stat" class="stat"></span></h1>
   <nav>
     <button data-tab="drafts" class="on">Vázlatok</button>
+    <button data-tab="advisor">Tanácsadó</button>
     <button data-tab="sent">Elküldve</button>
     <button data-tab="replies">Válaszok</button>
     <button data-tab="follow">Utánkövetés</button>
@@ -65,6 +71,19 @@ th{color:var(--mute);font-weight:500}td.n{text-align:right;font-variant-numeric:
       <span class="mute" id="selcount"></span>
     </div>
     <div id="drafts"></div>
+  </section>
+
+  <section id="tab-advisor" class="hide">
+    <div class="card">
+      <p class="mute" style="margin-top:0" id="advinfo"></p>
+      <div class="chips" id="chips"></div>
+      <label>Melyik céghez (nem kötelező)</label>
+      <select id="advLead" style="width:100%;font:inherit;background:#0e1119;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:9px"></select>
+      <label>Kérdés</label>
+      <textarea id="advQ" style="min-height:110px" placeholder="Pl.: Bemutató videót akarok az AXIMBRA-ról. Milyen módszerrel, milyen felépítésben, mi legyen benne?"></textarea>
+      <div class="row" style="margin-top:10px"><button class="pri" id="advGo">Kérdezem</button><button id="advClear">Új beszélgetés</button><span class="mute" id="advBusy"></span></div>
+    </div>
+    <div id="advLog"></div>
   </section>
 
   <section id="tab-sent" class="hide"><div id="sent"></div></section>
@@ -116,6 +135,7 @@ function flash(msg) { const w = $("#warn"); w.textContent = msg; w.classList.rem
 
 document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   tab = b.dataset.tab;
+  if (tab === "advisor") advLoad();
   document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x === b));
   document.querySelectorAll("main section").forEach((s) => s.classList.toggle("hide", s.id !== "tab-" + tab));
 });
@@ -324,6 +344,52 @@ $("#go").onclick = async () => {
 $("#prepFollow").onclick = async () => { try { const r = await api("/api/followups/prepare", {}); flash(`${r.prepared} utánkövetés előkészítve.`); refresh(); } catch (e) { flash(e.message); } };
 $("#scan").onclick = async () => { try { await api("/api/replies/scan", {}); flash("Válaszok ellenőrzése elindult."); refresh(); } catch (e) { flash(e.message); } };
 $("#blockBtn").onclick = async () => { try { const r = await api("/api/block", {items: $("#blockText").value}); $("#blockText").value = ""; flash(`${r.added} felvéve.`); refresh(); } catch (e) { flash(e.message); } };
+
+// ---- tanácsadó ----
+const CHIPS = {
+  "Bemutató videó": "Bemutató videót akarok készíteni az AXIMBRA-ról. Milyen értékesítési és marketing módszerrel, milyen hosszban, milyen platformra? Írd meg a teljes forgatókönyvet jelenetekre bontva, másodpercekkel, képernyőn látható szöveggel és narrációval.",
+  "Hívásra felkészítés": "Hívásom lesz a kiválasztott céggel. Készíts fel: mit kérdezzek (sorrendben), milyen ellenvetésekre számítsak és mit mondjak rájuk, és hogyan zárjam le a hívást egy konkrét következő lépéssel.",
+  "Ellenvetés": "Az ügyfél ezt mondta: „drága” / „már van rendszerünk” / „most nem aktuális”. Adj mindháromra szó szerinti választ, ami nem nyomulós, és visszaviszi a beszélgetést.",
+  "Pilot-ajánlat": "Írj egy fix árú, 2 hetes pilot-ajánlatot az AXIMBRA-hoz, ami kockázatmentes a vevőnek és gyorsan pénzt hoz nekem. Legyen kész szöveg, amit elküldhetek.",
+  "LinkedIn posztok": "Írj 3 kész LinkedIn posztot a saját profilomra, ami magyar cégvezetőkhöz juttatja el az AXIMBRA-t. Kitalált ügyfél és szám nélkül.",
+  "Heti elemzés": "Nézd meg az értékesítő agent eddigi adatait. Mi működik, mi nem, és mit változtassak a következő héten (célcsoport, üzenet, mennyiség)?",
+};
+let advLoaded = false;
+function advRender(msgs) {
+  $("#advLog").innerHTML = msgs.slice().reverse().map((m) => {
+    let src = []; try { src = JSON.parse(m.sources || "[]"); } catch {}
+    return `<div class="card msg ${m.role === "user" ? "me" : ""}"><div class="mute">${m.role === "user" ? "Te" : "Tanácsadó"} · ${esc((m.created_at||"").slice(0,16).replace("T"," "))}</div>${esc(m.content)}${
+      src.length ? `<div class="src mute">Források:${src.map((x, i) => `<a href="${esc(x.url)}" target="_blank" rel="noopener">[${i+1}] ${esc(x.title || x.url)}</a>`).join("")}</div>` : ""}</div>`;
+  }).join("") || `<div class="card mute">Kérdezz bármit értékesítésről, marketingről, videóról, ajánlatról. Ha kell, utánanéz a weben.</div>`;
+}
+async function advLoad() {
+  const sel = $("#advLead"), keep = sel.value;
+  sel.innerHTML = `<option value="">— nincs, általános kérdés —</option>` + (S ? S.leads.filter((l) => l.status === "sent").map((l) =>
+    `<option value="${l.id}">${esc(l.company)}${l.reply_kind !== "none" ? " · " + esc(l.reply_kind) : ""}</option>`).join("") : "");
+  sel.value = keep;
+  if (!$("#chips").children.length) $("#chips").innerHTML = Object.keys(CHIPS).map((k) => `<button data-chip="${esc(k)}">${esc(k)}</button>`).join("");
+  try {
+    const r = await api("/api/advisor");
+    $("#advinfo").textContent = r.web_search ? "Webes keresés: bekapcsolva. Ha kell, utánanéz a Google-ben, és megmutatja a forrásokat."
+      : "Webes keresés: csak a kérdésben megadott linkeket és az aximbra.hu-t olvassa. Teljes kereséshez kell egy ingyenes TAVILY_API_KEY.";
+    advRender(r.messages); advLoaded = true;
+  } catch (e) { flash(e.message); }
+}
+$("#chips").onclick = (e) => { const k = e.target.dataset.chip; if (k) { $("#advQ").value = CHIPS[k]; $("#advQ").focus(); } };
+$("#advGo").onclick = async () => {
+  const q = $("#advQ").value.trim(); if (!q) return;
+  const b = $("#advGo"); b.disabled = true; $("#advBusy").textContent = "Gondolkodom, szükség esetén keresek… (fél–két perc)";
+  try {
+    const lead = $("#advLead").value;
+    await api("/api/advisor", {question: q, lead_id: lead ? +lead : null});
+    $("#advQ").value = ""; await advLoad();
+  } catch (e) { flash(e.message); }
+  finally { b.disabled = false; $("#advBusy").textContent = ""; }
+};
+$("#advClear").onclick = async () => {
+  if (!confirm("Törlöm az eddigi beszélgetést?")) return;
+  try { await api("/api/advisor/clear", {}); advRender([]); } catch (e) { flash(e.message); }
+};
 
 refresh();
 setInterval(() => { if (!document.hidden) refresh(); }, 5000);

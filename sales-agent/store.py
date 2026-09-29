@@ -51,6 +51,13 @@ CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT
 );
+CREATE TABLE IF NOT EXISTS advisor (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at TEXT NOT NULL,
+  role TEXT NOT NULL,             -- user | assistant
+  content TEXT NOT NULL,
+  sources TEXT                    -- JSON lista: [{"title", "url"}]
+);
 CREATE TABLE IF NOT EXISTS blocked (
   key TEXT PRIMARY KEY,           -- e-mail cím vagy domain, kisbetűvel
   reason TEXT,
@@ -116,6 +123,22 @@ class Store:
         with self._conn() as c:
             c.execute("INSERT INTO settings (key, value) VALUES (?, ?) "
                       "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (key, value))
+
+    # ---- tanácsadó -------------------------------------------------------
+
+    def advisor_add(self, role: str, content: str, sources: str = "") -> int:
+        with self._conn() as c:
+            return c.execute("INSERT INTO advisor (created_at, role, content, sources) VALUES (?, ?, ?, ?)",
+                             (now(), role, content, sources)).lastrowid
+
+    def advisor_history(self, limit: int = 60) -> list[dict]:
+        with self._conn() as c:
+            rows = c.execute("SELECT * FROM advisor ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in reversed(rows)]
+
+    def advisor_clear(self) -> None:
+        with self._conn() as c:
+            c.execute("DELETE FROM advisor")
 
     # ---- tiltólista ----------------------------------------------------
 
