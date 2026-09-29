@@ -686,3 +686,45 @@ def test_web_search_falls_back_to_nothing_without_keys(monkeypatch):
     monkeypatch.delenv("TAVILY_API_KEY", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     assert websearch.search("bármi") == []
+
+
+# ---- videós agent ----
+
+import videomaker  # noqa: E402
+
+
+def test_video_script_is_normalized_and_ends_with_cta():
+    raw = {"title": "T", "scenes": [
+        {"kind": "cta", "headline": "Korai CTA", "seconds": 4},
+        {"kind": "hook", "headline": "Ki veszi fel?", "seconds": 3},
+        {"kind": "bogus", "headline": "x"},
+        {"kind": "problem", "headline": "Ismerős?", "lines": ["a", "b", "c", "d", "e", "f", "g"], "seconds": 99},
+    ]}
+    s = videomaker.normalize(raw, 30)
+    assert [x["kind"] for x in s["scenes"]] == ["hook", "problem", "cta"]
+    assert len(s["scenes"][1]["lines"]) == 6
+    assert all(2 <= x["seconds"] <= 10 for x in s["scenes"])
+    assert s["first_comment"]
+
+
+def test_video_script_without_usable_scenes_fails():
+    with pytest.raises(videomaker.VideoError):
+        videomaker.normalize({"scenes": [{"kind": "hook", "headline": ""}]}, 30)
+
+
+def test_video_ids_cannot_escape_the_folder():
+    assert videomaker.video_path("../../etc/passwd") is None
+    assert videomaker.video_path("abc") is None
+
+
+def test_video_served_in_byte_ranges(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    import app as app_mod
+    monkeypatch.setenv("ADMIN_PASSWORD", "jelszo1234")
+    monkeypatch.setattr(videomaker, "VIDEO_DIR", str(tmp_path))
+    (tmp_path / "abcdef012345.mp4").write_bytes(bytes(range(100)))
+    c = TestClient(app_mod.app)
+    r = c.get("/api/videos/abcdef012345.mp4", headers={"Range": "bytes=10-19"}, auth=("a", "jelszo1234"))
+    assert r.status_code == 206 and r.content == bytes(range(10, 20))
+    assert r.headers["content-range"] == "bytes 10-19/100"
+    assert c.get("/api/videos/abcdef012345.mp4", auth=("a", "rossz")).status_code == 401
