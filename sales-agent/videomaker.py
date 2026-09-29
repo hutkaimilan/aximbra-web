@@ -166,6 +166,13 @@ def capture_site(browser, url: str = "https://aximbra.hu") -> dict | None:
         page.goto(url, wait_until="networkidle", timeout=45000)
         page.wait_for_timeout(2500)
         height = min(3200, page.evaluate("document.documentElement.scrollHeight"))
+        # Az oldal lejjebb lévő részei csak görgetéskor úsznak be; görgetés
+        # nélkül a képen feketék maradnak. Ezért előbb végiggörgetjük.
+        for y in range(0, height + 844, 350):
+            page.evaluate(f"window.scrollTo(0, {y})")
+            page.wait_for_timeout(220)
+        page.evaluate("window.scrollTo(0, 0)")
+        page.wait_for_timeout(1500)
         png = page.screenshot(clip={"x": 0, "y": 0, "width": 390, "height": height}, full_page=True)
         # A telefon képernyője 276 px széles: arányosan ekkora a kép magassága.
         return {"src": "data:image/png;base64," + base64.b64encode(png).decode(), "height": round(height * 276 / 390)}
