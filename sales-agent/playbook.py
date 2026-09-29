@@ -259,3 +259,38 @@ Rules:
 - Ask them to reply with the one that suits them, or suggest another.
 - Under 110 words, warm but not salesy, no emojis. Sign "Hutkai Milán · AXIMBRA · aximbra.hu".
 Answer ONLY with JSON: {{"body": "..."}}"""
+
+
+def list_prompt(country: str, count: int, exclude_domains: list[str], focus: str = "") -> str:
+    c = COUNTRIES[country]
+    excl = ", ".join(exclude_domains[:300]) or "none"
+    sectors = ", ".join(f"{k} ({v['hu']})" for k, v in SECTORS.items())
+    focus_line = f" Prefer these sectors: {focus}." if focus else ""
+    return f"""List {count} REAL private companies headquartered in {c['name']} ({country}) with roughly 50–1000 employees,
+in these sectors: {sectors}.{focus_line}
+Only companies you are confident exist, with their official website. Prefer locally owned companies (decisions made in {c['name']}),
+spread across different towns, not only the capital. Exclude state-owned companies, public institutions, multinationals' branches,
+and these domains: {excl}.
+Answer ONLY with a JSON array: [{{"company": "...", "town": "...", "sector": "{'|'.join(SECTORS)}", "website": "https://..."}}]"""
+
+
+def fact_prompt(company: dict, pages: str, emails: list[str]) -> str:
+    pains = "\n".join(f"- {k}: {v}" for k, v in PAINS.items())
+    return f"""You are a senior B2B sales researcher. Below is text from the website of {company.get('company')} ({company.get('town', '')}).
+
+Our agents:
+{pains}
+
+From the text, pick ONE specific fact, copied WORD FOR WORD from the text (original language, 8–40 words), that shows which agent fits:
+customer service hours or channels, number of locations, volumes, documents they handle, enquiries they receive, hiring for repetitive roles, NIS2 sector.
+A generic slogan does not qualify. If nothing specific is in the text, answer {{"skip": true}}.
+
+Company role email addresses found on the site (choose the best one for a first business contact): {", ".join(emails)}
+
+Score fit 0–100: how clearly one agent maps to the fact, company size (50–1000 ideal), local decision-making.
+Answer ONLY with JSON:
+{{"observation": "the exact copied sentence", "observation_url": "the URL of the page it is on", "email": "one of the listed addresses",
+"pain": "{'|'.join(PAINS)}", "signal": "{'|'.join(SIGNAL_TYPES)}", "signal_note": "short, in Hungarian", "score": 0-100, "score_reason": "short, in Hungarian"}}
+
+WEBSITE TEXT:
+{pages}"""

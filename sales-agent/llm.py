@@ -59,6 +59,9 @@ def _gemini(prompt: str, search: bool) -> str:
                 raise LLMError("insufficient_quota: elfogyott a Gemini napi ingyenes kerete")
             time.sleep(min(60, 15 * (attempt + 1)))
             continue
+        if r.status_code == 503:  # túlterhelt modell: átmeneti
+            time.sleep(min(60, 10 * (attempt + 1)))
+            continue
         if r.status_code >= 400:
             raise LLMError(f"Gemini hiba ({r.status_code}): {r.text[:200]}")
         data = r.json()
@@ -109,7 +112,53 @@ def paragraphs(body: str) -> str:
     return "\n\n".join(l for l in lines if l)
 
 
+def can_search() -> bool:
+    """Webes keresés csak az OpenAI-úton van; az ingyenes Gemini nem ad rá keretet."""
+    mode = (os.environ.get("RESEARCH_MODE") or "").strip().lower()
+    if mode in ("crawl", "search"):
+        return mode == "search"
+    return provider() == "openai"
+
+
+def _research_crawl(country: str, count: int, exclude_domains: list[str], focus: str) -> list[dict]:
+    """Keresés webes keresőeszköz nélkül: a modell ismert cégeket sorol fel,
+    a program maga tölti le az oldalukat, és a modell a letöltött szövegből
+    választ tényt és címet. Az ellenőrzés utána ugyanaz, mint máskor."""
+    import verify
+    listed = extract_json(_ask(playbook.list_prompt(country, count * 2, exclude_domains, focus)))
+    if isinstance(listed, dict):
+        listed = listed.get("items") or listed.get("companies") or []
+    known = set(exclude_domains)
+    out = []
+    for c in [x for x in listed if isinstance(x, dict)][: count * 2]:
+        site = (c.get("website") or "").strip()
+        if not site.startswith("http"):
+            site = "https://" + site.lstrip("/")
+        from store import domain_of
+        if not site or domain_of(site) in known:
+            continue
+        pages = verify.crawl_site(site)
+        emails = verify.role_emails(pages, site)
+        if not emails:
+            continue
+        bundle = "\n\n".join(f"URL: {u}\n{re.sub(chr(92) + 's+', ' ', t)[:2500]}" for u, t in pages)[:9000]
+        try:
+            fact = extract_json(_ask(playbook.fact_prompt(c, bundle, [e for e, _ in emails])))
+        except LLMError:
+            continue
+        if not isinstance(fact, dict) or fact.get("skip"):
+            continue
+        email = (fact.get("email") or emails[0][0]).lower()
+        email_url = dict(emails).get(email) or emails[0][1]
+        out.append({**c, "website": site, "country": country, **fact, "email": email, "email_url": email_url})
+        if len(out) >= count:
+            break
+    return out
+
+
 def research(country: str, count: int, exclude_domains: list[str], focus: str = "") -> list[dict]:
+    if not can_search():
+        return _research_crawl(country, count, exclude_domains, focus)
     data = extract_json(_ask(playbook.research_prompt(country, count, exclude_domains, focus),
                              search=True, country=country, model=RESEARCH_MODEL))
     if isinstance(data, dict):

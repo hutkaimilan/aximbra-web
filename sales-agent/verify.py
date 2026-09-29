@@ -43,6 +43,77 @@ def fetch_text(url: str, client: httpx.Client | None = None) -> str | None:
             client.close()
 
 
+def fetch_html(url: str) -> str | None:
+    if not url or not url.startswith(("http://", "https://")):
+        return None
+    try:
+        with httpx.Client(timeout=FETCH_TIMEOUT, follow_redirects=True, headers={"User-Agent": UA}) as c:
+            with c.stream("GET", url) as r:
+                if r.status_code >= 400 or "html" not in r.headers.get("content-type", "html"):
+                    return None
+                raw = b""
+                for chunk in r.iter_bytes():
+                    raw += chunk
+                    if len(raw) > MAX_BYTES:
+                        break
+            return raw.decode(r.encoding or "utf-8", errors="replace")
+    except (httpx.HTTPError, ValueError):
+        return None
+
+
+_LINK_WORDS = ("kapcsolat", "contact", "impresszum", "impressum", "kontakt", "contacte", "rolunk", "rólunk",
+               "about", "karrier", "career", "kariera", "cariere", "ugyfelszolgalat", "ugyfelszolgalat",
+               "customer", "adatvedelem", "o-nas", "despre", "o-nama", "o-nas")
+ROLE_PREFIXES = ("info", "office", "iroda", "kapcsolat", "contact", "ugyfelszolgalat", "sales", "ertekesites",
+                 "hello", "recepcio", "kozpont", "titkarsag", "kontakt", "obchod", "vanzari", "prodaja",
+                 "customer", "service", "szerviz", "marketing", "ajanlat", "rendeles", "support", "posta")
+
+
+def crawl_site(website: str, max_pages: int = 5) -> list[tuple[str, str]]:
+    """A kezdőlap és a kapcsolat/impresszum/karrier jellegű aloldalak szövege."""
+    from urllib.parse import urljoin, urlparse
+    home = fetch_html(website)
+    if not home:
+        return []
+    base = urlparse(website).netloc.lower().removeprefix("www.")
+    pages = [(website, html_to_text(home))]
+    seen = {website.rstrip("/")}
+    for href in re.findall(r'href=["\']([^"\'#]+)["\']', home, flags=re.I):
+        url = urljoin(website, href)
+        low = url.lower()
+        if urlparse(url).netloc.lower().removeprefix("www.") != base or low.rstrip("/") in seen:
+            continue
+        if not any(w in low for w in _LINK_WORDS):
+            continue
+        seen.add(low.rstrip("/"))
+        page = fetch_html(url)
+        if page:
+            pages.append((url, html_to_text(page)))
+        if len(pages) >= max_pages:
+            break
+    return pages
+
+
+def role_emails(pages: list[tuple[str, str]], website: str) -> list[tuple[str, str]]:
+    """(cím, oldal) párok: csak céges szerepkör-címek, a cég domainjén vagy
+    ismert ingyenes szolgáltatón; magánszemélynek tűnő címet nem adunk vissza."""
+    from urllib.parse import urlparse
+    dom = urlparse(website).netloc.lower().removeprefix("www.")
+    found = {}
+    for url, text in pages:
+        for e in re.findall(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", text):
+            e = e.lower().strip(".")
+            user, edom = e.split("@", 1)
+            if not (edom == dom or edom.endswith("." + dom) or dom.endswith(edom)):
+                continue
+            if not any(user == p or user.startswith(p) for p in ROLE_PREFIXES):
+                continue
+            found.setdefault(e, url)
+    ranked = sorted(found.items(), key=lambda kv: next((i for i, p in enumerate(ROLE_PREFIXES)
+                                                        if kv[0].split("@")[0].startswith(p)), 99))
+    return ranked
+
+
 def html_to_text(src: str) -> str:
     # A mailto: linkekben lévő cím is számít: sok oldal csak ott írja ki.
     mailtos = " ".join(re.findall(r'mailto:([^"\'?>\s]+)', src, flags=re.I))
