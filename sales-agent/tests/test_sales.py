@@ -1,7 +1,7 @@
 """Az értékesítő hálózat nélkül: modell, Gmail és letöltés csonkkal."""
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -730,3 +730,154 @@ def test_video_served_in_byte_ranges(tmp_path, monkeypatch):
     assert r.status_code == 206 and r.content == bytes(range(10, 20))
     assert r.headers["content-range"] == "bytes 10-19/100"
     assert c.get("/api/videos/abcdef012345.mp4", auth=("a", "rossz")).status_code == 401
+
+
+# ---- szabályellenőrzés és magától küldés ------------------------------------
+
+CLEAN_BODY = ("Jó napot!\n\nAz oldalukon azt írják, hogy asztalt csak telefonon foglalnak. Ügyfeleik este is hívják.\n\n"
+              "Hutkai Milán · AXIMBRA · aximbra.hu\n\n" + OPT_OUT["hu"])
+
+
+def _lead(**kw):
+    return {**CAND, "lang": "hu", "subject": "Esti foglalások telefonon", "body": CLEAN_BODY, **kw}
+
+
+@pytest.mark.parametrize("bad,why", [
+    ("Egyik ügyfelünknél bevált.", "ügyfélre"),
+    ("A hívások 40%-át elveszítik.", "statisztik"),
+    ("Háromszor gyorsabb válasz.", None),
+    ("Kovács úrnak írok.", "munkatárs"),
+    ("Tisztelt Nagy Anna!", "munkatárs"),
+    ("Vážený pán Novák,", "munkatárs"),
+    ("Ára 400 ezer Ft.", "ár"),
+    ("Ára 1,2 millió forint.", "ár"),
+    ("Cena od 900 €.", "ár"),
+    ("Náš klient ušetril čas.", "ügyfélre"),
+])
+def test_rule_violations_catch_forbidden_content(bad, why):
+    v = verify.rule_violations(_lead(body=bad + "\n\n" + CLEAN_BODY))
+    if why:
+        assert any(why in x for x in v), v
+
+
+def test_rule_violations_clean_letter_and_their_customers_ok():
+    assert verify.rule_violations(_lead()) == []
+    assert verify.rule_violations(_lead(body="Tisztelt Hölgyem/Uram!\n\n" + CLEAN_BODY)) == []
+
+
+def test_at_de_never_sent_even_by_button(store):
+    lid = store.add_lead(_lead(email="office@wirt.at", website="https://wirt.at"))
+    m = FakeMailer()
+    ok, why = pipeline.send_one(store, lid, mailer=m)
+    assert not ok and "osztrák" in why and not m.sent and store.get(lid)["status"] == "skipped"
+
+
+def _decide(store, n, edited=0, skipped=0, score=85):
+    """n döntés: ebből edited javítva, skipped kihagyva, a többi érintetlenül ki."""
+    m = FakeMailer()
+    for i in range(n):
+        lid = store.add_lead(_lead(email=f"info@c{i}-{score}.hu", website=f"https://c{i}-{score}.hu", score=score))
+        if i < skipped:
+            store.skip(lid)
+            continue
+        if i < skipped + edited:
+            store.edit(lid, "Más tárgy", CLEAN_BODY + " x")
+        pipeline.send_one(store, lid, mailer=m)
+
+
+def test_readiness_needs_sample_and_rate(store, monkeypatch):
+    monkeypatch.setattr(pipeline, "DAILY_CAP", 10_000)
+    _decide(store, 19)
+    r = pipeline.readiness(store)
+    assert not r["ready"] and r["decided"] == 19 and r["rate"] == 1.0
+    _decide(store, 40, edited=8, score=90)
+    r = pipeline.readiness(store)
+    assert r["decided"] == 59 and r["edited"] == 8 and not r["ready"]  # 51/59 = 86% < 90%
+
+
+def test_manual_gmail_sends_and_low_scores_dont_count(store, monkeypatch):
+    monkeypatch.setattr(pipeline, "DAILY_CAP", 10_000)
+    _decide(store, 10, score=75)
+    lid = store.add_lead(_lead(email="info@kezi.hu", website="https://kezi.hu", score=95))
+    store.mark_sent_manual(lid)
+    assert pipeline.readiness(store)["decided"] == 0
+
+
+def _ready_store(store, monkeypatch):
+    monkeypatch.setattr(pipeline, "DAILY_CAP", 10_000)
+    monkeypatch.setenv("AUTO_SEND_MIN_SAMPLE", "20")
+    _decide(store, 20)
+    store.set_setting("auto_send", "on")
+
+
+WEEKDAY_10 = datetime(2026, 10, 1, 10, 0, tzinfo=timezone.utc)  # csütörtök
+
+
+def test_auto_send_sends_only_clean_untouched_high_scores_within_cap(store, monkeypatch):
+    _ready_store(store, monkeypatch)
+    monkeypatch.setenv("AUTO_SEND_DAILY", "2")
+    good = [store.add_lead(_lead(email=f"info@j{i}.hu", website=f"https://j{i}.hu", score=90 - i)) for i in range(3)]
+    low = store.add_lead(_lead(email="info@low.hu", website="https://low.hu", score=75))
+    dirty = store.add_lead(_lead(email="info@ref.hu", website="https://ref.hu", score=99,
+                                 body="Egyik ügyfelünknél bevált.\n\n" + CLEAN_BODY))
+    touched = store.add_lead(_lead(email="info@t.hu", website="https://t.hu", score=98))
+    store.edit(touched, "Esti foglalások telefonon", CLEAN_BODY + " P.S.")
+    m = FakeMailer()
+    sent = pipeline.auto_send(store, pipeline.RunLog(), now=WEEKDAY_10, mailer=m, sleep=lambda s: None)
+    assert [l["id"] for l in sent] == good[:2] and len(m.sent) == 2
+    assert store.get(good[0])["sent_via"] == "auto"
+    for lid in (good[2], low, dirty, touched):
+        assert store.get(lid)["status"] == "draft"
+    # a keret napi: újra futtatva nem küld többet
+    assert pipeline.auto_send(store, pipeline.RunLog(), now=WEEKDAY_10, mailer=m, sleep=lambda s: None) == []
+
+
+def test_auto_send_off_by_default_and_not_on_weekend(store, monkeypatch):
+    _ready_store(store, monkeypatch)
+    store.add_lead(_lead(email="info@w.hu", website="https://w.hu", score=90))
+    m = FakeMailer()
+    sat = datetime(2026, 10, 3, 10, 0, tzinfo=timezone.utc)
+    assert pipeline.auto_send(store, pipeline.RunLog(), now=sat, mailer=m, sleep=lambda s: None) == []
+    evening = datetime(2026, 10, 1, 19, 0, tzinfo=timezone.utc)
+    assert pipeline.auto_send(store, pipeline.RunLog(), now=evening, mailer=m, sleep=lambda s: None) == []
+    store.set_setting("auto_send", "off")
+    assert pipeline.auto_send(store, pipeline.RunLog(), now=WEEKDAY_10, mailer=m, sleep=lambda s: None) == []
+    assert not m.sent
+
+
+def test_auto_send_brake_on_bounces(store, monkeypatch):
+    _ready_store(store, monkeypatch)
+    m = FakeMailer()
+    for i in range(2):
+        lid = store.add_lead(_lead(email=f"info@b{i}.hu", website=f"https://b{i}.hu", score=90))
+        pipeline.send_one(store, lid, mailer=m, via="auto")
+        store.set_reply(lid, "bounce", "nem kézbesíthető")
+    store.add_lead(_lead(email="info@next.hu", website="https://next.hu", score=90))
+    log = pipeline.RunLog()
+    now = datetime.now(timezone.utc).replace(hour=10)
+    now = now if now.weekday() < 5 else now - timedelta(days=now.weekday() - 4)
+    assert pipeline.auto_send(store, log, now=now, mailer=m, sleep=lambda s: None) == []
+    assert store.get_setting("auto_send") == "off" and any("VÉSZFÉK" in x for x in log.lines)
+
+
+def test_auto_send_turns_itself_off_when_not_calibrated(store):
+    store.set_setting("auto_send", "on")
+    log = pipeline.RunLog()
+    assert pipeline.auto_send(store, log, now=WEEKDAY_10, mailer=FakeMailer(), sleep=lambda s: None) == []
+    assert store.get_setting("auto_send") == "off"
+
+
+def test_auto_send_toggle_endpoint_refuses_until_ready(monkeypatch, tmp_path):
+    monkeypatch.setenv("SALES_DB_PATH", str(tmp_path / "t.db"))
+    monkeypatch.setenv("ADMIN_PASSWORD", "jelszo12345")
+    import importlib
+    import app as app_mod
+    importlib.reload(app_mod)
+    from fastapi.testclient import TestClient
+    c = TestClient(app_mod.app)
+    a = ("x", "jelszo12345")
+    r = c.post("/api/auto-send", json={"on": True}, auth=a)
+    assert r.status_code == 409 and "döntés" in r.json()["detail"]
+    assert c.post("/api/auto-send", json={"on": False}, auth=a).status_code == 200
+    st = c.get("/api/state", auth=a).json()
+    assert st["auto_send"]["on"] is False and st["auto_send"]["ready"] is False

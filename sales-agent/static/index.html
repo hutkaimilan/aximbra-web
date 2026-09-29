@@ -349,6 +349,7 @@ function render() {
       ${leadHead(l)}
       ${l.critique ? `<div class="mute">Bíráló: ${esc(l.critique)}</div>` : ""}
       ${l.warnings ? `<div><span class="tag w">figyelem</span><span class="mute">${esc(l.warnings)}</span></div>` : ""}
+      ${l.rules && l.rules.length ? `<div><span class="tag n">szabály</span><span class="mute">${esc(l.rules.join("; "))}</span></div>` : ""}
       ${l.status === "failed" ? `<div><span class="tag n">hiba</span><span class="mute">${esc(l.last_error)}</span></div>` : ""}
       <label>Tárgy</label><input class="subj" value="${esc(dirty[l.id]?.subject ?? l.subject)}">
       <label>Levél</label><textarea class="body">${esc(dirty[l.id]?.body ?? l.body)}</textarea>
@@ -392,6 +393,7 @@ function render() {
       <div><div class="mute">érdeklődik</div><b style="font-size:22px">${T.interested}</b></div>
       <div><div class="mute">vázlat vár</div><b style="font-size:22px">${T.drafts}</b></div></div>
       <p class="mute" style="margin-bottom:0">${S.focus.length ? "A reggeli keresés most ezekre fókuszál: " + S.focus.map((k) => SECT[k]||k).join(", ") + "." : "Tanulás: iparáganként legalább 5 kiment levél után kezdi el eltolni a keresést a jobban válaszoló iparágak felé."}</p></div>
+    ${autoCard()}
     ${tbl(S.stats.sector, "Iparág", SECT)}${tbl(S.stats.country, "Ország")}${tbl(S.stats.signal, "Vásárlási jel", SIG)}`;
 
   $("#blocked").innerHTML = S.blocked.length ? S.blocked.map((b) => `<div class="mute">${esc(b.key)} — ${esc(b.reason)}</div>`).join("") : `<span class="mute">Üres.</span>`;
@@ -403,7 +405,24 @@ function render() {
     $("#joblog").textContent = S.job.log.join("\n");
   }
   $("#go").disabled = S.job.running;
-  $("#autoinfo").textContent = S.config.auto ? `Automatikus kör minden nap: ${S.config.auto_times.join(" és ")} — válaszok, utánkövetések, új vázlatok. Küldeni te küldesz.` : "Az automatikus kör ki van kapcsolva.";
+  $("#autoinfo").textContent = S.config.auto ? `Automatikus kör minden nap: ${S.config.auto_times.join(" és ")} — válaszok, utánkövetések, új vázlatok. ${S.auto_send.on ? `Magától küldés BE (naponta max ${S.auto_send.daily}).` : "Küldeni te küldesz."}` : "Az automatikus kör ki van kapcsolva.";
+}
+
+function autoCard() {
+  const A = S.auto_send, pc = Math.round(100 * A.rate);
+  const bar = Math.min(100, Math.round(100 * A.decided / A.min_sample));
+  return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center">
+      <b>Magától küldés (${A.min_score}+ pont)</b>
+      <button id="autoToggle" class="${A.on ? "warn" : "pri"}" ${!A.on && !A.ready ? "disabled" : ""}>${A.on ? "Kikapcsolás" : "Bekapcsolás"}</button></div>
+    <div class="row" style="gap:18px;margin-top:8px">
+      <div><div class="mute">döntés</div><b style="font-size:22px">${A.decided}/${A.min_sample}</b></div>
+      <div><div class="mute">változtatás nélkül</div><b style="font-size:22px">${A.decided ? pc + "%" : "–"}</b></div>
+      <div><div class="mute">javítva</div><b style="font-size:22px">${A.edited}</b></div>
+      <div><div class="mute">kihagyva</div><b style="font-size:22px">${A.skipped}</b></div>
+      <div><div class="mute">ma magától</div><b style="font-size:22px">${A.sent_today}/${A.daily}</b></div></div>
+    <div style="height:6px;background:var(--line);border-radius:3px;margin:10px 0"><div style="height:6px;width:${bar}%;background:var(--grad);border-radius:3px"></div></div>
+    <p class="mute" style="margin:0">${A.on ? `Bekapcsolva: hétköznap 8–17 óra között, naponta legfeljebb ${A.daily} levél, csak érintetlen, szabálytiszta, 3 napnál frissebb vázlat. Két visszapattanás 14 napon belül → magától kikapcsol.`
+      : A.ready ? "Bemérve, bekapcsolható." : "Még nem kapcsolható be: " + esc(A.why.join("; ")) + ". Csak a panelről küldött és a kihagyott vázlatok számítanak; a saját Gmailből küldöttnél nem látszik, javítottál-e."}</p></div>`;
 }
 
 function planUI() {
@@ -486,6 +505,13 @@ $("#gconnect").onclick = async () => { try { const r = await api("/api/gmail/con
                rossz_fiok: "Rossz fiókkal léptél be: az aximbra@gmail.com-mal kell.", nincs_jog: "A küldési jogot pipáld be a Google-oldalon.", hiba: "Nem sikerült, próbáld újra."}[g];
   if (msg) { setTimeout(() => flash(msg), 300); history.replaceState(null, "", "/"); }
 }
+document.addEventListener("click", async (e) => {
+  if (e.target.id !== "autoToggle") return;
+  const on = !S.auto_send.on;
+  if (on && !confirm(`Bekapcsolod? Naponta legfeljebb ${S.auto_send.daily} levél megy ki jóváhagyás nélkül.`)) return;
+  try { await api("/api/auto-send", {on}); flash(on ? "Magától küldés bekapcsolva." : "Magától küldés kikapcsolva."); refresh(); }
+  catch (err) { flash(err.message); }
+});
 $("#sendAll").onclick = async () => {
   if (!confirm(`${selected.size} levél megy ki az aximbra Gmailből, 25–70 másodpercenként egy. Mehet?`)) return;
   try {

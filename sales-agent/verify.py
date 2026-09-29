@@ -271,6 +271,75 @@ def check_letter(lead: dict) -> list[str]:
         w.append("link van benne")
     if mixed_language(lead):
         w.append("VEGYES NYELV — ne küldd el")
-    if re.search(r"\d[\d\s.]*\s?(ft|huf|eur|€|lei|ron)\b", body, flags=re.I):
+    if has_price(body):
         w.append("ár van benne")
     return w
+
+
+# ---- kemény szabályok --------------------------------------------------------
+# Ezek nem a modell ítéletén múlnak. A panelről küldött levélnél a
+# célország-szabály tilt, a többi figyelmeztet (ember látta a levelet);
+# a magától kimenő levélnél bármelyik találat megállítja a küldést.
+
+_PRICE_RE = re.compile(
+    r"\d[\d\s.,]*\s*(ezer|e\.|millió|m\.|mio|tisíc|tis\.|mii|milioane?|milion[a-z]*|tisuć[a-z]*|tisoč[a-z]*)?\s*"
+    r"(ft|huf|forint[a-z]*|eur|euró[a-z]*|euro[a-z]*|lei|ron|kn|kuna)\b|€\s*\d|\d\s*€", re.I)
+
+
+def has_price(text: str) -> bool:
+    return bool(_PRICE_RE.search(text or ""))
+
+
+# Kitalált ügyfél, referencia, esettanulmány: "ügyfelünk", "náš klient"...
+# A "ügyfeleik/ügyfeleiknek" (az ő ügyfeleik) szándékosan nem akad be.
+_REFERENCE_RE = re.compile(
+    r"\bügyfel(ünk|ünknél|ünknek|eink|einknél|einknek|einktől)\b|\bpartner(ünk|eink)\b|\breferenci|"
+    r"\besettanulmány|\bmár\s+\d+\s+(cég|vállalkozás|ügyfél)|\btöbb\s+(száz|tucat|tíz)\s+(cég|ügyfél|vállalkozás)|"
+    r"\b(náš|naši|našich|nášmu|našim)\s+(klient|zákazník|partner)|\breferenci[ae]|\bpríkladov[aá]\s+štúdi|"
+    r"\b(clientul|clienții|clientii|clienților|partenerii|partenerul)\s+(nostru|noștri|nostri|noastre)|\bstudiu\s+de\s+caz|"
+    r"\b(naš|naši|našim|naših|našeg)\s+(klijent|kupac|partner|stranka|stranke|strank)|\breferenc|\breferin",
+    re.I)
+
+# Statisztika, százalék, szorzó: "40%-kal", "3x gyorsabb", "kétszer annyi".
+_STAT_RE = re.compile(
+    r"\d\s?%|\bszázalék|\bpercent|\bprocent|\bpostot|\bodstot|\b\d+\s?[x×]\b|\b\d+-(szor|szer|ször)\b|"
+    r"\b(kétszer|háromszor|négyszer|ötször|tízszer)\s+(annyi|gyorsabb|több|kevesebb)", re.I)
+
+# Munkatárs megnevezése. Csak a megszólításos, egyértelmű alakokat fogja:
+# egy puszta "Kovács Péter" név, megszólítás nélkül, átcsúszhat. Ezért a
+# magától küldés ezen felül csak ember által nem javított, magas pontú
+# vázlatra, bemért pontszám mellett indul.
+_UPPER = "A-ZÁÉÍÓÖŐÚÜŰČĎĽĹŇÔŔŠŤÝŽĂÂÎȘȚĆĐ"
+_NAME_RE = re.compile(
+    rf"\b[{_UPPER}][a-záéíóöőúüű]+\s+(úr|úrnak|úrral|urat|úrtól|asszony|asszonynak|asszonnyal|asszonyt|kolléganő)\b|"
+    rf"\b(pán|pani|pánovi|panej|pána|panu|domnul|doamna|domnului|doamnei|dl\.|dna\.|gospodin|gospodine|"
+    rf"gospođa|gospođo|gospa|gospod|g\.|ga\.)\s+[{_UPPER}]|"
+    rf"\b(Kedves|Tisztelt|Dear|Milý|Milá|Vážený|Vážená|Stimate|Stimată|Dragă|Poštovani|Poštovana|Spoštovani|Spoštovana)"
+    rf"\s+(?!Hölgyem|Uram|Címzett|Partner|Ügyfél|Csapat|Kolleg|Munkatárs|pán|pani|páni|pane|domn|doamn|gospo|gospa|kolegi|kolegovia)"
+    rf"[{_UPPER}][a-záéíóöőúüűčďľĺňôŕšťýžăâîșțćđ]+", re.U)
+
+
+def target_problems(lead: dict) -> list[str]:
+    """Célország-szabály: AT/DE soha, és csak a playbook országai."""
+    p = []
+    if lead.get("country") not in COUNTRIES:
+        p.append("nem célország")
+    for u in ((lead.get("email") or "").split("@")[-1], lead.get("website") or "", lead.get("email_url") or ""):
+        host = u.lower().split("://")[-1].split("/")[0].split(":")[0]
+        if host.endswith(BLOCKED_TLDS):
+            p.append("osztrák/német domain")
+            break
+    return p
+
+
+def rule_violations(lead: dict) -> list[str]:
+    """Minden gépileg ellenőrizhető szabály egy helyen. Üres = tiszta."""
+    text = f"{lead.get('subject') or ''}\n{lead.get('body') or ''}"
+    v = target_problems(lead) + check_letter(lead)
+    if _REFERENCE_RE.search(text):
+        v.append("ügyfélre/referenciára hivatkozik")
+    if _STAT_RE.search(text):
+        v.append("számot/statisztikát állít")
+    if _NAME_RE.search(text):
+        v.append("munkatársat nevez meg")
+    return v

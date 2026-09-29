@@ -5,6 +5,7 @@ A külső függőségek (modell, levelezés, letöltés) paraméterként jönnek
 a teljes folyamat hálózat nélkül tesztelhető.
 """
 import logging
+import os
 import random
 import time
 from dataclasses import dataclass, field
@@ -27,6 +28,53 @@ BATCH = 6               # egy modellhívásban ennyi céget kérünk
 FOLLOWUP_AFTER_WORKDAYS = 5
 SEND_GAP = (25, 70)     # másodperc két levél között: nem egyszerre zúdul ki
 MIN_SCORE = 70          # ennél gyengébb illeszkedésre nem pazarolunk levelet
+
+
+def _env_int(name: str, default: int, lo: int, hi: int) -> int:
+    try:
+        return max(lo, min(hi, int(os.environ.get(name, default))))
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float, lo: float, hi: float) -> float:
+    try:
+        return max(lo, min(hi, float(os.environ.get(name, default))))
+    except ValueError:
+        return default
+
+
+# ---- magától küldés ----------------------------------------------------------
+# Alapból ki van kapcsolva. Csak akkor kapcsolható be, ha a pontszám be van
+# mérve: a magas pontú vázlatok közül, amelyekről ember döntött, legalább
+# AUTO_MIN_RATE részt változtatás nélkül küldött ki, legalább AUTO_MIN_SAMPLE
+# döntésből. A határokat a környezet szűkítheti, de a padlót nem lehet
+# alávinni (a minta legalább 20, az arány legalább 80%).
+def auto_cfg() -> dict:
+    return {
+        "min_score": _env_int("AUTO_SEND_MIN_SCORE", 80, 70, 100),
+        "daily": _env_int("AUTO_SEND_DAILY", 5, 1, 15),
+        "min_sample": _env_int("AUTO_SEND_MIN_SAMPLE", 50, 20, 1000),
+        "min_rate": _env_float("AUTO_SEND_MIN_RATE", 0.9, 0.8, 1.0),
+        "max_age_days": 3,          # régi vázlat már nem friss megfigyelés
+        "brake_days": 14,           # vészfék: ennyi napra visszanézve
+        "brake_bounces": 2,         # ennyi visszapattanás a magától kimentekből -> kikapcsol
+        "hours": (8, 17),           # csak hétköznap, budapesti munkaidőben
+    }
+
+
+def readiness(store: Store) -> dict:
+    cfg = auto_cfg()
+    q = store.quality(cfg["min_score"])
+    rate = q["unedited"] / q["decided"] if q["decided"] else 0.0
+    why = []
+    if q["decided"] < cfg["min_sample"]:
+        why.append(f"még csak {q['decided']}/{cfg['min_sample']} döntés van {cfg['min_score']}+ pontos vázlatról")
+    if q["decided"] and rate < cfg["min_rate"]:
+        why.append(f"a változtatás nélkül küldöttek aránya {round(rate * 100)}%, legalább "
+                   f"{round(cfg['min_rate'] * 100)}% kell")
+    return {**q, "rate": round(rate, 3), "ready": not why, "why": why, **{k: cfg[k] for k in
+            ("min_score", "daily", "min_sample", "min_rate")}}
 
 
 @dataclass
@@ -192,7 +240,7 @@ def _free():
     return FREEMAIL
 
 
-def send_one(store: Store, lead_id: int, *, mailer=mailer_mod) -> tuple[bool, str]:
+def send_one(store: Store, lead_id: int, *, mailer=mailer_mod, via: str = "button") -> tuple[bool, str]:
     """Egy vázlat elküldése. Legfeljebb egyszer megy ki: ha a küldés és a
     naplózás között leáll a program, a levél 'sending' állapotban marad,
     és nem küldjük újra magától — azt ember nézi meg."""
@@ -201,6 +249,14 @@ def send_one(store: Store, lead_id: int, *, mailer=mailer_mod) -> tuple[bool, st
     lead = store.get(lead_id)
     if not lead:
         return False, "nincs ilyen"
+    target = verify.target_problems(lead)
+    if target:
+        store.skip(lead_id)
+        return False, "szabály tiltja: " + ", ".join(target)
+    if via == "auto":
+        v = verify.rule_violations(lead)
+        if v:
+            return False, "magától nem megy ki: " + ", ".join(v)
     if store.is_blocked(lead["email"]):
         store.skip(lead_id)
         return False, "tiltólistán van"
@@ -219,8 +275,63 @@ def send_one(store: Store, lead_id: int, *, mailer=mailer_mod) -> tuple[bool, st
     except Exception as e:  # noqa: BLE001
         store.mark_failed(lead_id, str(e))
         return False, str(e)
-    store.mark_sent(lead_id, mid)
+    store.mark_sent(lead_id, mid, via)
     return True, "elküldve"
+
+
+def auto_send(store: Store, log: RunLog, *, now: datetime, mailer=mailer_mod, sleep=time.sleep) -> list[dict]:
+    """A bemért, szabálytiszta, érintetlen, magas pontú vázlatok kiküldése,
+    napi kerettel. Bármi kétséges -> nem küld, csak naplóz."""
+    if store.get_setting("auto_send") != "on":
+        return []
+    cfg = auto_cfg()
+    r = readiness(store)
+    if not r["ready"]:
+        store.set_setting("auto_send", "off")
+        log.say("Magától küldés kikapcsolva: " + "; ".join(r["why"]))
+        return []
+    since = (now.astimezone(timezone.utc) - timedelta(days=cfg["brake_days"])).isoformat(timespec="seconds")
+    out = store.auto_outcomes(since)
+    if out["bounced"] >= cfg["brake_bounces"]:
+        store.set_setting("auto_send", "off")
+        log.say(f"VÉSZFÉK: {out['bounced']} magától küldött levél visszapattant {cfg['brake_days']} nap alatt. "
+                "A magától küldés kikapcsolt, nézd meg a címkeresést.")
+        return []
+    if now.weekday() >= 5 or not (cfg["hours"][0] <= now.hour < cfg["hours"][1]):
+        log.say("Magától küldés: most nincs munkaidő, ebben a körben nem küld.")
+        return []
+    room = min(cfg["daily"] - store.auto_sent_today(), DAILY_CAP - store.sent_today())
+    if room <= 0:
+        log.say("Magától küldés: a mai keret betelt.")
+        return []
+    oldest = (now.astimezone(timezone.utc) - timedelta(days=cfg["max_age_days"])).isoformat(timespec="seconds")
+    picks = []
+    for l in store.list("draft"):  # pontszám szerint csökkenő
+        if len(picks) >= room:
+            break
+        if ((l["score"] or 0) < cfg["min_score"] or l["created_at"] < oldest or l["orig_body"] is None
+                or (l["body"] or "").strip() != (l["orig_body"] or "").strip()
+                or (l["subject"] or "").strip() != (l["orig_subject"] or "").strip()
+                or store.is_blocked(l["email"]) or verify.rule_violations(l)):
+            continue
+        picks.append(l)
+    sent = []
+    for n, l in enumerate(picks):
+        try:
+            ok, why = send_one(store, l["id"], mailer=mailer, via="auto")
+        except mailer.AuthError as e:
+            log.say(f"Magától küldés leállt: {e}")
+            break
+        log.say(f"{'✓' if ok else '✗'} magától: {l['company']} ({l['score']}): {why}")
+        if ok:
+            sent.append(l)
+            if n < len(picks) - 1:
+                sleep(random.uniform(*SEND_GAP))
+        elif "napi" in why:
+            break
+    if not picks:
+        log.say("Magától küldés: nincs olyan vázlat, ami minden feltételnek megfelel.")
+    return sent
 
 
 def send_many(store: Store, ids: list[int], log: RunLog, *, mailer=mailer_mod, sleep=time.sleep) -> RunLog:

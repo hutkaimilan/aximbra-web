@@ -136,12 +136,16 @@ def index():
 def state():
     return {
         "job": job.state(),
-        "leads": [dict(l, mixed=bool(l["status"] == "draft" and verify.mixed_language(l))) for l in store.list()],
+        "leads": [dict(l, mixed=bool(l["status"] == "draft" and verify.mixed_language(l)),
+                       rules=verify.rule_violations(l) if l["status"] in ("draft", "failed") else [])
+                  for l in store.list()],
         "blocked": store.blocked_keys()[:300],
         "sent_today": store.sent_today(),
         "stats": store.stats(),
         "focus": store.best_sectors(),
         "cap": pipeline.DAILY_CAP,
+        "auto_send": {"on": store.get_setting("auto_send") == "on", "sent_today": store.auto_sent_today(),
+                      **pipeline.readiness(store)},
         "countries": {k: v["name"] for k, v in COUNTRIES.items()},
         "config": {
             "gmail": bool(os.environ.get("GMAIL_USER") and os.environ.get("GMAIL_APP_PASSWORD")),
@@ -189,6 +193,23 @@ def send(body: SendIn):
     if not ids:
         raise HTTPException(400, "Nincs kijelölt levél.")
     return _require_start(job.start("küldés", lambda log: pipeline.send_many(store, ids, log)))
+
+
+class AutoSendIn(BaseModel):
+    on: bool
+
+
+@app.post("/api/auto-send", dependencies=[Depends(auth)])
+def auto_send_toggle(body: AutoSendIn):
+    # Kikapcsolni mindig lehet; bekapcsolni csak bemért pontszámmal.
+    if body.on:
+        r = pipeline.readiness(store)
+        if not r["ready"]:
+            raise HTTPException(409, "Még nem kapcsolható be: " + "; ".join(r["why"]))
+        if not _can_send():
+            raise HTTPException(409, "A Gmail nincs összekötve.")
+    store.set_setting("auto_send", "on" if body.on else "off")
+    return {"on": body.on}
 
 
 class EditIn(BaseModel):
@@ -474,13 +495,19 @@ def _morning(log):
         log.say(f"Válaszfigyelés kimaradt: {e}")
     n = pipeline.prepare_followups(store)
     log.say(f"{n} utánkövetés vár jóváhagyásra.")
+    auto_sent: list[dict] = []
     try:
         pipeline.research_run(store, _auto_plan(), log)
+        try:
+            auto_sent = pipeline.auto_send(store, log, now=datetime.now(TZ))
+        except Exception as e:  # noqa: BLE001 — a küldés hibája ne vigye el az összefoglalót
+            logger.exception("magától küldés hiba")
+            log.say(f"Magától küldés hiba: {e}")
     finally:
-        _notify(log, before, replied_before)
+        _notify(log, before, replied_before, auto_sent)
 
 
-def _notify(log, before: set, replied_before: set) -> None:
+def _notify(log, before: set, replied_before: set, auto_sent: list[dict] | None = None) -> None:
     """Összefoglaló e-mail a tulajdonosnak minden automatikus kör után."""
     to = os.environ.get("NOTIFY_TO", "").strip()
     if not to:
@@ -490,7 +517,11 @@ def _notify(log, before: set, replied_before: set) -> None:
     new_replies = [l for l in leads if l["reply_kind"] != "none" and l["id"] not in replied_before]
     interested = [l for l in new_replies if l["reply_kind"] == "interested"]
     due = [l for l in leads if l["followup_status"] == "draft"]
+    auto_sent = auto_sent or []
+    new_drafts = [l for l in new_drafts if l["id"] not in {a["id"] for a in auto_sent}]
     parts = [f"{len(new_drafts)} új vázlat"]
+    if auto_sent:
+        parts.append(f"{len(auto_sent)} magától elküldve")
     if interested:
         parts.insert(0, f"{len(interested)} ÉRDEKLŐDŐ")
     if new_replies:
@@ -503,6 +534,13 @@ def _notify(log, before: set, replied_before: set) -> None:
     if new_replies and len(new_replies) > len(interested):
         lines += ["Egyéb válaszok:"]
         lines += [f"  • {l['company']}: {l['reply_kind']}" for l in new_replies if l["reply_kind"] != "interested"] + [""]
+    if auto_sent:
+        lines += [f"Magától elküldve ({len(auto_sent)}):"]
+        lines += [f"  • {l['score']}  {l['company']} ({l['email']})" for l in auto_sent] + [""]
+    stopped = [x for x in log.lines if x.startswith(("VÉSZFÉK", "Magától küldés kikapcsolva"))]
+    if stopped:
+        subject = "VÉSZFÉK — " + subject
+        lines += stopped + [""]
     if new_drafts:
         lines += [f"Új vázlatok ({len(new_drafts)}), pontszám szerint:"]
         lines += [f"  • {l['score'] or '–'}  {l['company']} ({l['town'] or l['country']})"

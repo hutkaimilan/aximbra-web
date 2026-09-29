@@ -70,6 +70,10 @@ CREATE TABLE IF NOT EXISTS blocked (
 EXTRA_COLUMNS = {
     "sector": "TEXT", "signal": "TEXT", "signal_note": "TEXT", "signal_url": "TEXT",
     "score": "INTEGER", "score_reason": "TEXT", "critique": "TEXT", "slots": "TEXT", "lang2": "TEXT",
+    # Az agent eredeti vázlata: ebből látszik, hogy ember belejavított-e.
+    "orig_subject": "TEXT", "orig_body": "TEXT",
+    # button = panelről, ember nyomta; manual = saját Gmailből; auto = magától ment ki
+    "sent_via": "TEXT",
 }
 
 # draft -> sending -> sent | failed ; draft -> skipped ; failed -> draft (újra)
@@ -193,15 +197,17 @@ class Store:
                 cur = c.execute(
                     """INSERT INTO leads (created_at, company, town, country, lang, website, domain, email,
                        email_url, observation, observation_url, pain, subject, body, warnings, status,
-                       sector, signal, signal_note, signal_url, score, score_reason, critique, lang2)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'draft', ?,?,?,?,?,?,?,?)""",
+                       sector, signal, signal_note, signal_url, score, score_reason, critique, lang2,
+                       orig_subject, orig_body)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'draft', ?,?,?,?,?,?,?,?,?,?)""",
                     (now(), lead["company"], lead.get("town"), lead["country"], lead["lang"],
                      lead.get("website"), domain_of(email if domain_of(email) not in FREEMAIL
                                                      else lead.get("website") or email),
                      email, lead.get("email_url"), lead.get("observation"), lead.get("observation_url"),
                      lead["pain"], lead.get("subject"), lead.get("body"), lead.get("warnings"),
                      lead.get("sector"), lead.get("signal"), lead.get("signal_note"), lead.get("signal_url"),
-                     _int(lead.get("score")), lead.get("score_reason"), lead.get("critique"), lead.get("lang2")))
+                     _int(lead.get("score")), lead.get("score_reason"), lead.get("critique"), lead.get("lang2"),
+                     lead.get("subject"), lead.get("body")))
                 return cur.lastrowid
             except sqlite3.IntegrityError:
                 return None
@@ -241,16 +247,16 @@ class Store:
                             "WHERE id = ? AND status IN ('draft','failed')", (lead_id,))
             return cur.rowcount == 1
 
-    def mark_sent(self, lead_id: int, message_id: str) -> None:
+    def mark_sent(self, lead_id: int, message_id: str, via: str = "button") -> None:
         with self._conn() as c:
-            c.execute("UPDATE leads SET status = 'sent', sent_at = ?, message_id = ? WHERE id = ?",
-                      (now(), message_id, lead_id))
+            c.execute("UPDATE leads SET status = 'sent', sent_at = ?, message_id = ?, sent_via = ? WHERE id = ?",
+                      (now(), message_id, via, lead_id))
 
     def mark_sent_manual(self, lead_id: int) -> bool:
         """A levelet ember küldte el a saját Gmailjéből; innentől ugyanúgy
         figyeljük a válaszát, mintha a program küldte volna."""
         with self._conn() as c:
-            cur = c.execute("UPDATE leads SET status = 'sent', sent_at = ?, last_error = NULL "
+            cur = c.execute("UPDATE leads SET status = 'sent', sent_at = ?, last_error = NULL, sent_via = 'manual' "
                             "WHERE id = ? AND status IN ('draft','failed')", (now(), lead_id))
             return cur.rowcount == 1
 
@@ -298,6 +304,41 @@ class Store:
             a = c.execute("SELECT COUNT(*) FROM leads WHERE sent_at LIKE ?", (today + "%",)).fetchone()[0]
             b = c.execute("SELECT COUNT(*) FROM leads WHERE followup_sent_at LIKE ?", (today + "%",)).fetchone()[0]
         return a + b
+
+    def auto_sent_today(self) -> int:
+        today = datetime.now(timezone.utc).date().isoformat()
+        with self._conn() as c:
+            return c.execute("SELECT COUNT(*) FROM leads WHERE sent_via = 'auto' AND sent_at LIKE ?",
+                             (today + "%",)).fetchone()[0]
+
+    def auto_outcomes(self, since_iso: str) -> dict:
+        """A magától kiment levelek sorsa egy időpont óta: a vészfékhez."""
+        with self._conn() as c:
+            r = c.execute("""SELECT COUNT(*) AS sent, SUM(reply_kind = 'bounce') AS bounced,
+                             SUM(reply_kind = 'no') AS no, SUM(reply_kind = 'interested') AS interested
+                             FROM leads WHERE sent_via = 'auto' AND sent_at >= ?""", (since_iso,)).fetchone()
+        return {k: (r[k] or 0) for k in r.keys()}
+
+    def quality(self, min_score: int) -> dict:
+        """Mennyire bízhatunk a pontszámban: a legalább min_score pontos
+        vázlatok közül, amelyekről ember döntött a panelen, hányat küldött
+        ki változtatás nélkül. A saját Gmailből küldött levél nem számít,
+        mert ott nem látjuk, belejavított-e."""
+        with self._conn() as c:
+            rows = c.execute("""SELECT status, sent_via, subject, body, orig_subject, orig_body FROM leads
+                                WHERE orig_body IS NOT NULL AND COALESCE(score, 0) >= ?
+                                  AND (status = 'skipped' OR (status = 'sent' AND sent_via = 'button'))""",
+                             (min_score,)).fetchall()
+        unedited = edited = skipped = 0
+        for r in rows:
+            if r["status"] == "skipped":
+                skipped += 1
+            elif ((r["subject"] or "").strip() == (r["orig_subject"] or "").strip()
+                  and (r["body"] or "").strip() == (r["orig_body"] or "").strip()):
+                unedited += 1
+            else:
+                edited += 1
+        return {"decided": len(rows), "unedited": unedited, "edited": edited, "skipped": skipped}
 
     # ---- utánkövetés -----------------------------------------------------
 
