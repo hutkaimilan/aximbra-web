@@ -112,6 +112,7 @@ def state():
             "web_search": websearch.tavily_on(),
             "elevenlabs": bool(os.environ.get("ELEVENLABS_API_KEY") and os.environ.get("ELEVENLABS_VOICE_ID")),
             "imagegen": imagegen.available(),
+            "imagegen_engine": imagegen.engine(),
         },
     }
 

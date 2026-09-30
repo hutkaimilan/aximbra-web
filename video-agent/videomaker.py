@@ -341,7 +341,11 @@ def fill_images(script: dict, aspect: str, say=lambda m: None) -> dict:
             s["kind"] = "statement"
     for s in wanted[4:]:
         s["kind"] = "statement"
-    say(f"Képgenerálás: {made} kép készült." if made else "Képgenerálás: most nem elérhető, szöveges jelenet lesz.")
+    if not made:
+        say("Képgenerálás: most nem elérhető, szöveges jelenet lesz.")
+    else:
+        free = sum(1 for s in wanted if (media.get(s["media"]) or {}).get("source") == "generated-free")
+        say(f"Képgenerálás: {made} kép készült." + (f" Ebből {free} az ingyenes forrásból, vízjellel." if free else ""))
     return script
 
 

@@ -226,7 +226,7 @@ function renderMedia() {
   if (key === mSeen) return;
   mSeen = key;
   $("#mList").innerHTML = S.media.map((m) => `<div class="mitem" data-mid="${esc(m.id)}">
-    <span class="badge">${m.kind === "clip" ? "klip" : m.source === "generated" ? "AI" : "kép"}</span>
+    <span class="badge">${m.kind === "clip" ? "klip" : m.source === "generated-free" ? "AI · vízjel" : m.source === "generated" ? "AI" : "kép"}</span>
     <button class="x" title="Törlés">×</button>
     ${m.kind === "clip" ? `<video src="/api/media/${esc(m.id)}" muted playsinline preload="metadata"></video>`
       : `<img src="/api/media/${esc(m.id)}" alt="">`}
