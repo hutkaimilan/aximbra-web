@@ -218,21 +218,19 @@ details summary{cursor:pointer}
 
   <section id="tab-video" class="hide">
     <div class="card">
-      <div class="who"><div class="core"></div>Videós agent · forgatókönyv → render → MP4</div>
-      <p class="mute" style="margin-top:0">Álló (9:16) videót készít 1080×1920-ban LinkedInre, Reelsre, TikTokra. Nincs benne ember és hang: minden üzenet a képen van, mert a feedben némítva nézik. Mellé megírja a posztot is. Egy videó 3–6 perc.</p>
-      <label>Téma</label>
-      <select id="vTopic">
-        <option value="altalanos">AXIMBRA általában</option><option value="telefon">Telefonos AI</option>
-        <option value="email">E-mail rendező</option><option value="erdeklodo">Érdeklődő-minősítő</option>
-        <option value="dokumentum">Dokumentumelemző</option><option value="nis2">NIS2 megfelelőség</option>
-        <option value="ertekesito">Értékesítő agent</option></select>
+      <div class="who"><div class="core"></div>Videós agent · leírás → forgatókönyv → hang → MP4</div>
+      <label>Mit akarsz? Írd le szabadon</label>
+      <textarea id="vBrief" style="min-height:150px" placeholder="Pl.: 30 mp-es álló videó logisztikai cégvezetőknek arról, hogy a közös ügyfélszolgálati postafiókot az AXIMBRA e-mail agentje reggelre rendezi. Legyen benne az aximbra.hu, komoly, de modern hangulat. Link: https://aximbra.hu"></textarea>
+      <div class="chips" id="vChips" style="margin-top:8px"></div>
       <div class="plan" style="grid-template-columns:1fr 1fr;margin-top:4px">
-        <div><label>Hossz</label><select id="vSec"><option value="20">20 mp</option><option value="30" selected>30 mp</option><option value="45">45 mp</option><option value="60">60 mp</option></select></div>
+        <div><label>Formátum</label><select id="vAspect"><option value="9:16">Álló 9:16 (Reels, TikTok, LinkedIn)</option><option value="1:1">Négyzet 1:1 (feed)</option><option value="16:9">Fekvő 16:9 (YouTube, web)</option></select></div>
+        <div><label>Hossz</label><select id="vSec"><option value="15">15 mp</option><option value="30" selected>30 mp</option><option value="45">45 mp</option><option value="60">60 mp</option><option value="90">90 mp</option></select></div>
+        <div><label>Hang</label><select id="vVoice"><option value="f">Női narráció + felirat</option><option value="m">Férfi narráció + felirat</option><option value="">Nincs hang</option></select></div>
         <div><label>Nyelv</label><select id="vLang"><option value="hu">magyar</option><option value="en">angol</option></select></div>
       </div>
-      <label>Külön kérés (nem kötelező)</label>
-      <input id="vExtra" maxlength="600" placeholder="Pl.: logisztikai cégeknek szóljon, a telefonos demó legyen a közepén">
+      <label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink)"><input type="checkbox" id="vResearch" style="width:auto"> Nézzen utána a weben is (a leírás témájának)</label>
       <div class="row" style="margin-top:12px"><button class="pri" id="vGo">Videó készítése</button><span class="mute" id="vInfo"></span></div>
+      <p class="mute" style="margin-bottom:0">A leírásban szereplő linkeket beolvassa, és telefonon mutatja a videóban. Számot, ügyfelet, eredményt csak akkor ír bele, ha a leírásban vagy a linkelt oldalon szerepel. Egy videó 2–6 perc.</p>
     </div>
     <div id="videos"></div>
   </section>
@@ -576,27 +574,42 @@ $("#advClear").onclick = async () => {
 };
 
 // ---- videós agent ----
-let vSeen = "";
+let vSeen = "", vTopics = {};
 async function vLoad() {
   try {
     const r = await api("/api/videos");
+    vTopics = r.topics || {};
+    if (!$("#vChips").children.length) $("#vChips").innerHTML = Object.entries({altalanos:"AXIMBRA", telefon:"Telefonos AI", email:"E-mail rendező", erdeklodo:"Érdeklődő-minősítő", dokumentum:"Dokumentumelemző", nis2:"NIS2", ertekesito:"Értékesítő agent"})
+      .map(([k, n]) => `<button data-vt="${k}">${esc(n)}</button>`).join("");
     const key = r.videos.map((v) => v.id).join();
     if (key === vSeen && $("#videos").children.length) return;
     vSeen = key;
-    $("#videos").innerHTML = r.videos.map((v) => `<div class="card" data-vid="${esc(v.id)}">
-      <div class="row" style="justify-content:space-between"><b class="co">${esc(v.title)}</b><span class="mute">${esc(v.seconds)} mp · ${esc((v.created_at||"").slice(0,16).replace("T"," "))}</span></div>
-      <video controls playsinline preload="metadata" src="/api/videos/${esc(v.id)}.mp4" style="display:block;width:100%;max-width:320px;margin:12px auto;border-radius:16px;background:#000;box-shadow:0 0 40px rgba(0,229,255,.2)"></video>
+    $("#videos").innerHTML = r.videos.map((v) => {
+      const o = v.opts || {}, w = o.aspect === "16:9" ? 520 : o.aspect === "1:1" ? 360 : 320;
+      return `<div class="card" data-vid="${esc(v.id)}">
+      <div class="row" style="justify-content:space-between"><b class="co">${esc(v.title)}</b><span class="mute">${esc(o.aspect || "9:16")} · ${esc(v.seconds)} mp · ${v.voice_engine ? "hanggal" : "néma"} · ${esc((v.created_at||"").slice(0,16).replace("T"," "))}</span></div>
+      ${v.parent ? `<div class="mute">módosított változat</div>` : ""}
+      <video controls playsinline preload="metadata" src="/api/videos/${esc(v.id)}.mp4" style="display:block;width:100%;max-width:${w}px;margin:12px auto;border-radius:16px;background:#000;box-shadow:0 0 40px rgba(0,229,255,.2)"></video>
       <div class="row" style="justify-content:center"><a href="/api/videos/${esc(v.id)}.mp4?download=1"><button class="pri">Letöltés</button></a>
         <button class="vcopy">Poszt másolása</button><button class="warn vdel">Törlés</button></div>
-      <label>LinkedIn poszt</label><pre class="vpost" style="white-space:pre-wrap;font:inherit;margin:0">${esc(v.post)}</pre>
-      <label>Első komment (ide kerüljön a link)</label><div class="vcom">${esc(v.first_comment)}</div></div>`).join("")
-      || `<div class="card mute">Még nincs videó. Válassz témát, és nyomd meg a „Videó készítése” gombot.</div>`;
+      <label>Módosítás — írd le, mit változtassak</label>
+      <div class="row" style="flex-wrap:nowrap"><input class="vfb" placeholder="Pl.: rövidebb nyitás, több a telefonos demóból, a végén legyen ott az e-mail cím"><button class="vrev">Újra</button></div>
+      <details><summary class="mute">poszt, első komment, leírás</summary>
+        <label>Poszt</label><pre class="vpost" style="white-space:pre-wrap;font:inherit;margin:0">${esc(v.post)}</pre>
+        <label>Első komment (ide a link)</label><div>${esc(v.first_comment)}</div>
+        <label>Leírás</label><div class="mute" style="white-space:pre-wrap">${esc(v.brief || v.topic || "")}</div></details></div>`;
+    }).join("") || `<div class="card mute">Még nincs videó. Írd le fent, mit akarsz, és nyomd meg a „Videó készítése” gombot.</div>`;
   } catch (e) { flash(e.message); }
 }
+$("#vChips").onclick = (e) => { const k = e.target.dataset.vt; if (k && vTopics[k]) { const b = $("#vBrief"); b.value = (b.value ? b.value.trim() + "\n" : "") + vTopics[k]; b.focus(); } };
 $("#vGo").onclick = async () => {
+  const brief = $("#vBrief").value.trim();
+  if (brief.length < 8) { flash("Írd le, miről szóljon a videó."); return; }
+  const voice = $("#vVoice").value;
   try {
-    await api("/api/videos", {topic: $("#vTopic").value, seconds: +$("#vSec").value, lang: $("#vLang").value, extra: $("#vExtra").value});
-    flash("A videó készül. A folyamat fent látszik; kész lesz 3–6 perc múlva."); refresh();
+    await api("/api/videos", {brief, seconds: +$("#vSec").value, lang: $("#vLang").value, aspect: $("#vAspect").value,
+      voice: !!voice, male: voice === "m", research: $("#vResearch").checked});
+    flash("A videó készül, a folyamat fent látszik."); refresh();
   } catch (e) { flash(e.message); }
 };
 $("#videos").onclick = async (e) => {
@@ -605,6 +618,11 @@ $("#videos").onclick = async (e) => {
   try {
     if (e.target.classList.contains("vcopy")) {
       await navigator.clipboard.writeText(card.querySelector(".vpost").textContent); flash("Poszt a vágólapon.");
+    }
+    if (e.target.classList.contains("vrev")) {
+      const fb = card.querySelector(".vfb").value.trim();
+      if (fb.length < 3) { flash("Írd le, mit változtassak."); return; }
+      await api(`/api/videos/${id}/revise`, {feedback: fb}); flash("Az új változat készül."); refresh();
     }
     if (e.target.classList.contains("vdel")) {
       if (!confirm("Törlöm a videót?")) return;

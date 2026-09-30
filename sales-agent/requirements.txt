@@ -8,3 +8,4 @@ recurring-ical-events>=3.0
 cryptography>=42.0.0
 playwright==1.63.0
 imageio-ffmpeg>=0.5
+edge-tts>=6.1

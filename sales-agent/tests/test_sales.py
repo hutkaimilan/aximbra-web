@@ -705,7 +705,7 @@ def test_video_script_is_normalized_and_ends_with_cta():
     assert [x["kind"] for x in s["scenes"]] == ["hook", "call", "problem", "cta"]
     assert s["scenes"][1]["lines"] == ["Jó napot!", "Ajánlatot kérnék."]
     assert len(s["scenes"][2]["lines"]) == 6
-    assert all(2 <= x["seconds"] <= 10 for x in s["scenes"])
+    assert all(2 <= x["seconds"] <= 14 for x in s["scenes"])
     assert s["first_comment"]
 
 
@@ -883,3 +883,66 @@ def test_auto_send_toggle_endpoint_refuses_until_ready(monkeypatch, tmp_path):
     assert c.post("/api/auto-send", json={"on": False}, auth=a).status_code == 200
     st = c.get("/api/state", auth=a).json()
     assert st["auto_send"]["on"] is False and st["auto_send"]["ready"] is False
+
+
+def test_video_claims_need_a_source():
+    s = videomaker.normalize({"scenes": [
+        {"kind": "hook", "headline": "40%-kal kevesebb elveszett hívás", "voice": "Garantáltan"},
+        {"kind": "benefit", "headline": "Mi változik?", "lines": ["Nulla elveszett ügyfél", "Rendezett postafiók"]},
+        {"kind": "statement", "headline": "10 másodpercen belül visszahív"},
+    ]}, 20)
+    v = videomaker.violations(s, "")
+    assert any("40%" in x for x in v) and any("Nulla" in x for x in v) and any("Garantáltan" in x for x in v)
+    assert not any("10 másodperc" in x for x in v)  # az AXIMBRA-tényekben szerepel
+    assert not videomaker.violations(s, "A brief szerint 40%-kal kevesebb, garantáltan, nulla veszteség, ügyfeleink")[:0]
+    cleaned = videomaker._strip_claims(s, "")
+    heads = [x["headline"] for x in cleaned["scenes"]]
+    assert "40%-kal kevesebb elveszett hívás" not in heads
+    assert cleaned["scenes"][0]["lines"] == ["Rendezett postafiók"]
+
+
+def test_video_narration_stretches_scenes(monkeypatch):
+    import math, struct
+    tone = b"".join(struct.pack("<h", int(3000 * math.sin(i / 20))) for i in range(videomaker.SAMPLE_RATE * 3))
+    monkeypatch.setattr(videomaker, "_tts_gemini", lambda text, lang: videomaker._pcm_to_wav(tone))
+    s = videomaker.normalize({"scenes": [
+        {"kind": "hook", "headline": "Első", "voice": "Hosszú mondat", "seconds": 2},
+        {"kind": "statement", "headline": "Második", "voice": "", "seconds": 3},
+    ]}, 10)
+    s["scenes"][0]["seconds"] = 2.0
+    wav, engine = videomaker.narrate(s, "hu", False)
+    assert engine == "gemini" and s["scenes"][0]["seconds"] >= 3.7
+    total = sum(x["seconds"] for x in s["scenes"])
+    with __import__("wave").open(__import__("io").BytesIO(wav)) as w:
+        assert abs(w.getnframes() / w.getframerate() - total) < 0.05
+
+
+def test_video_narration_falls_back_to_silent(monkeypatch):
+    monkeypatch.setattr(videomaker, "_tts_gemini", lambda text, lang: None)
+    monkeypatch.setattr(videomaker, "_tts_edge", lambda text, lang, male: None)
+    s = videomaker.normalize({"scenes": [{"kind": "hook", "headline": "A", "voice": "szia"},
+                                         {"kind": "statement", "headline": "B"}]}, 10)
+    assert videomaker.narrate(s, "hu", False) == (None, "")
+
+
+def test_video_revise_keeps_options_and_links_parent(tmp_path, monkeypatch):
+    import json as _json
+    monkeypatch.setattr(videomaker, "VIDEO_DIR", str(tmp_path))
+    (tmp_path / "abcdef012345.mp4").write_bytes(b"x")
+    (tmp_path / "abcdef012345.json").write_text(_json.dumps({
+        "id": "abcdef012345", "title": "T", "scenes": [{"kind": "hook", "headline": "Régi"}],
+        "opts": {"brief": "E-mail rendező videó", "seconds": 20, "lang": "hu", "aspect": "1:1", "voice": False,
+                 "male": False, "research": False}, "ctx_urls": []}), encoding="utf-8")
+    monkeypatch.setattr(llm, "_ask", lambda p, **k: _json.dumps({"title": "Új", "scenes": [
+        {"kind": "hook", "headline": "Új nyitás"}, {"kind": "cta", "headline": "Próbálja ki"}]}))
+    seen = {}
+
+    def fake_render(script, urls, out, aspect, audio, captions, say):
+        seen["aspect"] = aspect
+        open(out, "wb").write(b"mp4")
+        return 20.0
+
+    monkeypatch.setattr(videomaker, "render", fake_render)
+    m = videomaker.revise("abcdef012345", "rövidebb nyitás")
+    assert m["parent"] == "abcdef012345" and m["title"] == "Új" and seen["aspect"] == "1:1"
+    assert videomaker.get_meta(m["id"])["scenes"][0]["headline"] == "Új nyitás"

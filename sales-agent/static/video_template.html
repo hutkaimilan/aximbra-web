@@ -4,153 +4,217 @@
 <meta charset="utf-8">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@500;700&display=block">
 <style>
-/* Egy 9:16-os videó jelenetei. Minden mozgás CSS-animáció, a renderelő a
-   Web Animations API-val lépteti őket képkockánként, így a kimenet
-   determinisztikus: ugyanaz a forgatókönyv mindig ugyanazt a videót adja. */
-:root{--c:#00e5ff;--v:#8b5cff;--m:#ff3df2;--ok:#19f5a0;--bad:#ff4d6d;--ink:#eef4ff;--mute:#94a3c4;
-  --grad:linear-gradient(120deg,#00e5ff,#8b5cff 55%,#ff3df2);
-  --sans:"Space Grotesk","DejaVu Sans",Arial,sans-serif;--mono:"JetBrains Mono","DejaVu Sans Mono",monospace}
+/* A videós agent sablonja. Minden mozgás CSS-animáció; a renderelő a Web
+   Animations API-val képkockánként állítja az időt, így ugyanaz a
+   forgatókönyv mindig ugyanazt a videót adja. Három képarány (álló,
+   négyzet, fekvő) és négy téma. */
+:root{--sans:"Space Grotesk","DejaVu Sans",Arial,sans-serif;--mono:"JetBrains Mono","DejaVu Sans Mono",monospace;
+  --W:540px;--H:960px;--hs:50px;--ss:22px;--ls:20px;--pad:36px}
+body[data-theme=neon]{--bg:#03040a;--ink:#eef4ff;--mute:#94a3c4;--c:#00e5ff;--v:#8b5cff;--m:#ff3df2;--ok:#19f5a0;--bad:#ff4d6d;
+  --card:rgba(16,22,40,.72);--cline:rgba(120,180,255,.18);--g1:rgba(0,229,255,.28);--g2:rgba(139,92,255,.30);--g3:rgba(255,61,242,.18);--gridc:rgba(120,180,255,.09)}
+body[data-theme=clean]{--bg:#f4f7fc;--ink:#0d1526;--mute:#51607c;--c:#0a66ff;--v:#5b3df5;--m:#00a3c4;--ok:#0f9d58;--bad:#e5484d;
+  --card:rgba(255,255,255,.9);--cline:rgba(13,21,38,.1);--g1:rgba(10,102,255,.14);--g2:rgba(91,61,245,.12);--g3:rgba(0,163,196,.10);--gridc:rgba(13,21,38,.05)}
+body[data-theme=warm]{--bg:#0e0806;--ink:#fff3ea;--mute:#c7a89a;--c:#ffb020;--v:#ff5e3a;--m:#ff2d75;--ok:#7ee081;--bad:#ff4d6d;
+  --card:rgba(40,22,16,.72);--cline:rgba(255,176,32,.2);--g1:rgba(255,176,32,.25);--g2:rgba(255,94,58,.25);--g3:rgba(255,45,117,.16);--gridc:rgba(255,176,32,.07)}
+body[data-theme=mono]{--bg:#050505;--ink:#f5f5f5;--mute:#9a9a9a;--c:#ffffff;--v:#d4ff3a;--m:#d4ff3a;--ok:#d4ff3a;--bad:#ff4d4d;
+  --card:rgba(30,30,30,.8);--cline:rgba(255,255,255,.14);--g1:rgba(255,255,255,.08);--g2:rgba(212,255,58,.12);--g3:rgba(255,255,255,.05);--gridc:rgba(255,255,255,.05)}
+body.square{--W:540px;--H:540px;--hs:40px;--ss:18px;--ls:17px;--pad:30px}
+body.land{--W:960px;--H:540px;--hs:46px;--ss:20px;--ls:18px;--pad:48px}
+body{--grad:linear-gradient(120deg,var(--c),var(--v) 55%,var(--m))}
 *{box-sizing:border-box;margin:0}
-html,body{width:540px;height:960px;overflow:hidden;background:#03040a;color:var(--ink);font-family:var(--sans)}
-#stage{position:relative;width:540px;height:960px;overflow:hidden}
-.bg{position:absolute;inset:-40px;background:
-  radial-gradient(420px 420px at 10% 0%,rgba(0,229,255,.28),transparent 70%),
-  radial-gradient(460px 460px at 100% 45%,rgba(139,92,255,.30),transparent 70%),
-  radial-gradient(420px 420px at 30% 110%,rgba(255,61,242,.18),transparent 70%);animation:glow var(--total) linear both}
-@keyframes glow{to{transform:translate(-30px,20px) scale(1.08);filter:hue-rotate(30deg)}}
-.grid{position:absolute;inset:0;background-image:linear-gradient(rgba(120,180,255,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(120,180,255,.09) 1px,transparent 1px);
+html,body{width:var(--W);height:var(--H);overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+#stage{position:relative;width:var(--W);height:var(--H);overflow:hidden;background:var(--bg)}
+.bg{position:absolute;inset:-40px;background:radial-gradient(60% 45% at 10% 0%,var(--g1),transparent 70%),
+  radial-gradient(65% 50% at 100% 45%,var(--g2),transparent 70%),radial-gradient(60% 45% at 30% 110%,var(--g3),transparent 70%);
+  animation:glow var(--total) linear both}
+@keyframes glow{to{transform:translate(-30px,20px) scale(1.08);filter:hue-rotate(25deg)}}
+.grid{position:absolute;inset:0;background-image:linear-gradient(var(--gridc) 1px,transparent 1px),linear-gradient(90deg,var(--gridc) 1px,transparent 1px);
   background-size:36px 36px;mask-image:linear-gradient(180deg,transparent,#000 30%,#000 70%,transparent);animation:gridmove var(--total) linear both}
 @keyframes gridmove{to{background-position:0 360px}}
-.brand{position:absolute;top:34px;left:32px;right:32px;display:flex;justify-content:space-between;align-items:center;z-index:5;
-  font:700 15px var(--sans);letter-spacing:.22em}
+.brand{position:absolute;top:28px;left:var(--pad);right:var(--pad);display:flex;justify-content:space-between;align-items:center;z-index:5;font:700 15px var(--sans);letter-spacing:.22em}
 .brand b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .brand span{font:500 11px var(--mono);letter-spacing:.18em;color:var(--mute)}
-.core{width:26px;height:26px;border-radius:50%;background:conic-gradient(#00e5ff,#8b5cff,#ff3df2,#00e5ff);position:relative;display:inline-block;vertical-align:middle;margin-right:10px;
-  box-shadow:0 0 16px rgba(0,229,255,.7);animation:spin 4s linear infinite}
-.core::after{content:"";position:absolute;inset:5px;border-radius:50%;background:#03040a}
+.core{width:24px;height:24px;border-radius:50%;background:conic-gradient(var(--c),var(--v),var(--m),var(--c));position:relative;display:inline-block;vertical-align:middle;margin-right:10px;animation:spin 4s linear infinite}
+.core::after{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--bg)}
 @keyframes spin{to{transform:rotate(360deg)}}
-.progress{position:absolute;left:32px;right:32px;bottom:30px;height:4px;border-radius:4px;background:rgba(255,255,255,.08);z-index:5;overflow:hidden}
+.progress{position:absolute;left:var(--pad);right:var(--pad);bottom:22px;height:4px;border-radius:4px;background:var(--cline);z-index:5;overflow:hidden}
 .progress i{display:block;height:100%;background:var(--grad);transform-origin:left;animation:prog var(--total) linear both}
 @keyframes prog{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.caption{position:absolute;left:var(--pad);right:var(--pad);bottom:40px;z-index:6;text-align:center}
+.cap{display:inline-block;padding:7px 12px;border-radius:10px;background:rgba(0,0,0,.62);color:#fff;font:500 16px/1.35 var(--sans);opacity:0}
 
-.scene{position:absolute;inset:0;padding:120px 36px 80px;display:flex;flex-direction:column;justify-content:center;gap:22px;opacity:0}
+.scene{position:absolute;inset:0;padding:96px var(--pad) 84px;display:flex;flex-direction:column;justify-content:center;gap:20px;opacity:0}
+body.land .scene{flex-direction:row;align-items:center;gap:40px;padding:80px var(--pad) 70px}
+body.land .scene .txt{flex:1 1 55%}
+body.land .scene .vis{flex:0 0 auto}
+body.square .scene{padding:74px var(--pad) 60px;gap:14px}
+.txt{display:flex;flex-direction:column;gap:18px}
+.vis{display:flex;justify-content:center}
 @keyframes sIn{from{opacity:0;transform:translateY(40px) scale(.97);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}
 @keyframes sOut{from{opacity:1;transform:none;filter:none}to{opacity:0;transform:translateY(-40px) scale(1.02);filter:blur(8px)}}
-.kicker{font:700 14px var(--mono);letter-spacing:.24em;text-transform:uppercase;color:var(--c);text-shadow:0 0 14px rgba(0,229,255,.6)}
-.h{font:700 50px/1.06 var(--sans);letter-spacing:-.01em}
+.kicker{font:700 14px var(--mono);letter-spacing:.24em;text-transform:uppercase;color:var(--c)}
+.h{font:700 var(--hs)/1.06 var(--sans);letter-spacing:-.01em}
+.h.big{font-size:calc(var(--hs) * 1.35)}
 .h .w{display:inline-block;margin-right:.24em}
-.h .w.g{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 18px rgba(139,92,255,.55))}
+.h .w.g{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 @keyframes pop{from{opacity:0;transform:translateY(30px) rotateX(70deg);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
-.sub{font:500 22px/1.35 var(--sans);color:#c9d6f2}
+.sub{font:500 var(--ss)/1.35 var(--sans);color:var(--mute)}
 @keyframes rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+@keyframes slide{from{opacity:0;transform:translateX(-60px)}to{opacity:1;transform:none}}
 .cards{display:grid;gap:12px}
-.cardx{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:18px;background:rgba(16,22,40,.72);border:1px solid rgba(120,180,255,.18);
-  font:500 21px/1.3 var(--sans);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.cardx{display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:18px;background:var(--card);border:1px solid var(--cline);font:500 var(--ls)/1.3 var(--sans)}
 .cardx i{width:12px;height:12px;flex:none;border-radius:50%;background:var(--bad);box-shadow:0 0 12px var(--bad)}
 .cardx.ok i{background:var(--ok);box-shadow:0 0 12px var(--ok)}
-@keyframes slide{from{opacity:0;transform:translateX(-60px)}to{opacity:1;transform:none}}
+.cardx .num{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--grad);color:#05060d;font:700 16px var(--mono)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.col{padding:14px;border-radius:18px;background:var(--card);border:1px solid var(--cline)}
+.col h4{font:700 12px var(--mono);letter-spacing:.18em;text-transform:uppercase;margin-bottom:10px;color:var(--bad)}
+.col.after h4{color:var(--ok)}
+.col p{font:500 calc(var(--ls) * .85)/1.3 var(--sans);padding:6px 0;border-top:1px solid var(--cline)}
+.col.after{border-color:var(--ok);box-shadow:0 0 30px rgba(25,245,160,.15)}
 
-.phone{position:relative;align-self:center;width:300px;height:560px;border-radius:44px;padding:12px;background:linear-gradient(145deg,#1b2238,#0a0e1a);
-  box-shadow:0 0 0 2px rgba(120,180,255,.25),0 30px 80px rgba(0,0,0,.6),0 0 60px rgba(0,229,255,.25)}
-.screen{position:relative;width:100%;height:100%;border-radius:34px;overflow:hidden;background:#05070f}
+.phone{position:relative;width:280px;height:540px;border-radius:42px;padding:11px;background:linear-gradient(145deg,#1b2238,#0a0e1a);
+  box-shadow:0 0 0 2px var(--cline),0 30px 80px rgba(0,0,0,.5),0 0 60px var(--g1)}
+body.square .phone{width:200px;height:370px;border-radius:32px;padding:8px}
+body.land .phone{width:220px;height:420px}
+.screen{position:relative;width:100%;height:100%;border-radius:32px;overflow:hidden;background:#05070f}
+body.square .screen{border-radius:24px}
 .screen img{position:absolute;left:0;top:0;width:100%}
-.notch{position:absolute;top:10px;left:50%;width:90px;height:22px;margin-left:-45px;border-radius:12px;background:#000;z-index:3}
-@keyframes phoneIn{from{opacity:0;transform:translateY(80px) rotateX(25deg) scale(.9)}to{opacity:1;transform:none}}
-
-.call{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;padding:60px 16px 16px;gap:10px;
-  background:radial-gradient(260px 260px at 50% 25%,rgba(0,229,255,.25),transparent 70%),#05070f}
-.avatar{position:relative;width:96px;height:96px;border-radius:50%;display:grid;place-items:center}
+.notch{position:absolute;top:9px;left:50%;width:80px;height:20px;margin-left:-40px;border-radius:12px;background:#000;z-index:3}
+@keyframes phoneIn{from{opacity:0;transform:translateY(80px) scale(.9)}to{opacity:1;transform:none}}
+.call{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;padding:52px 14px 14px;gap:9px;color:#eef4ff;
+  background:radial-gradient(240px 240px at 50% 22%,rgba(0,229,255,.25),transparent 70%),#05070f}
+.avatar{position:relative;width:84px;height:84px;border-radius:50%;display:grid;place-items:center}
 .avatar::before{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(#00e5ff,#8b5cff,#ff3df2,#00e5ff);animation:spin 3s linear infinite}
-.avatar b{position:relative;width:84px;height:84px;border-radius:50%;background:#05070f;display:grid;place-items:center;font:700 26px var(--sans)}
-.ringwave{position:absolute;top:60px;left:50%;width:96px;height:96px;margin-left:-48px;border-radius:50%;border:2px solid var(--c);animation:wave 1.4s ease-out infinite}
-@keyframes wave{from{transform:scale(1);opacity:.9}to{transform:scale(2.2);opacity:0}}
-.cname{font:700 20px var(--sans)}.cstate{font:500 13px var(--mono);color:var(--ok);letter-spacing:.1em}
-.bub{max-width:88%;padding:9px 12px;border-radius:14px;font:500 14px/1.35 var(--sans);opacity:0}
+.avatar b{position:relative;width:72px;height:72px;border-radius:50%;background:#05070f;display:grid;place-items:center;font:700 22px var(--sans)}
+.cname{font:700 18px var(--sans)}.cstate{font:500 12px var(--mono);color:#19f5a0;letter-spacing:.1em}
+.bub{max-width:90%;padding:8px 11px;border-radius:14px;font:500 13px/1.35 var(--sans);opacity:0}
 .bub.ai{align-self:flex-start;background:linear-gradient(135deg,rgba(0,229,255,.22),rgba(139,92,255,.25));border:1px solid rgba(0,229,255,.35)}
 .bub.me{align-self:flex-end;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12)}
-
+.inbox{position:absolute;inset:0;padding:40px 10px 10px;background:#0b0f1a;color:#e8eefc;display:flex;flex-direction:column;gap:7px}
+.inbox .top{font:700 13px var(--sans);padding:4px 6px 8px;border-bottom:1px solid rgba(255,255,255,.08)}
+.mail{padding:8px 9px;border-radius:10px;background:rgba(255,255,255,.04);font:500 12px/1.3 var(--sans);opacity:0}
+.mail em{display:inline-block;margin-top:5px;font:700 10px var(--mono);font-style:normal;padding:2px 7px;border-radius:999px;background:var(--grad);color:#05060d;opacity:0}
+@keyframes tag{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.tile{padding:18px 14px;border-radius:18px;background:rgba(16,22,40,.72);border:1px solid rgba(120,180,255,.16);font:700 18px/1.25 var(--sans);opacity:.25}
+.tile{padding:16px 14px;border-radius:18px;background:var(--card);border:1px solid var(--cline);font:700 calc(var(--ls) * .9)/1.25 var(--sans);opacity:.25}
 .tile small{display:block;font:500 11px var(--mono);letter-spacing:.14em;color:var(--mute);margin-bottom:6px}
-@keyframes lit{from{opacity:.25;border-color:rgba(120,180,255,.16);box-shadow:none}to{opacity:1;border-color:rgba(0,229,255,.7);box-shadow:0 0 26px rgba(0,229,255,.35)}}
-
-.url{font:700 64px/1 var(--sans);text-align:center;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;
-  filter:drop-shadow(0 0 26px rgba(0,229,255,.55))}
-.pill{align-self:center;padding:16px 26px;border-radius:999px;background:var(--grad);color:#05060d;font:700 20px var(--sans);box-shadow:0 0 40px rgba(139,92,255,.6)}
+@keyframes lit{from{opacity:.25;box-shadow:none}to{opacity:1;border-color:var(--c);box-shadow:0 0 26px var(--g1)}}
+.bignum{font:700 calc(var(--hs) * 2.2)/1 var(--sans);background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.quote{font:700 calc(var(--hs) * .8)/1.2 var(--sans)}
+.quote::before{content:"„";display:block;font-size:2.2em;line-height:.6;color:var(--c)}
+.url{font:700 calc(var(--hs) * 1.25)/1 var(--sans);background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;word-break:break-all}
+.pill{align-self:center;padding:14px 24px;border-radius:999px;background:var(--grad);color:#05060d;font:700 calc(var(--ss) * .9) var(--sans)}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 .center{text-align:center;align-items:center}
 </style>
 </head>
-<body>
+<body data-theme="neon">
 <div id="stage">
   <div class="bg"></div><div class="grid"></div>
-  <div class="brand"><div><i class="core"></i><b>AXIMBRA</b></div><span id="tagline"></span></div>
+  <div class="brand"><div><i class="core"></i><b id="brandname">AXIMBRA</b></div><span id="tagline"></span></div>
   <div id="scenes"></div>
+  <div class="caption" id="captions"></div>
   <div class="progress"><i></i></div>
 </div>
 <script>
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const anim = (name, dur, delay, extra = "") => `${name} ${dur}s ${extra || "cubic-bezier(.2,.8,.2,1)"} ${delay}s both`;
+const anim = (name, dur, delay, ease = "cubic-bezier(.2,.8,.2,1)") => `${name} ${dur}s ${ease} ${delay}s both`;
 
-// A kiemelt szavak (a címben *így* jelölve) színátmenetesek.
+// A *csillaggal* jelölt szavak színátmenetesek.
 function words(text, t0) {
   return String(text || "").split(/\s+/).filter(Boolean).map((w, i) => {
-    const g = /^\*.*\*$/.test(w) || /^\*/.test(w) || /\*$/.test(w);
+    const g = /\*/.test(w);
     return `<span class="w ${g ? "g" : ""}" style="animation:${anim("pop", .55, t0 + .12 * i)}">${esc(w.replace(/\*/g, ""))}</span>`;
   }).join("");
 }
+const rise = (cls, html, t) => html ? `<div class="${cls}" style="animation:${anim("rise", .6, t)}">${esc(html)}</div>` : "";
 
-function sceneHTML(s, t0, shot) {
+function head(s, t0, big) {
+  return `${s.kicker ? `<div class="kicker" style="animation:${anim("rise", .5, t0)}">${esc(s.kicker)}</div>` : ""}
+    ${s.headline ? `<div class="h ${big ? "big" : ""}">${words(s.headline, t0 + .15)}</div>` : ""}`;
+}
+function phone(inner, t0) {
+  return `<div class="phone" style="animation:${anim("phoneIn", .8, t0 + .3)}"><div class="screen"><div class="notch"></div>${inner}</div></div>`;
+}
+
+function scene(s, t0, shots, dims) {
   const d = s.seconds, L = s.lines || [];
-  const head = `${s.kicker ? `<div class="kicker" style="animation:${anim("rise", .5, t0)}">${esc(s.kicker)}</div>` : ""}
-    <div class="h">${words(s.headline, t0 + .15)}</div>`;
-  const sub = s.sub ? `<div class="sub" style="animation:${anim("rise", .6, t0 + .6)}">${esc(s.sub)}</div>` : "";
+  const per = (n) => Math.max(.35, Math.min(.9, (d - 2) / Math.max(1, n)));
   switch (s.kind) {
-    case "problem":
-    case "benefit":
-      return head + `<div class="cards">${L.map((l, i) =>
-        `<div class="cardx ${s.kind === "benefit" ? "ok" : ""}" style="animation:${anim("slide", .55, t0 + .7 + .45 * i)}"><i></i>${esc(l)}</div>`).join("")}</div>` + sub;
+    case "problem": case "benefit":
+      return {txt: head(s, t0) + `<div class="cards">${L.map((l, i) =>
+        `<div class="cardx ${s.kind === "benefit" ? "ok" : ""}" style="animation:${anim("slide", .55, t0 + .7 + per(L.length) * i)}"><i></i>${esc(l)}</div>`).join("")}</div>` + rise("sub", s.sub, t0 + .9 + per(L.length) * L.length)};
+    case "steps":
+      return {txt: head(s, t0) + `<div class="cards">${L.map((l, i) =>
+        `<div class="cardx" style="animation:${anim("slide", .55, t0 + .7 + per(L.length) * i)}"><span class="num">${i + 1}</span>${esc(l)}</div>`).join("")}</div>` + rise("sub", s.sub, t0 + 1 + per(L.length) * L.length)};
+    case "compare": {
+      const R = s.lines2 || [];
+      const col = (cls, title, arr, t) => `<div class="col ${cls}" style="animation:${anim("rise", .6, t)}"><h4>${esc(title)}</h4>${arr.map((l) => `<p>${esc(l)}</p>`).join("")}</div>`;
+      return {txt: head(s, t0) + `<div class="cols">${col("", s.left_title || "Most", L, t0 + .7)}${col("after", s.right_title || "Agenttel", R, t0 + .7 + d * .3)}</div>` + rise("sub", s.sub, t0 + d * .55)};
+    }
     case "site": {
-      const h = shot ? shot.height : 0, vis = 536, dist = Math.max(0, Math.min(h - vis, 2600));
-      return head + `<div class="phone" style="animation:${anim("phoneIn", .8, t0 + .3)}"><div class="screen"><div class="notch"></div>
-        ${shot ? `<img src="${shot.src}" style="animation:scroll${t0 | 0} ${Math.max(1, d - 1.4)}s ease-in-out ${t0 + 1}s both">
-        <style>@keyframes scroll${t0 | 0}{from{transform:translateY(0)}to{transform:translateY(-${dist}px)}}</style>` : ""}</div></div>` + sub;
+      const shot = shots[s.shot || 0] || shots[0];
+      if (!shot) return {txt: head(s, t0, true) + rise("sub", s.sub, t0 + .6)};
+      const vis = dims.visH, dist = Math.max(0, Math.min(shot.height - vis, 2400));
+      const id = "sc" + Math.round(t0 * 100);
+      return {txt: head(s, t0) + rise("sub", s.sub, t0 + .6),
+        vis: phone(`<img src="${shot.src}" style="animation:${id} ${Math.max(1, d - 1.4)}s ease-in-out ${t0 + 1}s both"><style>@keyframes ${id}{from{transform:translateY(0)}to{transform:translateY(-${dist}px)}}</style>`, t0)};
     }
     case "call":
-      return head + `<div class="phone" style="animation:${anim("phoneIn", .8, t0 + .3)}"><div class="screen"><div class="notch"></div>
-        <div class="call"><div class="ringwave"></div><div class="avatar"><b>AI</b></div><div class="cname">AXIMBRA AI</div>
-        <div class="cstate">● ${esc(s.status || "HÍVÁS FOLYAMATBAN")}</div>
-        ${L.map((l, i) => `<div class="bub ${i % 2 ? "me" : "ai"}" style="animation:${anim("rise", .45, t0 + 1.1 + i * Math.max(.8, (d - 2) / Math.max(1, L.length)))}">${esc(l)}</div>`).join("")}
-        </div></div></div>` + sub;
+      return {txt: head(s, t0) + rise("sub", s.sub, t0 + .6),
+        vis: phone(`<div class="call"><div class="avatar"><b>AI</b></div><div class="cname">${esc(s.caller || "AXIMBRA AI")}</div>
+          <div class="cstate">● ${esc(s.status || "HÍVÁS FOLYAMATBAN")}</div>
+          ${L.map((l, i) => `<div class="bub ${i % 2 ? "me" : "ai"}" style="animation:${anim("rise", .45, t0 + 1.1 + i * per(L.length) * 1.4)}">${esc(l)}</div>`).join("")}</div>`, t0)};
+    case "inbox":
+      return {txt: head(s, t0) + rise("sub", s.sub, t0 + .6),
+        vis: phone(`<div class="inbox"><div class="top">${esc(s.app || "Beérkezett levelek")}</div>${L.map((l, i) => {
+          const [subj, tagtxt] = String(l).split("|");
+          const t = t0 + .9 + i * .35;
+          return `<div class="mail" style="animation:${anim("rise", .4, t)}">${esc(subj)}${tagtxt ? `<br><em style="animation:${anim("tag", .35, t + 1.2 + i * .25)}">${esc(tagtxt.trim())}</em>` : ""}</div>`;
+        }).join("")}</div>`, t0)};
     case "agents":
-      return head + `<div class="tiles">${L.map((l, i) =>
-        `<div class="tile" style="animation:${anim("lit", .5, t0 + .8 + .35 * i, "ease")}"><small>AGENT ${String(i + 1).padStart(2, "0")}</small>${esc(l)}</div>`).join("")}</div>` + sub;
+      return {txt: head(s, t0) + `<div class="tiles">${L.map((l, i) =>
+        `<div class="tile" style="animation:${anim("lit", .5, t0 + .8 + per(L.length) * .6 * i, "ease")}"><small>${esc(s.tile_label || "AGENT")} ${String(i + 1).padStart(2, "0")}</small>${esc(l)}</div>`).join("")}</div>` + rise("sub", s.sub, t0 + 1.2 + L.length * .3)};
+    case "number":
+      return {txt: `${s.kicker ? `<div class="kicker">${esc(s.kicker)}</div>` : ""}<div class="bignum" style="animation:${anim("pop", .8, t0 + .2)}">${esc(s.headline)}</div>` + rise("sub", s.sub, t0 + .8)};
+    case "quote":
+      return {txt: `<div class="quote" style="animation:${anim("rise", .7, t0 + .2)}">${esc(s.headline)}</div>` + rise("sub", s.sub, t0 + 1)};
     case "cta":
-      return `${s.kicker ? `<div class="kicker center" style="animation:${anim("rise", .5, t0)}">${esc(s.kicker)}</div>` : ""}
-        <div class="h center" style="text-align:center">${words(s.headline, t0 + .15)}</div>
+      return {center: true, txt: `${s.kicker ? `<div class="kicker" style="animation:${anim("rise", .5, t0)}">${esc(s.kicker)}</div>` : ""}
+        <div class="h" style="text-align:center">${words(s.headline, t0 + .15)}</div>
         <div class="url" style="animation:${anim("pop", .8, t0 + .7)}">${esc(s.url || "aximbra.hu")}</div>
-        ${s.sub ? `<div class="sub center" style="text-align:center;animation:${anim("rise", .6, t0 + 1.1)}">${esc(s.sub)}</div>` : ""}
-        ${s.button ? `<div class="pill" style="animation:${anim("rise", .6, t0 + 1.4)},pulse 1.6s ease-in-out ${t0 + 2}s infinite">${esc(s.button)}</div>` : ""}`;
+        ${rise("sub", s.sub, t0 + 1.1)}
+        ${s.button ? `<div class="pill" style="animation:${anim("rise", .6, t0 + 1.4)},pulse 1.6s ease-in-out ${t0 + 2}s infinite">${esc(s.button)}</div>` : ""}`};
+    case "statement":
+      return {center: !!s.center, txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
     default: // hook
-      return head + sub;
+      return {txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
   }
 }
 
-// cfg: {scenes: [...], tagline, shot: {src, height}}; visszaadja a teljes hosszt (s).
+// cfg: {scenes, tagline, brand, theme, aspect, shots: [{src,height}], captions: bool}; visszaadja a hosszt (s).
 window.build = (cfg) => {
-  let t = 0;
+  document.body.dataset.theme = cfg.theme || "neon";
+  document.body.className = cfg.aspect === "1:1" ? "square" : cfg.aspect === "16:9" ? "land" : "";
+  const visH = cfg.aspect === "1:1" ? 354 : cfg.aspect === "16:9" ? 398 : 518;
+  let t = 0, caps = "";
   const html = cfg.scenes.map((s, i) => {
     const t0 = t, last = i === cfg.scenes.length - 1;
     t += s.seconds;
     const outs = last ? "" : `,sOut .45s ease-in ${t - .45}s forwards`;
-    return `<section class="scene ${s.kind === "cta" ? "center" : ""}" style="animation:sIn .6s cubic-bezier(.2,.8,.2,1) ${t0}s both${outs}">${sceneHTML(s, t0 + .1, cfg.shot)}</section>`;
+    const r = scene(s, t0 + .1, cfg.shots || [], {visH});
+    if (cfg.captions && s.voice) caps += `<span class="cap" style="position:absolute;left:0;right:0;animation:rise .3s ease ${t0 + .2}s both${last ? "" : `,sOut .3s ease ${t - .35}s forwards`}">${esc(s.voice)}</span>`;
+    return `<section class="scene ${r.center ? "center" : ""}" style="animation:sIn .6s cubic-bezier(.2,.8,.2,1) ${t0}s both${outs}">
+      <div class="txt ${r.center ? "center" : ""}">${r.txt}</div>${r.vis ? `<div class="vis">${r.vis}</div>` : ""}</section>`;
   }).join("");
   document.documentElement.style.setProperty("--total", t + "s");
   document.getElementById("tagline").textContent = cfg.tagline || "";
+  document.getElementById("brandname").textContent = cfg.brand || "AXIMBRA";
   document.getElementById("scenes").innerHTML = html;
+  document.getElementById("captions").innerHTML = caps;
   return t;
 };
-
 window.seek = (ms) => { for (const a of document.getAnimations()) { a.pause(); a.currentTime = ms; } };
 </script>
 </body>

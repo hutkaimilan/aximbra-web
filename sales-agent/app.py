@@ -400,23 +400,35 @@ def advisor_clear():
 # ---- videós agent -----------------------------------------------------------
 
 class VideoIn(BaseModel):
-    topic: str = Field(default="altalanos", max_length=40)
-    seconds: int = Field(default=30, ge=15, le=60)
+    brief: str = Field(min_length=8, max_length=4000)
+    seconds: int = Field(default=30, ge=10, le=90)
     lang: str = Field(default="hu", pattern="^(hu|en)$")
-    extra: str = Field(default="", max_length=600)
+    aspect: str = Field(default="9:16", pattern="^(9:16|1:1|16:9)$")
+    voice: bool = True
+    male: bool = False
+    research: bool = False
+
+
+class ReviseIn(BaseModel):
+    feedback: str = Field(min_length=3, max_length=2000)
 
 
 @app.get("/api/videos", dependencies=[Depends(auth)])
 def videos():
-    return {"videos": videomaker.list_videos(), "topics": list(videomaker.TOPICS)}
+    return {"videos": videomaker.list_videos(), "topics": videomaker.TOPICS}
 
 
 @app.post("/api/videos", dependencies=[Depends(auth)])
 def video_make(body: VideoIn):
-    if body.topic not in videomaker.TOPICS:
-        raise HTTPException(400, "Ismeretlen téma.")
     return _require_start(job.start("videókészítés", lambda run: videomaker.make(
-        body.topic, body.seconds, body.lang, body.extra, say=run.say)))
+        body.brief, body.seconds, body.lang, body.aspect, body.voice, body.male, body.research, say=run.say)))
+
+
+@app.post("/api/videos/{vid}/revise", dependencies=[Depends(auth)])
+def video_revise(vid: str, body: ReviseIn):
+    if not videomaker.get_meta(vid):
+        raise HTTPException(404, "Nincs ilyen videó.")
+    return _require_start(job.start("videókészítés", lambda run: videomaker.revise(vid, body.feedback, say=run.say)))
 
 
 @app.get("/api/videos/{vid}.mp4", dependencies=[Depends(auth)])
