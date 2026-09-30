@@ -264,11 +264,11 @@ def test_daily_post_budget_resets_on_a_new_day(cfg):
 
 
 def test_publisher_reports_what_is_missing(monkeypatch):
-    for v in ("IG_USER_ID", "IG_ACCESS_TOKEN", "PUBLIC_BASE_URL", "LI_ACCESS_TOKEN", "LI_AUTHOR_URN"):
+    for v in ("IG_USER_ID", "IG_ACCESS_TOKEN", "PUBLIC_BASE_URL", "LI_ACCESS_TOKEN", "LI_AUTHOR_URN", "LI_WEBHOOK_URL"):
         monkeypatch.delenv(v, raising=False)
     assert not publisher.ig_ready() and not publisher.li_ready()
     assert publisher.enabled_targets() == []
-    assert len(publisher.ig_missing()) == 3 and len(publisher.li_missing()) == 2
+    assert len(publisher.ig_missing()) == 3 and len(publisher.li_missing()) == 1
     monkeypatch.setenv("LI_ACCESS_TOKEN", "t")
     monkeypatch.setenv("LI_AUTHOR_URN", "urn:li:person:abc")
     assert publisher.enabled_targets() == ["linkedin"]
@@ -589,3 +589,28 @@ def test_linkedin_version_trails_the_calendar():
     assert publisher.li_version(date(2026, 9, 30)) == "202607"
     assert publisher.li_version(date(2027, 1, 5)) == "202611"
     assert publisher.li_version(date(2026, 2, 1)) == "202512"
+
+
+def test_linkedin_goes_through_the_webhook_without_its_own_app(monkeypatch):
+    for k in ("LI_ACCESS_TOKEN", "LI_AUTHOR_URN"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("LI_WEBHOOK_URL", "https://hook.eu2.make.com/abc")
+    monkeypatch.setenv("PUBLIC_BASE_URL", "https://pelda.hu")
+    sent = []
+    monkeypatch.setattr(publisher.httpx, "post", lambda url, json, timeout: sent.append((url, json)) or _Resp(200))
+    assert publisher.li_ready() and publisher.li_missing() == []
+    out = publisher.publish("linkedin", paths=["/a.jpg", "/b.jpg"], urls=["https://x/1.jpg", "https://x/2.jpg"],
+                            caption="szöveg", title="T", form="carousel")
+    assert out and len(sent) == 1
+    url, body = sent[0]
+    assert url == "https://hook.eu2.make.com/abc"
+    assert body["image_urls"] == ["https://x/1.jpg", "https://x/2.jpg"] and body["first_image_url"] == "https://x/1.jpg"
+    assert body["caption"] == "szöveg" and body["video_url"] == ""
+
+
+def test_a_plain_http_webhook_is_not_trusted(monkeypatch):
+    for k in ("LI_ACCESS_TOKEN", "LI_AUTHOR_URN"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("LI_WEBHOOK_URL", "http://hook.pelda.hu/abc")
+    monkeypatch.setenv("PUBLIC_BASE_URL", "https://pelda.hu")
+    assert not publisher.li_ready()

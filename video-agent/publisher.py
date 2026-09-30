@@ -12,6 +12,12 @@ platform másképp veszi át őket, ezért a két út különbözik:
 Mindkettőhöz kulcs kell a szolgáltatás környezeti változóiban:
   IG_USER_ID, IG_ACCESS_TOKEN, PUBLIC_BASE_URL, PUBLIC_LINK_SECRET
   LI_ACCESS_TOKEN, LI_AUTHOR_URN   (urn:li:person:… vagy urn:li:organization:…)
+
+LinkedInre van egy második út is, saját fejlesztői app nélkül: LI_WEBHOOK_URL.
+Ilyenkor egy automatizáló (pl. Make.com) webhookjának küldjük el a posztot
+és a fájlok nyilvános címét, a kiposztolást pedig az ő jóváhagyott LinkedIn-
+appja végzi. Ez akkor kell, ha a fiókkal még nem lehet céges oldalt — és így
+fejlesztői appot — létrehozni.
 """
 from __future__ import annotations
 
@@ -154,14 +160,41 @@ def ig_publish(video_url: str, caption: str, sleep=stop.sleep) -> str:
 LI_API = "https://api.linkedin.com/rest"
 
 
-def li_ready() -> bool:
+def li_direct() -> bool:
     return bool(_env("LI_ACCESS_TOKEN") and _env("LI_AUTHOR_URN"))
 
 
+def li_webhook() -> bool:
+    return _env("LI_WEBHOOK_URL").startswith("https://") and bool(_env("PUBLIC_BASE_URL"))
+
+
+def li_ready() -> bool:
+    return li_direct() or li_webhook()
+
+
 def li_missing() -> list[str]:
-    need = {"LI_ACCESS_TOKEN": "LinkedIn hozzáférési kulcs",
-            "LI_AUTHOR_URN": "LinkedIn szerző azonosító (urn:li:person:… vagy urn:li:organization:…)"}
-    return [v for k, v in need.items() if not _env(k)]
+    if li_ready():
+        return []
+    return ["LinkedIn-kulcs (LI_ACCESS_TOKEN + LI_AUTHOR_URN) vagy Make-webhook (LI_WEBHOOK_URL)"]
+
+
+def li_publish_webhook(*, form: str, urls: list[str], caption: str, title: str) -> str:
+    """A poszt átadása az automatizálónak. A fájlokat ő tölti le a nyilvános,
+    aláírt címünkről. Egy kérés, nincs újrapróbálás: ha a webhook egyszer
+    már elfogadta, egy második hívás dupla posztot jelentene."""
+    if not urls:
+        raise PublishError("nincs nyilvános cím; állítsd be a PUBLIC_BASE_URL-t")
+    body = {"platform": "linkedin", "form": form, "caption": caption[:2900], "title": (title or "AXIMBRA")[:200],
+            "video_url": urls[0] if form == "video" else "",
+            "image_urls": [] if form == "video" else urls[:20],
+            "first_image_url": "" if form == "video" else urls[0]}
+    try:
+        r = httpx.post(_env("LI_WEBHOOK_URL"), json=body, timeout=60)
+    except httpx.HTTPError as e:
+        raise PublishError(f"a Make nem érhető el ({type(e).__name__})") from e
+    if r.status_code >= 400:
+        raise PublishError(f"Make webhook: HTTP {r.status_code} {r.text[:120]}")
+    return "átadva a Make-nek"
 
 
 def li_version(today=None) -> str:
@@ -316,6 +349,8 @@ def publish(target: str, *, paths: list[str], urls: list[str], caption: str,
             return ig_publish(urls[0], caption)
         return ig_publish_carousel(urls, caption)
     if target == "linkedin":
+        if not li_direct():
+            return li_publish_webhook(form=form, urls=urls, caption=caption, title=title)
         if form == "video":
             return li_publish(paths[0], caption, title)
         return li_publish_images(paths, caption, title)
