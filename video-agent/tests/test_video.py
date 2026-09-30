@@ -662,3 +662,14 @@ def test_the_post_text_is_checked_for_invented_claims_too():
     assert any("nulla" in x for x in v)
     out = videomaker._strip_claims(script, "")
     assert "nulla" not in out["post"] and "Próbálja ki élőben!" in out["post"] and "https://aximbra.hu" in out["post"]
+
+
+def test_call_lines_lose_trailing_speaker_labels_and_urls_their_protocol():
+    s = videomaker.normalize({"title": "T", "scenes": [
+        {"kind": "call", "headline": "Hívás", "lines": ["Jó napot, miben segíthetek? |AI agent",
+                                                         "Ajánlatot kérnék.| Érdeklődő"], "seconds": 5},
+        {"kind": "inbox", "headline": "Posta", "lines": ["Árajánlat|Értékesítés"], "seconds": 5},
+        {"kind": "cta", "headline": "Próbálja ki", "url": "https://www.aximbra.hu/", "seconds": 4}]}, 30)
+    assert s["scenes"][0]["lines"] == ["Jó napot, miben segíthetek?", "Ajánlatot kérnék."]
+    assert s["scenes"][1]["lines"] == ["Árajánlat|Értékesítés"]      # a postafiók címkéje marad
+    assert s["scenes"][-1]["url"] == "aximbra.hu"

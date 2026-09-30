@@ -87,6 +87,9 @@ body.land .phone{width:220px;height:420px}
 .screen{position:relative;width:100%;height:100%;border-radius:32px;overflow:hidden;background:#05070f}
 body.square .screen{border-radius:24px}
 body.tall .screen{border-radius:26px}
+/* Keskeny telefonon a hívó neve/száma ne törjön két sorba. */
+.cname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.tall .cname,body.square .cname{font-size:15px}
 .screen img{position:absolute;left:0;top:0;width:100%}
 .notch{position:absolute;top:9px;left:50%;width:80px;height:20px;margin-left:-40px;border-radius:12px;background:#000;z-index:3}
 @keyframes phoneIn{from{opacity:0;transform:translateY(80px) scale(.9)}to{opacity:1;transform:none}}
@@ -257,7 +260,7 @@ window.build = (cfg) => {
     t += s.seconds;
     const outs = (last || cfg.stills) ? "" : `,sOut .45s ease-in ${t - .45}s forwards`;
     const r = scene(s, t0 + .1, cfg.shots || [], {visH}, cfg.lib || {});
-    if (cfg.captions && !cfg.stills && s.voice) caps += `<span class="cap" style="position:absolute;left:0;right:0;animation:rise .3s ease ${t0 + .2}s both${last ? "" : `,sOut .3s ease ${t - .35}s forwards`}">${esc(s.voice)}</span>`;
+    if (cfg.captions && !cfg.stills && s.voice) caps += `<span class="cap" style="position:absolute;left:0;right:0;bottom:0;margin:0 auto;width:fit-content;max-width:100%;animation:rise .3s ease ${t0 + .2}s both${last ? "" : `,sOut .3s ease ${t - .35}s forwards`}">${esc(s.voice)}</span>`;
     return `<section class="scene ${r.center ? "center" : ""} ${r.onbleed ? "onbleed" : ""}" style="animation:sIn .6s cubic-bezier(.2,.8,.2,1) ${t0}s both${outs}">
       ${r.bleed || ""}<div class="txt ${r.center ? "center" : ""}">${r.txt}</div>${r.vis ? `<div class="vis">${r.vis}</div>` : ""}</section>`;
   }).join("");

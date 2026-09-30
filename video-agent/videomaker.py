@@ -224,6 +224,7 @@ def _clip(s, n: int) -> str:
     return s if len(s) <= n else s[: n - 1].rstrip() + "…"
 
 
+_TAIL_LABEL_RE = re.compile(r"\s*[|:–-]\s*(AI(\s+agent)?|Ügyfél|Hívó|Érdeklődő|Caller|Customer|Agent|Ügyintéző)\s*$", re.I)
 _LABEL_RE = re.compile(r"^\s*(AI|Ügyfél|Hívó|Caller|Customer|Agent|Ügyintéző)\s*:\s*", re.I)
 # A modell szeret diaszámot írni a kickerbe („3. SLIDE”). Az olvasónak semmit
 # nem mond, a körhinta amúgy is számozza magát, ezért kiszedjük.
@@ -269,9 +270,13 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -
             "layout": "side" if str(s.get("layout") or "").strip() == "side" else "full",
             "shot": shot, "app": _clip(s.get("app"), 30), "caller": _clip(s.get("caller"), 24), "status": _clip(s.get("status"), 24),
             "tile_label": _clip(s.get("tile_label"), 12), "center": bool(s.get("center")),
-            "url": _clip(s.get("url") or "", 40), "button": _clip(s.get("button"), 40), "voice": _clip(s.get("voice"), 260),
+            "url": _clip(re.sub(r"^https?://(www\.)?|/+$", "", str(s.get("url") or "").strip()), 40), "button": _clip(s.get("button"), 40), "voice": _clip(s.get("voice"), 260),
             "seconds": max(2.0, min(12.0, sec)),
         })
+    # A hívásbuborékba nem kell, ki beszél: az elején és a végén is levágjuk.
+    for s in scenes:
+        if s["kind"] == "call":
+            s["lines"] = [l for l in (_TAIL_LABEL_RE.sub("", l).strip() for l in s["lines"]) if l]
     # Médiajelenet üres kézzel nem állja meg a helyét: szöveges lesz belőle.
     for s in scenes:
         if s["kind"] == "gallery" and not s["medias"]:
