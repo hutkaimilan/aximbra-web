@@ -25,6 +25,7 @@ import llm
 import media
 import publisher
 import settings as settings_store
+import stop
 import videomaker
 import websearch
 
@@ -52,22 +53,30 @@ class Job:
         self.running = False
         self.log: list[str] = []
         self.error = ""
+        self.cancelled = False
         self.started = self.finished = None
 
     def start(self, fn) -> bool:
         with self.lock:
             if self.running:
                 return False
-            self.running, self.log, self.error = True, [], ""
+            stop.reset()
+            self.running, self.log, self.error, self.cancelled = True, [], "", False
             self.started, self.finished = datetime.now(TZ).isoformat(timespec="seconds"), None
 
         def say(msg: str):
+            # Minden naplósor egyben megállási pont is.
+            stop.check()
             logger.info(msg)
             self.log.append(msg)
 
         def target():
             try:
                 fn(say)
+            except stop.Cancelled:
+                self.cancelled = True
+                self.log.append("Leállítva. A félkész darabot töröltem.")
+                logger.info("a gyártást leállították")
             except Exception as e:  # noqa: BLE001 — a hiba a felületen jelenjen meg, ne tűnjön el
                 logger.exception("videó hiba")
                 msg = "Elfogyott a mai ingyenes AI-keret, holnap újra megy." if "insufficient_quota" in str(e) else str(e)
@@ -81,12 +90,28 @@ class Job:
         threading.Thread(target=target, daemon=True).start()
         return True
 
+    def stop(self) -> bool:
+        with self.lock:
+            if not self.running:
+                return False
+            stop.request()
+            self.log.append("Leállítás kérve — az éppen futó lépés végén megáll…")
+            return True
+
     def state(self):
         return {"running": self.running, "log": self.log[-50:], "error": self.error,
-                "started": self.started, "finished": self.finished}
+                "started": self.started, "finished": self.finished,
+                "stopping": self.running and stop.requested(), "cancelled": self.cancelled}
 
 
 job = Job()
+
+
+@app.post("/api/job/stop", dependencies=[Depends(auth)])
+def job_stop():
+    if not job.stop():
+        raise HTTPException(409, "Nem fut semmi.")
+    return {"ok": True}
 
 
 def _start(fn):
@@ -334,17 +359,21 @@ def _post_video(vid: str, targets: list[str], caption: str, say) -> dict:
         raise RuntimeError("a fájl nem található")
     urls = public_urls(meta)
     out = {}
-    for t in targets:
-        try:
-            say(f"{t}: feltöltés…")
-            pid = publisher.publish(t, paths=paths, urls=urls, caption=caption,
-                                    title=meta.get("title", ""), form=form)
-            out[t] = pid
-            say(f"{t}: kiposztolva ({pid}).")
-        except publisher.PublishError as e:
-            out[t] = f"hiba: {e}"
-            say(f"{t}: nem sikerült — {e}")
-    videomaker.mark_posted(vid, out)
+    try:
+        for t in targets:
+            try:
+                say(f"{t}: feltöltés…")
+                pid = publisher.publish(t, paths=paths, urls=urls, caption=caption,
+                                        title=meta.get("title", ""), form=form)
+                out[t] = pid
+                say(f"{t}: kiposztolva ({pid}).")
+            except publisher.PublishError as e:
+                out[t] = f"hiba: {e}"
+                say(f"{t}: nem sikerült — {e}")
+    finally:
+        # Leállításkor is rögzítjük, ami már kiment: különben újra kiposztolnád.
+        if out:
+            videomaker.mark_posted(vid, out)
     return out
 
 

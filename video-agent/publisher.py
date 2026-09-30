@@ -17,9 +17,10 @@ from __future__ import annotations
 
 import logging
 import os
-import time
 
 import httpx
+
+import stop
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +132,7 @@ def ig_publish_carousel(image_urls: list[str], caption: str) -> str:
                                      "caption": caption[:2200]}))
 
 
-def ig_publish(video_url: str, caption: str, sleep=time.sleep) -> str:
+def ig_publish(video_url: str, caption: str, sleep=stop.sleep) -> str:
     cid = _ig_container({"media_type": "REELS", "video_url": _ig_https(video_url),
                          "caption": caption[:2200]})
     # Az Instagram a saját szerverére tölti le a videót; ez percekig tarthat.

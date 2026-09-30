@@ -12,9 +12,10 @@ import logging
 import json
 import os
 import re
-import time
 
 import httpx
+
+import stop
 
 TIMEOUT = 180
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
@@ -73,7 +74,7 @@ def _anthropic(prompt: str) -> str:
                 wait = float(r.headers.get("retry-after") or 0)
             except ValueError:
                 wait = 0
-            time.sleep(min(60, wait or 10 * (attempt + 1)))
+            stop.sleep(min(60, wait or 10 * (attempt + 1)))
             continue
         if r.status_code >= 400:
             msg = r.text[:300]
@@ -103,10 +104,10 @@ def _gemini(prompt: str) -> str:
         if r.status_code == 429:
             if "perday" in r.text.lower() or "per day" in r.text.lower():
                 raise LLMError("insufficient_quota: elfogyott a Gemini napi ingyenes kerete")
-            time.sleep(min(60, 15 * (attempt + 1)))
+            stop.sleep(min(60, 15 * (attempt + 1)))
             continue
         if r.status_code == 503:
-            time.sleep(min(60, 10 * (attempt + 1)))
+            stop.sleep(min(60, 10 * (attempt + 1)))
             continue
         if r.status_code >= 400:
             raise LLMError(f"Gemini hiba ({r.status_code}): {r.text[:200]}")

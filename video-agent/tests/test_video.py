@@ -134,7 +134,7 @@ def test_gemini_tts_waits_out_the_minute_limit(monkeypatch):
     seq = iter([R(429, text="rate"), R(200, ok)])
     monkeypatch.setenv("GEMINI_API_KEY", "k")
     monkeypatch.setattr(videomaker.httpx, "post", lambda *a, **k: calls.append(1) or next(seq))
-    monkeypatch.setattr(videomaker.time, "sleep", lambda s: None)
+    monkeypatch.setattr(videomaker.stop, "sleep", lambda s: None)
     assert videomaker._tts_gemini("szia", "hu") and len(calls) == 2
 
 
@@ -442,3 +442,52 @@ def test_claude_bad_request_is_not_hidden_by_the_fallback(monkeypatch):
     monkeypatch.setattr(llm, "_gemini", lambda p: pytest.fail("nem eshet vissza programhibán"))
     with pytest.raises(llm.LLMError):
         llm._ask("x")
+
+
+# ---- leállítás --------------------------------------------------------------
+
+def test_stop_ends_a_running_job(monkeypatch):
+    import threading
+    import time
+    import app as app_mod
+    import stop
+    j = app_mod.Job()
+    started, done = threading.Event(), threading.Event()
+
+    def work(say):
+        started.set()
+        try:
+            while True:
+                say("dolgozom")
+                stop.sleep(0.05)
+        finally:
+            done.set()
+    assert j.start(work)
+    assert started.wait(2)
+    assert j.stop()
+    assert done.wait(2)
+    for _ in range(50):
+        if not j.running:
+            break
+        time.sleep(0.02)
+    st = j.state()
+    assert not st["running"] and st["cancelled"] and not st["error"]
+    assert not j.stop()          # ami nem fut, azt nem lehet leállítani
+    stop.reset()
+
+
+def test_a_stopped_render_leaves_no_files(tmp_path, monkeypatch):
+    import stop
+    monkeypatch.setattr(videomaker, "VIDEO_DIR", str(tmp_path))
+
+    def half(script, urls, out_dir, vid, aspect, say):
+        (tmp_path / f"{vid}-1.jpg").write_bytes(b"x")
+        raise stop.Cancelled("leállítva")
+    monkeypatch.setattr(videomaker, "render_stills", half)
+    script = videomaker.normalize({"title": "T", "scenes": [
+        {"kind": "hook", "headline": "Egy", "seconds": 3},
+        {"kind": "statement", "headline": "Kettő", "seconds": 3}]}, 30, 0, "carousel")
+    opts = {"brief": "b", "seconds": 30, "lang": "hu", "aspect": "4:5", "voice": False, "form": "carousel"}
+    with pytest.raises(stop.Cancelled):
+        videomaker._finish(script, opts, {"urls": []}, lambda m: None)
+    assert list(tmp_path.iterdir()) == []

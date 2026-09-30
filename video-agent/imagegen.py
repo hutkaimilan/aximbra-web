@@ -11,12 +11,12 @@ from __future__ import annotations
 import base64
 import logging
 import os
-import time
 
 import httpx
 
 import llm
 import media
+import stop
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ def generate(prompt: str, aspect: str = "9:16") -> tuple[bytes, str] | None:
         except httpx.HTTPError:
             return None
         if r.status_code == 429 and "per day" not in r.text.lower() and "perday" not in r.text.lower():
-            time.sleep(min(60, 20 * (attempt + 1)))
+            stop.sleep(min(60, 20 * (attempt + 1)))
             continue
         break
     if r.status_code >= 400:

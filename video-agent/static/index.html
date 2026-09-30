@@ -193,7 +193,10 @@ details summary{cursor:pointer}
 </header>
 <main>
   <div id="warn" class="card hide"></div>
-  <div id="jobbox" class="card hide"><h2 id="jobtitle"></h2><div id="joblog" class="log"></div></div>
+  <div id="jobbox" class="card hide">
+    <div class="row" style="justify-content:space-between;align-items:center"><h2 id="jobtitle" style="margin:0"></h2>
+      <button class="warn hide" id="jobStop">■ Leállítás</button></div>
+    <div id="joblog" class="log"></div></div>
 
   <div class="card">
     <div class="who"><div class="core"></div>Médiatár · a te képeid és klipjeid</div>
@@ -421,7 +424,12 @@ function render() {
   const jb = $("#jobbox");
   if (j.started) {
     jb.classList.remove("hide");
-    $("#jobtitle").textContent = j.running ? "Készül…" : j.error ? "Nem sikerült" : "Kész";
+    $("#jobtitle").textContent = j.running ? (j.stopping ? "Leállítás…" : "Készül…")
+      : j.cancelled ? "Leállítva" : j.error ? "Nem sikerült" : "Kész";
+    const sb = $("#jobStop");
+    sb.classList.toggle("hide", !j.running);
+    sb.disabled = !!j.stopping;
+    sb.textContent = j.stopping ? "Leáll…" : "■ Leállítás";
     $("#joblog").textContent = j.log.join("\n");
   }
   $("#vGo").disabled = j.running;
@@ -443,6 +451,11 @@ function vFormChanged() {
                            video: "Videó elkészítése"}[$("#vForm").value] || "Elkészítem";
 }
 $("#vForm").onchange = vFormChanged;
+$("#jobStop").onclick = async () => {
+  if (!confirm("Leállítod? A félkész darab elvész.")) return;
+  $("#jobStop").disabled = true;
+  try { await api("/api/job/stop", {}); refresh(); } catch (e) { flash(e.message); $("#jobStop").disabled = false; }
+};
 vFormChanged();
 $("#vGo").onclick = async () => {
   const brief = $("#vBrief").value.trim();

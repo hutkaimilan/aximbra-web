@@ -44,6 +44,7 @@ import imagegen
 import llm
 import media
 import playbook
+import stop
 import websearch
 
 logger = logging.getLogger(__name__)
@@ -382,6 +383,7 @@ def fill_images(script: dict, aspect: str, say=lambda m: None) -> dict:
     say(f"Képgenerálás: {len(wanted)} kép…")
     made = 0
     for s in wanted[:4]:
+        stop.check()
         m = imagegen.generate_into_library(s["image_prompt"], aspect, name=s["headline"] or "jelenetkép")
         if m:
             s["media"], made = m["id"], made + 1
@@ -450,7 +452,7 @@ def _tts_gemini(text: str, lang: str) -> bytes | None:
         except httpx.HTTPError:
             return None
         if r.status_code == 429 and "per day" not in r.text.lower() and "perday" not in r.text.lower():
-            time.sleep(min(60, 20 * (attempt + 1)))
+            stop.sleep(min(60, 20 * (attempt + 1)))
             continue
         break
     if r.status_code >= 400:
@@ -512,6 +514,7 @@ def narrate(script: dict, lang: str, male: bool, say=lambda m: None) -> tuple[by
     Visszaadja a teljes hangsávot (WAV) és a használt motor nevét."""
     engine, clips = "", []
     for s in script["scenes"]:
+        stop.check()
         if not s["voice"]:
             clips.append(b"")
             continue
@@ -660,6 +663,7 @@ def render(script: dict, urls: list[str], out_path: str, aspect: str, audio: byt
         try:
             step = max(1, frames // 5)
             for f in range(frames):
+                stop.check()
                 page.evaluate("(ms) => seek(ms)", f * 1000 / FPS)  # a klipeket is idejére állítja
                 proc.stdin.write(page.screenshot(type="jpeg", quality=92))
                 if f and f % step == 0:
@@ -670,6 +674,11 @@ def render(script: dict, urls: list[str], out_path: str, aspect: str, audio: byt
                 raise VideoError(f"az ffmpeg hibát jelzett: {err[:300]}")
         except BaseException:
             proc.kill()
+            proc.wait()
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
             raise
     os.replace(tmp, out_path)
     return total
@@ -683,6 +692,7 @@ def render_stills(script: dict, urls: list[str], out_dir: str, vid: str, aspect:
     with _staged(script, urls, aspect, False, True, say) as (page, _total, scenes, _work):
         say(f"Képek rajzolása: {len(scenes)} dia ({aspect})…")
         for i in range(len(scenes)):
+            stop.check()
             page.evaluate("(i) => slide(i)", i)
             name = f"{vid}-{i + 1}.jpg"
             page.screenshot(path=os.path.join(out_dir, name), type="jpeg", quality=94)
@@ -793,6 +803,20 @@ def _finish(script: dict, opts: dict, ctx: dict, say, parent: str | None = None)
     os.makedirs(VIDEO_DIR, exist_ok=True)
     form = opts.get("form") or "video"
     vid = secrets.token_hex(6)
+    try:
+        return _produce(script, opts, ctx, say, parent, form, vid)
+    except BaseException:
+        # Leállítás vagy hiba: a félkész fájlok ne maradjanak a mappában.
+        for name in os.listdir(VIDEO_DIR):
+            if name.startswith(vid):
+                try:
+                    os.remove(os.path.join(VIDEO_DIR, name))
+                except OSError:
+                    pass
+        raise
+
+
+def _produce(script: dict, opts: dict, ctx: dict, say, parent: str | None, form: str, vid: str) -> dict:
     started = time.time()
     audio, engine, total, files = None, "", 0.0, []
     if form in ("image", "carousel"):
@@ -812,6 +836,8 @@ def _finish(script: dict, opts: dict, ctx: dict, say, parent: str | None = None)
             "form": form, "files": files, "slides": len(files) if form != "video" else 0,
             "brief": opts["brief"], "opts": opts, "ctx_urls": ctx["urls"], "voice_engine": engine,
             "seconds": round(total, 1), **script}
+    # Az utolsó pont, ahol még megállhatunk: a leírás kiírása után már kész darab van.
+    stop.check()
     with open(_meta_path(vid), "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False)
     _prune()
