@@ -13,11 +13,13 @@ import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
+import imagegen
+import media
 import videomaker
 import websearch
 
@@ -103,13 +105,42 @@ def state():
     return {
         "job": job.state(),
         "videos": videomaker.list_videos(),
+        "media": media.listing(),
         "topics": videomaker.TOPICS,
         "config": {
             "ai": bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY")),
             "web_search": websearch.tavily_on(),
             "elevenlabs": bool(os.environ.get("ELEVENLABS_API_KEY") and os.environ.get("ELEVENLABS_VOICE_ID")),
+            "imagegen": imagegen.available(),
         },
     }
+
+
+@app.post("/api/media", dependencies=[Depends(auth)])
+async def media_add(file: UploadFile = File(...), note: str = Form("")):
+    data = await file.read(media.MAX_BYTES + 1)
+    if len(data) > media.MAX_BYTES:
+        raise HTTPException(413, "Túl nagy fájl (legfeljebb 60 MB).")
+    try:
+        return media.store(data, file.content_type or "", file.filename or "", note.strip()[:200])
+    except media.MediaError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/api/media/{mid}", dependencies=[Depends(auth)])
+def media_file(mid: str):
+    path = media.path_of(mid)
+    if not path:
+        raise HTTPException(404, "Nincs ilyen fájl.")
+    kind = "video/webm" if path.endswith(".webm") else "image/jpeg"
+    return FileResponse(path, media_type=kind)
+
+
+@app.post("/api/media/{mid}/delete", dependencies=[Depends(auth)])
+def media_delete(mid: str):
+    if not media.delete(mid):
+        raise HTTPException(404, "Nincs ilyen fájl.")
+    return {"ok": True}
 
 
 class VideoIn(BaseModel):

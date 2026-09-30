@@ -30,6 +30,7 @@ import logging
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import tempfile
 import time
@@ -38,7 +39,9 @@ from datetime import datetime, timezone
 
 import httpx
 
+import imagegen
 import llm
+import media
 import playbook
 import websearch
 
@@ -50,8 +53,9 @@ VIDEO_DIR = os.environ.get("VIDEO_DIR", "/data/videos")
 FPS = int(os.environ.get("VIDEO_FPS", "30"))
 KEEP = 20
 KINDS = ("hook", "statement", "problem", "benefit", "steps", "compare", "site", "call", "inbox",
-         "agents", "number", "quote", "cta")
-VISUAL_KINDS = ("site", "call", "inbox")
+         "agents", "number", "quote", "photo", "gallery", "clip", "cta")
+VISUAL_KINDS = ("site", "call", "inbox", "photo", "gallery", "clip")
+MEDIA_KINDS = ("photo", "gallery", "clip")
 THEMES = ("neon", "clean", "warm", "mono")
 ASPECTS = {"9:16": (540, 960), "1:1": (540, 540), "16:9": (960, 540)}
 MIN_TOTAL, MAX_TOTAL = 10, 90
@@ -93,7 +97,7 @@ def gather(brief: str, research: bool, say=lambda m: None) -> dict:
     if research:
         say("Webes háttérkutatás…")
         web = websearch.search(brief[:280], n=4)
-    return {"urls": urls[:4], "pages": pages, "web": web}
+    return {"urls": urls[:4], "pages": pages, "web": web, "library": media.listing()}
 
 
 # ---- forgatókönyv -----------------------------------------------------------
@@ -104,6 +108,9 @@ def _lang_name(lang: str) -> str:
 
 def director_prompt(brief: str, ctx: dict, seconds: int, lang: str, aspect: str, voice: bool) -> str:
     sites = "\n".join(f"  [{i}] {u}" for i, u in enumerate(ctx["urls"])) or "  (none — do not use the 'site' scene)"
+    lib = ctx.get("library") or []
+    shelf = "\n".join(f"  {m['id']}  {m['kind']}  {m['name']}" + (f" — {m['note']}" if m.get("note") else "")
+                      for m in lib) or "  (empty — you may still ask for generated images)"
     pages = "\n\n".join(f"TEXT OF {p['url']}:\n{p['text']}" for p in ctx["pages"] if p["text"]) or "(none)"
     web = "\n\n".join(f"WEB: {w['title']} — {w['url']}\n{w['text']}" for w in ctx["web"]) or "(none)"
     return f"""You are an award-winning creative director making a short social video from a brief. No person appears on camera.
@@ -117,6 +124,9 @@ Company facts (AXIMBRA, use when the brief is about AXIMBRA):
 
 Websites captured for the video (use their index in "shot"):
 {sites}
+
+The user's media library (put an id in "media"; clips are silent and at most 20 s):
+{shelf}
 
 Source text you may draw facts from:
 {pages}
@@ -137,10 +147,18 @@ Scene kinds (choose freely, 4–9 scenes, in the order that tells the story best
 - "call": a phone call answered by an AI; "lines" = 3–4 short alternating turns, AI first, no speaker labels; optional "caller", "status".
 - "inbox": an inbox being sorted; "app" = inbox title; "lines" = 3–5 items formatted "subject|category tag".
 - "agents": headline + 3–6 "lines" (names), optional "tile_label".
+- "photo": one image with the text. Set "media" to a library id, OR set "image_prompt" to have one generated
+  (describe the picture in English: subject, setting, light, mood). "layout": "full" (text over the image) or
+  "side" (image beside the text). Never ask for a recognisable real person.
+- "gallery": headline + "medias" = 2–4 library ids shown in a grid.
+- "clip": an uploaded video clip playing behind the text. "media" must be a library id of kind "clip", and
+  "seconds" must stay within that clip's length. The clip is silent; the narration carries the sound.
 - "number": headline = a number FROM THE BRIEF OR SOURCES ONLY, sub = what it means.
 - "quote": headline = a quote FROM THE BRIEF OR SOURCES ONLY, sub = its source.
 - "cta": headline + "url" + sub + "button". Always last.
 Fields: headline max 8 words, mark 1–2 key words with *asterisks*; sub max 16 words; kicker optional, max 3 words.
+Use the user's own uploaded media wherever it fits the brief — that is why they uploaded it. Ask for a generated
+image only where nothing uploaded fits.
 
 Pick a visual theme that fits the brief: "neon" (futuristic, default), "clean" (light, corporate), "warm" (energetic), "mono" (minimal).
 
@@ -154,15 +172,17 @@ HARD RULES:
 Answer ONLY with JSON:
 {{"title": "", "tagline": "max 3 words", "brand": "AXIMBRA or the brand in the brief", "theme": "neon|clean|warm|mono",
 "scenes": [{{"kind": "", "kicker": "", "headline": "", "sub": "", "lines": [], "lines2": [], "left_title": "", "right_title": "",
-  "shot": 0, "app": "", "caller": "", "status": "", "tile_label": "", "center": false, "url": "", "button": "", "voice": "", "seconds": 0}}],
+  "shot": 0, "media": "", "medias": [], "image_prompt": "", "layout": "full", "app": "", "caller": "", "status": "",
+  "tile_label": "", "center": false, "url": "", "button": "", "voice": "", "seconds": 0}}],
 "post": "", "first_comment": ""}}"""
 
 
 def revise_prompt(script: dict, feedback: str, lang: str) -> str:
     slim = {k: script[k] for k in ("title", "tagline", "brand", "theme", "scenes", "post", "first_comment") if k in script}
     return f"""You are revising a short video script. Apply the client's feedback precisely; keep everything else as it is.
-Same JSON structure, same scene kinds available (hook, statement, problem, benefit, steps, compare, site, call, inbox, agents,
-number, quote, cta). Language: {_lang_name(lang)}. Never invent statistics, customers, testimonials or results.
+Same JSON structure, same scene kinds available (hook, statement, problem, benefit, steps, compare, site, call,
+inbox, agents, number, quote, photo, gallery, clip, cta). Keep the "media" ids that are still wanted.
+Language: {_lang_name(lang)}. Never invent statistics, customers, testimonials or results.
 
 FEEDBACK: \"\"\"{feedback}\"\"\"
 
@@ -178,6 +198,11 @@ def _clip(s, n: int) -> str:
 
 
 _LABEL_RE = re.compile(r"^\s*(AI|Ügyfél|Hívó|Caller|Customer|Agent|Ügyintéző)\s*:\s*", re.I)
+
+
+def _media_id(v) -> str:
+    v = str(v or "").strip()
+    return v if re.fullmatch(r"[a-z0-9]{12}", v) else ""
 
 
 def normalize(data: dict, seconds: int, n_shots: int = 1) -> dict:
@@ -203,14 +228,32 @@ def normalize(data: dict, seconds: int, n_shots: int = 1) -> dict:
             "kind": s["kind"], "kicker": _clip(s.get("kicker"), 28), "headline": _clip(s.get("headline"), 80),
             "sub": _clip(s.get("sub"), 140), "lines": lines("lines", 6), "lines2": lines("lines2", 4),
             "left_title": _clip(s.get("left_title"), 20), "right_title": _clip(s.get("right_title"), 20),
+            "media": _media_id(s.get("media")),
+            "medias": [m for m in (_media_id(x) for x in (s.get("medias") or [])) if m][:4],
+            "image_prompt": _clip(s.get("image_prompt"), 400),
+            "layout": "side" if str(s.get("layout") or "").strip() == "side" else "full",
             "shot": shot, "app": _clip(s.get("app"), 30), "caller": _clip(s.get("caller"), 24), "status": _clip(s.get("status"), 24),
             "tile_label": _clip(s.get("tile_label"), 12), "center": bool(s.get("center")),
             "url": _clip(s.get("url") or "", 40), "button": _clip(s.get("button"), 40), "voice": _clip(s.get("voice"), 260),
             "seconds": max(2.0, min(12.0, sec)),
         })
+    # Médiajelenet üres kézzel nem állja meg a helyét: szöveges lesz belőle.
+    for s in scenes:
+        if s["kind"] == "gallery" and not s["medias"]:
+            s["kind"] = "statement"
+        elif s["kind"] in ("photo", "clip") and not s["media"] and not s["image_prompt"]:
+            s["kind"] = "statement"
     scenes = [s for s in scenes if s["headline"] or s["kind"] in VISUAL_KINDS][:10]
     if len(scenes) < 2:
         raise VideoError("a forgatókönyvben túl kevés használható jelenet van")
+    # A klip nem lehet hosszabb, mint a felvett anyag.
+    for s in scenes:
+        if s["kind"] == "clip":
+            m = media.get(s["media"]) or {}
+            if m.get("kind") != "clip":
+                s["kind"] = "photo" if m.get("kind") == "image" else "statement"
+            elif m.get("seconds"):
+                s["seconds"] = min(s["seconds"], float(m["seconds"]))
     ctas = [s for s in scenes if s["kind"] == "cta"]
     scenes = [s for s in scenes if s["kind"] != "cta"] + (ctas[-1:] or [{
         **scenes[-1], "kind": "cta", "headline": "Próbálja ki *élőben*", "sub": "", "lines": [], "url": "aximbra.hu",
@@ -275,6 +318,30 @@ def _strip_claims(script: dict, sources: str) -> dict:
         s["lines"] = [l for l in s["lines"] if not _unsupported(l, ok)]
         s["lines2"] = [l for l in s["lines2"] if not _unsupported(l, ok)]
     script["scenes"] = [s for s in script["scenes"] if s["kind"] == "cta" or not _unsupported(s["headline"], ok)]
+    return script
+
+
+def fill_images(script: dict, aspect: str, say=lambda m: None) -> dict:
+    """A kért, de még nem létező képek legenerálása. Ha a képgenerálás nem
+    elérhető, a jelenet szöveges marad — a videó ettől még elkészül."""
+    wanted = [s for s in script["scenes"] if s["kind"] == "photo" and not s["media"] and s["image_prompt"]]
+    if not wanted:
+        return script
+    if not imagegen.available():
+        for s in wanted:
+            s["kind"] = "statement"
+        return script
+    say(f"Képgenerálás: {len(wanted)} kép…")
+    made = 0
+    for s in wanted[:4]:
+        m = imagegen.generate_into_library(s["image_prompt"], aspect, name=s["headline"] or "jelenetkép")
+        if m:
+            s["media"], made = m["id"], made + 1
+        else:
+            s["kind"] = "statement"
+    for s in wanted[4:]:
+        s["kind"] = "statement"
+    say(f"Képgenerálás: {made} kép készült." if made else "Képgenerálás: most nem elérhető, szöveges jelenet lesz.")
     return script
 
 
@@ -472,7 +539,18 @@ def render(script: dict, urls: list[str], out_path: str, aspect: str, audio: byt
 
     w, h = ASPECTS[aspect]
     tmp = out_path + ".part.mp4"
-    with sync_playwright() as pw:
+    with tempfile.TemporaryDirectory() as work, sync_playwright() as pw:
+        # A sablon és a médiafájlok egy ideiglenes mappába kerülnek, így a
+        # lap saját fájlként éri el őket, adat-URL nélkül is.
+        shutil.copyfile(TEMPLATE, os.path.join(work, "index.html"))
+        lib = {}
+        for sc in script["scenes"]:
+            for mid in ([sc.get("media")] if sc.get("media") else []) + (sc.get("medias") or []):
+                if mid and mid not in lib:
+                    m = media.get(mid)
+                    if m and media.copy_out(mid, work):
+                        lib[mid] = {"src": m["file"], "kind": m["kind"], "width": m.get("width"),
+                                    "height": m.get("height"), "seconds": m.get("seconds")}
         browser = _launch(pw)
         try:
             used = sorted({s["shot"] for s in script["scenes"] if s["kind"] == "site"})
@@ -481,17 +559,29 @@ def render(script: dict, urls: list[str], out_path: str, aspect: str, audio: byt
                 if i < len(urls):
                     say(f"Weboldal felvétele: {urls[i]}")
                     shots[i] = capture_site(browser, urls[i], PHONE_SCREEN_W[aspect])
-            scenes = [s if s["kind"] != "site" or (s["shot"] < len(shots) and shots[s["shot"]])
-                      else {**s, "kind": "statement"} for s in script["scenes"]]
+            scenes = []
+            for sc in script["scenes"]:
+                if sc["kind"] == "site" and not (sc["shot"] < len(shots) and shots[sc["shot"]]):
+                    sc = {**sc, "kind": "statement"}
+                elif sc["kind"] in MEDIA_KINDS:
+                    have = [m for m in ([sc.get("media")] if sc.get("media") else []) + (sc.get("medias") or []) if m in lib]
+                    if not have:
+                        sc = {**sc, "kind": "statement"}
+                scenes.append(sc)
             page = browser.new_page(viewport={"width": w, "height": h}, device_scale_factor=2)
-            page.goto("file://" + TEMPLATE, wait_until="networkidle", timeout=45000)
+            page.goto("file://" + os.path.join(work, "index.html"), wait_until="networkidle", timeout=45000)
             total = page.evaluate("(cfg) => build(cfg)", {**script, "scenes": scenes, "aspect": aspect,
-                                                          "shots": shots, "captions": captions})
+                                                          "shots": shots, "captions": captions, "lib": lib})
             page.evaluate("document.fonts.ready.then(() => true)")
             page.wait_for_timeout(400)
+            # A klipek első képkockája legyen meg, mielőtt léptetni kezdjük.
+            page.evaluate("""() => Promise.all([...document.querySelectorAll('video')].map((v) =>
+                v.readyState >= 2 ? null : new Promise((r) => {
+                  v.addEventListener('loadeddata', r, {once: true}); setTimeout(r, 4000); })))""")
             frames = int(total * FPS)
             say(f"Renderelés: {frames} képkocka ({total:.0f} mp, {aspect})…")
-            with tempfile.TemporaryDirectory() as d:
+            if True:
+                d = work
                 inputs = ["-f", "image2pipe", "-framerate", str(FPS), "-c:v", "mjpeg", "-i", "-"]
                 maps = []
                 if audio:
@@ -507,7 +597,7 @@ def render(script: dict, urls: list[str], out_path: str, aspect: str, audio: byt
                 try:
                     step = max(1, frames // 5)
                     for f in range(frames):
-                        page.evaluate("(ms) => seek(ms)", f * 1000 / FPS)
+                        page.evaluate("(ms) => seek(ms)", f * 1000 / FPS)  # a klipeket is idejére állítja
                         proc.stdin.write(page.screenshot(type="jpeg", quality=92))
                         if f and f % step == 0:
                             say(f"Renderelés: {round(100 * f / frames)}%")
@@ -611,6 +701,7 @@ def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", 
     ctx = gather(brief, research, say)
     say("Forgatókönyv írása…")
     script = write_script(brief, ctx, seconds, lang, aspect, voice, say)
+    script = fill_images(script, aspect, say)
     say(f"Forgatókönyv kész: {script['title']} ({len(script['scenes'])} jelenet, {script['theme']} stílus).")
     return _finish(script, opts, ctx, say)
 
@@ -629,4 +720,5 @@ def revise(vid: str, feedback: str, say=lambda m: None) -> dict:
     raw = llm._ask(revise_prompt(meta, feedback, opts["lang"]))
     script = normalize(llm.extract_json(raw), opts["seconds"], len(ctx["urls"]))
     script = check(script, opts["brief"] + " " + feedback, ctx, opts["seconds"], opts["lang"], say)
+    script = fill_images(script, opts["aspect"], say)
     return _finish(script, opts, ctx, say, parent=vid)

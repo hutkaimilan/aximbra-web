@@ -107,6 +107,24 @@ body.square .screen{border-radius:24px}
 .pill{align-self:center;padding:14px 24px;border-radius:999px;background:var(--grad);color:#05060d;font:700 calc(var(--ss) * .9) var(--sans)}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 .center{text-align:center;align-items:center}
+/* saját kép és klip */
+.bleed{position:absolute;inset:0;overflow:hidden;z-index:0}
+.bleed img,.bleed video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  animation:kb var(--kbd,8s) ease-out both}
+@keyframes kb{from{transform:scale(1.04)}to{transform:scale(1.13)}}
+.bleed::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(0,0,0,.66) 0%,rgba(0,0,0,.28) 38%,rgba(0,0,0,.74) 100%)}
+.scene>.txt,.scene>.vis{position:relative;z-index:1}
+.onbleed{color:#fff;text-shadow:0 2px 18px rgba(0,0,0,.55)}
+.onbleed .sub{color:rgba(255,255,255,.88)}
+.shot{border-radius:20px;overflow:hidden;border:1px solid var(--cline);background:var(--card);
+  box-shadow:0 20px 60px rgba(0,0,0,.4);max-width:100%}
+.shot img,.shot video{display:block;width:100%;height:auto}
+body.land .shot{max-width:400px}
+@keyframes shotIn{from{opacity:0;transform:translateY(40px) scale(.94)}to{opacity:1;transform:none}}
+.grid2m{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid2m .shot{border-radius:16px}
+@keyframes tileIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body data-theme="neon">
@@ -138,7 +156,7 @@ function phone(inner, t0) {
   return `<div class="phone" style="animation:${anim("phoneIn", .8, t0 + .3)}"><div class="screen"><div class="notch"></div>${inner}</div></div>`;
 }
 
-function scene(s, t0, shots, dims) {
+function scene(s, t0, shots, dims, lib) {
   const d = s.seconds, L = s.lines || [];
   const per = (n) => Math.max(.35, Math.min(.9, (d - 2) / Math.max(1, n)));
   switch (s.kind) {
@@ -173,6 +191,29 @@ function scene(s, t0, shots, dims) {
           const t = t0 + .9 + i * .35;
           return `<div class="mail" style="animation:${anim("rise", .4, t)}">${esc(subj)}${tagtxt ? `<br><em style="animation:${anim("tag", .35, t + 1.2 + i * .25)}">${esc(tagtxt.trim())}</em>` : ""}</div>`;
         }).join("")}</div>`, t0)};
+    case "photo": {
+      const m = lib[s.media];
+      if (!m) return {txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
+      if (s.layout === "side") {
+        return {txt: head(s, t0) + rise("sub", s.sub, t0 + .6),
+          vis: `<div class="shot" style="animation:${anim("shotIn", .8, t0 + .3)}"><img src="${esc(m.src)}" alt=""></div>`};
+      }
+      return {bleed: `<div class="bleed" style="--kbd:${d + 1}s"><img src="${esc(m.src)}" alt=""></div>`,
+        onbleed: true, txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
+    }
+    case "clip": {
+      const m = lib[s.media];
+      if (!m) return {txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
+      return {bleed: `<div class="bleed"><video src="${esc(m.src)}" data-start="${t0 - .1}" muted playsinline preload="auto" style="animation:none"></video></div>`,
+        onbleed: true, txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
+    }
+    case "gallery": {
+      const ids = (s.medias || []).filter((x) => lib[x]).slice(0, 4);
+      if (!ids.length) return {txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
+      return {txt: head(s, t0) + `<div class="grid2m">${ids.map((id, i) =>
+        `<div class="shot" style="animation:${anim("tileIn", .5, t0 + .8 + .3 * i)}"><img src="${esc(lib[id].src)}" alt=""></div>`).join("")}</div>`
+        + rise("sub", s.sub, t0 + 1.2 + ids.length * .3)};
+    }
     case "agents":
       return {txt: head(s, t0) + `<div class="tiles">${L.map((l, i) =>
         `<div class="tile" style="animation:${anim("lit", .5, t0 + .8 + per(L.length) * .6 * i, "ease")}"><small>${esc(s.tile_label || "AGENT")} ${String(i + 1).padStart(2, "0")}</small>${esc(l)}</div>`).join("")}</div>` + rise("sub", s.sub, t0 + 1.2 + L.length * .3)};
@@ -203,10 +244,10 @@ window.build = (cfg) => {
     const t0 = t, last = i === cfg.scenes.length - 1;
     t += s.seconds;
     const outs = last ? "" : `,sOut .45s ease-in ${t - .45}s forwards`;
-    const r = scene(s, t0 + .1, cfg.shots || [], {visH});
+    const r = scene(s, t0 + .1, cfg.shots || [], {visH}, cfg.lib || {});
     if (cfg.captions && s.voice) caps += `<span class="cap" style="position:absolute;left:0;right:0;animation:rise .3s ease ${t0 + .2}s both${last ? "" : `,sOut .3s ease ${t - .35}s forwards`}">${esc(s.voice)}</span>`;
-    return `<section class="scene ${r.center ? "center" : ""}" style="animation:sIn .6s cubic-bezier(.2,.8,.2,1) ${t0}s both${outs}">
-      <div class="txt ${r.center ? "center" : ""}">${r.txt}</div>${r.vis ? `<div class="vis">${r.vis}</div>` : ""}</section>`;
+    return `<section class="scene ${r.center ? "center" : ""} ${r.onbleed ? "onbleed" : ""}" style="animation:sIn .6s cubic-bezier(.2,.8,.2,1) ${t0}s both${outs}">
+      ${r.bleed || ""}<div class="txt ${r.center ? "center" : ""}">${r.txt}</div>${r.vis ? `<div class="vis">${r.vis}</div>` : ""}</section>`;
   }).join("");
   document.documentElement.style.setProperty("--total", t + "s");
   document.getElementById("tagline").textContent = cfg.tagline || "";
@@ -215,7 +256,22 @@ window.build = (cfg) => {
   document.getElementById("captions").innerHTML = caps;
   return t;
 };
-window.seek = (ms) => { for (const a of document.getAnimations()) { a.pause(); a.currentTime = ms; } };
+// A képkockákat pontosan léptetjük: az animációkat időre állítjuk, a
+// klipeket pedig a saját kezdetükhöz képest tekerjük, és megvárjuk őket.
+window.seek = (ms) => {
+  for (const a of document.getAnimations()) { a.pause(); a.currentTime = ms; }
+  const vids = [...document.querySelectorAll("video[data-start]")];
+  if (!vids.length) return;
+  return Promise.all(vids.map((v) => new Promise((done) => {
+    const len = isFinite(v.duration) ? v.duration : 0;
+    const want = Math.max(0, Math.min(Math.max(0, len - 0.05), ms / 1000 - (+v.dataset.start || 0)));
+    if (!len || Math.abs(v.currentTime - want) < 0.005) return done();
+    const fin = () => { v.removeEventListener("seeked", fin); clearTimeout(t); done(); };
+    const t = setTimeout(fin, 250);
+    v.addEventListener("seeked", fin);
+    v.currentTime = want;
+  })));
+};
 </script>
 </body>
 </html>

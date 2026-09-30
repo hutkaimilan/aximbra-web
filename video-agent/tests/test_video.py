@@ -135,3 +135,78 @@ def test_gemini_tts_waits_out_the_minute_limit(monkeypatch):
     monkeypatch.setattr(videomaker.httpx, "post", lambda *a, **k: calls.append(1) or next(seq))
     monkeypatch.setattr(videomaker.time, "sleep", lambda s: None)
     assert videomaker._tts_gemini("szia", "hu") and len(calls) == 2
+
+
+# ---- médiatár ----
+
+import media  # noqa: E402
+
+
+def _png(w=40, h=30, c=(10, 120, 200)):
+    import struct, zlib
+    raw = b"".join(b"\x00" + bytes(c) * w for _ in range(h))
+
+    def ch(t, d):
+        x = t + d
+        return struct.pack(">I", len(d)) + x + struct.pack(">I", zlib.crc32(x))
+
+    return (b"\x89PNG\r\n\x1a\n" + ch(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+            + ch(b"IDAT", zlib.compress(raw)) + ch(b"IEND", b""))
+
+
+@pytest.fixture
+def lib(tmp_path, monkeypatch):
+    monkeypatch.setattr(media, "MEDIA_DIR", str(tmp_path))
+    return media
+
+
+def test_upload_normalizes_an_image_and_lists_it(lib):
+    m = lib.store(_png(), "image/png", "logo.png", "az AXIMBRA logó")
+    assert m["kind"] == "image" and m["file"].endswith(".jpg") and m["width"] == 40
+    assert lib.path_of(m["id"]) and [x["id"] for x in lib.listing()] == [m["id"]]
+    assert lib.delete(m["id"]) and lib.listing() == []
+
+
+def test_upload_rejects_other_file_types(lib):
+    with pytest.raises(lib.MediaError):
+        lib.store(b"MZ...", "application/x-msdownload", "a.exe")
+    with pytest.raises(lib.MediaError):
+        lib.store(b"", "image/png", "ures.png")
+
+
+def test_media_ids_cannot_escape_the_folder(lib):
+    assert lib.path_of("../../etc/passwd") is None and lib.path_of("abc") is None
+
+
+def test_scenes_without_usable_media_fall_back_to_text(lib, monkeypatch):
+    monkeypatch.setattr(videomaker.media, "MEDIA_DIR", lib.MEDIA_DIR)
+    img = lib.store(_png(), "image/png", "kep.png")
+    s = videomaker.normalize({"scenes": [
+        {"kind": "photo", "headline": "Kép nélkül", "seconds": 4},
+        {"kind": "gallery", "headline": "Üres galéria", "medias": [], "seconds": 4},
+        {"kind": "clip", "headline": "Kép klipként", "media": img["id"], "seconds": 9},
+        {"kind": "photo", "headline": "Jó kép", "media": img["id"], "seconds": 4},
+    ]}, 20)
+    kinds = [x["kind"] for x in s["scenes"]]
+    assert kinds[:4] == ["statement", "statement", "photo", "photo"]
+    assert s["scenes"][3]["media"] == img["id"]
+
+
+def test_generated_images_only_when_the_model_answers(lib, monkeypatch):
+    monkeypatch.setattr(videomaker.media, "MEDIA_DIR", lib.MEDIA_DIR)
+    monkeypatch.setattr(videomaker.imagegen, "MEDIA_DIR", lib.MEDIA_DIR, raising=False)
+    monkeypatch.setattr(videomaker.imagegen, "available", lambda: True)
+    monkeypatch.setattr(videomaker.imagegen, "generate_into_library",
+                        lambda prompt, aspect, name: {"id": "aaaaaaaaaaaa"} if "jo" in prompt else None)
+    s = videomaker.normalize({"scenes": [
+        {"kind": "photo", "headline": "A", "image_prompt": "jo kep", "seconds": 4},
+        {"kind": "photo", "headline": "B", "image_prompt": "rossz", "seconds": 4},
+    ]}, 12)
+    out = videomaker.fill_images(s, "9:16")
+    assert out["scenes"][0]["kind"] == "photo" and out["scenes"][0]["media"] == "aaaaaaaaaaaa"
+    assert out["scenes"][1]["kind"] == "statement"
+
+    monkeypatch.setattr(videomaker.imagegen, "available", lambda: False)
+    s2 = videomaker.normalize({"scenes": [{"kind": "photo", "headline": "C", "image_prompt": "jo", "seconds": 4},
+                                          {"kind": "cta", "headline": "D", "seconds": 4}]}, 12)
+    assert videomaker.fill_images(s2, "9:16")["scenes"][0]["kind"] == "statement"
