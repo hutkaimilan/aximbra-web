@@ -164,12 +164,22 @@ def li_missing() -> list[str]:
     return [v for k, v in need.items() if not _env(k)]
 
 
+def li_version(today=None) -> str:
+    """A LinkedIn havonta ad ki API-verziót (ÉÉÉÉHH), és a régieket kb. egy év
+    után lekapcsolja. Egy beégetett verzió így egyszer csak elhal; ezért a
+    két hónappal ezelőttit kérjük — az már biztosan megjelent, és még él."""
+    from datetime import date
+    d = today or date.today()
+    m = d.year * 12 + d.month - 1 - 2
+    return f"{m // 12}{m % 12 + 1:02d}"
+
+
 def _li_headers() -> dict:
     token = _env("LI_ACCESS_TOKEN")
     if not token:
         raise PublishError("nincs beállítva az LI_ACCESS_TOKEN")
     return {"Authorization": f"Bearer {token}",
-            "LinkedIn-Version": _env("LI_VERSION") or "202401",
+            "LinkedIn-Version": _env("LI_VERSION") or li_version(),
             "X-Restli-Protocol-Version": "2.0.0"}
 
 

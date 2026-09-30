@@ -582,3 +582,10 @@ def test_logo_filters_get_a_region_wide_enough_for_the_blur():
                              'width="100%" height="100%" filterUnits="userSpaceOnUse"><feGaussianBlur '
                              'stdDeviation="40"/></filter></defs><circle r="5" filter="url(#f)"/></svg>')
     assert 'x="-75%"' in out and 'width="250%"' in out and "userSpaceOnUse" not in out
+
+
+def test_linkedin_version_trails_the_calendar():
+    from datetime import date
+    assert publisher.li_version(date(2026, 9, 30)) == "202607"
+    assert publisher.li_version(date(2027, 1, 5)) == "202611"
+    assert publisher.li_version(date(2026, 2, 1)) == "202512"
