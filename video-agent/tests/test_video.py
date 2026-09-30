@@ -673,3 +673,12 @@ def test_call_lines_lose_trailing_speaker_labels_and_urls_their_protocol():
     assert s["scenes"][0]["lines"] == ["Jó napot, miben segíthetek?", "Ajánlatot kérnék."]
     assert s["scenes"][1]["lines"] == ["Árajánlat|Értékesítés"]      # a postafiók címkéje marad
     assert s["scenes"][-1]["url"] == "aximbra.hu"
+
+
+def test_english_words_are_respelled_for_the_hungarian_voice_only():
+    say = videomaker.spoken
+    assert say("A telefonos AI agent azonnal fogadja a hívást.", "hu") == "A telefonos éjáj édzsent azonnal fogadja a hívást."
+    assert say("Az e-mail rendező agentje rendezi az inboxot.", "hu") == "Az ímél rendező édzsentje rendezi az inbokszot."
+    assert say("Próbálja ki: aximbra.hu, AXIMBRA agentek kkv-knak.", "hu") == \
+        "Próbálja ki: akszimbra pont hu, Akszimbra édzsentek kákávé-knak."
+    assert say("Our AI agent", "en") == "Our AI agent"

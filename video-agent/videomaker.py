@@ -454,6 +454,36 @@ def _pcm_to_wav(pcm: bytes, rate: int = SAMPLE_RATE) -> bytes:
     return buf.getvalue()
 
 
+# A magyar felolvasó az angol szavakat magyarul ejti ("a-gent"). Ezért a
+# hangnak kiejtés szerint írjuk át őket; a felirat helyesírva marad.
+# A toldalék megmarad: agentje → édzsentje, agenteket → édzsenteket.
+SAY_HU = [
+    (r"\baximbra\.hu\b", "akszimbra pont hu"),
+    (r"\bAXIMBRA\b|\bAximbra\b", "Akszimbra"),
+    (r"\bAI[- ]?agent", "éjáj édzsent"),
+    (r"\bagent", "édzsent"),
+    (r"\bAgent", "Édzsent"),
+    (r"\bAI\b", "éjáj"),
+    (r"\be-mail", "ímél"),
+    (r"\bE-mail", "Ímél"),
+    (r"\binbox", "inboksz"),
+    (r"\bkkv", "kákávé"),
+    (r"\bKKV", "kákávé"),
+    (r"\bonline\b", "onlájn"),
+    (r"\bchatbot", "csetbot"),
+    (r"\bNIS2\b", "nisz kettő"),
+]
+
+
+def spoken(text: str, lang: str) -> str:
+    """A felolvasónak átadott szöveg: magyarnál kiejtés szerint átírva."""
+    if lang != "hu":
+        return text
+    for pat, rep_ in SAY_HU:
+        text = re.sub(pat, rep_, text)
+    return text
+
+
 def _tts_gemini(text: str, lang: str) -> bytes | None:
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not key:
@@ -548,7 +578,7 @@ def narrate(script: dict, lang: str, male: bool, say=lambda m: None) -> tuple[by
             if not s["voice"]:
                 got.append(b"")
                 continue
-            wav = speak(s["voice"])
+            wav = speak(spoken(s["voice"], lang))
             if not wav:
                 got = None
                 break
