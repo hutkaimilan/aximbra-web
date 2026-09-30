@@ -150,6 +150,8 @@ details summary{cursor:pointer}
 .slides img{display:block;border-radius:16px;border:1px solid var(--line);box-shadow:0 0 40px rgba(0,229,255,.16)}
 .slides .n{position:absolute;top:8px;left:8px;font:600 11px var(--mono);background:rgba(4,8,16,.72);border:1px solid var(--line);border-radius:999px;padding:2px 8px;color:var(--ink)}
 .slides.one{justify-content:center}
+.logo-v{flex:0 0 auto;scroll-snap-align:center;display:flex;flex-direction:column;align-items:center}
+.logo-v img{display:block;box-shadow:0 0 40px rgba(139,92,255,.25)}
 .mitem{position:relative;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:rgba(4,6,14,.6)}
 .mitem img,.mitem video{display:block;width:100%;height:84px;object-fit:cover;background:#000}
 .mitem .nm{padding:6px 8px;font:500 11px/1.3 var(--mono);color:var(--mute);word-break:break-word}
@@ -221,8 +223,8 @@ details summary{cursor:pointer}
     <textarea id="vBrief" style="min-height:160px" placeholder="Pl.: 30 mp-es álló videó logisztikai cégvezetőknek arról, hogy a közös ügyfélszolgálati postafiókot az AXIMBRA e-mail agentje reggelre rendezi. Komoly, de modern hangulat. Link: https://aximbra.hu&#10;&#10;Vagy: körhinta 5 képben arról, mit csinál egy AI agent egy webshopnál."></textarea>
     <div class="chips" id="vChips" style="margin-top:8px"></div>
     <div class="plan" style="grid-template-columns:1fr 1fr;margin-top:4px">
-      <div><label>Mit készítsek</label><select id="vForm"><option value="auto">Amit a leírás kér (magától dönt)</option><option value="video">Videó</option><option value="image">Egy kép</option><option value="carousel">Körhinta (3–6 kép)</option></select></div>
-      <div><label>Képarány</label><select id="vAspect"><option value="9:16">Álló 9:16 (Reels, TikTok, Story)</option><option value="4:5">Álló 4:5 (feed, a legtöbb helyet foglalja)</option><option value="1:1">Négyzet 1:1 (feed)</option><option value="16:9">Fekvő 16:9 (YouTube, web)</option></select></div>
+      <div><label>Mit készítsek</label><select id="vForm"><option value="auto">Amit a leírás kér (magától dönt)</option><option value="video">Videó</option><option value="image">Egy kép</option><option value="carousel">Körhinta (3–6 kép)</option><option value="logo">Logó / profilkép (3 változat)</option></select></div>
+      <div id="vAspectBox"><label>Képarány</label><select id="vAspect"><option value="9:16">Álló 9:16 (Reels, TikTok, Story)</option><option value="4:5">Álló 4:5 (feed, a legtöbb helyet foglalja)</option><option value="1:1">Négyzet 1:1 (feed)</option><option value="16:9">Fekvő 16:9 (YouTube, web)</option></select></div>
       <div id="vSecBox"><label>Hossz</label><select id="vSec"><option value="15">15 mp</option><option value="30" selected>30 mp</option><option value="45">45 mp</option><option value="60">60 mp</option><option value="90">90 mp</option></select></div>
       <div id="vVoiceBox"><label>Hang</label><select id="vVoice"><option value="f">Női narráció + felirat</option><option value="m">Férfi narráció + felirat</option><option value="">Nincs hang</option></select></div>
       <div><label>Nyelv</label><select id="vLang"><option value="hu">magyar</option><option value="en">angol</option></select></div>
@@ -274,15 +276,21 @@ function renderVideos() {
   const live = Object.entries(S.publish).filter(([, x]) => x.ready).map(([t]) => t);
   $("#videos").innerHTML = S.videos.map((v) => {
     const o = v.opts || {}, w = o.aspect === "16:9" ? 560 : o.aspect === "1:1" ? 380 : o.aspect === "4:5" ? 360 : 330;
-    const form = v.form || "video", n = (v.files || []).length;
-    const what = form === "image" ? "kép" : form === "carousel" ? `körhinta · ${n} dia` : `videó · ${esc(v.seconds)} mp`;
+    const form = v.form || "video", n = (v.files || []).length, ext = form === "logo" ? "png" : "jpg";
+    const what = form === "logo" ? `logó · ${n} változat` : form === "image" ? "kép" : form === "carousel" ? `körhinta · ${n} dia` : `videó · ${esc(v.seconds)} mp`;
     const sound = form === "video" ? ` · ${v.voice_engine ? "hang: " + esc(v.voice_engine) : "néma"}` : "";
     // Videónál lejátszó, képnél a diák egymás mellett; a dia kattintva nagyban nyílik.
-    const body = form === "video"
+    const ideas = v.ideas || [];
+    const body = form === "logo"
+      ? `<div class="slides ${n === 1 ? "one" : ""}">${Array.from({length: n}, (_, i) =>
+          `<div class="logo-v"><a href="/api/videos/${esc(v.id)}/${i + 1}.png" target="_blank" rel="noopener"><img src="/api/videos/${esc(v.id)}/${i + 1}.png" alt="" style="width:220px;border-radius:50%"></a>
+            <div class="mute" style="max-width:220px;font-size:13px;margin-top:8px">${i + 1}. ${esc(ideas[i] || "")}</div>
+            <div class="row" style="margin-top:8px;gap:6px"><a href="/api/videos/${esc(v.id)}/${i + 1}.png?download=1"><button class="pri">PNG</button></a><a href="/api/videos/${esc(v.id)}/${i + 1}.svg"><button>SVG</button></a></div></div>`).join("")}</div>`
+      : form === "video"
       ? `<video controls playsinline preload="metadata" src="/api/videos/${esc(v.id)}.mp4" style="display:block;width:100%;max-width:${w}px;margin:12px auto;border-radius:16px;background:#000;box-shadow:0 0 40px rgba(0,229,255,.2)"></video>`
       : `<div class="slides ${n === 1 ? "one" : ""}">${Array.from({length: n}, (_, i) =>
           `<a href="/api/videos/${esc(v.id)}/${i + 1}.jpg" target="_blank" rel="noopener"><img src="/api/videos/${esc(v.id)}/${i + 1}.jpg" alt="" style="width:${w}px;max-width:76vw"><span class="n">${i + 1}/${n}</span></a>`).join("")}</div>`;
-    const dl = form === "video"
+    const dl = form === "logo" ? "" : form === "video"
       ? `<a href="/api/videos/${esc(v.id)}.mp4?download=1"><button class="pri">Letöltés</button></a>`
       : Array.from({length: n}, (_, i) =>
           `<a href="/api/videos/${esc(v.id)}/${i + 1}.jpg?download=1"><button class="pri">${n > 1 ? `${i + 1}. kép` : "Letöltés"}</button></a>`).join("");
@@ -291,8 +299,8 @@ function renderVideos() {
     ${v.parent ? `<div class="mute">módosított változat</div>` : ""}
     ${body}
     <div class="row" style="justify-content:center">${dl}
-      ${live.map((t) => `<button class="vpub" data-t="${t}">${t === "instagram" ? "Instagramra" : "LinkedInre"}</button>`).join("")}
-      <button class="vcopy">Poszt másolása</button><button class="warn vdel">Törlés</button></div>
+      ${(form === "logo" ? [] : live).map((t) => `<button class="vpub" data-t="${t}">${t === "instagram" ? "Instagramra" : "LinkedInre"}</button>`).join("")}
+      ${form === "logo" ? "" : `<button class="vcopy">Poszt másolása</button>`}<button class="warn vdel">Törlés</button></div>
     ${Object.keys(v.posted || {}).length ? `<div class="posted">${Object.entries(v.posted).map(([t, x]) =>
       `<span class="tag" style="border-color:${String(x.id).startsWith("hiba") ? "rgba(255,77,109,.5)" : "rgba(25,245,160,.5)"}">${esc(t)}: ${esc(String(x.id).slice(0, 40))}</span>`).join("")}</div>` : ""}
     <label>Módosítás — írd le, mit változtassak</label>
@@ -442,13 +450,14 @@ async function refresh() { try { S = await api("/api/state"); render(); } catch 
 
 $("#vChips").innerHTML = Object.entries(CHIPS).map(([k, n]) => `<button data-vt="${k}">${esc(n)}</button>`).join("");
 $("#vChips").onclick = (e) => { const k = e.target.dataset.vt; if (k && S && S.topics[k]) { const b = $("#vBrief"); b.value = (b.value ? b.value.trim() + "\n" : "") + S.topics[k]; b.focus(); } };
-// Állóképnél nincs értelme hossznak és hangnak, ezért azokat elrejtjük.
+// Állóképnél nincs értelme hossznak és hangnak; a logó mindig négyzet, körbe vágva.
 function vFormChanged() {
-  const still = $("#vForm").value === "image" || $("#vForm").value === "carousel";
+  const f = $("#vForm").value, still = f === "image" || f === "carousel" || f === "logo";
   $("#vSecBox").style.display = still ? "none" : "";
   $("#vVoiceBox").style.display = still ? "none" : "";
+  $("#vAspectBox").style.display = f === "logo" ? "none" : "";
   $("#vGo").textContent = {image: "Kép elkészítése", carousel: "Körhinta elkészítése",
-                           video: "Videó elkészítése"}[$("#vForm").value] || "Elkészítem";
+                           video: "Videó elkészítése", logo: "Logók tervezése"}[f] || "Elkészítem";
 }
 $("#vForm").onchange = vFormChanged;
 $("#jobStop").onclick = async () => {

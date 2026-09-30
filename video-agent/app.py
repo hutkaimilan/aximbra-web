@@ -260,6 +260,8 @@ def video_publish(vid: str, body: PublishIn):
     meta = videomaker.get_meta(vid)
     if not meta:
         raise HTTPException(404, "Nincs ilyen videó.")
+    if meta.get("form") == "logo":
+        raise HTTPException(409, "A logóváltozatokat nem posztolom: töltsd le a kiválasztottat, és állítsd be profilképnek.")
     targets = [t for t in body.targets if t in publisher.enabled_targets()]
     if not targets:
         raise HTTPException(409, "Nincs bekötve platform. " + "; ".join(
@@ -321,7 +323,7 @@ class VideoIn(BaseModel):
     voice: bool = True
     male: bool = False
     research: bool = False
-    form: str = Field(default="auto", pattern="^(auto|video|image|carousel)$")
+    form: str = Field(default="auto", pattern="^(auto|video|image|carousel|logo)$")
 
 
 class ReviseIn(BaseModel):
@@ -377,13 +379,34 @@ def _post_video(vid: str, targets: list[str], caption: str, say) -> dict:
     return out
 
 
+def _slide(vid: str, n: int, ext: str, download: int):
+    path = videomaker.asset_path(vid, n)
+    if not path or not path.endswith("." + ext):
+        raise HTTPException(404, "Nincs ilyen kép.")
+    return FileResponse(path, media_type="image/png" if ext == "png" else "image/jpeg",
+                        filename=f"aximbra-{vid}-{n}.{ext}" if download else None)
+
+
 @app.get("/api/videos/{vid}/{n}.jpg", dependencies=[Depends(auth)])
 def video_slide(vid: str, n: int, download: int = 0):
-    path = videomaker.asset_path(vid, n)
-    if not path or not path.endswith(".jpg"):
-        raise HTTPException(404, "Nincs ilyen kép.")
-    return FileResponse(path, media_type="image/jpeg",
-                        filename=f"aximbra-{vid}-{n}.jpg" if download else None)
+    return _slide(vid, n, "jpg", download)
+
+
+@app.get("/api/videos/{vid}/{n}.png", dependencies=[Depends(auth)])
+def video_slide_png(vid: str, n: int, download: int = 0):
+    return _slide(vid, n, "png", download)
+
+
+@app.get("/api/videos/{vid}/{n}.svg", dependencies=[Depends(auth)])
+def video_vector(vid: str, n: int):
+    # Az SVG a modell kódja (megtisztítva). Csak letöltésként adjuk ki, és
+    # a CSP akkor se engedjen benne semmit futni, ha valaki megnyitja.
+    path = videomaker.vector_path(vid, n)
+    if not path:
+        raise HTTPException(404, "Nincs ilyen logó.")
+    return FileResponse(path, media_type="image/svg+xml", filename=f"aximbra-logo-{vid}-{n}.svg",
+                        headers={"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+                                 "X-Content-Type-Options": "nosniff"})
 
 
 @app.get("/api/videos/{vid}.mp4", dependencies=[Depends(auth)])

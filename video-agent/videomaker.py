@@ -42,6 +42,7 @@ import httpx
 
 import imagegen
 import llm
+import logomaker
 import media
 import playbook
 import stop
@@ -60,7 +61,7 @@ VISUAL_KINDS = ("site", "call", "inbox", "photo", "gallery", "clip")
 MEDIA_KINDS = ("photo", "gallery", "clip")
 THEMES = ("neon", "clean", "warm", "mono")
 ASPECTS = {"9:16": (540, 960), "4:5": (540, 675), "1:1": (540, 540), "16:9": (960, 540)}
-FORMS = ("auto", "video", "image", "carousel")
+FORMS = ("auto", "video", "image", "carousel", "logo")
 MAX_SLIDES = 8
 MIN_TOTAL, MAX_TOTAL = 10, 90
 SAMPLE_RATE = 24000
@@ -700,6 +701,65 @@ def render_stills(script: dict, urls: list[str], out_dir: str, vid: str, aspect:
     return files
 
 
+def design_logos(brief: str, ctx: dict, lang: str, say=lambda m: None, feedback: str = "",
+                 previous: list[str] | None = None) -> dict:
+    """A modell SVG-változatai, megtisztítva. Egy újrapróbálás jár, ha
+    egyetlen használható változat sem jött."""
+    pages = "\n\n".join(f"{p['url']}:\n{p['text'][:1500]}" for p in ctx.get("pages") or [] if p.get("text"))
+    prompt = logomaker.logo_prompt(brief, pages, lang, feedback, previous)
+    for attempt in range(2):
+        stop.check()
+        out = logomaker.parse(llm._ask(prompt))
+        good = []
+        for v in out["variants"]:
+            try:
+                good.append({"idea": v["idea"], "svg": logomaker.sanitize(v["svg"])})
+            except logomaker.LogoError as e:
+                logger.info("logóváltozat elvetve: %s", e)
+        if good:
+            if len(good) < len(out["variants"]):
+                say(f"{len(out['variants']) - len(good)} hibás változatot elvetettem.")
+            return {"title": out["title"], "variants": good}
+        say("A modell nem adott használható SVG-t, újrapróbálom…")
+    raise VideoError("a modell nem adott használható logót")
+
+
+def render_logos(variants: list[dict], out_dir: str, vid: str, say=lambda m: None) -> tuple[list[str], list[str]]:
+    """Változatonként egy 1080×1080-as PNG, mellé a vektoros SVG."""
+    from playwright.sync_api import sync_playwright
+
+    files, vectors = [], []
+    say(f"Logók rajzolása: {len(variants)} változat…")
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_page(viewport={"width": logomaker.SIZE, "height": logomaker.SIZE})
+            for i, v in enumerate(variants, 1):
+                stop.check()
+                page.set_content(f'<!doctype html><body style="margin:0;background:#04040C">{v["svg"]}</body>')
+                page.wait_for_timeout(150)
+                name = f"{vid}-{i}.png"
+                page.screenshot(path=os.path.join(out_dir, name), type="png",
+                                clip={"x": 0, "y": 0, "width": logomaker.SIZE, "height": logomaker.SIZE})
+                with open(os.path.join(out_dir, f"{vid}-{i}.svg"), "w", encoding="utf-8") as f:
+                    f.write(v["svg"])
+                files.append(name)
+                vectors.append(f"{vid}-{i}.svg")
+        finally:
+            browser.close()
+    return files, vectors
+
+
+def vector_path(vid: str, n: int) -> str | None:
+    """A logó n-edik változatának SVG-je."""
+    meta = get_meta(vid)
+    vectors = (meta or {}).get("vectors") or []
+    if not 1 <= n <= len(vectors):
+        return None
+    p = os.path.join(VIDEO_DIR, vectors[n - 1])
+    return p if os.path.exists(p) else None
+
+
 # ---- tárolás ----------------------------------------------------------------
 
 def _meta_path(vid: str) -> str:
@@ -782,7 +842,7 @@ def mark_posted(vid: str, results: dict) -> dict | None:
 
 def delete(vid: str) -> bool:
     meta = _read_meta(vid)
-    files = (meta or {}).get("files") or []
+    files = ((meta or {}).get("files") or []) + ((meta or {}).get("vectors") or [])
     paths = [os.path.join(VIDEO_DIR, f) for f in files] or ([video_path(vid)] if video_path(vid) else [])
     if not paths:
         return False
@@ -818,8 +878,11 @@ def _finish(script: dict, opts: dict, ctx: dict, say, parent: str | None = None)
 
 def _produce(script: dict, opts: dict, ctx: dict, say, parent: str | None, form: str, vid: str) -> dict:
     started = time.time()
-    audio, engine, total, files = None, "", 0.0, []
-    if form in ("image", "carousel"):
+    audio, engine, total, files, vectors = None, "", 0.0, [], []
+    if form == "logo":
+        files, vectors = render_logos(script.pop("logo_variants"), VIDEO_DIR, vid, say)
+        done = f"{len(files)} logóváltozat"
+    elif form in ("image", "carousel"):
         files = render_stills(script, ctx["urls"], VIDEO_DIR, vid, opts["aspect"], say)
         done = f"{len(files)} kép"
     else:
@@ -833,7 +896,7 @@ def _produce(script: dict, opts: dict, ctx: dict, say, parent: str | None, form:
         files = [f"{vid}.mp4"]
         done = f"{total:.0f} mp"
     meta = {"id": vid, "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "parent": parent,
-            "form": form, "files": files, "slides": len(files) if form != "video" else 0,
+            "form": form, "files": files, "vectors": vectors, "slides": len(files) if form != "video" else 0,
             "brief": opts["brief"], "opts": opts, "ctx_urls": ctx["urls"], "voice_engine": engine,
             "seconds": round(total, 1), **script}
     # Az utolsó pont, ahol még megállhatunk: a leírás kiírása után már kész darab van.
@@ -852,17 +915,21 @@ FORM_WORDS = {
     "carousel": ("körhint", "korhint", "carousel", "diasor", "több kép", "tobb kep", "slide", "diasor"),
     "video": ("videó", "video", "reels", "reel", "tiktok"),
 }
+# A logó szavai megelőznek mindent: a „kör alakú kép logó” logó, nem kép.
+LOGO_WORDS = ("logó", "logo", "profilkép", "profilkep", "embléma", "emblema", "arculati jel")
 
 
 def pick_form(brief: str) -> str:
     """Ha nem mondtad meg, a leírás szavaiból találjuk ki, mit kérsz."""
     text = (brief or "").lower()
+    if any(w in text for w in LOGO_WORDS):
+        return "logo"
     hits = {f: min((text.find(w) for w in words if w in text), default=-1) for f, words in FORM_WORDS.items()}
     named = {f: i for f, i in hits.items() if i >= 0}
     return min(named, key=named.get) if named else "video"
 
 
-FORM_NAMES = {"video": "videó", "image": "kép", "carousel": "körhinta"}
+FORM_NAMES = {"video": "videó", "image": "kép", "carousel": "körhinta", "logo": "logó"}
 
 
 def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", voice: bool = True,
@@ -881,12 +948,23 @@ def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", 
             "male": male, "research": research, "form": form}
     say("Kontextus: linkek beolvasása…")
     ctx = gather(brief, research, say)
+    if form == "logo":
+        opts["aspect"] = "1:1"
+        say("Logótervezés…")
+        return _finish(_logo_script(design_logos(brief, ctx, lang, say)), opts, ctx, say)
     say("Forgatókönyv írása…")
     script = write_script(brief, ctx, seconds, lang, aspect, voice, say, form)
     script = fill_images(script, aspect, say)
     say(f"Forgatókönyv kész: {script['title']} ({len(script['scenes'])} "
         f"{'dia' if form != 'video' else 'jelenet'}, {script['theme']} stílus).")
     return _finish(script, opts, ctx, say)
+
+
+def _logo_script(d: dict) -> dict:
+    """A logó a videókkal közös listába kerül, ezért ugyanazokat a mezőket kapja."""
+    return {"title": d["title"], "tagline": "", "brand": "", "theme": "", "scenes": [],
+            "post": "", "first_comment": "", "ideas": [v["idea"] for v in d["variants"]],
+            "logo_variants": d["variants"]}
 
 
 def revise(vid: str, feedback: str, say=lambda m: None) -> dict:
@@ -902,6 +980,16 @@ def revise(vid: str, feedback: str, say=lambda m: None) -> dict:
     form = opts.get("form") or meta.get("form") or "video"
     opts = {**opts, "form": form}
     ctx = {"urls": meta.get("ctx_urls") or [], "pages": [], "web": []}
+    if form == "logo":
+        previous = []
+        for n in range(1, len(meta.get("vectors") or []) + 1):
+            p = vector_path(vid, n)
+            if p:
+                with open(p, encoding="utf-8") as f:
+                    previous.append(f.read())
+        say("Módosítás: a logók újratervezése…")
+        d = design_logos(opts["brief"], ctx, opts["lang"], say, feedback, previous)
+        return _finish(_logo_script(d), opts, ctx, say, parent=vid)
     say("Módosítás: a forgatókönyv átírása…")
     raw = llm._ask(revise_prompt(meta, feedback, opts["lang"], form))
     script = normalize(llm.extract_json(raw), opts["seconds"], len(ctx["urls"]), form)

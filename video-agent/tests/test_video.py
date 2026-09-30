@@ -491,3 +491,87 @@ def test_a_stopped_render_leaves_no_files(tmp_path, monkeypatch):
     with pytest.raises(stop.Cancelled):
         videomaker._finish(script, opts, {"urls": []}, lambda m: None)
     assert list(tmp_path.iterdir()) == []
+
+
+# ---- logó -------------------------------------------------------------------
+
+import logomaker  # noqa: E402
+
+_EVIL = """<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1080 1080" onload="alert(1)">
+<script>alert(1)</script><style>@import url(http://rossz.hu/x.css);</style>
+<image href="file:///etc/passwd" width="10" height="10"/>
+<foreignObject><div>x</div></foreignObject>
+<defs><linearGradient id="g"><stop offset="0" stop-color="#0ff"/></linearGradient></defs>
+<rect width="1080" height="1080" fill="#04040C" class="x" style="fill:red"/>
+<circle cx="540" cy="540" r="300" fill="url(#g)" onclick="x()"/>
+<path d="M0 0L10 10" fill="url(http://rossz.hu/a.svg#g)"/>
+<use href="#g"/><use xlink:href="http://rossz.hu/a.svg#x"/>
+</svg>"""
+
+
+def test_logo_svg_is_stripped_to_drawing_only():
+    out = logomaker.sanitize(_EVIL)
+    low = out.lower()
+    for bad in ("script", "onload", "onclick", "<style", "@import", "<image", "foreignobject",
+                "passwd", "rossz.hu", "class=", "style="):
+        assert bad not in low, bad
+    assert 'fill="url(#g)"' in out and 'href="#g"' in out and "<circle" in out
+    assert 'width="1080"' in out and 'viewBox="0 0 1080 1080"' in out
+
+
+def test_logo_svg_with_a_dtd_or_nothing_to_draw_is_rejected():
+    with pytest.raises(logomaker.LogoError):
+        logomaker.sanitize('<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg>&x;</svg>')
+    with pytest.raises(logomaker.LogoError):
+        logomaker.sanitize('<svg xmlns="http://www.w3.org/2000/svg"><script>x</script></svg>')
+    with pytest.raises(logomaker.LogoError):
+        logomaker.sanitize("<svg><rect")
+
+
+def test_logo_answer_is_parsed_into_variants():
+    text = """TITLE: AXIMBRA profilkép
+=== VARIANT: Gyűrűs jel
+<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>
+=== VARIANT: Sima jel
+```xml
+<svg xmlns="http://www.w3.org/2000/svg"><circle r="1"/></svg>
+```"""
+    out = logomaker.parse(text)
+    assert out["title"] == "AXIMBRA profilkép"
+    assert [v["idea"] for v in out["variants"]] == ["Gyűrűs jel", "Sima jel"]
+    assert out["variants"][1]["svg"].startswith("<svg") and out["variants"][1]["svg"].endswith("</svg>")
+
+
+def test_logo_words_win_over_image_words():
+    assert videomaker.pick_form("készíts egy kör alakú kép logót a profilképhez") == "logo"
+    assert videomaker.pick_form("új profilkép az AXIMBRA oldalaknak") == "logo"
+    assert videomaker.pick_form("egy kép a telefonos agentről") == "image"
+
+
+def test_a_bad_variant_is_dropped_and_the_rest_kept(monkeypatch):
+    good = '<svg xmlns="http://www.w3.org/2000/svg"><circle cx="1" cy="1" r="1"/></svg>'
+    monkeypatch.setattr(llm, "_ask", lambda p: f"TITLE: T\n=== VARIANT: jó\n{good}\n=== VARIANT: rossz\n<svg><g/></svg>")
+    d = videomaker.design_logos("AXIMBRA logó", {"pages": []}, "hu")
+    assert [v["idea"] for v in d["variants"]] == ["jó"]
+
+
+def test_logo_files_are_served_and_never_posted(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    import app as app_mod
+    monkeypatch.setenv("ADMIN_PASSWORD", "jelszo1234")
+    monkeypatch.setattr(videomaker, "VIDEO_DIR", str(tmp_path))
+    vid = "abcdef012345"
+    (tmp_path / f"{vid}-1.png").write_bytes(b"\\x89PNG")
+    (tmp_path / f"{vid}-1.svg").write_text("<svg/>", encoding="utf-8")
+    meta = {"id": vid, "form": "logo", "files": [f"{vid}-1.png"], "vectors": [f"{vid}-1.svg"],
+            "title": "T", "created_at": "2026-01-01T00:00:00"}
+    (tmp_path / f"{vid}.json").write_text(json.dumps(meta), encoding="utf-8")
+    c, A = TestClient(app_mod.app), ("a", "jelszo1234")
+    assert c.get(f"/api/videos/{vid}/1.png", auth=A).headers["content-type"] == "image/png"
+    assert c.get(f"/api/videos/{vid}/1.jpg", auth=A).status_code == 404
+    r = c.get(f"/api/videos/{vid}/1.svg", auth=A)
+    assert r.status_code == 200 and "attachment" in r.headers["content-disposition"]
+    assert "default-src 'none'" in r.headers["content-security-policy"]
+    assert c.get(f"/api/videos/{vid}/2.svg", auth=A).status_code == 404
+    assert c.post(f"/api/videos/{vid}/publish", json={"targets": ["instagram"]}, auth=A).status_code == 409
+    assert videomaker.delete(vid) and list(tmp_path.iterdir()) == []
