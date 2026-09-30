@@ -154,6 +154,17 @@ def sanitize(svg: str) -> str:
                 del el.attrib[key]
 
     clean(root)
+    # A szűrő alapból csak kicsivel nagyobb dobozban rajzol, mint az elem:
+    # egy erős elmosás széle ott egyenesen levágódik, és szögletes folt
+    # látszik a jel mögött. Ezért minden szűrőnek bő, egységes dobozt adunk.
+    for el in root.iter():
+        if isinstance(el.tag, str) and _local(el.tag) == "filter":
+            for k in ("filterUnits", "x", "y", "width", "height"):
+                el.attrib.pop(k, None)
+            el.set("x", "-75%")
+            el.set("y", "-75%")
+            el.set("width", "250%")
+            el.set("height", "250%")
     root.set("viewBox", root.get("viewBox") or f"0 0 {SIZE} {SIZE}")
     root.set("width", str(SIZE))
     root.set("height", str(SIZE))

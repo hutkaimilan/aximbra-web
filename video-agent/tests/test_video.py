@@ -575,3 +575,10 @@ def test_logo_files_are_served_and_never_posted(tmp_path, monkeypatch):
     assert c.get(f"/api/videos/{vid}/2.svg", auth=A).status_code == 404
     assert c.post(f"/api/videos/{vid}/publish", json={"targets": ["instagram"]}, auth=A).status_code == 409
     assert videomaker.delete(vid) and list(tmp_path.iterdir()) == []
+
+
+def test_logo_filters_get_a_region_wide_enough_for_the_blur():
+    out = logomaker.sanitize('<svg xmlns="http://www.w3.org/2000/svg"><defs><filter id="f" x="0" y="0" '
+                             'width="100%" height="100%" filterUnits="userSpaceOnUse"><feGaussianBlur '
+                             'stdDeviation="40"/></filter></defs><circle r="5" filter="url(#f)"/></svg>')
+    assert 'x="-75%"' in out and 'width="250%"' in out and "userSpaceOnUse" not in out
