@@ -107,17 +107,37 @@ def public_ticket(vid: str) -> str:
     return hmac.new(_link_secret().encode(), f"video:{vid}".encode(), hashlib.sha256).hexdigest()[:32]
 
 
-def public_url(vid: str) -> str:
+def public_urls(meta: dict) -> list[str]:
+    """A darab fájljainak nyilvános címe, sorrendben. Üres lista, ha nincs
+    beállítva nyilvános cím — akkor Instagramra nem tudunk posztolni."""
     base = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
-    return f"{base}/p/{vid}/{public_ticket(vid)}.mp4" if base else ""
+    vid = meta.get("id") or ""
+    if not base or not vid:
+        return []
+    tick = public_ticket(vid)
+    if (meta.get("form") or "video") == "video":
+        return [f"{base}/p/{vid}/{tick}.mp4"]
+    return [f"{base}/p/{vid}/{tick}/{n}.jpg" for n in range(1, len(meta.get("files") or []) + 1)]
+
+
+def _public_ok(vid: str, ticket: str) -> bool:
+    return bool(_link_secret()) and hmac.compare_digest(ticket, public_ticket(vid))
 
 
 @app.get("/p/{vid}/{ticket}.mp4")
 def public_video(vid: str, ticket: str):
     path = videomaker.video_path(vid)
-    if not path or not _link_secret() or not hmac.compare_digest(ticket, public_ticket(vid)):
+    if not path or not _public_ok(vid, ticket):
         raise HTTPException(404, "Nincs ilyen videó.")
     return FileResponse(path, media_type="video/mp4")
+
+
+@app.get("/p/{vid}/{ticket}/{n}.jpg")
+def public_slide(vid: str, ticket: str, n: int):
+    path = videomaker.asset_path(vid, n)
+    if not path or not path.endswith(".jpg") or not _public_ok(vid, ticket):
+        raise HTTPException(404, "Nincs ilyen kép.")
+    return FileResponse(path, media_type="image/jpeg")
 
 
 @app.get("/health")
@@ -183,6 +203,7 @@ class SettingsIn(BaseModel):
     seconds: int | None = None
     max_posts_per_day: int | None = None
     aspect: str | None = None
+    form: str | None = None
     lang: str | None = None
     voice: bool | None = None
     male: bool | None = None
@@ -233,13 +254,13 @@ def _auto_round(say) -> dict:
     settings_store.save({"next_brief": nxt, "last_run": now.isoformat(timespec="seconds")})
     say(f"Automatika: {brief[:90]}")
     meta = videomaker.make(brief, s["seconds"], s["lang"], s["aspect"], s["voice"], s["male"],
-                           research=False, say=say)
+                           research=False, form=s.get("form") or "auto", say=say)
     if not s.get("autopost"):
-        say("A videó kész, kiposztolni te posztolod ki.")
+        say("Kész, de kiposztolni te posztolod ki.")
         return meta
     targets = [t for t in (s.get("targets") or []) if t in publisher.enabled_targets()]
     if not targets:
-        say("Magától posztolás: nincs bekötve platform, a videó a listában marad.")
+        say("Magától posztolás: nincs bekötve platform, a kész darab a listában marad.")
         return meta
     if settings_store.post_budget(now, s) <= 0:
         say("Magától posztolás: a mai keret betelt.")
@@ -269,10 +290,11 @@ class VideoIn(BaseModel):
     brief: str = Field(min_length=8, max_length=4000)
     seconds: int = Field(default=30, ge=10, le=90)
     lang: str = Field(default="hu", pattern="^(hu|en)$")
-    aspect: str = Field(default="9:16", pattern="^(9:16|1:1|16:9)$")
+    aspect: str = Field(default="9:16", pattern="^(9:16|4:5|1:1|16:9)$")
     voice: bool = True
     male: bool = False
     research: bool = False
+    form: str = Field(default="auto", pattern="^(auto|video|image|carousel)$")
 
 
 class ReviseIn(BaseModel):
@@ -282,7 +304,7 @@ class ReviseIn(BaseModel):
 @app.post("/api/videos", dependencies=[Depends(auth)])
 def video_make(body: VideoIn):
     return _start(lambda say: videomaker.make(body.brief, body.seconds, body.lang, body.aspect, body.voice,
-                                              body.male, body.research, say=say))
+                                              body.male, body.research, body.form, say=say))
 
 
 @app.post("/api/videos/{vid}/revise", dependencies=[Depends(auth)])
@@ -303,15 +325,18 @@ def _post_video(vid: str, targets: list[str], caption: str, say) -> dict:
     """Egy kész videó kiposztolása a megadott helyekre. Ami elhasal, azt
     naplózzuk, de a többi platform attól még mehet."""
     meta = videomaker.get_meta(vid) or {}
-    path = videomaker.video_path(vid)
-    if not path:
-        raise RuntimeError("a videófájl nem található")
+    form = meta.get("form") or "video"
+    n = len(meta.get("files") or []) or 1
+    paths = [p for p in (videomaker.asset_path(vid, i) for i in range(1, n + 1)) if p]
+    if not paths:
+        raise RuntimeError("a fájl nem található")
+    urls = public_urls(meta)
     out = {}
     for t in targets:
         try:
             say(f"{t}: feltöltés…")
-            pid = publisher.publish(t, path=path, url=public_url(vid), caption=caption,
-                                    title=meta.get("title", ""))
+            pid = publisher.publish(t, paths=paths, urls=urls, caption=caption,
+                                    title=meta.get("title", ""), form=form)
             out[t] = pid
             say(f"{t}: kiposztolva ({pid}).")
         except publisher.PublishError as e:
@@ -319,6 +344,15 @@ def _post_video(vid: str, targets: list[str], caption: str, say) -> dict:
             say(f"{t}: nem sikerült — {e}")
     videomaker.mark_posted(vid, out)
     return out
+
+
+@app.get("/api/videos/{vid}/{n}.jpg", dependencies=[Depends(auth)])
+def video_slide(vid: str, n: int, download: int = 0):
+    path = videomaker.asset_path(vid, n)
+    if not path or not path.endswith(".jpg"):
+        raise HTTPException(404, "Nincs ilyen kép.")
+    return FileResponse(path, media_type="image/jpeg",
+                        filename=f"aximbra-{vid}-{n}.jpg" if download else None)
 
 
 @app.get("/api/videos/{vid}.mp4", dependencies=[Depends(auth)])

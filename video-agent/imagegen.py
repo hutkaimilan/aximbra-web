@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 GUARD = ("No recognisable real person, no celebrity, no logo of another company, no readable text. ")
-SIZES = {"9:16": (768, 1344), "1:1": (1024, 1024), "16:9": (1344, 768)}
+SIZES = {"9:16": (768, 1344), "4:5": (896, 1120), "1:1": (1024, 1024), "16:9": (1344, 768)}
 # Ingyenes tartalék, kulcs nélkül. Vízjelet tesz a képre, ezért csak akkor
 # hívjuk, ha a Geminire nincs keret, és a felületen jelezzük is.
 FREE_URL = "https://image.pollinations.ai/prompt/{prompt}"
@@ -72,8 +72,9 @@ def generate(prompt: str, aspect: str = "9:16") -> tuple[bytes, str] | None:
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not key:
         return fallback()
-    shape = {"9:16": "vertical 9:16", "1:1": "square 1:1", "16:9": "wide 16:9"}.get(aspect, "vertical 9:16")
-    text = f"{GUARD}A {shape} image for a short business video. {prompt.strip()[:600]}"
+    shape = {"9:16": "vertical 9:16", "4:5": "portrait 4:5", "1:1": "square 1:1",
+             "16:9": "wide 16:9"}.get(aspect, "vertical 9:16")
+    text = f"{GUARD}A {shape} image for a short business post. {prompt.strip()[:600]}"
     body = {"contents": [{"role": "user", "parts": [{"text": text}]}]}
     for attempt in range(3):
         try:

@@ -1,4 +1,5 @@
 """A videós agent hálózat nélkül: modell, felolvasó és renderelő csonkkal."""
+import json
 import os
 import sys
 
@@ -299,3 +300,83 @@ def test_public_link_needs_the_right_ticket(tmp_path, monkeypatch):
     assert c.get(f"/p/abcdef012345/{good}.mp4").status_code == 200        # jegy nélkül nyilvános
     assert c.get("/p/abcdef012345/rosszjegy.mp4").status_code == 404
     assert c.get(f"/p/masikvideo00/{good}.mp4").status_code == 404
+
+
+# ---- kép és körhinta --------------------------------------------------------
+
+def test_form_is_guessed_from_the_brief():
+    assert videomaker.pick_form("Csinálj egy körhintát 5 képben az agentekről") == "carousel"
+    assert videomaker.pick_form("Kérek egy képet a telefonos AI-ról") == "image"
+    assert videomaker.pick_form("30 mp-es videó az e-mail rendezőről") == "video"
+    assert videomaker.pick_form("Mutasd be az AXIMBRA-t") == "video"
+
+
+def test_still_scripts_drop_the_moving_scenes_and_the_voice():
+    raw = {"title": "T", "scenes": [
+        {"kind": "hook", "headline": "Ki veszi fel?", "voice": "narráció", "seconds": 3},
+        {"kind": "call", "headline": "Hívás", "lines": ["AI: Jó napot!"], "seconds": 6},
+        {"kind": "benefit", "headline": "Miért jó", "lines": ["a", "b"], "seconds": 5},
+    ]}
+    s = videomaker.normalize(raw, 30, 1, "carousel")
+    assert all(x["kind"] not in ("call", "site", "inbox", "clip") for x in s["scenes"])
+    assert all(not x.get("voice") for x in s["scenes"])
+    assert all(x["seconds"] == 5.0 for x in s["scenes"])
+
+
+def test_a_single_image_keeps_one_scene_and_needs_no_cta():
+    s = videomaker.normalize({"title": "T", "scenes": [
+        {"kind": "hook", "headline": "Egy mondat", "seconds": 3},
+        {"kind": "benefit", "headline": "Másik", "lines": ["a"], "seconds": 5},
+    ]}, 30, 1, "image")
+    assert len(s["scenes"]) == 1 and s["scenes"][0]["kind"] != "cta"
+
+
+def test_carousel_is_capped_at_eight_slides():
+    scenes = [{"kind": "benefit", "headline": f"H{i}", "lines": ["a"], "seconds": 4} for i in range(12)]
+    s = videomaker.normalize({"title": "T", "scenes": scenes}, 30, 1, "carousel")
+    assert len(s["scenes"]) <= videomaker.MAX_SLIDES
+
+
+def test_slides_are_served_and_publicly_linked(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    import app as app_mod
+    monkeypatch.setenv("ADMIN_PASSWORD", "jelszo1234")
+    monkeypatch.setenv("PUBLIC_LINK_SECRET", "titok")
+    monkeypatch.setenv("PUBLIC_BASE_URL", "https://pelda.hu")
+    monkeypatch.setattr(videomaker, "VIDEO_DIR", str(tmp_path))
+    vid = "abcdef012345"
+    for n in (1, 2):
+        (tmp_path / f"{vid}-{n}.jpg").write_bytes(b"jpg%d" % n)
+    meta = {"id": vid, "form": "carousel", "files": [f"{vid}-1.jpg", f"{vid}-2.jpg"],
+            "title": "T", "created_at": "2026-01-01T00:00:00"}
+    (tmp_path / f"{vid}.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    c = TestClient(app_mod.app)
+    assert c.get(f"/api/videos/{vid}/2.jpg", auth=("a", "jelszo1234")).content == b"jpg2"
+    assert c.get(f"/api/videos/{vid}/3.jpg", auth=("a", "jelszo1234")).status_code == 404
+    assert c.get(f"/api/videos/{vid}.mp4", auth=("a", "jelszo1234")).status_code == 404
+
+    tick = app_mod.public_ticket(vid)
+    assert c.get(f"/p/{vid}/{tick}/1.jpg").status_code == 200
+    assert c.get(f"/p/{vid}/rosszjegy/1.jpg").status_code == 404
+    assert app_mod.public_urls(videomaker.get_meta(vid)) == [
+        f"https://pelda.hu/p/{vid}/{tick}/1.jpg", f"https://pelda.hu/p/{vid}/{tick}/2.jpg"]
+
+
+def test_a_carousel_of_one_image_goes_out_as_a_plain_image(monkeypatch):
+    calls = []
+    monkeypatch.setattr(publisher, "ig_publish_image", lambda url, cap: calls.append(url) or "1")
+    assert publisher.ig_publish_carousel(["https://pelda.hu/a.jpg"], "szöveg") == "1"
+    assert calls == ["https://pelda.hu/a.jpg"]
+
+
+def test_publish_picks_the_route_from_the_form(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(publisher, "ig_publish", lambda u, c: seen.setdefault("video", u) or "v")
+    monkeypatch.setattr(publisher, "ig_publish_carousel", lambda u, c: seen.setdefault("slides", u) or "k")
+    publisher.publish("instagram", paths=["/a.mp4"], urls=["https://x/a.mp4"], caption="c", form="video")
+    publisher.publish("instagram", paths=["/a.jpg", "/b.jpg"],
+                      urls=["https://x/a.jpg", "https://x/b.jpg"], caption="c", form="carousel")
+    assert seen == {"video": "https://x/a.mp4", "slides": ["https://x/a.jpg", "https://x/b.jpg"]}
+    with pytest.raises(publisher.PublishError):
+        publisher.publish("instagram", paths=["/a.jpg"], urls=[], caption="c", form="image")

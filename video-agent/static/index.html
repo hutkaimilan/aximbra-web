@@ -144,6 +144,12 @@ details summary{cursor:pointer}
 .tg.off small{display:block;font:11px var(--mono)}
 .posted{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;justify-content:center}
 .mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:14px}
+/* Diák: a körhinta lapjai egymás mellett, oldalra húzva, mint a feedben. */
+.slides{display:flex;gap:12px;overflow-x:auto;padding:12px 2px;scroll-snap-type:x mandatory}
+.slides a{flex:0 0 auto;scroll-snap-align:center;position:relative;line-height:0}
+.slides img{display:block;border-radius:16px;border:1px solid var(--line);box-shadow:0 0 40px rgba(0,229,255,.16)}
+.slides .n{position:absolute;top:8px;left:8px;font:600 11px var(--mono);background:rgba(4,8,16,.72);border:1px solid var(--line);border-radius:999px;padding:2px 8px;color:var(--ink)}
+.slides.one{justify-content:center}
 .mitem{position:relative;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:rgba(4,6,14,.6)}
 .mitem img,.mitem video{display:block;width:100%;height:84px;object-fit:cover;background:#000}
 .mitem .nm{padding:6px 8px;font:500 11px/1.3 var(--mono);color:var(--mute);word-break:break-word}
@@ -180,7 +186,7 @@ details summary{cursor:pointer}
 <body>
 <header>
   <div class="brand">
-    <div class="logo"><div class="core" id="core"></div><h1><b>AXIMBRA</b> Video Studio<small>LEÍRÁSBÓL KÉSZ VIDEÓ · AI RENDEZŐ</small></h1></div>
+    <div class="logo"><div class="core" id="core"></div><h1><b>AXIMBRA</b> Video Studio<small>LEÍRÁSBÓL VIDEÓ, KÉP VAGY KÖRHINTA · AI RENDEZŐ</small></h1></div>
     <span class="cap" id="count"></span>
   </div>
   <div class="leds" id="leds"></div>
@@ -207,35 +213,37 @@ details summary{cursor:pointer}
   </div>
 
   <div class="card">
-    <div class="who"><div class="core"></div>Új videó · leírás → forgatókönyv → hang → MP4</div>
+    <div class="who"><div class="core"></div>Új tartalom · leírás → videó, kép vagy körhinta</div>
     <label>Mit akarsz? Írd le szabadon</label>
-    <textarea id="vBrief" style="min-height:160px" placeholder="Pl.: 30 mp-es álló videó logisztikai cégvezetőknek arról, hogy a közös ügyfélszolgálati postafiókot az AXIMBRA e-mail agentje reggelre rendezi. Komoly, de modern hangulat. Link: https://aximbra.hu"></textarea>
+    <textarea id="vBrief" style="min-height:160px" placeholder="Pl.: 30 mp-es álló videó logisztikai cégvezetőknek arról, hogy a közös ügyfélszolgálati postafiókot az AXIMBRA e-mail agentje reggelre rendezi. Komoly, de modern hangulat. Link: https://aximbra.hu&#10;&#10;Vagy: körhinta 5 képben arról, mit csinál egy AI agent egy webshopnál."></textarea>
     <div class="chips" id="vChips" style="margin-top:8px"></div>
     <div class="plan" style="grid-template-columns:1fr 1fr;margin-top:4px">
-      <div><label>Formátum</label><select id="vAspect"><option value="9:16">Álló 9:16 (Reels, TikTok, LinkedIn)</option><option value="1:1">Négyzet 1:1 (feed)</option><option value="16:9">Fekvő 16:9 (YouTube, web)</option></select></div>
-      <div><label>Hossz</label><select id="vSec"><option value="15">15 mp</option><option value="30" selected>30 mp</option><option value="45">45 mp</option><option value="60">60 mp</option><option value="90">90 mp</option></select></div>
-      <div><label>Hang</label><select id="vVoice"><option value="f">Női narráció + felirat</option><option value="m">Férfi narráció + felirat</option><option value="">Nincs hang</option></select></div>
+      <div><label>Mit készítsek</label><select id="vForm"><option value="auto">Amit a leírás kér (magától dönt)</option><option value="video">Videó</option><option value="image">Egy kép</option><option value="carousel">Körhinta (3–6 kép)</option></select></div>
+      <div><label>Képarány</label><select id="vAspect"><option value="9:16">Álló 9:16 (Reels, TikTok, Story)</option><option value="4:5">Álló 4:5 (feed, a legtöbb helyet foglalja)</option><option value="1:1">Négyzet 1:1 (feed)</option><option value="16:9">Fekvő 16:9 (YouTube, web)</option></select></div>
+      <div id="vSecBox"><label>Hossz</label><select id="vSec"><option value="15">15 mp</option><option value="30" selected>30 mp</option><option value="45">45 mp</option><option value="60">60 mp</option><option value="90">90 mp</option></select></div>
+      <div id="vVoiceBox"><label>Hang</label><select id="vVoice"><option value="f">Női narráció + felirat</option><option value="m">Férfi narráció + felirat</option><option value="">Nincs hang</option></select></div>
       <div><label>Nyelv</label><select id="vLang"><option value="hu">magyar</option><option value="en">angol</option></select></div>
     </div>
     <label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink)"><input type="checkbox" id="vResearch" style="width:auto"> Nézzen utána a weben is</label>
-    <div class="row" style="margin-top:12px"><button class="pri" id="vGo">Videó készítése</button><span class="mute" id="vInfo"></span></div>
-    <p class="mute" style="margin-bottom:0">A leírás linkjeit beolvassa, és telefonon mutatja a videóban. Számot, ügyfelet, eredményt csak akkor ír bele, ha a leírásban vagy a linkelt oldalon szerepel. Egy videó 2–6 perc.</p>
+    <div class="row" style="margin-top:12px"><button class="pri" id="vGo">Elkészítem</button><span class="mute" id="vInfo"></span></div>
+    <p class="mute" style="margin-bottom:0">A leírás linkjeit beolvassa, és telefonon mutatja a képen. Számot, ügyfelet, eredményt csak akkor ír bele, ha a leírásban vagy a linkelt oldalon szerepel. Egy videó 2–6 perc, egy kép vagy körhinta fél perc.</p>
   </div>
   <div class="card">
     <div class="who"><div class="core"></div>Automatika · magától gyárt és posztol</div>
     <p class="mute" style="margin-top:0" id="aInfo"></p>
     <label>Miről készüljenek? Soronként egy téma, sorban halad rajtuk</label>
-    <textarea id="aBriefs" style="min-height:120px" placeholder="Álló videó az e-mail rendezőről logisztikai cégvezetőknek, komoly hangulat&#10;Álló videó a telefonos AI-ról, mutasd az aximbra.hu-t&#10;Álló videó arról, mit csinál egy AI agent egy webshopnál"></textarea>
+    <textarea id="aBriefs" style="min-height:120px" placeholder="Álló videó az e-mail rendezőről logisztikai cégvezetőknek, komoly hangulat&#10;Körhinta 5 képben a telefonos AI-ról&#10;Egy kép arról, mit csinál egy AI agent egy webshopnál"></textarea>
     <div class="plan" style="grid-template-columns:1fr 1fr;margin-top:4px">
       <div><label>Milyen gyakran</label><select id="aHours"></select></div>
       <div><label>Hossz</label><select id="aSec"><option value="15">15 mp</option><option value="30">30 mp</option><option value="45">45 mp</option><option value="60">60 mp</option></select></div>
-      <div><label>Formátum</label><select id="aAspect"><option value="9:16">Álló 9:16</option><option value="1:1">Négyzet 1:1</option><option value="16:9">Fekvő 16:9</option></select></div>
+      <div><label>Mit készítsen</label><select id="aForm"><option value="auto">Amit a téma kér</option><option value="video">Videó</option><option value="image">Egy kép</option><option value="carousel">Körhinta</option></select></div>
+      <div><label>Képarány</label><select id="aAspect"><option value="9:16">Álló 9:16</option><option value="4:5">Álló 4:5</option><option value="1:1">Négyzet 1:1</option><option value="16:9">Fekvő 16:9</option></select></div>
       <div><label>Hang</label><select id="aVoice"><option value="f">Női narráció</option><option value="m">Férfi narráció</option><option value="">Nincs hang</option></select></div>
     </div>
     <label>Hova posztoljon</label>
     <div class="row" id="aTargets"></div>
     <div class="row" style="margin-top:14px;gap:14px">
-      <label class="sw"><input type="checkbox" id="aOn"> <span>Magától gyártson videót</span></label>
+      <label class="sw"><input type="checkbox" id="aOn"> <span>Magától gyártson tartalmat</span></label>
       <label class="sw"><input type="checkbox" id="aPost"> <span>És posztolja is ki magától</span></label>
     </div>
     <div class="row" style="margin-top:12px"><button class="pri" id="aSave">Mentés</button><span class="mute" id="aState"></span></div>
@@ -262,12 +270,24 @@ function renderVideos() {
   vSeen = key;
   const live = Object.entries(S.publish).filter(([, x]) => x.ready).map(([t]) => t);
   $("#videos").innerHTML = S.videos.map((v) => {
-    const o = v.opts || {}, w = o.aspect === "16:9" ? 560 : o.aspect === "1:1" ? 380 : 330;
+    const o = v.opts || {}, w = o.aspect === "16:9" ? 560 : o.aspect === "1:1" ? 380 : o.aspect === "4:5" ? 360 : 330;
+    const form = v.form || "video", n = (v.files || []).length;
+    const what = form === "image" ? "kép" : form === "carousel" ? `körhinta · ${n} dia` : `videó · ${esc(v.seconds)} mp`;
+    const sound = form === "video" ? ` · ${v.voice_engine ? "hang: " + esc(v.voice_engine) : "néma"}` : "";
+    // Videónál lejátszó, képnél a diák egymás mellett; a dia kattintva nagyban nyílik.
+    const body = form === "video"
+      ? `<video controls playsinline preload="metadata" src="/api/videos/${esc(v.id)}.mp4" style="display:block;width:100%;max-width:${w}px;margin:12px auto;border-radius:16px;background:#000;box-shadow:0 0 40px rgba(0,229,255,.2)"></video>`
+      : `<div class="slides ${n === 1 ? "one" : ""}">${Array.from({length: n}, (_, i) =>
+          `<a href="/api/videos/${esc(v.id)}/${i + 1}.jpg" target="_blank" rel="noopener"><img src="/api/videos/${esc(v.id)}/${i + 1}.jpg" alt="" style="width:${w}px;max-width:76vw"><span class="n">${i + 1}/${n}</span></a>`).join("")}</div>`;
+    const dl = form === "video"
+      ? `<a href="/api/videos/${esc(v.id)}.mp4?download=1"><button class="pri">Letöltés</button></a>`
+      : Array.from({length: n}, (_, i) =>
+          `<a href="/api/videos/${esc(v.id)}/${i + 1}.jpg?download=1"><button class="pri">${n > 1 ? `${i + 1}. kép` : "Letöltés"}</button></a>`).join("");
     return `<div class="card" data-vid="${esc(v.id)}">
-    <div class="row" style="justify-content:space-between"><b class="co">${esc(v.title)}</b><span class="mute">${esc(o.aspect || "9:16")} · ${esc(v.seconds)} mp · ${v.voice_engine ? "hang: " + esc(v.voice_engine) : "néma"} · ${esc((v.created_at||"").slice(0,16).replace("T"," "))}</span></div>
+    <div class="row" style="justify-content:space-between"><b class="co">${esc(v.title)}</b><span class="mute">${esc(o.aspect || "9:16")} · ${what}${sound} · ${esc((v.created_at||"").slice(0,16).replace("T"," "))}</span></div>
     ${v.parent ? `<div class="mute">módosított változat</div>` : ""}
-    <video controls playsinline preload="metadata" src="/api/videos/${esc(v.id)}.mp4" style="display:block;width:100%;max-width:${w}px;margin:12px auto;border-radius:16px;background:#000;box-shadow:0 0 40px rgba(0,229,255,.2)"></video>
-    <div class="row" style="justify-content:center"><a href="/api/videos/${esc(v.id)}.mp4?download=1"><button class="pri">Letöltés</button></a>
+    ${body}
+    <div class="row" style="justify-content:center">${dl}
       ${live.map((t) => `<button class="vpub" data-t="${t}">${t === "instagram" ? "Instagramra" : "LinkedInre"}</button>`).join("")}
       <button class="vcopy">Poszt másolása</button><button class="warn vdel">Törlés</button></div>
     ${Object.keys(v.posted || {}).length ? `<div class="posted">${Object.entries(v.posted).map(([t, x]) =>
@@ -278,7 +298,7 @@ function renderVideos() {
       <label>Poszt</label><pre class="vpost" style="white-space:pre-wrap;font:inherit;margin:0">${esc(v.post)}</pre>
       <label>Első komment (ide a link)</label><div>${esc(v.first_comment)}</div>
       <label>Leírás</label><div class="mute" style="white-space:pre-wrap">${esc(v.brief || "")}</div></details></div>`;
-  }).join("") || `<div class="card mute">Még nincs videó. Írd le fent, mit akarsz, és nyomd meg a „Videó készítése” gombot.</div>`;
+  }).join("") || `<div class="card mute">Még nincs semmi. Írd le fent, mit akarsz — videót, képet vagy körhintát —, és nyomd meg a gombot.</div>`;
 }
 
 let mSeen = "";
@@ -367,21 +387,22 @@ function renderAuto() {
   $("#aBriefs").value = (s.briefs || []).join("\n");
   $("#aHours").value = s.every_hours; $("#aSec").value = s.seconds;
   $("#aAspect").value = s.aspect; $("#aVoice").value = s.voice ? (s.male ? "m" : "f") : "";
+  $("#aForm").value = s.form || "auto";
   $("#aOn").checked = !!s.auto; $("#aPost").checked = !!s.autopost;
   const next = s.auto && s.last_run ? new Date(Date.parse(s.last_run) + s.every_hours * 3600e3) : null;
   $("#aInfo").textContent = !s.auto ? "Most ki van kapcsolva. Írd le a témákat, állítsd be a gyakoriságot, és kapcsold be."
-    : `Bekapcsolva: ${s.every_hours} óránként egy videó.` + (next ? ` Következő: ${next.toLocaleString("hu-HU", {hour12: false}).slice(0, 16)}.` : " Az első hamarosan indul.")
+    : `Bekapcsolva: ${s.every_hours} óránként egy darab.` + (next ? ` Következő: ${next.toLocaleString("hu-HU", {hour12: false}).slice(0, 16)}.` : " Az első hamarosan indul.")
       + (s.autopost ? ` Magától posztol, naponta legfeljebb ${s.max_posts_per_day}.` : " Posztolni te posztolsz.");
 }
 document.addEventListener("input", (e) => {
-  if (e.target.closest("#aBriefs, #aHours, #aSec, #aAspect, #aVoice, #aOn, #aPost")) aTouched = true;
+  if (e.target.closest("#aBriefs, #aHours, #aSec, #aAspect, #aForm, #aVoice, #aOn, #aPost")) aTouched = true;
 });
 $("#aSave").onclick = async () => {
   const voice = $("#aVoice").value;
   try {
     await api("/api/settings", {
       briefs: $("#aBriefs").value, every_hours: +$("#aHours").value, seconds: +$("#aSec").value,
-      aspect: $("#aAspect").value, voice: !!voice, male: voice === "m",
+      aspect: $("#aAspect").value, form: $("#aForm").value, voice: !!voice, male: voice === "m",
       auto: $("#aOn").checked, autopost: $("#aPost").checked,
       targets: [...document.querySelectorAll("[data-tg]:checked")].map((x) => x.dataset.tg),
     });
@@ -395,12 +416,12 @@ function render() {
   $("#leds").innerHTML = led(c.ai, "AI rendező") + led(c.web_search, "Webkeresés") + led(c.elevenlabs, "ElevenLabs hang") + led(c.imagegen, "Képgenerálás") + led(true, "Renderelő");
   renderMedia();
   renderAuto();
-  $("#count").innerHTML = `<b>${S.videos.length}</b> videó`;
+  $("#count").innerHTML = `<b>${S.videos.length}</b> darab`;
   $("#core").classList.toggle("busy", j.running);
   const jb = $("#jobbox");
   if (j.started) {
     jb.classList.remove("hide");
-    $("#jobtitle").textContent = j.running ? "Videó készül…" : j.error ? "Nem sikerült" : "Kész";
+    $("#jobtitle").textContent = j.running ? "Készül…" : j.error ? "Nem sikerült" : "Kész";
     $("#joblog").textContent = j.log.join("\n");
   }
   $("#vGo").disabled = j.running;
@@ -413,14 +434,24 @@ async function refresh() { try { S = await api("/api/state"); render(); } catch 
 
 $("#vChips").innerHTML = Object.entries(CHIPS).map(([k, n]) => `<button data-vt="${k}">${esc(n)}</button>`).join("");
 $("#vChips").onclick = (e) => { const k = e.target.dataset.vt; if (k && S && S.topics[k]) { const b = $("#vBrief"); b.value = (b.value ? b.value.trim() + "\n" : "") + S.topics[k]; b.focus(); } };
+// Állóképnél nincs értelme hossznak és hangnak, ezért azokat elrejtjük.
+function vFormChanged() {
+  const still = $("#vForm").value === "image" || $("#vForm").value === "carousel";
+  $("#vSecBox").style.display = still ? "none" : "";
+  $("#vVoiceBox").style.display = still ? "none" : "";
+  $("#vGo").textContent = {image: "Kép elkészítése", carousel: "Körhinta elkészítése",
+                           video: "Videó elkészítése"}[$("#vForm").value] || "Elkészítem";
+}
+$("#vForm").onchange = vFormChanged;
+vFormChanged();
 $("#vGo").onclick = async () => {
   const brief = $("#vBrief").value.trim();
-  if (brief.length < 8) { flash("Írd le, miről szóljon a videó."); return; }
+  if (brief.length < 8) { flash("Írd le, mit készítsek."); return; }
   const voice = $("#vVoice").value;
   try {
     await api("/api/videos", {brief, seconds: +$("#vSec").value, lang: $("#vLang").value, aspect: $("#vAspect").value,
-      voice: !!voice, male: voice === "m", research: $("#vResearch").checked});
-    flash("A videó készül, a folyamat fent látszik."); refresh();
+      form: $("#vForm").value, voice: !!voice, male: voice === "m", research: $("#vResearch").checked});
+    flash("Készül, a folyamat fent látszik."); refresh();
   } catch (e) { flash(e.message); }
 };
 $("#videos").onclick = async (e) => {
@@ -440,7 +471,7 @@ $("#videos").onclick = async (e) => {
       flash("Posztolás elindult."); refresh();
     }
     if (e.target.classList.contains("vdel")) {
-      if (!confirm("Törlöm a videót?")) return;
+      if (!confirm("Törlöm?")) return;
       await api(`/api/videos/${id}/delete`, {}); vSeen = ""; refresh();
     }
   } catch (err) { flash(err.message); }

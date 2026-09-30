@@ -22,6 +22,7 @@ DEFAULTS = {
     "autopost": False,        # a kész videó megy-e ki magától
     "targets": [],            # hova: "instagram", "linkedin"
     "aspect": "9:16",
+    "form": "auto",       # videó, kép, körhinta — az "auto" a téma szövegéből dönt
     "lang": "hu",
     "voice": True,
     "male": False,
@@ -87,8 +88,10 @@ def clean(body: dict) -> dict:
             out["max_posts_per_day"] = max(1, min(10, int(body["max_posts_per_day"])))
         except (TypeError, ValueError):
             pass
-    if body.get("aspect") in ("9:16", "1:1", "16:9"):
+    if body.get("aspect") in ("9:16", "4:5", "1:1", "16:9"):
         out["aspect"] = body["aspect"]
+    if body.get("form") in ("auto", "video", "image", "carousel"):
+        out["form"] = body["form"]
     if body.get("lang") in ("hu", "en"):
         out["lang"] = body["lang"]
     if "briefs" in body:

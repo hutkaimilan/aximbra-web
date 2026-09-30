@@ -20,6 +20,10 @@ body[data-theme=mono]{--bg:#050505;--ink:#f5f5f5;--mute:#9a9a9a;--c:#ffffff;--v:
   --card:rgba(30,30,30,.8);--cline:rgba(255,255,255,.14);--g1:rgba(255,255,255,.08);--g2:rgba(212,255,58,.12);--g3:rgba(255,255,255,.05);--gridc:rgba(255,255,255,.05)}
 body.square{--W:540px;--H:540px;--hs:40px;--ss:18px;--ls:17px;--pad:30px}
 body.land{--W:960px;--H:540px;--hs:46px;--ss:20px;--ls:18px;--pad:48px}
+body.tall{--W:540px;--H:675px;--hs:44px;--ss:20px;--ls:18px;--pad:32px}
+/* Álló képen nincs videós kísérő: se lejátszási csík, se felirat. */
+body.stills .progress,body.stills .caption{display:none}
+body.stills .scene{padding-bottom:64px}
 body{--grad:linear-gradient(120deg,var(--c),var(--v) 55%,var(--m))}
 *{box-sizing:border-box;margin:0}
 html,body{width:var(--W);height:var(--H);overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans)}
@@ -234,18 +238,22 @@ function scene(s, t0, shots, dims, lib) {
   }
 }
 
-// cfg: {scenes, tagline, brand, theme, aspect, shots: [{src,height}], captions: bool}; visszaadja a hosszt (s).
+// cfg: {scenes, tagline, brand, theme, aspect, shots: [{src,height}], captions: bool,
+//       stills: bool (állókép/körhinta: se csík, se felirat)}; visszaadja a hosszt (s).
 window.build = (cfg) => {
   document.body.dataset.theme = cfg.theme || "neon";
-  document.body.className = cfg.aspect === "1:1" ? "square" : cfg.aspect === "16:9" ? "land" : "";
-  const visH = cfg.aspect === "1:1" ? 354 : cfg.aspect === "16:9" ? 398 : 518;
+  const shape = cfg.aspect === "1:1" ? "square" : cfg.aspect === "16:9" ? "land"
+    : cfg.aspect === "4:5" ? "tall" : "";
+  document.body.className = [shape, cfg.stills ? "stills" : ""].filter(Boolean).join(" ");
+  const visH = cfg.aspect === "1:1" ? 354 : cfg.aspect === "16:9" ? 398
+    : cfg.aspect === "4:5" ? 400 : 518;
   let t = 0, caps = "";
   const html = cfg.scenes.map((s, i) => {
     const t0 = t, last = i === cfg.scenes.length - 1;
     t += s.seconds;
-    const outs = last ? "" : `,sOut .45s ease-in ${t - .45}s forwards`;
+    const outs = (last || cfg.stills) ? "" : `,sOut .45s ease-in ${t - .45}s forwards`;
     const r = scene(s, t0 + .1, cfg.shots || [], {visH}, cfg.lib || {});
-    if (cfg.captions && s.voice) caps += `<span class="cap" style="position:absolute;left:0;right:0;animation:rise .3s ease ${t0 + .2}s both${last ? "" : `,sOut .3s ease ${t - .35}s forwards`}">${esc(s.voice)}</span>`;
+    if (cfg.captions && !cfg.stills && s.voice) caps += `<span class="cap" style="position:absolute;left:0;right:0;animation:rise .3s ease ${t0 + .2}s both${last ? "" : `,sOut .3s ease ${t - .35}s forwards`}">${esc(s.voice)}</span>`;
     return `<section class="scene ${r.center ? "center" : ""} ${r.onbleed ? "onbleed" : ""}" style="animation:sIn .6s cubic-bezier(.2,.8,.2,1) ${t0}s both${outs}">
       ${r.bleed || ""}<div class="txt ${r.center ? "center" : ""}">${r.txt}</div>${r.vis ? `<div class="vis">${r.vis}</div>` : ""}</section>`;
   }).join("");
@@ -254,7 +262,16 @@ window.build = (cfg) => {
   document.getElementById("brandname").textContent = cfg.brand || "AXIMBRA";
   document.getElementById("scenes").innerHTML = html;
   document.getElementById("captions").innerHTML = caps;
+  ENDS = cfg.scenes.reduce((acc, s) => (acc.push((acc[acc.length - 1] || 0) + s.seconds), acc), []);
   return t;
+};
+// Álló dia: mivel nincs kimenő halványítás, a korábbi jelenetek ott maradnának
+// egymáson. Ezért egyszerre csak a kért diát mutatjuk, a végállapotában.
+let ENDS = [];
+window.slide = (i) => {
+  const secs = [...document.querySelectorAll("#scenes .scene")];
+  secs.forEach((el, k) => { el.style.display = k === i ? "" : "none"; });
+  return seek(Math.max(0, (ENDS[i] || 0) - 0.05) * 1000);
 };
 // A képkockákat pontosan léptetjük: az animációkat időre állítjuk, a
 // klipeket pedig a saját kezdetükhöz képest tekerjük, és megvárjuk őket.

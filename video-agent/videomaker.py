@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import io
 import json
 import logging
@@ -57,7 +58,9 @@ KINDS = ("hook", "statement", "problem", "benefit", "steps", "compare", "site", 
 VISUAL_KINDS = ("site", "call", "inbox", "photo", "gallery", "clip")
 MEDIA_KINDS = ("photo", "gallery", "clip")
 THEMES = ("neon", "clean", "warm", "mono")
-ASPECTS = {"9:16": (540, 960), "1:1": (540, 540), "16:9": (960, 540)}
+ASPECTS = {"9:16": (540, 960), "4:5": (540, 675), "1:1": (540, 540), "16:9": (960, 540)}
+FORMS = ("auto", "video", "image", "carousel")
+MAX_SLIDES = 8
 MIN_TOTAL, MAX_TOTAL = 10, 90
 SAMPLE_RATE = 24000
 
@@ -106,15 +109,27 @@ def _lang_name(lang: str) -> str:
     return "Hungarian" if lang == "hu" else "English"
 
 
-def director_prompt(brief: str, ctx: dict, seconds: int, lang: str, aspect: str, voice: bool) -> str:
+FORM_RULES = {
+    "video": "Make a VIDEO: 4–9 scenes that play one after another.",
+    "image": """Make ONE SINGLE IMAGE, not a video: exactly one scene. It has to stand alone and be readable at a
+glance — a strong headline and a sub that completes the thought. No narration; leave "voice" empty.""",
+    "carousel": """Make a CAROUSEL of still slides, not a video: 3–6 scenes, each one a slide the reader swipes to.
+Slide 1 must stop the scroll on its own, and the last slide is the call to action. Every slide has to make sense
+alone, and in order they must tell one argument. No narration; leave "voice" empty.""",
+}
+
+
+def director_prompt(brief: str, ctx: dict, seconds: int, lang: str, aspect: str, voice: bool,
+                    form: str = "video") -> str:
+    still = form in ("image", "carousel")
     sites = "\n".join(f"  [{i}] {u}" for i, u in enumerate(ctx["urls"])) or "  (none — do not use the 'site' scene)"
     lib = ctx.get("library") or []
     shelf = "\n".join(f"  {m['id']}  {m['kind']}  {m['name']}" + (f" — {m['note']}" if m.get("note") else "")
                       for m in lib) or "  (empty — you may still ask for generated images)"
     pages = "\n\n".join(f"TEXT OF {p['url']}:\n{p['text']}" for p in ctx["pages"] if p["text"]) or "(none)"
     web = "\n\n".join(f"WEB: {w['title']} — {w['url']}\n{w['text']}" for w in ctx["web"]) or "(none)"
-    return f"""You are an award-winning creative director making a short social video from a brief. No person appears on camera.
-Everything is motion graphics, a real website shown on a phone, or animated UI.
+    return f"""You are an award-winning creative director making social content from a brief. No person appears on camera.
+Everything is graphics, a real website shown on a phone, or UI.
 
 THE BRIEF (this is what the client wants — follow it closely; it overrides the defaults below):
 \"\"\"{brief}\"\"\"
@@ -133,11 +148,13 @@ Source text you may draw facts from:
 
 {web}
 
-Format: {aspect} ({'vertical' if aspect == '9:16' else 'square' if aspect == '1:1' else 'landscape'}), about {seconds} seconds.
-On-screen language and narration: {_lang_name(lang)}.
-{'Write a spoken narration line ("voice") for every scene: natural, conversational, max ~2.3 words per second of the scene.' if voice else 'No narration: every message must be readable on screen (muted viewing). Leave "voice" empty.'}
+{FORM_RULES.get(form, FORM_RULES["video"])}
+Format: {aspect}{"" if still else f", about {seconds} seconds"}.
+On-screen language: {_lang_name(lang)}.
+{'Write a spoken narration line ("voice") for every scene: natural, conversational, max ~2.3 words per second of the scene.' if voice and not still else 'No narration: every message must be readable on screen. Leave "voice" empty.'}
 
-Scene kinds (choose freely, 4–9 scenes, in the order that tells the story best):
+Scene kinds (pick what fits the brief; a still slide reads best as statement, number, quote, photo, compare, steps,
+problem, benefit, agents or cta — "site", "call" and "inbox" animate, so they belong in a video):
 - "hook": scroll-stopping first line, 2–3 s. Must be TRUE.
 - "statement": one bold sentence (headline) + optional sub. "center": true to center it.
 - "problem" / "benefit": headline + 2–4 "lines" (max 6 words each).
@@ -156,6 +173,7 @@ Scene kinds (choose freely, 4–9 scenes, in the order that tells the story best
 - "number": headline = a number FROM THE BRIEF OR SOURCES ONLY, sub = what it means.
 - "quote": headline = a quote FROM THE BRIEF OR SOURCES ONLY, sub = its source.
 - "cta": headline + "url" + sub + "button". Always last.
+{'A still slide has no motion, so favour the kinds that hold up frozen, and let each carry more text than a video scene would.' if still else ''}
 Fields: headline max 8 words, mark 1–2 key words with *asterisks*; sub max 16 words; kicker optional, max 3 words.
 Use the user's own uploaded media wherever it fits the brief — that is why they uploaded it. Ask for a generated
 image only where nothing uploaded fits.
@@ -167,7 +185,8 @@ HARD RULES:
   Numbers and quotes may appear only if they are in the brief or the source text above.
 - No prices unless the brief asks for them (then only from the facts list).
 - Hungarian: formal-neutral, natural, no anglicisms where a Hungarian word exists.
-- Also write a social post for the video (60–120 words, strong first line, max 3 hashtags) and a first comment holding the link.
+- Also write the social post that goes with it (60–120 words, strong first line, max 3 hashtags) and a first
+  comment holding the link.
 
 Answer ONLY with JSON:
 {{"title": "", "tagline": "max 3 words", "brand": "AXIMBRA or the brand in the brief", "theme": "neon|clean|warm|mono",
@@ -177,11 +196,16 @@ Answer ONLY with JSON:
 "post": "", "first_comment": ""}}"""
 
 
-def revise_prompt(script: dict, feedback: str, lang: str) -> str:
+WHAT = {"video": "short video script", "image": "single still image", "carousel": "carousel of still slides"}
+
+
+def revise_prompt(script: dict, feedback: str, lang: str, form: str = "video") -> str:
     slim = {k: script[k] for k in ("title", "tagline", "brand", "theme", "scenes", "post", "first_comment") if k in script}
-    return f"""You are revising a short video script. Apply the client's feedback precisely; keep everything else as it is.
+    still = form in ("image", "carousel")
+    return f"""You are revising a {WHAT.get(form, WHAT["video"])}. Apply the client's feedback precisely; keep everything else as it is.
 Same JSON structure, same scene kinds available (hook, statement, problem, benefit, steps, compare, site, call,
 inbox, agents, number, quote, photo, gallery, clip, cta). Keep the "media" ids that are still wanted.
+{'Keep it still: the same number of slides as now, no narration, leave "voice" empty.' if still else ''}
 Language: {_lang_name(lang)}. Never invent statistics, customers, testimonials or results.
 
 FEEDBACK: \"\"\"{feedback}\"\"\"
@@ -205,10 +229,14 @@ def _media_id(v) -> str:
     return v if re.fullmatch(r"[a-z0-9]{12}", v) else ""
 
 
-def normalize(data: dict, seconds: int, n_shots: int = 1) -> dict:
-    """A modell kimenetéből érvényes, renderelhető forgatókönyv."""
+def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -> dict:
+    """A modell kimenetéből érvényes, renderelhető forgatókönyv.
+
+    Álló kép és körhinta ugyanebből készül: ott a jelenet egy dia, az idő
+    csak a kirajzoláshoz kell, a kész fájlban nem jelenik meg."""
     if not isinstance(data, dict):
         raise VideoError("a forgatókönyv nem JSON objektum")
+    still = form in ("image", "carousel")
     scenes = []
     for s in data.get("scenes") or []:
         if not isinstance(s, dict) or s.get("kind") not in KINDS:
@@ -243,9 +271,17 @@ def normalize(data: dict, seconds: int, n_shots: int = 1) -> dict:
             s["kind"] = "statement"
         elif s["kind"] in ("photo", "clip") and not s["media"] and not s["image_prompt"]:
             s["kind"] = "statement"
-    scenes = [s for s in scenes if s["headline"] or s["kind"] in VISUAL_KINDS][:10]
-    if len(scenes) < 2:
+    # Álló diához a mozgó jelenetek nem valók: azokból szöveges dia lesz.
+    if still:
+        for s in scenes:
+            if s["kind"] in ("site", "call", "inbox", "clip"):
+                s["kind"] = "statement"
+    # A körhinta záró diával együtt fér bele a felső korlátba.
+    scenes = [s for s in scenes if s["headline"] or s["kind"] in VISUAL_KINDS][:MAX_SLIDES - 1 if still else 10]
+    if not scenes or (len(scenes) < 2 and form != "image"):
         raise VideoError("a forgatókönyvben túl kevés használható jelenet van")
+    if form == "image":
+        scenes = scenes[:1]
     # A klip nem lehet hosszabb, mint a felvett anyag.
     for s in scenes:
         if s["kind"] == "clip":
@@ -254,18 +290,26 @@ def normalize(data: dict, seconds: int, n_shots: int = 1) -> dict:
                 s["kind"] = "photo" if m.get("kind") == "image" else "statement"
             elif m.get("seconds"):
                 s["seconds"] = min(s["seconds"], float(m["seconds"]))
-    ctas = [s for s in scenes if s["kind"] == "cta"]
-    scenes = [s for s in scenes if s["kind"] != "cta"] + (ctas[-1:] or [{
-        **scenes[-1], "kind": "cta", "headline": "Próbálja ki *élőben*", "sub": "", "lines": [], "url": "aximbra.hu",
-        "button": "Élő demó · regisztráció nélkül", "voice": "", "seconds": 4.0}])
+    # Egyetlen kép magában áll, nem kell rá külön záró dia.
+    if form != "image":
+        ctas = [s for s in scenes if s["kind"] == "cta"]
+        scenes = [s for s in scenes if s["kind"] != "cta"] + (ctas[-1:] or [{
+            **scenes[-1], "kind": "cta", "headline": "Próbálja ki *élőben*", "sub": "", "lines": [], "url": "aximbra.hu",
+            "button": "Élő demó · regisztráció nélkül", "voice": "", "seconds": 4.0}])
     for s in scenes:
         if s["kind"] == "cta" and not s["url"]:
             s["url"] = "aximbra.hu"
-    total = sum(s["seconds"] for s in scenes)
-    target = max(MIN_TOTAL, min(MAX_TOTAL, seconds))
-    k = target / total if total else 1
-    for s in scenes:
-        s["seconds"] = round(max(2.0, min(14.0, s["seconds"] * k)), 2)
+    if still:
+        # A diákat a belépő mozgás vége után fotózzuk, ezért mindegyik egyforma hosszú.
+        for s in scenes:
+            s["seconds"] = 5.0
+            s["voice"] = ""
+    else:
+        total = sum(s["seconds"] for s in scenes)
+        target = max(MIN_TOTAL, min(MAX_TOTAL, seconds))
+        k = target / total if total else 1
+        for s in scenes:
+            s["seconds"] = round(max(2.0, min(14.0, s["seconds"] * k)), 2)
     theme = data.get("theme") if data.get("theme") in THEMES else "neon"
     return {
         "title": _clip(data.get("title") or "Videó", 80), "tagline": _clip(data.get("tagline") or "", 24).upper(),
@@ -349,24 +393,27 @@ def fill_images(script: dict, aspect: str, say=lambda m: None) -> dict:
     return script
 
 
-def write_script(brief: str, ctx: dict, seconds: int, lang: str, aspect: str, voice: bool, say=lambda m: None) -> dict:
-    raw = llm._ask(director_prompt(brief, ctx, seconds, lang, aspect, voice))
-    script = normalize(llm.extract_json(raw), seconds, len(ctx["urls"]))
-    return check(script, brief, ctx, seconds, lang, say)
+def write_script(brief: str, ctx: dict, seconds: int, lang: str, aspect: str, voice: bool,
+                 say=lambda m: None, form: str = "video") -> dict:
+    raw = llm._ask(director_prompt(brief, ctx, seconds, lang, aspect, voice, form))
+    script = normalize(llm.extract_json(raw), seconds, len(ctx["urls"]), form)
+    return check(script, brief, ctx, seconds, lang, say, form)
 
 
-def check(script: dict, brief: str, ctx: dict, seconds: int, lang: str, say=lambda m: None) -> dict:
+def check(script: dict, brief: str, ctx: dict, seconds: int, lang: str, say=lambda m: None,
+          form: str = "video") -> dict:
     sources = brief + " " + " ".join(p["text"] for p in ctx["pages"]) + " " + " ".join(w["text"] for w in ctx["web"])
     v = violations(script, sources)
     if v:
         say(f"Ellenőrzés: {len(v)} alátámasztatlan állítás, javítom…")
         fb = "Remove or rewrite these unsupported claims (numbers, guarantees, customers not in the brief):\n" + "\n".join(v)
         try:
-            script = normalize(llm.extract_json(llm._ask(revise_prompt(script, fb, lang))), seconds, len(ctx["urls"]))
+            script = normalize(llm.extract_json(llm._ask(revise_prompt(script, fb, lang, form))),
+                               seconds, len(ctx["urls"]), form)
         except (llm.LLMError, VideoError) as e:
             logger.warning("javító kör hiba: %s", e)
         script = _strip_claims(script, sources)
-        if len(script["scenes"]) < 2:
+        if len(script["scenes"]) < (1 if form == "image" else 2):
             raise VideoError("az ellenőrzés után túl kevés jelenet maradt")
     return script
 
@@ -534,18 +581,17 @@ def capture_site(browser, url: str, phone_w: int) -> dict | None:
         page.close()
 
 
-PHONE_SCREEN_W = {"9:16": 258, "1:1": 184, "16:9": 198}
+PHONE_SCREEN_W = {"9:16": 258, "4:5": 200, "1:1": 184, "16:9": 198}
 
 
-def render(script: dict, urls: list[str], out_path: str, aspect: str, audio: bytes | None,
-           captions: bool, say=lambda m: None) -> float:
+@contextlib.contextmanager
+def _staged(script: dict, urls: list[str], aspect: str, captions: bool, stills: bool, say):
+    """A kirajzolt lap, felkészítve a léptetésre. A sablon és a médiafájlok
+    egy ideiglenes mappába kerülnek, így a lap saját fájlként éri el őket."""
     from playwright.sync_api import sync_playwright
 
     w, h = ASPECTS[aspect]
-    tmp = out_path + ".part.mp4"
     with tempfile.TemporaryDirectory() as work, sync_playwright() as pw:
-        # A sablon és a médiafájlok egy ideiglenes mappába kerülnek, így a
-        # lap saját fájlként éri el őket, adat-URL nélkül is.
         shutil.copyfile(TEMPLATE, os.path.join(work, "index.html"))
         lib = {}
         for sc in script["scenes"]:
@@ -575,47 +621,69 @@ def render(script: dict, urls: list[str], out_path: str, aspect: str, audio: byt
             page = browser.new_page(viewport={"width": w, "height": h}, device_scale_factor=2)
             page.goto("file://" + os.path.join(work, "index.html"), wait_until="networkidle", timeout=45000)
             total = page.evaluate("(cfg) => build(cfg)", {**script, "scenes": scenes, "aspect": aspect,
-                                                          "shots": shots, "captions": captions, "lib": lib})
+                                                          "shots": shots, "captions": captions,
+                                                          "lib": lib, "stills": stills})
             page.evaluate("document.fonts.ready.then(() => true)")
             page.wait_for_timeout(400)
             # A klipek első képkockája legyen meg, mielőtt léptetni kezdjük.
             page.evaluate("""() => Promise.all([...document.querySelectorAll('video')].map((v) =>
                 v.readyState >= 2 ? null : new Promise((r) => {
                   v.addEventListener('loadeddata', r, {once: true}); setTimeout(r, 4000); })))""")
-            frames = int(total * FPS)
-            say(f"Renderelés: {frames} képkocka ({total:.0f} mp, {aspect})…")
-            if True:
-                d = work
-                inputs = ["-f", "image2pipe", "-framerate", str(FPS), "-c:v", "mjpeg", "-i", "-"]
-                maps = []
-                if audio:
-                    apath = os.path.join(d, "a.wav")
-                    with open(apath, "wb") as f:
-                        f.write(audio)
-                    inputs += ["-i", apath]
-                    maps = ["-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "160k", "-shortest"]
-                cmd = [_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", *inputs, *maps,
-                       "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
-                       "-vf", f"scale={w * 2}:{h * 2}:flags=lanczos", "-movflags", "+faststart", tmp]
-                proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-                try:
-                    step = max(1, frames // 5)
-                    for f in range(frames):
-                        page.evaluate("(ms) => seek(ms)", f * 1000 / FPS)  # a klipeket is idejére állítja
-                        proc.stdin.write(page.screenshot(type="jpeg", quality=92))
-                        if f and f % step == 0:
-                            say(f"Renderelés: {round(100 * f / frames)}%")
-                    proc.stdin.close()
-                    err = proc.stderr.read().decode(errors="replace")
-                    if proc.wait(timeout=300) != 0:
-                        raise VideoError(f"az ffmpeg hibát jelzett: {err[:300]}")
-                except BaseException:
-                    proc.kill()
-                    raise
+            yield page, total, scenes, work
         finally:
             browser.close()
+
+
+def render(script: dict, urls: list[str], out_path: str, aspect: str, audio: bytes | None,
+           captions: bool, say=lambda m: None) -> float:
+    w, h = ASPECTS[aspect]
+    tmp = out_path + ".part.mp4"
+    with _staged(script, urls, aspect, captions, False, say) as (page, total, _scenes, work):
+        frames = int(total * FPS)
+        say(f"Renderelés: {frames} képkocka ({total:.0f} mp, {aspect})…")
+        inputs = ["-f", "image2pipe", "-framerate", str(FPS), "-c:v", "mjpeg", "-i", "-"]
+        maps = []
+        if audio:
+            apath = os.path.join(work, "a.wav")
+            with open(apath, "wb") as f:
+                f.write(audio)
+            inputs += ["-i", apath]
+            maps = ["-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "160k", "-shortest"]
+        cmd = [_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", *inputs, *maps,
+               "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
+               "-vf", f"scale={w * 2}:{h * 2}:flags=lanczos", "-movflags", "+faststart", tmp]
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            step = max(1, frames // 5)
+            for f in range(frames):
+                page.evaluate("(ms) => seek(ms)", f * 1000 / FPS)  # a klipeket is idejére állítja
+                proc.stdin.write(page.screenshot(type="jpeg", quality=92))
+                if f and f % step == 0:
+                    say(f"Renderelés: {round(100 * f / frames)}%")
+            proc.stdin.close()
+            err = proc.stderr.read().decode(errors="replace")
+            if proc.wait(timeout=300) != 0:
+                raise VideoError(f"az ffmpeg hibát jelzett: {err[:300]}")
+        except BaseException:
+            proc.kill()
+            raise
     os.replace(tmp, out_path)
     return total
+
+
+def render_stills(script: dict, urls: list[str], out_dir: str, vid: str, aspect: str,
+                  say=lambda m: None) -> list[str]:
+    """Diánként egy JPEG. A képet a jelenet legvégén fotózzuk: ott már minden
+    belépő mozgás lefutott, és álló képnél nincs kimenő halványítás."""
+    files = []
+    with _staged(script, urls, aspect, False, True, say) as (page, _total, scenes, _work):
+        say(f"Képek rajzolása: {len(scenes)} dia ({aspect})…")
+        for i in range(len(scenes)):
+            page.evaluate("(i) => slide(i)", i)
+            name = f"{vid}-{i + 1}.jpg"
+            page.screenshot(path=os.path.join(out_dir, name), type="jpeg", quality=94)
+            files.append(name)
+    return files
 
 
 # ---- tárolás ----------------------------------------------------------------
@@ -624,21 +692,52 @@ def _meta_path(vid: str) -> str:
     return os.path.join(VIDEO_DIR, f"{vid}.json")
 
 
+def _valid_id(vid: str) -> bool:
+    return bool(re.fullmatch(r"[a-z0-9]{12}", vid or ""))
+
+
 def video_path(vid: str) -> str | None:
-    if not re.fullmatch(r"[a-z0-9]{12}", vid or ""):
+    """A videófájl, ha ez a darab videó."""
+    if not _valid_id(vid):
         return None
     p = os.path.join(VIDEO_DIR, f"{vid}.mp4")
     return p if os.path.exists(p) else None
 
 
-def get_meta(vid: str) -> dict | None:
-    if not video_path(vid):
+def asset_path(vid: str, n: int | None = None) -> str | None:
+    """A videó, vagy képes darabnál az n-edik dia (1-től)."""
+    if not _valid_id(vid):
+        return None
+    meta = _read_meta(vid)
+    files = (meta or {}).get("files") or []
+    if not files:
+        return video_path(vid)
+    idx = 0 if n is None else n - 1
+    if not 0 <= idx < len(files):
+        return None
+    p = os.path.join(VIDEO_DIR, files[idx])
+    return p if os.path.exists(p) else None
+
+
+def _read_meta(vid: str) -> dict | None:
+    if not _valid_id(vid):
         return None
     try:
         with open(_meta_path(vid), encoding="utf-8") as f:
             return json.load(f)
     except (OSError, ValueError):
         return None
+
+
+def get_meta(vid: str) -> dict | None:
+    """A leírás, ha a hozzá tartozó fájlok tényleg megvannak."""
+    meta = _read_meta(vid)
+    if not meta:
+        return None
+    files = meta.get("files") or []
+    if files:
+        return meta if all(os.path.exists(os.path.join(VIDEO_DIR, f)) for f in files) else None
+    return meta if video_path(vid) else None
 
 
 def list_videos() -> list[dict]:
@@ -668,10 +767,12 @@ def mark_posted(vid: str, results: dict) -> dict | None:
 
 
 def delete(vid: str) -> bool:
-    p = video_path(vid)
-    if not p:
+    meta = _read_meta(vid)
+    files = (meta or {}).get("files") or []
+    paths = [os.path.join(VIDEO_DIR, f) for f in files] or ([video_path(vid)] if video_path(vid) else [])
+    if not paths:
         return False
-    for path in (p, _meta_path(vid)):
+    for path in paths + [_meta_path(vid)]:
         try:
             os.remove(path)
         except OSError:
@@ -686,41 +787,75 @@ def _prune():
 
 def _finish(script: dict, opts: dict, ctx: dict, say, parent: str | None = None) -> dict:
     os.makedirs(VIDEO_DIR, exist_ok=True)
-    audio, engine = (None, "")
-    if opts["voice"]:
-        say("Hangalámondás…")
-        audio, engine = narrate(script, opts["lang"], opts.get("male", False), say)
-        if engine:
-            say(f"Hang kész ({ {'elevenlabs': 'ElevenLabs', 'gemini': 'Gemini'}.get(engine, 'Edge')} felolvasó).")
+    form = opts.get("form") or "video"
     vid = secrets.token_hex(6)
     started = time.time()
-    total = render(script, ctx["urls"], os.path.join(VIDEO_DIR, f"{vid}.mp4"), opts["aspect"], audio,
-                   captions=bool(audio), say=say)
+    audio, engine, total, files = None, "", 0.0, []
+    if form in ("image", "carousel"):
+        files = render_stills(script, ctx["urls"], VIDEO_DIR, vid, opts["aspect"], say)
+        done = f"{len(files)} kép"
+    else:
+        if opts["voice"]:
+            say("Hangalámondás…")
+            audio, engine = narrate(script, opts["lang"], opts.get("male", False), say)
+            if engine:
+                say(f"Hang kész ({ {'elevenlabs': 'ElevenLabs', 'gemini': 'Gemini'}.get(engine, 'Edge')} felolvasó).")
+        total = render(script, ctx["urls"], os.path.join(VIDEO_DIR, f"{vid}.mp4"), opts["aspect"], audio,
+                       captions=bool(audio), say=say)
+        files = [f"{vid}.mp4"]
+        done = f"{total:.0f} mp"
     meta = {"id": vid, "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "parent": parent,
+            "form": form, "files": files, "slides": len(files) if form != "video" else 0,
             "brief": opts["brief"], "opts": opts, "ctx_urls": ctx["urls"], "voice_engine": engine,
             "seconds": round(total, 1), **script}
     with open(_meta_path(vid), "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False)
     _prune()
-    say(f"Kész: {script['title']} — {total:.0f} mp, {time.time() - started:.0f} mp alatt renderelve.")
+    say(f"Kész: {script['title']} — {done}, {time.time() - started:.0f} mp alatt.")
     return meta
 
 
+# A magyar szavak toldalékolódnak, ezért a szótőre keresünk: a „körhintát”
+# és a „képeket” ugyanúgy megtaláljuk, mint az alapalakot.
+FORM_WORDS = {
+    "image": ("kép", "kep", "image", "poszter"),
+    "carousel": ("körhint", "korhint", "carousel", "diasor", "több kép", "tobb kep", "slide", "diasor"),
+    "video": ("videó", "video", "reels", "reel", "tiktok"),
+}
+
+
+def pick_form(brief: str) -> str:
+    """Ha nem mondtad meg, a leírás szavaiból találjuk ki, mit kérsz."""
+    text = (brief or "").lower()
+    hits = {f: min((text.find(w) for w in words if w in text), default=-1) for f, words in FORM_WORDS.items()}
+    named = {f: i for f, i in hits.items() if i >= 0}
+    return min(named, key=named.get) if named else "video"
+
+
+FORM_NAMES = {"video": "videó", "image": "kép", "carousel": "körhinta"}
+
+
 def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", voice: bool = True,
-         male: bool = False, research: bool = False, say=lambda m: None) -> dict:
+         male: bool = False, research: bool = False, form: str = "auto", say=lambda m: None) -> dict:
     brief = (brief or "").strip()[:4000]
     if len(brief) < 8:
-        raise VideoError("írd le, miről szóljon a videó")
+        raise VideoError("írd le, mit készítsek")
     if aspect not in ASPECTS:
         raise VideoError("ismeretlen képarány")
+    if form not in FORMS:
+        raise VideoError("ismeretlen formátum")
+    if form == "auto":
+        form = pick_form(brief)
+        say(f"Formátum a leírás alapján: {FORM_NAMES[form]}.")
     opts = {"brief": brief, "seconds": seconds, "lang": lang, "aspect": aspect, "voice": voice,
-            "male": male, "research": research}
+            "male": male, "research": research, "form": form}
     say("Kontextus: linkek beolvasása…")
     ctx = gather(brief, research, say)
     say("Forgatókönyv írása…")
-    script = write_script(brief, ctx, seconds, lang, aspect, voice, say)
+    script = write_script(brief, ctx, seconds, lang, aspect, voice, say, form)
     script = fill_images(script, aspect, say)
-    say(f"Forgatókönyv kész: {script['title']} ({len(script['scenes'])} jelenet, {script['theme']} stílus).")
+    say(f"Forgatókönyv kész: {script['title']} ({len(script['scenes'])} "
+        f"{'dia' if form != 'video' else 'jelenet'}, {script['theme']} stílus).")
     return _finish(script, opts, ctx, say)
 
 
@@ -733,10 +868,13 @@ def revise(vid: str, feedback: str, say=lambda m: None) -> dict:
         raise VideoError("írd le, mit változtassak")
     opts = meta.get("opts") or {"brief": meta.get("brief", ""), "seconds": 30, "lang": "hu", "aspect": "9:16",
                                 "voice": False, "male": False, "research": False}
+    # A módosítás nem vált formátumot: amit videónak kértél, videó marad.
+    form = opts.get("form") or meta.get("form") or "video"
+    opts = {**opts, "form": form}
     ctx = {"urls": meta.get("ctx_urls") or [], "pages": [], "web": []}
     say("Módosítás: a forgatókönyv átírása…")
-    raw = llm._ask(revise_prompt(meta, feedback, opts["lang"]))
-    script = normalize(llm.extract_json(raw), opts["seconds"], len(ctx["urls"]))
-    script = check(script, opts["brief"] + " " + feedback, ctx, opts["seconds"], opts["lang"], say)
+    raw = llm._ask(revise_prompt(meta, feedback, opts["lang"], form))
+    script = normalize(llm.extract_json(raw), opts["seconds"], len(ctx["urls"]), form)
+    script = check(script, opts["brief"] + " " + feedback, ctx, opts["seconds"], opts["lang"], say, form)
     script = fill_images(script, opts["aspect"], say)
     return _finish(script, opts, ctx, say, parent=vid)
