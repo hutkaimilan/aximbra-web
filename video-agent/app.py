@@ -21,6 +21,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
 import imagegen
+import llm
 import media
 import publisher
 import settings as settings_store
@@ -160,7 +161,8 @@ def state():
         "settings": settings_store.load(),
         "publish": publisher.status(),
         "config": {
-            "ai": bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY")),
+            "ai": llm.available(),
+            "ai_engine": llm.engine_name(),
             "web_search": websearch.tavily_on(),
             "elevenlabs": bool(os.environ.get("ELEVENLABS_API_KEY") and os.environ.get("ELEVENLABS_VOICE_ID")),
             "imagegen": imagegen.available(),

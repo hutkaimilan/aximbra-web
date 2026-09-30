@@ -389,3 +389,56 @@ def test_slide_numbers_are_dropped_from_the_kicker():
         {"kind": "statement", "kicker": "AXIMBRA", "headline": "Harmadik", "seconds": 4},
     ]}, 30, 1, "carousel")
     assert [x["kicker"] for x in s["scenes"]][:3] == ["", "", "AXIMBRA"]
+
+
+# ---- Claude -----------------------------------------------------------------
+
+class _Resp:
+    def __init__(self, code, body=None, text="", headers=None):
+        self.status_code, self._body, self.text, self.headers = code, body or {}, text, headers or {}
+
+    def json(self):
+        return self._body
+
+
+def test_claude_is_used_when_its_key_is_set(monkeypatch):
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    sent = {}
+
+    def post(url, headers, json, timeout):
+        sent.update(url=url, model=json["model"], key=headers["x-api-key"])
+        return _Resp(200, {"content": [{"type": "text", "text": '{"ok": 1}'}], "stop_reason": "end_turn"})
+    monkeypatch.setattr(llm.httpx, "post", post)
+    assert llm.provider() == "anthropic"
+    assert llm.extract_json(llm._ask("x")) == {"ok": 1}
+    assert sent["url"] == llm.ANTHROPIC_URL and sent["model"] == llm.ANTHROPIC_MODEL and sent["key"] == "k"
+
+
+def test_claude_out_of_credit_falls_back_to_gemini(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    monkeypatch.setattr(llm.httpx, "post", lambda *a, **k: _Resp(
+        400, text='{"error":{"message":"Your credit balance is too low"}}'))
+    monkeypatch.setattr(llm, "_gemini", lambda p: "gemini válasz")
+    assert llm._ask("x") == "gemini válasz"
+
+
+def test_claude_error_without_gemini_is_raised(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setattr(llm.httpx, "post", lambda *a, **k: _Resp(401, text="invalid x-api-key"))
+    with pytest.raises(llm.LLMError):
+        llm._ask("x")
+
+
+def test_claude_bad_request_is_not_hidden_by_the_fallback(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    monkeypatch.setattr(llm.httpx, "post", lambda *a, **k: _Resp(400, text="max_tokens: too large"))
+    monkeypatch.setattr(llm, "_gemini", lambda p: pytest.fail("nem eshet vissza programhibán"))
+    with pytest.raises(llm.LLMError):
+        llm._ask("x")

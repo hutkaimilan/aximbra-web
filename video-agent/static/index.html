@@ -413,7 +413,7 @@ $("#aSave").onclick = async () => {
 function render() {
   const c = S.config, j = S.job;
   const led = (on, name) => `<span class="led ${on ? "on" : "off"}"><i></i>${name}</span>`;
-  $("#leds").innerHTML = led(c.ai, "AI rendező") + led(c.web_search, "Webkeresés") + led(c.elevenlabs, "ElevenLabs hang") + led(c.imagegen, "Képgenerálás") + led(true, "Renderelő");
+  $("#leds").innerHTML = led(c.ai, "AI rendező" + (c.ai_engine ? ` · ${esc(c.ai_engine)}` : "")) + led(c.web_search, "Webkeresés") + led(c.elevenlabs, "ElevenLabs hang") + led(c.imagegen, "Képgenerálás") + led(true, "Renderelő");
   renderMedia();
   renderAuto();
   $("#count").innerHTML = `<b>${S.videos.length}</b> darab`;
