@@ -35,14 +35,14 @@ body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
 
 header{position:sticky;top:0;z-index:10;padding:12px 16px 10px;background:linear-gradient(180deg,rgba(3,4,10,.92),rgba(3,4,10,.72));
   backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:center;justify-content:space-between;gap:10px;max-width:980px;margin:0 auto 10px}
-.logo{display:flex;align-items:center;gap:10px;min-width:0}
+.brand{display:flex;align-items:center;justify-content:space-between;gap:10px 14px;flex-wrap:wrap;max-width:980px;margin:0 auto 10px}
+.logo{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 auto}
 .core{width:30px;height:30px;flex:none;border-radius:50%;background:conic-gradient(from 0deg,#00e5ff,#8b5cff,#ff3df2,#00e5ff);
   animation:spin 6s linear infinite;box-shadow:0 0 18px rgba(0,229,255,.55);position:relative}
 .core::after{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--bg);box-shadow:inset 0 0 8px rgba(0,229,255,.6)}
 .core.busy{animation-duration:1.1s}
 @keyframes spin{to{transform:rotate(360deg)}}
-h1{margin:0;font:700 16px/1.1 var(--sans);letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
+h1{margin:0;min-width:0;font:700 16px/1.15 var(--sans);letter-spacing:.14em;text-transform:uppercase}
 h1 small{display:block;font:500 10px/1.4 var(--mono);letter-spacing:.2em;color:var(--mute)}
 h1 b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .cap{font:600 12px var(--mono);color:var(--mute);white-space:nowrap}
@@ -143,7 +143,30 @@ details summary{cursor:pointer}
   display:grid;place-items:center;font:700 14px/1 var(--sans);background:rgba(4,6,14,.82)}
 .mitem .badge{position:absolute;top:6px;left:6px;font:600 9px/1 var(--mono);letter-spacing:.1em;
   padding:4px 6px;border-radius:999px;background:rgba(4,6,14,.82);color:var(--c);text-transform:uppercase}
-input[type=file]{padding:8px}
+.drop{
+  display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center;
+  margin:10px 0 0; padding:26px 18px; cursor:pointer; text-transform:none; letter-spacing:0;
+  border:1.5px dashed var(--line); border-radius:16px; background:rgba(4,6,14,.45); color:var(--mute);
+  transition:border-color .18s, background .18s, color .18s;
+}
+.drop svg{width:26px; height:26px; color:var(--c); opacity:.85}
+.drop b{font:600 15px/1.3 var(--sans); color:var(--ink)}
+.drop span{font-size:13px}
+.drop:hover,.drop.hot{border-color:var(--c); background:rgba(0,229,255,.07); color:var(--ink)}
+.drop.hot{border-style:solid; box-shadow:0 0 26px rgba(0,229,255,.18)}
+#mFile:focus-visible+.drop{outline:2px solid var(--c); outline-offset:3px}
+.picked{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+.picked:empty{display:none}
+.chip{
+  display:inline-flex; align-items:center; gap:7px; max-width:100%;
+  font:500 12px/1 var(--mono); color:var(--mute);
+  border:1px solid var(--line); border-radius:999px; padding:6px 8px 6px 11px; background:rgba(4,6,14,.6);
+}
+.chip span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.chip button{
+  width:18px; height:18px; flex:none; padding:0; border-radius:50%; border:0; background:rgba(255,255,255,.08);
+  color:var(--ink); font:700 12px/1 var(--sans); display:grid; place-items:center;
+}
 </style>
 </head>
 <body>
@@ -161,10 +184,16 @@ input[type=file]{padding:8px}
   <div class="card">
     <div class="who"><div class="core"></div>Médiatár · a te képeid és klipjeid</div>
     <p class="mute" style="margin-top:0">Amit ide feltöltesz, azt az agent beépítheti a videókba: logó, termékfotó, képernyőkép, rövid klip. A leírásban hivatkozhatsz rá a nevével. Kép: JPG, PNG, WebP. Videó: MP4, MOV, WebM, legfeljebb 20 másodperc, hang nélkül kerül bele.</p>
-    <div class="row" style="align-items:flex-end">
-      <div style="flex:1 1 220px;min-width:0"><label>Fájlok</label><input type="file" id="mFile" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"></div>
-      <div style="flex:1 1 220px;min-width:0"><label>Mi ez? (nem kötelező)</label><input id="mNote" maxlength="200" placeholder="Pl.: az AXIMBRA logó fehér háttéren"></div>
-    </div>
+    <input type="file" id="mFile" multiple hidden accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm">
+    <label class="drop" id="mDrop" for="mFile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 16V4M12 4 7.5 8.5M12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+      <b>Húzd ide a fájlokat</b>
+      <span>vagy koppints a tallózáshoz — kép és videó</span>
+    </label>
+    <div class="picked" id="mPicked"></div>
+    <label>Mi ez? (nem kötelező)</label>
+    <input id="mNote" maxlength="200" placeholder="Pl.: az AXIMBRA logó fehér háttéren">
     <div class="row" style="margin-top:12px"><button class="pri" id="mGo">Feltöltés</button><span class="mute" id="mInfo"></span></div>
     <div id="mList" class="mgrid"></div>
   </div>
@@ -232,8 +261,40 @@ function renderMedia() {
       : `<img src="/api/media/${esc(m.id)}" alt="">`}
     <div class="nm">${esc(m.note || m.name)}</div></div>`).join("");
 }
+let picked = [];
+const OK_TYPE = /^(image\/(jpeg|png|webp)|video\/(mp4|quicktime|webm))$/;
+const kb = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
+function drawPicked() {
+  $("#mPicked").innerHTML = picked.map((f, i) =>
+    `<span class="chip"><span>${esc(f.name)}</span><span style="color:var(--dim)">${kb(f.size)}</span>
+     <button data-i="${i}" title="Elvesz">×</button></span>`).join("");
+}
+function addFiles(list) {
+  const bad = [];
+  for (const f of list) {
+    if (!OK_TYPE.test(f.type)) { bad.push(f.name); continue; }
+    if (!picked.some((p) => p.name === f.name && p.size === f.size)) picked.push(f);
+  }
+  if (bad.length) flash("Ezt nem tudom feldolgozni: " + bad.join(", "));
+  drawPicked();
+}
+$("#mFile").onchange = (e) => { addFiles(e.target.files || []); e.target.value = ""; };
+$("#mPicked").onclick = (e) => {
+  const b = e.target.closest("button[data-i]");
+  if (b) { picked.splice(+b.dataset.i, 1); drawPicked(); }
+};
+{
+  const z = $("#mDrop");
+  const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
+  for (const ev of ["dragenter", "dragover"]) z.addEventListener(ev, (e) => { stop(e); z.classList.add("hot"); });
+  for (const ev of ["dragleave", "drop"]) z.addEventListener(ev, (e) => { stop(e); z.classList.remove("hot"); });
+  z.addEventListener("drop", (e) => addFiles(e.dataTransfer?.files || []));
+  // A lapra ejtett fájl ne nyíljon meg a böngészőben.
+  for (const ev of ["dragover", "drop"]) document.addEventListener(ev, (e) => e.preventDefault());
+}
+
 $("#mGo").onclick = async () => {
-  const files = [...($("#mFile").files || [])];
+  const files = picked;
   if (!files.length) { flash("Válassz fájlt."); return; }
   const b = $("#mGo"); b.disabled = true;
   let ok = 0;
@@ -247,7 +308,8 @@ $("#mGo").onclick = async () => {
       ok++;
     } catch (e) { flash(`${f.name}: ${e.message}`); }
   }
-  b.disabled = false; $("#mInfo").textContent = ""; $("#mFile").value = ""; $("#mNote").value = "";
+  b.disabled = false; $("#mInfo").textContent = ""; $("#mNote").value = "";
+  picked = []; drawPicked();
   if (ok) flash(`${ok} fájl feltöltve.`);
   mSeen = ""; refresh();
 };
