@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>AXIMBRA Video Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#03040a;--bg2:#070a14;--glass:rgba(16,22,40,.58);--glass2:rgba(22,30,54,.72);
+  --line:rgba(120,180,255,.13);--line2:rgba(0,229,255,.35);
+  --ink:#e9f1ff;--mute:#8595b3;--dim:#56627c;
+  --c:#00e5ff;--v:#8b5cff;--m:#ff3df2;--a:#ffb020;--ok:#19f5a0;--bad:#ff4d6d;
+  --grad:linear-gradient(135deg,#00e5ff 0%,#8b5cff 55%,#ff3df2 100%);
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --sans:"Space Grotesk",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;min-height:100vh;color:var(--ink);font:15px/1.55 var(--sans);background:var(--bg);overflow-x:hidden}
+/* háttér: rács + lassan mozgó fényfoltok */
+body::before{content:"";position:fixed;inset:0;z-index:-2;
+  background:
+    radial-gradient(60vmax 60vmax at 12% -10%,rgba(0,229,255,.16),transparent 60%),
+    radial-gradient(55vmax 55vmax at 110% 20%,rgba(139,92,255,.18),transparent 60%),
+    radial-gradient(50vmax 50vmax at 40% 120%,rgba(255,61,242,.10),transparent 60%),var(--bg);
+  animation:drift 24s ease-in-out infinite alternate}
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background-image:linear-gradient(rgba(120,180,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(120,180,255,.05) 1px,transparent 1px);
+  background-size:44px 44px;mask-image:radial-gradient(ellipse at 50% 0%,#000 30%,transparent 75%)}
+@keyframes drift{to{filter:hue-rotate(25deg);transform:scale(1.06)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+header{position:sticky;top:0;z-index:10;padding:12px 16px 10px;background:linear-gradient(180deg,rgba(3,4,10,.92),rgba(3,4,10,.72));
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;justify-content:space-between;gap:10px;max-width:980px;margin:0 auto 10px}
+.logo{display:flex;align-items:center;gap:10px;min-width:0}
+.core{width:30px;height:30px;flex:none;border-radius:50%;background:conic-gradient(from 0deg,#00e5ff,#8b5cff,#ff3df2,#00e5ff);
+  animation:spin 6s linear infinite;box-shadow:0 0 18px rgba(0,229,255,.55);position:relative}
+.core::after{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--bg);box-shadow:inset 0 0 8px rgba(0,229,255,.6)}
+.core.busy{animation-duration:1.1s}
+@keyframes spin{to{transform:rotate(360deg)}}
+h1{margin:0;font:700 16px/1.1 var(--sans);letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
+h1 small{display:block;font:500 10px/1.4 var(--mono);letter-spacing:.2em;color:var(--mute)}
+h1 b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.cap{font:600 12px var(--mono);color:var(--mute);white-space:nowrap}
+.cap b{color:var(--c)}
+.leds{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;max-width:980px;margin:0 auto 10px}
+.leds::-webkit-scrollbar{display:none}
+.led{flex:none}
+.led{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--mute);border:1px solid var(--line);border-radius:999px;padding:3px 9px 3px 8px;display:inline-flex;align-items:center;gap:6px;background:rgba(10,14,26,.6)}
+.led i{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+.led.on i{background:var(--ok);box-shadow:0 0 8px var(--ok);animation:pulse 2.4s ease-in-out infinite}
+.led.off i{background:var(--bad);box-shadow:0 0 8px var(--bad)}
+@keyframes pulse{50%{opacity:.35}}
+nav{display:flex;gap:6px;overflow-x:auto;max-width:980px;margin:0 auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{flex:none;display:inline-flex;align-items:center;gap:7px;font:500 13px var(--sans);letter-spacing:.02em;border-radius:12px;padding:8px 12px;background:rgba(14,19,34,.7)}
+nav button svg{width:15px;height:15px;opacity:.8}
+nav button.on{color:#fff;border-color:transparent;background:linear-gradient(rgba(10,14,26,.9),rgba(10,14,26,.9)) padding-box,var(--grad) border-box;box-shadow:0 0 18px rgba(0,229,255,.25)}
+nav button .n{font:600 11px var(--mono);color:var(--bg);background:var(--c);border-radius:999px;padding:0 6px}
+
+main{max-width:980px;margin:0 auto;padding:18px 16px 60px}
+button{font:500 14px var(--sans);border:1px solid var(--line);background:var(--glass);color:var(--ink);border-radius:12px;padding:9px 14px;cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .1s}
+button:hover{border-color:var(--line2);box-shadow:0 0 14px rgba(0,229,255,.15)}
+button:active{transform:translateY(1px)}
+button.pri{background:var(--grad);border-color:transparent;color:#05060d;font-weight:700;box-shadow:0 0 22px rgba(0,229,255,.3)}
+button.pri:hover{box-shadow:0 0 30px rgba(139,92,255,.5)}
+button.warn{border-color:rgba(255,77,109,.45);color:#ff9fb1}
+button.on{border-color:var(--c);color:var(--c)}
+button:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+.card{position:relative;background:var(--glass);border:1px solid var(--line);border-radius:18px;padding:16px;margin:0 0 14px;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 10px 40px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.04)}
+.card::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
+  background:linear-gradient(135deg,rgba(0,229,255,.35),transparent 30%,transparent 70%,rgba(139,92,255,.35));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.mute{color:var(--mute);font-size:13px}
+.tag{display:inline-block;font:500 11px var(--mono);letter-spacing:.04em;border:1px solid var(--line);border-radius:999px;padding:2px 9px;margin:0 4px 2px 0;color:var(--mute)}
+.tag.i{border-color:rgba(25,245,160,.5);color:var(--ok)}.tag.n{border-color:rgba(255,77,109,.5);color:#ff9fb1}.tag.w{border-color:rgba(255,176,32,.5);color:var(--a)}
+input,textarea,select{width:100%;font:14px/1.55 var(--sans);background:rgba(4,6,14,.75);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px 12px;transition:border-color .2s,box-shadow .2s}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--c);box-shadow:0 0 0 3px rgba(0,229,255,.15)}
+textarea{min-height:220px;resize:vertical}
+label{display:block;font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin:12px 0 6px}
+.plan{display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:center}
+.log{font:12px/1.6 var(--mono);white-space:pre-wrap;background:rgba(2,3,8,.85);border:1px solid var(--line);border-radius:12px;padding:12px;max-height:260px;overflow:auto;color:#9ff3ff}
+.log:after{content:"▍";animation:pulse 1s steps(1) infinite;color:var(--c)}
+a{color:var(--c);text-decoration:none}a:hover{text-shadow:0 0 10px rgba(0,229,255,.6)}
+.obs{border-left:2px solid transparent;border-image:var(--grad) 1;padding-left:12px;margin:10px 0;font-style:italic;color:#cfd9f0}
+.stat{font-size:13px;color:var(--mute)}
+.hide{display:none!important}
+h2{font:600 12px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--mute);margin:4px 0 12px}
+b.co{font-size:16px;font-weight:600}
+/* pontszám-gyűrű */
+.ring{--p:0;--col:var(--dim);width:42px;height:42px;flex:none;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(var(--col) calc(var(--p)*1%),rgba(120,180,255,.1) 0);font:600 12px var(--mono)}
+.ring span{width:34px;height:34px;border-radius:50%;background:var(--bg2);display:grid;place-items:center}
+.ring.hi{--col:var(--ok);filter:drop-shadow(0 0 6px rgba(25,245,160,.5))}.ring.mid{--col:var(--a)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:8px 4px;border-bottom:1px solid var(--line)}
+th{color:var(--mute);font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase}td.n{text-align:right;font:13px var(--mono)}
+/* irányítópult */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px}
+.kpi{margin:0}
+@media (max-width:700px){.kpis{grid-template-columns:1fr 1fr}.kpis .kpi:last-child:nth-child(odd){grid-column:1/-1}}
+.kpi .v{font:700 30px/1.1 var(--sans);background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.kpi .k{font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.kpi .s{font:12px var(--mono);color:var(--dim);margin-top:2px}
+.grid2{display:grid;grid-template-columns:1fr;gap:14px}
+@media (min-width:760px){.grid2{grid-template-columns:1.25fr 1fr}}
+.funnel{display:grid;gap:10px}
+.fstep{display:grid;grid-template-columns:110px 1fr 44px;gap:10px;align-items:center;font-size:13px}
+.bar{height:10px;border-radius:999px;background:rgba(120,180,255,.08);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:inherit;background:var(--grad);box-shadow:0 0 12px rgba(0,229,255,.5);transition:width 1s cubic-bezier(.2,.8,.2,1)}
+.fstep .n{text-align:right;font:600 13px var(--mono)}
+.count{font:700 34px/1 var(--mono);letter-spacing:.04em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.acts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.acts button{display:flex;align-items:center;gap:8px;justify-content:flex-start;text-align:left}
+.acts svg{width:18px;height:18px;flex:none;color:var(--c)}
+/* tanácsadó */
+.msg{white-space:pre-wrap;max-width:92%}
+.msg.me{margin-left:auto;background:linear-gradient(135deg,rgba(0,229,255,.12),rgba(139,92,255,.14));border-color:rgba(0,229,255,.3)}
+.msg.me::before{display:none}
+.who{display:flex;align-items:center;gap:8px;font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin-bottom:8px}
+.who .core{width:16px;height:16px;box-shadow:0 0 8px rgba(0,229,255,.5)}.who .core::after{inset:3px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.chips button{font-size:13px;padding:7px 11px;border-radius:999px}
+.src{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px}
+.src a{font:11px var(--mono);border:1px solid var(--line);border-radius:999px;padding:3px 9px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mute)}
+.src a:hover{color:var(--c);border-color:var(--line2)}
+.think{display:inline-flex;gap:5px;align-items:center;font:12px var(--mono);color:var(--c)}
+.think i{width:6px;height:6px;border-radius:50%;background:var(--c);animation:blink 1.2s infinite}
+.think i:nth-child(2){animation-delay:.2s;background:var(--v)}.think i:nth-child(3){animation-delay:.4s;background:var(--m)}
+@keyframes blink{0%,100%{opacity:.2;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+#warn{border-color:rgba(255,176,32,.5);color:var(--a)}
+details summary{cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo"><div class="core" id="core"></div><h1><b>AXIMBRA</b> Video Studio<small>LEÍRÁSBÓL KÉSZ VIDEÓ · AI RENDEZŐ</small></h1></div>
+    <span class="cap" id="count"></span>
+  </div>
+  <div class="leds" id="leds"></div>
+</header>
+<main>
+  <div id="warn" class="card hide"></div>
+  <div id="jobbox" class="card hide"><h2 id="jobtitle"></h2><div id="joblog" class="log"></div></div>
+
+  <div class="card">
+    <div class="who"><div class="core"></div>Új videó · leírás → forgatókönyv → hang → MP4</div>
+    <label>Mit akarsz? Írd le szabadon</label>
+    <textarea id="vBrief" style="min-height:160px" placeholder="Pl.: 30 mp-es álló videó logisztikai cégvezetőknek arról, hogy a közös ügyfélszolgálati postafiókot az AXIMBRA e-mail agentje reggelre rendezi. Komoly, de modern hangulat. Link: https://aximbra.hu"></textarea>
+    <div class="chips" id="vChips" style="margin-top:8px"></div>
+    <div class="plan" style="grid-template-columns:1fr 1fr;margin-top:4px">
+      <div><label>Formátum</label><select id="vAspect"><option value="9:16">Álló 9:16 (Reels, TikTok, LinkedIn)</option><option value="1:1">Négyzet 1:1 (feed)</option><option value="16:9">Fekvő 16:9 (YouTube, web)</option></select></div>
+      <div><label>Hossz</label><select id="vSec"><option value="15">15 mp</option><option value="30" selected>30 mp</option><option value="45">45 mp</option><option value="60">60 mp</option><option value="90">90 mp</option></select></div>
+      <div><label>Hang</label><select id="vVoice"><option value="f">Női narráció + felirat</option><option value="m">Férfi narráció + felirat</option><option value="">Nincs hang</option></select></div>
+      <div><label>Nyelv</label><select id="vLang"><option value="hu">magyar</option><option value="en">angol</option></select></div>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink)"><input type="checkbox" id="vResearch" style="width:auto"> Nézzen utána a weben is</label>
+    <div class="row" style="margin-top:12px"><button class="pri" id="vGo">Videó készítése</button><span class="mute" id="vInfo"></span></div>
+    <p class="mute" style="margin-bottom:0">A leírás linkjeit beolvassa, és telefonon mutatja a videóban. Számot, ügyfelet, eredményt csak akkor ír bele, ha a leírásban vagy a linkelt oldalon szerepel. Egy videó 2–6 perc.</p>
+  </div>
+  <div id="videos"></div>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let S = null, vSeen = "", wasRunning = false;
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  let data = null; try { data = await r.json(); } catch {}
+  if (!r.ok) throw new Error((data && (data.detail?.[0]?.msg || data.detail)) || ("Hiba " + r.status));
+  return data;
+}
+function flash(msg) { const w = $("#warn"); w.textContent = msg; w.classList.remove("hide"); setTimeout(() => w.classList.add("hide"), 6000); }
+const CHIPS = {altalanos:"AXIMBRA", telefon:"Telefonos AI", email:"E-mail rendező", erdeklodo:"Érdeklődő-minősítő", dokumentum:"Dokumentumelemző", nis2:"NIS2", ertekesito:"Értékesítő agent"};
+
+function renderVideos() {
+  const key = S.videos.map((v) => v.id).join();
+  if (key === vSeen && $("#videos").children.length) return;
+  vSeen = key;
+  $("#videos").innerHTML = S.videos.map((v) => {
+    const o = v.opts || {}, w = o.aspect === "16:9" ? 560 : o.aspect === "1:1" ? 380 : 330;
+    return `<div class="card" data-vid="${esc(v.id)}">
+    <div class="row" style="justify-content:space-between"><b class="co">${esc(v.title)}</b><span class="mute">${esc(o.aspect || "9:16")} · ${esc(v.seconds)} mp · ${v.voice_engine ? "hang: " + esc(v.voice_engine) : "néma"} · ${esc((v.created_at||"").slice(0,16).replace("T"," "))}</span></div>
+    ${v.parent ? `<div class="mute">módosított változat</div>` : ""}
+    <video controls playsinline preload="metadata" src="/api/videos/${esc(v.id)}.mp4" style="display:block;width:100%;max-width:${w}px;margin:12px auto;border-radius:16px;background:#000;box-shadow:0 0 40px rgba(0,229,255,.2)"></video>
+    <div class="row" style="justify-content:center"><a href="/api/videos/${esc(v.id)}.mp4?download=1"><button class="pri">Letöltés</button></a>
+      <button class="vcopy">Poszt másolása</button><button class="warn vdel">Törlés</button></div>
+    <label>Módosítás — írd le, mit változtassak</label>
+    <div class="row" style="flex-wrap:nowrap"><input class="vfb" placeholder="Pl.: rövidebb nyitás, több a demóból, a végén legyen ott az e-mail cím"><button class="vrev">Újra</button></div>
+    <details><summary class="mute">poszt, első komment, leírás</summary>
+      <label>Poszt</label><pre class="vpost" style="white-space:pre-wrap;font:inherit;margin:0">${esc(v.post)}</pre>
+      <label>Első komment (ide a link)</label><div>${esc(v.first_comment)}</div>
+      <label>Leírás</label><div class="mute" style="white-space:pre-wrap">${esc(v.brief || "")}</div></details></div>`;
+  }).join("") || `<div class="card mute">Még nincs videó. Írd le fent, mit akarsz, és nyomd meg a „Videó készítése” gombot.</div>`;
+}
+
+function render() {
+  const c = S.config, j = S.job;
+  const led = (on, name) => `<span class="led ${on ? "on" : "off"}"><i></i>${name}</span>`;
+  $("#leds").innerHTML = led(c.ai, "AI rendező") + led(c.web_search, "Webkeresés") + led(c.elevenlabs, "ElevenLabs hang") + led(true, "Renderelő");
+  $("#count").innerHTML = `<b>${S.videos.length}</b> videó`;
+  $("#core").classList.toggle("busy", j.running);
+  const jb = $("#jobbox");
+  if (j.started) {
+    jb.classList.remove("hide");
+    $("#jobtitle").textContent = j.running ? "Videó készül…" : j.error ? "Nem sikerült" : "Kész";
+    $("#joblog").textContent = j.log.join("\n");
+  }
+  $("#vGo").disabled = j.running;
+  $("#vInfo").textContent = j.running ? (j.log.slice(-1)[0] || "készül…") : "";
+  if (wasRunning && !j.running) vSeen = "";
+  wasRunning = j.running;
+  renderVideos();
+}
+async function refresh() { try { S = await api("/api/state"); render(); } catch (e) { flash(e.message); } }
+
+$("#vChips").innerHTML = Object.entries(CHIPS).map(([k, n]) => `<button data-vt="${k}">${esc(n)}</button>`).join("");
+$("#vChips").onclick = (e) => { const k = e.target.dataset.vt; if (k && S && S.topics[k]) { const b = $("#vBrief"); b.value = (b.value ? b.value.trim() + "\n" : "") + S.topics[k]; b.focus(); } };
+$("#vGo").onclick = async () => {
+  const brief = $("#vBrief").value.trim();
+  if (brief.length < 8) { flash("Írd le, miről szóljon a videó."); return; }
+  const voice = $("#vVoice").value;
+  try {
+    await api("/api/videos", {brief, seconds: +$("#vSec").value, lang: $("#vLang").value, aspect: $("#vAspect").value,
+      voice: !!voice, male: voice === "m", research: $("#vResearch").checked});
+    flash("A videó készül, a folyamat fent látszik."); refresh();
+  } catch (e) { flash(e.message); }
+};
+$("#videos").onclick = async (e) => {
+  const card = e.target.closest("[data-vid]"); if (!card) return;
+  const id = card.dataset.vid;
+  try {
+    if (e.target.classList.contains("vcopy")) { await navigator.clipboard.writeText(card.querySelector(".vpost").textContent); flash("Poszt a vágólapon."); }
+    if (e.target.classList.contains("vrev")) {
+      const fb = card.querySelector(".vfb").value.trim();
+      if (fb.length < 3) { flash("Írd le, mit változtassak."); return; }
+      await api(`/api/videos/${id}/revise`, {feedback: fb}); flash("Az új változat készül."); refresh();
+    }
+    if (e.target.classList.contains("vdel")) {
+      if (!confirm("Törlöm a videót?")) return;
+      await api(`/api/videos/${id}/delete`, {}); vSeen = ""; refresh();
+    }
+  } catch (err) { flash(err.message); }
+};
+refresh();
+setInterval(() => { if (!document.hidden) refresh(); }, 3000);
+</script>
+</body>
+</html>

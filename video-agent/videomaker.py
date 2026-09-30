@@ -320,10 +320,17 @@ def _tts_gemini(text: str, lang: str) -> bytes | None:
     body = {"contents": [{"parts": [{"text": text}]}],
             "generationConfig": {"responseModalities": ["AUDIO"], "speechConfig": {
                 "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": VOICES[lang]["gemini"]}}}}}
-    try:
-        r = httpx.post(llm.GEMINI_URL.format(model=model), headers={"x-goog-api-key": key}, json=body, timeout=90)
-    except httpx.HTTPError:
-        return None
+    # Az ingyenes szint percenként csak néhány felolvasást enged: ilyenkor
+    # kivárjuk, különben a videó közepén elnémulna. A napi keretnél feladjuk.
+    for attempt in range(5):
+        try:
+            r = httpx.post(llm.GEMINI_URL.format(model=model), headers={"x-goog-api-key": key}, json=body, timeout=90)
+        except httpx.HTTPError:
+            return None
+        if r.status_code == 429 and "per day" not in r.text.lower() and "perday" not in r.text.lower():
+            time.sleep(min(60, 20 * (attempt + 1)))
+            continue
+        break
     if r.status_code >= 400:
         logger.info("gemini tts nem elérhető: %s", r.status_code)
         return None
