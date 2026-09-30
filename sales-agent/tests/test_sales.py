@@ -763,6 +763,8 @@ def test_rule_violations_catch_forbidden_content(bad, why):
 def test_rule_violations_clean_letter_and_their_customers_ok():
     assert verify.rule_violations(_lead()) == []
     assert verify.rule_violations(_lead(body="Tisztelt Hölgyem/Uram!\n\n" + CLEAN_BODY)) == []
+    assert not verify._NAME_RE.search("Stimate Domn / Stimată Doamnă,")
+    assert not verify._NAME_RE.search("Vážený pane / Vážená pani,")
 
 
 def test_at_de_never_sent_even_by_button(store):

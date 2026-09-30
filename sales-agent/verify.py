@@ -315,7 +315,8 @@ _NAME_RE = re.compile(
     rf"\b(pán|pani|pánovi|panej|pána|panu|domnul|doamna|domnului|doamnei|dl\.|dna\.|gospodin|gospodine|"
     rf"gospođa|gospođo|gospa|gospod|g\.|ga\.)\s+[{_UPPER}]|"
     rf"\b(Kedves|Tisztelt|Dear|Milý|Milá|Vážený|Vážená|Stimate|Stimată|Dragă|Poštovani|Poštovana|Spoštovani|Spoštovana)"
-    rf"\s+(?!Hölgyem|Uram|Címzett|Partner|Ügyfél|Csapat|Kolleg|Munkatárs|pán|pani|páni|pane|domn|doamn|gospo|gospa|kolegi|kolegovia)"
+    # A kivétellista kis- és nagybetűre is érvényes: „Stimate Domn / Stimată Doamnă” általános megszólítás.
+    rf"\s+(?!(?i:Hölgyem|Uram|Címzett|Partner|Ügyfél|Csapat|Kolleg|Munkatárs|pán|pani|páni|pane|domn|doamn|gospo|gospa|kolegi|kolegovia))"
     rf"[{_UPPER}][a-záéíóöőúüűčďľĺňôŕšťýžăâîșțćđ]+", re.U)
 
 
