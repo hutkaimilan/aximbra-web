@@ -629,3 +629,36 @@ def test_linkedin_text_carries_the_link_it_cannot_comment(tmp_path, monkeypatch)
     app_mod._post_video(vid, ["linkedin", "instagram"], "Poszt szöveg", lambda m: None)
     assert seen["linkedin"] == "Poszt szöveg\n\nÉlő demó: https://aximbra.hu"
     assert seen["instagram"] == "Poszt szöveg"
+
+
+def test_a_voice_that_runs_out_midway_is_replaced_for_the_whole_video(monkeypatch):
+    import io, wave as wv
+
+    def tone():
+        buf = io.BytesIO()
+        with wv.open(buf, "wb") as w:
+            w.setnchannels(1); w.setsampwidth(2); w.setframerate(videomaker.SAMPLE_RATE)
+            w.writeframes(b"\x01\x00" * videomaker.SAMPLE_RATE)
+        return buf.getvalue()
+    calls = {"gemini": 0}
+
+    def gemini(t, lang):
+        calls["gemini"] += 1
+        return tone() if calls["gemini"] == 1 else None      # a napi keret az 1. jelenet után elfogy
+    monkeypatch.setattr(videomaker, "_tts_elevenlabs", lambda t, l, m: None)
+    monkeypatch.setattr(videomaker, "_tts_gemini", gemini)
+    monkeypatch.setattr(videomaker, "_tts_edge", lambda t, l, m: tone())
+    script = {"scenes": [{"voice": "egy", "seconds": 3.0}, {"voice": "kettő", "seconds": 3.0}]}
+    audio, engine = videomaker.narrate(script, "hu", False)
+    assert audio and engine == "edge"
+
+
+def test_the_post_text_is_checked_for_invented_claims_too():
+    script = videomaker.normalize({"title": "T", "scenes": [
+        {"kind": "hook", "headline": "Ki veszi fel?", "seconds": 3},
+        {"kind": "statement", "headline": "Az agent felveszi", "seconds": 3}],
+        "post": "Azonnali válasz és nulla elvesztett érdeklődő. Próbálja ki élőben!\n\nhttps://aximbra.hu"}, 30)
+    v = videomaker.violations(script, "")
+    assert any("nulla" in x for x in v)
+    out = videomaker._strip_claims(script, "")
+    assert "nulla" not in out["post"] and "Próbálja ki élőben!" in out["post"] and "https://aximbra.hu" in out["post"]

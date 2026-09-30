@@ -356,7 +356,14 @@ def violations(script: dict, sources: str) -> list[str]:
     out = []
     for i, s in enumerate(script["scenes"]):
         out += [f"{i + 1}. jelenet: „{t}”" for t in _scene_texts(s) if _unsupported(t, ok)]
+    # A poszt szövege ugyanúgy nyilvános, mint a videó: ott sem lehet kitalált állítás.
+    out += [f"poszt: „{t}”" for t in _sentences(script.get("post", "")) if _unsupported(t, ok)]
     return list(dict.fromkeys(out))
+
+
+def _sentences(text: str) -> list[str]:
+    """Mondatok; a linket és a hashtageket nem vágjuk szét."""
+    return [t for t in re.split(r"(?<=[.!?])\s+|\n+", text or "") if t.strip()]
 
 
 def _strip_claims(script: dict, sources: str) -> dict:
@@ -369,6 +376,10 @@ def _strip_claims(script: dict, sources: str) -> dict:
         s["lines"] = [l for l in s["lines"] if not _unsupported(l, ok)]
         s["lines2"] = [l for l in s["lines2"] if not _unsupported(l, ok)]
     script["scenes"] = [s for s in script["scenes"] if s["kind"] == "cta" or not _unsupported(s["headline"], ok)]
+    if script.get("post"):
+        kept = [t for t in re.split(r"(?<=[.!?])[ \t]+", script["post"])
+                if not _unsupported(t, ok) or t.strip().startswith("http")]
+        script["post"] = " ".join(kept).strip()
     return script
 
 
@@ -513,31 +524,37 @@ def _wav_pcm(wav_bytes: bytes) -> bytes:
 
 def narrate(script: dict, lang: str, male: bool, say=lambda m: None) -> tuple[bytes | None, str]:
     """Jelenetenkénti felolvasás; a jelenetet a narrációhoz nyújtja.
-    Visszaadja a teljes hangsávot (WAV) és a használt motor nevét."""
-    engine, clips = "", []
-    for s in script["scenes"]:
-        stop.check()
-        if not s["voice"]:
-            clips.append(b"")
-            continue
-        wav = None
-        if engine in ("", "elevenlabs"):
-            wav = _tts_elevenlabs(s["voice"], lang, male)
-            if wav:
-                engine = "elevenlabs"
-        if not wav and engine in ("", "gemini"):
-            wav = _tts_gemini(s["voice"], lang)
-            if wav:
-                engine = "gemini"
-        if not wav and engine in ("", "edge"):
-            wav = _tts_edge(s["voice"], lang, male)
-            if wav:
-                engine = "edge"
-        if not wav:
-            say("Hang: egyik felolvasó sem érhető el, néma videó készül felirattal.")
-            return None, ""
-        clips.append(_wav_pcm(wav))
-    if not any(clips):
+    Visszaadja a teljes hangsávot (WAV) és a használt motor nevét.
+
+    Egy videón belül egy hang szól. Ha a választott felolvasó menet közben
+    akad el (pl. a napi ingyenes keret az első jelenet után fogy el), a
+    narrációt elölről kezdjük a következővel, nem keverjük a két hangot."""
+    engines = (("elevenlabs", lambda t: _tts_elevenlabs(t, lang, male)),
+               ("gemini", lambda t: _tts_gemini(t, lang)),
+               ("edge", lambda t: _tts_edge(t, lang, male)))
+    names = {"elevenlabs": "ElevenLabs", "gemini": "Gemini", "edge": "Edge"}
+    if not any(s["voice"] for s in script["scenes"]):
+        return None, ""
+    clips, engine = None, ""
+    for name, speak in engines:
+        got = []
+        for s in script["scenes"]:
+            stop.check()
+            if not s["voice"]:
+                got.append(b"")
+                continue
+            wav = speak(s["voice"])
+            if not wav:
+                got = None
+                break
+            got.append(_wav_pcm(wav))
+        if got is not None:
+            clips, engine = got, name
+            break
+        if name != "elevenlabs" or os.environ.get("ELEVENLABS_API_KEY"):
+            say(f"Hang: a(z) {names[name]} felolvasó elakadt, a következővel próbálom.")
+    if clips is None:
+        say("Hang: egyik felolvasó sem érhető el, néma videó készül felirattal.")
         return None, ""
     track = bytearray()
     for s, pcm in zip(script["scenes"], clips):
@@ -590,7 +607,7 @@ def capture_site(browser, url: str, phone_w: int) -> dict | None:
         page.close()
 
 
-PHONE_SCREEN_W = {"9:16": 258, "4:5": 200, "1:1": 184, "16:9": 198}
+PHONE_SCREEN_W = {"9:16": 258, "4:5": 192, "1:1": 184, "16:9": 198}
 
 
 @contextlib.contextmanager
@@ -893,7 +910,7 @@ def _produce(script: dict, opts: dict, ctx: dict, say, parent: str | None, form:
             if engine:
                 say(f"Hang kész ({ {'elevenlabs': 'ElevenLabs', 'gemini': 'Gemini'}.get(engine, 'Edge')} felolvasó).")
         total = render(script, ctx["urls"], os.path.join(VIDEO_DIR, f"{vid}.mp4"), opts["aspect"], audio,
-                       captions=bool(audio), say=say)
+                       captions=any(sc["voice"] for sc in script["scenes"]), say=say)
         files = [f"{vid}.mp4"]
         done = f"{total:.0f} mp"
     meta = {"id": vid, "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "parent": parent,
