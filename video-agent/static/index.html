@@ -135,6 +135,14 @@ th{color:var(--mute);font:500 11px var(--mono);letter-spacing:.08em;text-transfo
 @keyframes blink{0%,100%{opacity:.2;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
 #warn{border-color:rgba(255,176,32,.5);color:var(--a)}
 details summary{cursor:pointer}
+.sw{display:flex;align-items:center;gap:8px;margin:0;text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink)}
+.sw input{width:auto}
+.tg{display:flex;align-items:center;gap:8px;margin:0;text-transform:none;letter-spacing:0;font-size:14px;
+  border:1px solid var(--line);border-radius:12px;padding:9px 12px;color:var(--ink);cursor:pointer}
+.tg input{width:auto}
+.tg.off{color:var(--dim);cursor:not-allowed}
+.tg.off small{display:block;font:11px var(--mono)}
+.posted{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;justify-content:center}
 .mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:14px}
 .mitem{position:relative;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:rgba(4,6,14,.6)}
 .mitem img,.mitem video{display:block;width:100%;height:84px;object-fit:cover;background:#000}
@@ -213,6 +221,26 @@ details summary{cursor:pointer}
     <div class="row" style="margin-top:12px"><button class="pri" id="vGo">Videó készítése</button><span class="mute" id="vInfo"></span></div>
     <p class="mute" style="margin-bottom:0">A leírás linkjeit beolvassa, és telefonon mutatja a videóban. Számot, ügyfelet, eredményt csak akkor ír bele, ha a leírásban vagy a linkelt oldalon szerepel. Egy videó 2–6 perc.</p>
   </div>
+  <div class="card">
+    <div class="who"><div class="core"></div>Automatika · magától gyárt és posztol</div>
+    <p class="mute" style="margin-top:0" id="aInfo"></p>
+    <label>Miről készüljenek? Soronként egy téma, sorban halad rajtuk</label>
+    <textarea id="aBriefs" style="min-height:120px" placeholder="Álló videó az e-mail rendezőről logisztikai cégvezetőknek, komoly hangulat&#10;Álló videó a telefonos AI-ról, mutasd az aximbra.hu-t&#10;Álló videó arról, mit csinál egy AI agent egy webshopnál"></textarea>
+    <div class="plan" style="grid-template-columns:1fr 1fr;margin-top:4px">
+      <div><label>Milyen gyakran</label><select id="aHours"></select></div>
+      <div><label>Hossz</label><select id="aSec"><option value="15">15 mp</option><option value="30">30 mp</option><option value="45">45 mp</option><option value="60">60 mp</option></select></div>
+      <div><label>Formátum</label><select id="aAspect"><option value="9:16">Álló 9:16</option><option value="1:1">Négyzet 1:1</option><option value="16:9">Fekvő 16:9</option></select></div>
+      <div><label>Hang</label><select id="aVoice"><option value="f">Női narráció</option><option value="m">Férfi narráció</option><option value="">Nincs hang</option></select></div>
+    </div>
+    <label>Hova posztoljon</label>
+    <div class="row" id="aTargets"></div>
+    <div class="row" style="margin-top:14px;gap:14px">
+      <label class="sw"><input type="checkbox" id="aOn"> <span>Magától gyártson videót</span></label>
+      <label class="sw"><input type="checkbox" id="aPost"> <span>És posztolja is ki magától</span></label>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="pri" id="aSave">Mentés</button><span class="mute" id="aState"></span></div>
+  </div>
+
   <div id="videos"></div>
 </main>
 <script>
@@ -232,6 +260,7 @@ function renderVideos() {
   const key = S.videos.map((v) => v.id).join();
   if (key === vSeen && $("#videos").children.length) return;
   vSeen = key;
+  const live = Object.entries(S.publish).filter(([, x]) => x.ready).map(([t]) => t);
   $("#videos").innerHTML = S.videos.map((v) => {
     const o = v.opts || {}, w = o.aspect === "16:9" ? 560 : o.aspect === "1:1" ? 380 : 330;
     return `<div class="card" data-vid="${esc(v.id)}">
@@ -239,7 +268,10 @@ function renderVideos() {
     ${v.parent ? `<div class="mute">módosított változat</div>` : ""}
     <video controls playsinline preload="metadata" src="/api/videos/${esc(v.id)}.mp4" style="display:block;width:100%;max-width:${w}px;margin:12px auto;border-radius:16px;background:#000;box-shadow:0 0 40px rgba(0,229,255,.2)"></video>
     <div class="row" style="justify-content:center"><a href="/api/videos/${esc(v.id)}.mp4?download=1"><button class="pri">Letöltés</button></a>
+      ${live.map((t) => `<button class="vpub" data-t="${t}">${t === "instagram" ? "Instagramra" : "LinkedInre"}</button>`).join("")}
       <button class="vcopy">Poszt másolása</button><button class="warn vdel">Törlés</button></div>
+    ${Object.keys(v.posted || {}).length ? `<div class="posted">${Object.entries(v.posted).map(([t, x]) =>
+      `<span class="tag" style="border-color:${String(x.id).startsWith("hiba") ? "rgba(255,77,109,.5)" : "rgba(25,245,160,.5)"}">${esc(t)}: ${esc(String(x.id).slice(0, 40))}</span>`).join("")}</div>` : ""}
     <label>Módosítás — írd le, mit változtassak</label>
     <div class="row" style="flex-wrap:nowrap"><input class="vfb" placeholder="Pl.: rövidebb nyitás, több a demóból, a végén legyen ott az e-mail cím"><button class="vrev">Újra</button></div>
     <details><summary class="mute">poszt, első komment, leírás</summary>
@@ -320,11 +352,49 @@ $("#mList").onclick = async (e) => {
   try { await api(`/api/media/${it.dataset.mid}/delete`, {}); mSeen = ""; refresh(); } catch (err) { flash(err.message); }
 };
 
+const TNAME = {instagram: "Instagram", linkedin: "LinkedIn"};
+let aTouched = false;
+function renderAuto() {
+  const s = S.settings, p = S.publish;
+  if (!$("#aHours").children.length)
+    $("#aHours").innerHTML = [2, 4, 6, 8, 10, 12, 24].map((h) => `<option value="${h}">${h} óránként</option>`).join("");
+  $("#aTargets").innerHTML = Object.keys(TNAME).map((t) => {
+    const on = p[t].ready, has = (s.targets || []).includes(t);
+    return `<label class="tg ${on ? "" : "off"}"><input type="checkbox" data-tg="${t}" ${has ? "checked" : ""} ${on ? "" : "disabled"}>
+      <span>${TNAME[t]}${on ? "" : `<small>hiányzik: ${esc(p[t].missing.join(", "))}</small>`}</span></label>`;
+  }).join("");
+  if (aTouched) return;   // amit épp szerkesztesz, azt a frissítés ne írja felül
+  $("#aBriefs").value = (s.briefs || []).join("\n");
+  $("#aHours").value = s.every_hours; $("#aSec").value = s.seconds;
+  $("#aAspect").value = s.aspect; $("#aVoice").value = s.voice ? (s.male ? "m" : "f") : "";
+  $("#aOn").checked = !!s.auto; $("#aPost").checked = !!s.autopost;
+  const next = s.auto && s.last_run ? new Date(Date.parse(s.last_run) + s.every_hours * 3600e3) : null;
+  $("#aInfo").textContent = !s.auto ? "Most ki van kapcsolva. Írd le a témákat, állítsd be a gyakoriságot, és kapcsold be."
+    : `Bekapcsolva: ${s.every_hours} óránként egy videó.` + (next ? ` Következő: ${next.toLocaleString("hu-HU", {hour12: false}).slice(0, 16)}.` : " Az első hamarosan indul.")
+      + (s.autopost ? ` Magától posztol, naponta legfeljebb ${s.max_posts_per_day}.` : " Posztolni te posztolsz.");
+}
+document.addEventListener("input", (e) => {
+  if (e.target.closest("#aBriefs, #aHours, #aSec, #aAspect, #aVoice, #aOn, #aPost")) aTouched = true;
+});
+$("#aSave").onclick = async () => {
+  const voice = $("#aVoice").value;
+  try {
+    await api("/api/settings", {
+      briefs: $("#aBriefs").value, every_hours: +$("#aHours").value, seconds: +$("#aSec").value,
+      aspect: $("#aAspect").value, voice: !!voice, male: voice === "m",
+      auto: $("#aOn").checked, autopost: $("#aPost").checked,
+      targets: [...document.querySelectorAll("[data-tg]:checked")].map((x) => x.dataset.tg),
+    });
+    aTouched = false; flash("Mentve."); refresh();
+  } catch (e) { flash(e.message); }
+};
+
 function render() {
   const c = S.config, j = S.job;
   const led = (on, name) => `<span class="led ${on ? "on" : "off"}"><i></i>${name}</span>`;
   $("#leds").innerHTML = led(c.ai, "AI rendező") + led(c.web_search, "Webkeresés") + led(c.elevenlabs, "ElevenLabs hang") + led(c.imagegen, "Képgenerálás") + led(true, "Renderelő");
   renderMedia();
+  renderAuto();
   $("#count").innerHTML = `<b>${S.videos.length}</b> videó`;
   $("#core").classList.toggle("busy", j.running);
   const jb = $("#jobbox");
@@ -362,6 +432,12 @@ $("#videos").onclick = async (e) => {
       const fb = card.querySelector(".vfb").value.trim();
       if (fb.length < 3) { flash("Írd le, mit változtassak."); return; }
       await api(`/api/videos/${id}/revise`, {feedback: fb}); flash("Az új változat készül."); refresh();
+    }
+    if (e.target.classList.contains("vpub")) {
+      const t = e.target.dataset.t;
+      if (!confirm(`Kiposztolom ${t === "instagram" ? "Instagramra" : "LinkedInre"}? Ez nyilvános lesz.`)) return;
+      await api(`/api/videos/${id}/publish`, {targets: [t], caption: card.querySelector(".vpost").textContent});
+      flash("Posztolás elindult."); refresh();
     }
     if (e.target.classList.contains("vdel")) {
       if (!confirm("Törlöm a videót?")) return;

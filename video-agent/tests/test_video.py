@@ -210,3 +210,92 @@ def test_generated_images_only_when_the_model_answers(lib, monkeypatch):
     s2 = videomaker.normalize({"scenes": [{"kind": "photo", "headline": "C", "image_prompt": "jo", "seconds": 4},
                                           {"kind": "cta", "headline": "D", "seconds": 4}]}, 12)
     assert videomaker.fill_images(s2, "9:16")["scenes"][0]["kind"] == "statement"
+
+
+# ---- automatika és kiposztolás ----
+
+import publisher  # noqa: E402
+import settings as st  # noqa: E402
+from datetime import datetime, timedelta, timezone  # noqa: E402
+
+
+@pytest.fixture
+def cfg(tmp_path, monkeypatch):
+    monkeypatch.setattr(st, "PATH", str(tmp_path / "s.json"))
+    return st
+
+
+def test_settings_round_trip_and_limits(cfg):
+    saved = cfg.save(cfg.clean({"every_hours": 99, "seconds": 5, "aspect": "kacsa", "lang": "de",
+                                "briefs": "egy\n\n  kettő  \n", "targets": ["instagram", "tiktok"],
+                                "max_posts_per_day": 99}))
+    assert saved["every_hours"] == cfg.MAX_HOURS and saved["seconds"] == 10
+    assert saved["aspect"] == "9:16" and saved["lang"] == "hu"      # érvénytelen érték nem megy át
+    assert saved["briefs"] == ["egy", "kettő"] and saved["targets"] == ["instagram"]
+    assert saved["max_posts_per_day"] == 10
+    assert cfg.load()["briefs"] == ["egy", "kettő"]
+
+
+def test_due_only_when_on_with_topics_and_time_passed(cfg):
+    now = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+    assert not cfg.due(now, {**cfg.DEFAULTS, "auto": True, "briefs": []})
+    assert not cfg.due(now, {**cfg.DEFAULTS, "auto": False, "briefs": ["a"]})
+    on = {**cfg.DEFAULTS, "auto": True, "briefs": ["a"], "every_hours": 8}
+    assert cfg.due(now, on)                                           # még sosem futott
+    assert not cfg.due(now, {**on, "last_run": (now - timedelta(hours=7)).isoformat()})
+    assert cfg.due(now, {**on, "last_run": (now - timedelta(hours=9)).isoformat()})
+
+
+def test_briefs_are_taken_in_turn(cfg):
+    s = {**cfg.DEFAULTS, "briefs": ["a", "b", "c"], "next_brief": 2}
+    assert cfg.take_brief(s) == ("c", 0)
+    assert cfg.take_brief({**s, "next_brief": 0}) == ("a", 1)
+    assert cfg.take_brief({**cfg.DEFAULTS, "briefs": []}) == ("", 0)
+
+
+def test_daily_post_budget_resets_on_a_new_day(cfg):
+    now = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+    s = {**cfg.DEFAULTS, "max_posts_per_day": 2}
+    assert cfg.post_budget(now, s) == 2
+    s = {**s, "posts_day": "2026-10-01", "posts_today": 2}
+    assert cfg.post_budget(now, s) == 0
+    assert cfg.post_budget(now + timedelta(days=1), s) == 2
+
+
+def test_publisher_reports_what_is_missing(monkeypatch):
+    for v in ("IG_USER_ID", "IG_ACCESS_TOKEN", "PUBLIC_BASE_URL", "LI_ACCESS_TOKEN", "LI_AUTHOR_URN"):
+        monkeypatch.delenv(v, raising=False)
+    assert not publisher.ig_ready() and not publisher.li_ready()
+    assert publisher.enabled_targets() == []
+    assert len(publisher.ig_missing()) == 3 and len(publisher.li_missing()) == 2
+    monkeypatch.setenv("LI_ACCESS_TOKEN", "t")
+    monkeypatch.setenv("LI_AUTHOR_URN", "urn:li:person:abc")
+    assert publisher.enabled_targets() == ["linkedin"]
+
+
+def test_linkedin_refuses_a_bad_author_urn(monkeypatch):
+    monkeypatch.setenv("LI_ACCESS_TOKEN", "t")
+    monkeypatch.setenv("LI_AUTHOR_URN", "abc123")
+    with pytest.raises(publisher.PublishError):
+        publisher.li_publish("/dev/null", "szöveg")
+
+
+def test_instagram_needs_an_https_url(monkeypatch):
+    monkeypatch.setenv("IG_USER_ID", "1")
+    monkeypatch.setenv("IG_ACCESS_TOKEN", "t")
+    with pytest.raises(publisher.PublishError):
+        publisher.ig_publish("http://nem-biztonsagos/v.mp4", "szöveg")
+
+
+def test_public_link_needs_the_right_ticket(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    import app as app_mod
+    monkeypatch.setenv("ADMIN_PASSWORD", "jelszo1234")
+    monkeypatch.setenv("PUBLIC_LINK_SECRET", "titok")
+    monkeypatch.setattr(videomaker, "VIDEO_DIR", str(tmp_path))
+    (tmp_path / "abcdef012345.mp4").write_bytes(b"mp4")
+    c = TestClient(app_mod.app)
+    good = app_mod.public_ticket("abcdef012345")
+    assert c.get(f"/p/abcdef012345/{good}.mp4").status_code == 200        # jegy nélkül nyilvános
+    assert c.get("/p/abcdef012345/rosszjegy.mp4").status_code == 404
+    assert c.get(f"/p/masikvideo00/{good}.mp4").status_code == 404

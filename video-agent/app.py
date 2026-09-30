@@ -4,13 +4,15 @@ Egy felhasználó, egy jelszó (ADMIN_PASSWORD, HTTP Basic). Egyszerre egy
 videó készül: a renderelés sok processzort visz, két párhuzamos munka
 mindkettőt lelassítaná.
 """
+import hashlib
+import hmac
 import logging
 import os
 import re
 import secrets
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
@@ -20,6 +22,8 @@ from pydantic import BaseModel, Field
 
 import imagegen
 import media
+import publisher
+import settings as settings_store
 import videomaker
 import websearch
 
@@ -90,6 +94,32 @@ def _start(fn):
     return {"ok": True}
 
 
+# ---- nyilvános videócím -----------------------------------------------------
+# Az Instagram a saját szerverével tölti le a videót, ezért ez az egy útvonal
+# jelszó nélkül elérhető. Aláírt, kitalálhatatlan jegy védi, és csak a kész
+# videófájlt adja ki.
+
+def _link_secret() -> str:
+    return os.environ.get("PUBLIC_LINK_SECRET", "") or os.environ.get("ADMIN_PASSWORD", "")
+
+
+def public_ticket(vid: str) -> str:
+    return hmac.new(_link_secret().encode(), f"video:{vid}".encode(), hashlib.sha256).hexdigest()[:32]
+
+
+def public_url(vid: str) -> str:
+    base = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    return f"{base}/p/{vid}/{public_ticket(vid)}.mp4" if base else ""
+
+
+@app.get("/p/{vid}/{ticket}.mp4")
+def public_video(vid: str, ticket: str):
+    path = videomaker.video_path(vid)
+    if not path or not _link_secret() or not hmac.compare_digest(ticket, public_ticket(vid)):
+        raise HTTPException(404, "Nincs ilyen videó.")
+    return FileResponse(path, media_type="video/mp4")
+
+
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -107,6 +137,8 @@ def state():
         "videos": videomaker.list_videos(),
         "media": media.listing(),
         "topics": videomaker.TOPICS,
+        "settings": settings_store.load(),
+        "publish": publisher.status(),
         "config": {
             "ai": bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY")),
             "web_search": websearch.tavily_on(),
@@ -144,6 +176,95 @@ def media_delete(mid: str):
     return {"ok": True}
 
 
+class SettingsIn(BaseModel):
+    auto: bool | None = None
+    autopost: bool | None = None
+    every_hours: int | None = None
+    seconds: int | None = None
+    max_posts_per_day: int | None = None
+    aspect: str | None = None
+    lang: str | None = None
+    voice: bool | None = None
+    male: bool | None = None
+    targets: list[str] | None = None
+    briefs: list[str] | str | None = None
+
+
+@app.post("/api/settings", dependencies=[Depends(auth)])
+def settings_save(body: SettingsIn):
+    values = settings_store.clean({k: v for k, v in body.model_dump().items() if v is not None})
+    if values.get("autopost"):
+        s = {**settings_store.load(), **values}
+        live = publisher.enabled_targets()
+        chosen = [t for t in (s.get("targets") or []) if t in live]
+        if not chosen:
+            raise HTTPException(409, "Előbb kösd be az Instagramot vagy a LinkedInt, és jelöld be, hova posztoljon.")
+    return settings_store.save(values)
+
+
+class PublishIn(BaseModel):
+    targets: list[str] = Field(default_factory=list)
+    caption: str = Field(default="", max_length=2900)
+
+
+@app.post("/api/videos/{vid}/publish", dependencies=[Depends(auth)])
+def video_publish(vid: str, body: PublishIn):
+    meta = videomaker.get_meta(vid)
+    if not meta:
+        raise HTTPException(404, "Nincs ilyen videó.")
+    targets = [t for t in body.targets if t in publisher.enabled_targets()]
+    if not targets:
+        raise HTTPException(409, "Nincs bekötve platform. " + "; ".join(
+            publisher.ig_missing() + publisher.li_missing()))
+    return _start(lambda say: _post_video(vid, targets, body.caption or meta.get("post", ""), say))
+
+
+# ---- automatika -------------------------------------------------------------
+
+def _auto_round(say) -> dict:
+    """Egy automatikus kör: a soron következő téma legyártása, és ha kérted,
+    kiposztolása. A napi posztkeret és a bekötött platformok korlátoznak."""
+    now = datetime.now(timezone.utc)
+    s = settings_store.load()
+    brief, nxt = settings_store.take_brief(s)
+    if not brief:
+        say("Automatika: nincs téma megadva.")
+        return {}
+    settings_store.save({"next_brief": nxt, "last_run": now.isoformat(timespec="seconds")})
+    say(f"Automatika: {brief[:90]}")
+    meta = videomaker.make(brief, s["seconds"], s["lang"], s["aspect"], s["voice"], s["male"],
+                           research=False, say=say)
+    if not s.get("autopost"):
+        say("A videó kész, kiposztolni te posztolod ki.")
+        return meta
+    targets = [t for t in (s.get("targets") or []) if t in publisher.enabled_targets()]
+    if not targets:
+        say("Magától posztolás: nincs bekötve platform, a videó a listában marad.")
+        return meta
+    if settings_store.post_budget(now, s) <= 0:
+        say("Magától posztolás: a mai keret betelt.")
+        return meta
+    _post_video(meta["id"], targets, meta.get("post", ""), say)
+    settings_store.count_post(now, settings_store.load())
+    return meta
+
+
+def _scheduler():
+    while True:
+        try:
+            s = settings_store.load()
+            if settings_store.due(datetime.now(timezone.utc), s) and not job.running:
+                job.start(_auto_round)
+        except Exception:  # noqa: BLE001 — az ütemező sosem állhat le egy hibán
+            logger.exception("ütemező hiba")
+        time.sleep(60)
+
+
+@app.on_event("startup")
+def _startup():
+    threading.Thread(target=_scheduler, daemon=True).start()
+
+
 class VideoIn(BaseModel):
     brief: str = Field(min_length=8, max_length=4000)
     seconds: int = Field(default=30, ge=10, le=90)
@@ -176,6 +297,28 @@ def video_delete(vid: str):
     if not videomaker.delete(vid):
         raise HTTPException(404, "Nincs ilyen videó.")
     return {"ok": True}
+
+
+def _post_video(vid: str, targets: list[str], caption: str, say) -> dict:
+    """Egy kész videó kiposztolása a megadott helyekre. Ami elhasal, azt
+    naplózzuk, de a többi platform attól még mehet."""
+    meta = videomaker.get_meta(vid) or {}
+    path = videomaker.video_path(vid)
+    if not path:
+        raise RuntimeError("a videófájl nem található")
+    out = {}
+    for t in targets:
+        try:
+            say(f"{t}: feltöltés…")
+            pid = publisher.publish(t, path=path, url=public_url(vid), caption=caption,
+                                    title=meta.get("title", ""))
+            out[t] = pid
+            say(f"{t}: kiposztolva ({pid}).")
+        except publisher.PublishError as e:
+            out[t] = f"hiba: {e}"
+            say(f"{t}: nem sikerült — {e}")
+    videomaker.mark_posted(vid, out)
+    return out
 
 
 @app.get("/api/videos/{vid}.mp4", dependencies=[Depends(auth)])

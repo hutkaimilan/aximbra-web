@@ -653,6 +653,20 @@ def list_videos() -> list[dict]:
     return sorted(out, key=lambda m: m.get("created_at", ""), reverse=True)
 
 
+def mark_posted(vid: str, results: dict) -> dict | None:
+    """Hova és mikor ment ki a videó; a felület ezt mutatja."""
+    meta = get_meta(vid)
+    if not meta:
+        return None
+    posted = dict(meta.get("posted") or {})
+    posted.update({k: {"id": v, "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+                   for k, v in results.items()})
+    meta["posted"] = posted
+    with open(_meta_path(vid), "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False)
+    return meta
+
+
 def delete(vid: str) -> bool:
     p = video_path(vid)
     if not p:
