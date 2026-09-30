@@ -188,7 +188,8 @@ HARD RULES:
 - No prices unless the brief asks for them (then only from the facts list).
 - Hungarian: formal-neutral, natural, no anglicisms where a Hungarian word exists.
 - Also write the social post that goes with it (60–120 words, strong first line, max 3 hashtags) and a first
-  comment holding the link.
+  comment holding the link. The post must stand on its own on any platform: do not tell the reader to swipe,
+  and do not point to a comment or to a "link below" — some platforms show only the first slide and no comment.
 
 Answer ONLY with JSON:
 {{"title": "", "tagline": "max 3 words", "brand": "AXIMBRA or the brand in the brief", "theme": "neon|clean|warm|mono",

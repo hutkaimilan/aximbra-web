@@ -614,3 +614,18 @@ def test_a_plain_http_webhook_is_not_trusted(monkeypatch):
     monkeypatch.setenv("LI_WEBHOOK_URL", "http://hook.pelda.hu/abc")
     monkeypatch.setenv("PUBLIC_BASE_URL", "https://pelda.hu")
     assert not publisher.li_ready()
+
+
+def test_linkedin_text_carries_the_link_it_cannot_comment(tmp_path, monkeypatch):
+    import app as app_mod
+    monkeypatch.setattr(videomaker, "VIDEO_DIR", str(tmp_path))
+    vid = "abcdef012345"
+    (tmp_path / f"{vid}-1.jpg").write_bytes(b"x")
+    meta = {"id": vid, "form": "image", "files": [f"{vid}-1.jpg"], "title": "T",
+            "first_comment": "Élő demó: https://aximbra.hu", "created_at": "2026-01-01T00:00:00"}
+    (tmp_path / f"{vid}.json").write_text(json.dumps(meta), encoding="utf-8")
+    seen = {}
+    monkeypatch.setattr(publisher, "publish", lambda t, **k: seen.setdefault(t, k["caption"]) and "ok")
+    app_mod._post_video(vid, ["linkedin", "instagram"], "Poszt szöveg", lambda m: None)
+    assert seen["linkedin"] == "Poszt szöveg\n\nÉlő demó: https://aximbra.hu"
+    assert seen["instagram"] == "Poszt szöveg"

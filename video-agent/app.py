@@ -365,7 +365,12 @@ def _post_video(vid: str, targets: list[str], caption: str, say) -> dict:
         for t in targets:
             try:
                 say(f"{t}: feltöltés…")
-                pid = publisher.publish(t, paths=paths, urls=urls, caption=caption,
+                # LinkedInre nem megy első komment, ezért ott a link a szöveg végére kerül.
+                text = caption
+                link = (meta.get("first_comment") or "").strip()
+                if t == "linkedin" and link and link not in caption:
+                    text = f"{caption.rstrip()}\n\n{link}"
+                pid = publisher.publish(t, paths=paths, urls=urls, caption=text,
                                         title=meta.get("title", ""), form=form)
                 out[t] = pid
                 say(f"{t}: kiposztolva ({pid}).")
