@@ -173,7 +173,7 @@ problem, benefit, agents or cta — "site", "call" and "inbox" animate, so they 
 - "number": headline = a number FROM THE BRIEF OR SOURCES ONLY, sub = what it means.
 - "quote": headline = a quote FROM THE BRIEF OR SOURCES ONLY, sub = its source.
 - "cta": headline + "url" + sub + "button". Always last.
-{'A still slide has no motion, so favour the kinds that hold up frozen, and let each carry more text than a video scene would.' if still else ''}
+{'A still slide has no motion, so favour the kinds that hold up frozen, and let each carry more text than a video scene would. Never number the slides — no "slide 2", no "2/5"; the kicker is a real label or empty.' if still else ''}
 Fields: headline max 8 words, mark 1–2 key words with *asterisks*; sub max 16 words; kicker optional, max 3 words.
 Use the user's own uploaded media wherever it fits the brief — that is why they uploaded it. Ask for a generated
 image only where nothing uploaded fits.
@@ -222,6 +222,9 @@ def _clip(s, n: int) -> str:
 
 
 _LABEL_RE = re.compile(r"^\s*(AI|Ügyfél|Hívó|Caller|Customer|Agent|Ügyintéző)\s*:\s*", re.I)
+# A modell szeret diaszámot írni a kickerbe („3. SLIDE”). Az olvasónak semmit
+# nem mond, a körhinta amúgy is számozza magát, ezért kiszedjük.
+_SLIDENO_RE = re.compile(r"^\s*(?:\d+\s*[.)]?\s*(?:slide|dia|kép|oldal)|(?:slide|dia|kép|oldal)\s*[.:#]?\s*\d+)\s*$", re.I)
 
 
 def _media_id(v) -> str:
@@ -253,7 +256,8 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -
             shot = 0
         lines = lambda key, n: [_clip(_LABEL_RE.sub("", str(l)), 70) for l in (s.get(key) or []) if str(l).strip()][:n]
         scenes.append({
-            "kind": s["kind"], "kicker": _clip(s.get("kicker"), 28), "headline": _clip(s.get("headline"), 80),
+            "kind": s["kind"], "kicker": "" if _SLIDENO_RE.match(str(s.get("kicker") or "")) else _clip(s.get("kicker"), 28),
+            "headline": _clip(s.get("headline"), 80),
             "sub": _clip(s.get("sub"), 140), "lines": lines("lines", 6), "lines2": lines("lines2", 4),
             "left_title": _clip(s.get("left_title"), 20), "right_title": _clip(s.get("right_title"), 20),
             "media": _media_id(s.get("media")),

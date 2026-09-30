@@ -380,3 +380,12 @@ def test_publish_picks_the_route_from_the_form(monkeypatch):
     assert seen == {"video": "https://x/a.mp4", "slides": ["https://x/a.jpg", "https://x/b.jpg"]}
     with pytest.raises(publisher.PublishError):
         publisher.publish("instagram", paths=["/a.jpg"], urls=[], caption="c", form="image")
+
+
+def test_slide_numbers_are_dropped_from_the_kicker():
+    s = videomaker.normalize({"title": "T", "scenes": [
+        {"kind": "hook", "kicker": "1. SLIDE", "headline": "Első", "seconds": 4},
+        {"kind": "benefit", "kicker": "Dia 2", "headline": "Második", "lines": ["a"], "seconds": 4},
+        {"kind": "statement", "kicker": "AXIMBRA", "headline": "Harmadik", "seconds": 4},
+    ]}, 30, 1, "carousel")
+    assert [x["kicker"] for x in s["scenes"]][:3] == ["", "", "AXIMBRA"]
