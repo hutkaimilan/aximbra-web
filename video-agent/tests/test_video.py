@@ -682,3 +682,53 @@ def test_english_words_are_respelled_for_the_hungarian_voice_only():
     assert say("Próbálja ki: aximbra.hu, AXIMBRA agentek kkv-knak.", "hu") == \
         "Próbálja ki: akszimbra pont hu, Akszimbra édzsentek kákávé-knak."
     assert say("Our AI agent", "en") == "Our AI agent"
+
+
+# ---- kutatott marketingszabályok ----
+
+def _craft_script(**kw):
+    raw = {"title": "T", "brand": "AXIMBRA", "scenes": [
+        {"kind": "hook", "headline": "Ki veszi fel a telefont?", "seconds": 6},
+        {"kind": "statement", "headline": "Az AXIMBRA agentje felveszi", "voice": "Ezt mondja.", "seconds": 5},
+        {"kind": "benefit", "headline": "Mit kap?", "lines": ["Kevesebb elveszett hívás"], "seconds": 5},
+        {"kind": "cta", "headline": "Próbálja ki", "url": "aximbra.hu", "seconds": 4},
+    ], "post": "Ki veszi fel a telefont este?\n\nSzöveg. #ai #kkv #agent #automatizalas #magyar"}
+    raw.update(kw)
+    return videomaker.normalize(raw, 30)
+
+
+def test_hook_is_short_and_hashtags_capped():
+    s = _craft_script()
+    assert s["scenes"][0]["seconds"] <= videomaker.HOOK_MAX
+    assert s["post"].count("#") == 3 and "#automatizalas" not in s["post"]
+    assert videomaker.craft_issues(s) == []
+
+
+def test_craft_issues_catch_broken_rules():
+    s = _craft_script(post="x" * 200)
+    s["scenes"][0]["kind"] = "agents"
+    s["scenes"][1]["headline"] = "Egy nagyon hosszú címsor ami bőven több mint nyolc szóból áll"
+    s["scenes"][2]["headline"], s["scenes"][2]["sub"], s["scenes"][2]["lines"] = "", "", []
+    s["scenes"][2]["voice"] = "Csak hangban mondjuk el."
+    issues = " | ".join(videomaker.craft_issues(s))
+    assert "első jelenet" in issues and "8 szónál" in issues and "hang nélkül" in issues and "első sora" in issues
+
+
+def test_brand_must_appear_before_the_close():
+    s = _craft_script()
+    s["scenes"][1]["headline"] = "Az agent felveszi"
+    s["post"] = "Ki veszi fel?"
+    assert any("márkanév" in x for x in videomaker.craft_issues(s))
+
+
+def test_check_sends_craft_problems_to_one_revision(monkeypatch):
+    s = _craft_script(post="y" * 200)
+    asked = []
+    fixed = {"title": "T", "brand": "AXIMBRA", "scenes": [
+        {"kind": "hook", "headline": "Ki veszi fel?", "seconds": 3},
+        {"kind": "statement", "headline": "Az AXIMBRA felveszi", "seconds": 5},
+        {"kind": "cta", "headline": "Próbálja ki", "url": "aximbra.hu", "seconds": 4}], "post": "Ki veszi fel este?"}
+    monkeypatch.setattr(llm, "_ask", lambda p, **k: asked.append(p) or json.dumps(fixed))
+    out = videomaker.check(s, "brief", {"urls": [], "pages": [], "web": []}, 30, "hu")
+    assert len(asked) == 1 and "első sora" in asked[0] and "PROVEN CRAFT RULES" in asked[0]
+    assert out["post"] == "Ki veszi fel este?"

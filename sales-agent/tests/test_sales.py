@@ -862,3 +862,10 @@ def test_manual_lead_passes_the_same_rules(tmp_path, monkeypatch):
     bad = {**good, "email": "b@pelda.hu", "body": good["body"].replace("Ha nem aktuális, egy „nem” válasz elég, többet nem írok.", "")}
     assert c.post("/api/manual-lead", json=bad, auth=A).status_code == 409             # leiratkozás nélkül nem
     assert c.post("/api/manual-lead", json=good, auth=("x", "rossz")).status_code == 401
+
+
+def test_long_sentence_in_the_message_is_flagged_but_not_in_the_fixed_lines():
+    long = " ".join(["szó"] * 30) + "."
+    assert any("hosszú mondat" in w for w in verify.check_letter(_lead(body="Jó napot!\n\n" + long + "\n\n" + CLEAN_BODY)))
+    assert not verify.long_sentences(CLEAN_BODY)
+    assert not verify.long_sentences("Jó napot!\n\nRövid.\n\nHutkai Milán · AXIMBRA · aximbra.hu\n\n" + long)

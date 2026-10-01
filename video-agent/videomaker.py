@@ -150,6 +150,8 @@ Source text you may draw facts from:
 
 {web}
 
+{playbook.MARKETING_RULES}
+
 {FORM_RULES.get(form, FORM_RULES["video"])}
 Format: {aspect}{"" if still else f", about {seconds} seconds"}.
 On-screen language: {_lang_name(lang)}.
@@ -210,6 +212,8 @@ Same JSON structure, same scene kinds available (hook, statement, problem, benef
 inbox, agents, number, quote, photo, gallery, clip, cta). Keep the "media" ids that are still wanted.
 {'Keep it still: the same number of slides as now, no narration, leave "voice" empty.' if still else ''}
 Language: {_lang_name(lang)}. Never invent statistics, customers, testimonials or results.
+While fixing, keep to these rules:
+{playbook.MARKETING_RULES}
 
 FEEDBACK: \"\"\"{feedback}\"\"\"
 
@@ -322,13 +326,57 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -
         k = target / total if total else 1
         for s in scenes:
             s["seconds"] = round(max(2.0, min(14.0, s["seconds"] * k)), 2)
+    # Az első másodpercek döntenek: a nyitókép rövid, hogy gyorsan jöjjön a lényeg.
+    if not still and scenes[0]["kind"] == "hook":
+        scenes[0]["seconds"] = min(scenes[0]["seconds"], HOOK_MAX)
     theme = data.get("theme") if data.get("theme") in THEMES else "neon"
     return {
         "title": _clip(data.get("title") or "Videó", 80), "tagline": _clip(data.get("tagline") or "", 24).upper(),
         "brand": _clip(data.get("brand") or "AXIMBRA", 20), "theme": theme, "scenes": scenes,
-        "post": str(data.get("post") or "").strip()[:3000],
+        "post": _cap_hashtags(str(data.get("post") or "").strip()[:3000]),
         "first_comment": str(data.get("first_comment") or "Élő demók: https://aximbra.hu").strip()[:500],
     }
+
+
+HOOK_MAX = 3.5        # mp: a nyitókép eddig tart, a többi jelenet viszi a mondanivalót
+MAX_HASHTAGS = 3
+FIRST_LINE_MAX = 150  # karakter: a hírfolyam ennyi után vágja le a posztot
+_HASHTAG_RE = re.compile(r"(?<![\w&])#\w+")
+
+
+def _cap_hashtags(post: str) -> str:
+    """Legfeljebb három hashtag; a többit kivesszük, a szöveg marad."""
+    n = 0
+
+    def keep(m):
+        nonlocal n
+        n += 1
+        return m.group(0) if n <= MAX_HASHTAGS else ""
+    out = _HASHTAG_RE.sub(keep, post)
+    return re.sub(r"[ \t]{2,}", " ", out).strip() if n > MAX_HASHTAGS else post
+
+
+def craft_issues(script: dict, form: str = "video") -> list[str]:
+    """A kutatott marketingszabályok gépileg mérhető része (playbook.MARKETING_RULES).
+    Ami itt akad, azt a modell egy javítókörben átírja."""
+    out = []
+    scenes = script["scenes"]
+    for i, s in enumerate(scenes):
+        if len(s["headline"].replace("*", "").split()) > 8:
+            out.append(f"{i + 1}. jelenet: a címsor 8 szónál hosszabb, rövidítsd")
+        if s["voice"] and not (s["headline"] or s["sub"] or s["lines"]) and s["kind"] not in VISUAL_KINDS:
+            out.append(f"{i + 1}. jelenet: csak a hang mondja el, hang nélkül érthetetlen — tedd ki szövegként is")
+    if form == "video" and scenes and scenes[0]["kind"] not in ("hook", "statement", "problem", "number", "photo", "clip", "call"):
+        out.append("az első jelenet nem ragadja meg a figyelmet: nyiss a néző problémájával, nagy címsorral")
+    brand = (script.get("brand") or "").lower()
+    if form != "image" and brand and len(scenes) > 2:
+        said = " ".join(t for s in scenes if s["kind"] != "cta" for t in _scene_texts(s)).lower()
+        if brand not in said and brand not in script.get("post", "").lower():
+            out.append(f"a márkanév ({script['brand']}) nem hangzik el és nincs leírva a záró kép előtt")
+    first = next((l for l in (script.get("post") or "").splitlines() if l.strip()), "")
+    if len(first) > FIRST_LINE_MAX:
+        out.append(f"a poszt első sora {len(first)} karakter: {FIRST_LINE_MAX} alatt kell megfognia, a hírfolyam ott vágja")
+    return out
 
 
 # ---- ellenőrzés -------------------------------------------------------------
@@ -428,9 +476,15 @@ def check(script: dict, brief: str, ctx: dict, seconds: int, lang: str, say=lamb
           form: str = "video") -> dict:
     sources = brief + " " + " ".join(p["text"] for p in ctx["pages"]) + " " + " ".join(w["text"] for w in ctx["web"])
     v = violations(script, sources)
-    if v:
-        say(f"Ellenőrzés: {len(v)} alátámasztatlan állítás, javítom…")
-        fb = "Remove or rewrite these unsupported claims (numbers, guarantees, customers not in the brief):\n" + "\n".join(v)
+    craft = craft_issues(script, form)
+    if v or craft:
+        say("Ellenőrzés: " + ", ".join(x for x in (f"{len(v)} alátámasztatlan állítás" if v else "",
+                                                   f"{len(craft)} marketinghiba" if craft else "") if x) + ", javítom…")
+        fb = ""
+        if v:
+            fb += "Remove or rewrite these unsupported claims (numbers, guarantees, customers not in the brief):\n" + "\n".join(v) + "\n"
+        if craft:
+            fb += "Fix these craft problems (they break the proven rules):\n" + "\n".join(craft)
         try:
             script = normalize(llm.extract_json(llm._ask(revise_prompt(script, fb, lang, form))),
                                seconds, len(ctx["urls"]), form)

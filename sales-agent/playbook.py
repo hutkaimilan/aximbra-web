@@ -180,6 +180,25 @@ Write "score_reason" and "signal_note" in Hungarian, short and plain (the owner 
 Leave out anything you cannot verify. Fewer strong leads beat more weak ones."""
 
 
+# Kutatással alátámasztott levélírási szabályok. A levélíró és a bíráló is
+# ebből dolgozik; a gépileg mérhető részét a verify.check_letter nézi.
+#  - Rövid, egyszerű nyelv: az egyszerű szóhasználatú, rövid mondatos hideg
+#    levelekre jóval többen válaszolnak (Boomerang, több millió levél elemzése;
+#    feldolgozási könnyedség: Reber & Schwarz).
+#  - Személyre szabás a cég saját tényéből: a konkrétum hihetőbb és figyelmet
+#    kelt (Hansen & Wänke; hidegmegkeresési A/B-elemzések).
+#  - Egy kérdés, amire egy szóval lehet felelni, időpontkérés helyett: az
+#    érdeklődésre rákérdező zárás több választ hoz, mint a hívásra kérés
+#    (Gong levélelemzések; a döntési teher csökkentése: Iyengar & Lepper).
+#  - A veszteség a nyereségnél erősebben hat, ezért a következményt
+#    kérdezzük meg — feltételezésként, kitalált szám nélkül (Kahneman & Tversky).
+#  - Kiszállási lehetőség: az autonómia megadása („nyugodtan mondjon nemet”)
+#    több igent hoz (Carpenter és mtsai., „but you are free” metaelemzés).
+#  - Egy utánkövetés: a második levél jelentős pluszválaszt hoz, a sok emlékeztető
+#    már nem (több hidegmegkeresési elemzés egybehangzóan).
+MAX_SENTENCE_WORDS = 25
+
+
 def compose_prompt(lead: dict) -> str:
     lang = lead["lang"]
     site = site_for(lead)
@@ -205,6 +224,10 @@ Proven structure (observation → consequence question → one-line offer → in
 7. A postscript (P.S.) in {LANG_NAMES[lang]}: {ps}
 8. Last line exactly: {OPT_OUT[lang]}
 
+Proven writing rules: short sentences (max 20 words each), everyday words a 12-year-old understands, no
+abstract nouns where a concrete one exists; the closing question must be answerable with a single word; frame the
+consequence question around what they lose today, as a guess, never with a made-up number.
+
 Never name or describe individual employees (no personal names, no "X's position"); talk about the company, its team or its processes.
 Rules: parts 1–5 together under 75 words. You-focused, not we-focused. No prices, no links, no hype ("revolutionary", "cutting-edge"), no urgency, no claims about clients or results, no emojis, no flattery.
 Subject: 3–5 words about THEIR situation, lowercase except the first word, no punctuation tricks.
@@ -221,7 +244,7 @@ Subject: {subject}
 ---
 Their website says: "{lead['observation']}"
 
-Score 0–10 against: (a) the first lines are specific to THIS business, not generic; (b) exactly one consequence question the reader can picture; (c) the offer is one concrete sentence; (d) parts before the signature under 75 words; (e) no hype, no price, no link, no flattery, no claims about clients, no named individuals; (f) natural, native {LANG_NAMES[lead['lang']]} a local business owner would not find odd; (g) signature, P.S. and the last opt-out line kept exactly.
+Score 0–10 against: (a) the first lines are specific to THIS business, not generic; (b) exactly one consequence question the reader can picture; (c) the offer is one concrete sentence; (d) parts before the signature under 75 words; (e) no hype, no price, no link, no flattery, no claims about clients, no named individuals; (f) natural, native {LANG_NAMES[lead['lang']]} a local business owner would not find odd; (g) signature, P.S. and the last opt-out line kept exactly; (h) easy to read: every sentence under 20 words, everyday words, the closing question answerable with one word.
 Write the "issues" in Hungarian, each under 15 words (the owner reads them on his phone).
 If the score is below 9, rewrite it fixing every issue, keeping the same structure and the signature, P.S. and opt-out line unchanged.
 Answer ONLY with JSON: {{"score": 0-10, "issues": ["..."], "subject": "...", "body": "..."}}"""

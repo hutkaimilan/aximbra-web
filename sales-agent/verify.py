@@ -10,7 +10,7 @@ import unicodedata
 
 import httpx
 
-from playbook import BLOCKED_TLDS, COUNTRIES, MAX_WORDS, OPT_OUT, PAIN_KEYS
+from playbook import BLOCKED_TLDS, COUNTRIES, MAX_SENTENCE_WORDS, MAX_WORDS, OPT_OUT, PAIN_KEYS
 
 FETCH_TIMEOUT = 15
 MAX_BYTES = 1_500_000
@@ -252,6 +252,20 @@ def mixed_language(lead: dict) -> list[str]:
     return bad
 
 
+def long_sentences(body: str) -> list[str]:
+    """Az üzenetrész (az aláírás előtti bekezdések) túl hosszú mondatai.
+    Az aláírás, az ui. és a leiratkozó sor kötött szöveg, azt nem mérjük."""
+    out = []
+    for section in (body or "").split(SEPARATOR):
+        for para in section.strip().split("\n\n"):
+            if "aximbra" in para.lower():
+                break  # innen aláírás, ui., leiratkozás
+            for sent in re.split(r"(?<=[.!?…])\s+", para):
+                if len(sent.split()) > MAX_SENTENCE_WORDS:
+                    out.append(sent[:60])
+    return out
+
+
 def check_letter(lead: dict) -> list[str]:
     """A megírt levél gépi ellenőrzése. Figyelmeztet, nem tilt: a
     jóváhagyó ember látja, és javíthatja."""
@@ -273,6 +287,8 @@ def check_letter(lead: dict) -> list[str]:
         w.append("VEGYES NYELV — ne küldd el")
     if has_price(body):
         w.append("ár van benne")
+    if long_sentences(body):
+        w.append(f"túl hosszú mondat ({MAX_SENTENCE_WORDS} szó felett) — nehezen olvasható")
     return w
 
 
