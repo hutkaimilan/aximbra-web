@@ -193,6 +193,41 @@ def send(body: SendIn):
     return _require_start(job.start("küldés", lambda log: pipeline.send_many(store, ids, log)))
 
 
+class ManualLeadIn(BaseModel):
+    company: str = Field(min_length=2, max_length=200)
+    email: str = Field(min_length=5, max_length=200, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    website: str = Field(default="", max_length=300)
+    country: str = Field(default="HU", min_length=2, max_length=2)
+    lang: str = Field(default="hu", min_length=2, max_length=2)
+    town: str = Field(default="", max_length=100)
+    sector: str = Field(default="", max_length=60)
+    observation: str = Field(default="", max_length=1000)
+    subject: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=20, max_length=5000)
+
+
+@app.post("/api/leads/manual", dependencies=[Depends(auth)])
+def manual_lead(body: ManualLeadIn):
+    """Kézzel felvett cég, kész levéllel. Ugyanazokon a szabályokon megy át,
+    mint a keresés vázlatai: célország (AT/DE soha), tiltólista, és a levél
+    szabályai (ár, megnevezett munkatárs, leiratkozás) — ha bármelyik sérül,
+    fel sem kerül. Küldeni utána a szokásos küldéssel lehet."""
+    lead = {"company": body.company.strip(), "email": body.email.strip().lower(), "website": body.website.strip(),
+            "country": body.country.upper(), "lang": body.lang.lower(), "lang2": None, "town": body.town.strip() or None,
+            "sector": body.sector.strip() or None, "observation": body.observation.strip() or None,
+            "pain": body.observation.strip() or "kézzel felvett", "subject": body.subject.strip(),
+            "body": body.body.strip(), "score": None}
+    problems = verify.rule_violations(lead)
+    if problems:
+        raise HTTPException(409, "Nem vehető fel: " + "; ".join(problems))
+    if store.is_blocked(lead["email"]):
+        raise HTTPException(409, "Ez a cím tiltólistán van.")
+    lead_id = store.add_lead(lead)
+    if not lead_id:
+        raise HTTPException(409, "Ezzel a címmel már van levél a listában.")
+    return {"id": lead_id}
+
+
 class AutoSendIn(BaseModel):
     on: bool
 

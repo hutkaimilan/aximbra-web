@@ -840,3 +840,25 @@ def test_auto_send_toggle_endpoint_refuses_until_ready(monkeypatch, tmp_path):
     st = c.get("/api/state", auth=a).json()
     assert st["auto_send"]["on"] is False and st["auto_send"]["ready"] is False
 
+
+
+def test_manual_lead_passes_the_same_rules(tmp_path, monkeypatch):
+    monkeypatch.setenv("SALES_DB_PATH", str(tmp_path / "man.db"))
+    monkeypatch.setenv("ADMIN_PASSWORD", "helyes-jelszo-123")
+    import importlib
+    import store as store_mod
+    importlib.reload(store_mod)
+    import app as app_mod
+    importlib.reload(app_mod)
+    from fastapi.testclient import TestClient
+    c, A = TestClient(app_mod.app), ("x", "helyes-jelszo-123")
+    good = {"company": "Példa Kft.", "email": "info@pelda.hu", "website": "https://pelda.hu", "subject": "Kérdés",
+            "body": "Tisztelt Hölgyem/Uram!\n\nRövid levél az aximbra.hu oldalról.\n\n"
+                    "Ha nem aktuális, egy „nem” válasz elég, többet nem írok.\n\nÜdvözlettel:\nHutkai Milán"}
+    r = c.post("/api/leads/manual", json=good, auth=A)
+    assert r.status_code == 200 and r.json()["id"]
+    assert c.post("/api/leads/manual", json=good, auth=A).status_code == 409            # kétszer nem
+    assert c.post("/api/leads/manual", json={**good, "email": "a@pelda.at"}, auth=A).status_code == 409   # AT soha
+    bad = {**good, "email": "b@pelda.hu", "body": good["body"].replace("Ha nem aktuális, egy „nem” válasz elég, többet nem írok.", "")}
+    assert c.post("/api/leads/manual", json=bad, auth=A).status_code == 409             # leiratkozás nélkül nem
+    assert c.post("/api/leads/manual", json=good, auth=("x", "rossz")).status_code == 401
