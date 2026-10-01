@@ -168,8 +168,9 @@ Sector knowledge:
 Method, like an expert SDR:
 1. Any company qualifies that could realistically put one of our agents to work: shared customer inboxes, a customer service or call centre team, many documents (orders, invoices, contracts, delivery notes), several locations, lots of incoming enquiries, or NIS2 obligations. A stated problem is NOT required.
 2. Quote one specific FACT word for word (original language) from the company's own website that shows which agent fits: their customer service hours or channels, number of locations, volume ("5000 shipments a month"), the documents they handle, the enquiries they receive, their NIS2 sector. A generic slogan ("quality is our priority") does NOT qualify.
-3. Buying signals are a bonus, not a requirement: hiring several people for repetitive work (their careers page or job sites like profession.hu, jobs.hu, cvonline, profesia.sk, ejobs.ro, moj-posao.net, mojedelo.com), a new site or plant, NIS2 scope, growth news.
-4. Score fit 0–100: how clearly one specific agent maps to that fact, company size (50–1000 ideal), local decision-making (a local HQ, not a foreign group's branch), and any buying signal.
+3. Buying signals are not required, but a letter built on a current, verified signal gets several times more
+   replies than one without, so look hard for one and prefer those companies: hiring several people for repetitive work (their careers page or job sites like profession.hu, jobs.hu, cvonline, profesia.sk, ejobs.ro, moj-posao.net, mojedelo.com), a new site or plant, NIS2 scope, growth news.
+4. Score fit 0–100: how clearly one specific agent maps to that fact, company size (50–1000 ideal), local decision-making (a local HQ, not a foreign group's branch), and a buying signal (a verified, recent one is worth about 10–15 points).
 
 Exclude: micro businesses under 20 staff, restaurants, cafés, beauty salons, small repair shops, public institutions, state-owned companies, hospitals run by the state, schools, military, multinationals whose decisions are made abroad, and these domains: {excl}.
 The email address must be printed on the company's own website (contact page, footer or imprint) and must be a company role address (info@, office@, ugyfelszolgalat@, sales@, kapcsolat@, iroda@ …). Never a private person's address, never a guessed one.
@@ -192,10 +193,27 @@ Leave out anything you cannot verify. Fewer strong leads beat more weak ones."""
 #    (Gong levélelemzések; a döntési teher csökkentése: Iyengar & Lepper).
 #  - A veszteség a nyereségnél erősebben hat, ezért a következményt
 #    kérdezzük meg — feltételezésként, kitalált szám nélkül (Kahneman & Tversky).
-#  - Kiszállási lehetőség: az autonómia megadása („nyugodtan mondjon nemet”)
-#    több igent hoz (Carpenter és mtsai., „but you are free” metaelemzés).
-#  - Egy utánkövetés: a második levél jelentős pluszválaszt hoz, a sok emlékeztető
-#    már nem (több hidegmegkeresési elemzés egybehangzóan).
+#  - Vásárlási jel (álláshirdetés, új telephely, növekedés): a jelre épülő levélre
+#    többszörös a válasz (Martal, Hunter.io elemzések) -> a kutató előre sorolja,
+#    a magától küldés előbb ezeket küldi.
+#  - Tárgysor: 2–4 szó, a címzett helyzetéről; kérdés is lehet (Belkins, 5,5 M levél).
+#  - Kiszállási sor: elsősorban a szabályosság és a kézbesíthetőség miatt van
+#    (kevesebb spamjelentés). A „szabadon nemet mondhat” technika szemtől
+#    szemben erős, online a metaelemzés szerint alig hat (Carpenter 2013).
+#  - Egy utánkövetés: a kétlevelű sor hozza a legtöbb választ, a harmadik levél
+#    már csökkenti, a 4+ többszörösére növeli a leiratkozást és a spamjelentést
+#    (Belkins 2025). Ezért pontosan egy utánkövetés van.
+#  - A vevők nagy része eladó nélkül szeretne tájékozódni (Gartner 2025–26), ezért
+#    az ui. mindig a regisztráció nélkül kipróbálható élő demóra mutat.
+#  - Gyors válasz: aki egy órán belül válaszol az érdeklődőre, hétszer nagyobb
+#    eséllyel jut tovább (HBR, 2,24 M érdeklődő) -> félóránkénti válaszfigyelés.
+#  - Ha válaszolt, onnan konkrét időpontot kérünk: az üzleti ciklusban a konkrét
+#    kérés működik jobban (Gong).
+#  - A következmény-kérdés a SPIN „implikációs” kérdése: a legjobb eladók négyszer
+#    annyit kérdeznek így (Rackham, 35 000 üzleti beszélgetés); ha van rá, egy
+#    nem nyilvánvaló iparági felismeréssel (Challenger, CEB: 6000 értékesítő).
+#  - A potenciális vevők ~95%-a most nem vásárol (LinkedIn B2B Institute): a hang
+#    udvarias és emlékezetes, sosem nyomulós — később ők a vevők.
 MAX_SENTENCE_WORDS = 25
 
 
@@ -226,11 +244,13 @@ Proven structure (observation → consequence question → one-line offer → in
 
 Proven writing rules: short sentences (max 20 words each), everyday words a 12-year-old understands, no
 abstract nouns where a concrete one exists; the closing question must be answerable with a single word; frame the
-consequence question around what they lose today, as a guess, never with a made-up number.
+consequence question around what they lose today, as a guess, never with a made-up number. If the sector
+knowledge offers a non-obvious insight about where the hidden cost is, use it in that question — teach them
+something about their own process instead of describing ours.
 
 Never name or describe individual employees (no personal names, no "X's position"); talk about the company, its team or its processes.
 Rules: parts 1–5 together under 75 words. You-focused, not we-focused. No prices, no links, no hype ("revolutionary", "cutting-edge"), no urgency, no claims about clients or results, no emojis, no flattery.
-Subject: 3–5 words about THEIR situation, lowercase except the first word, no punctuation tricks.
+Subject: 2–4 words about THEIR situation (a short question is fine), lowercase except the first word, no punctuation tricks.
 
 Answer ONLY with JSON: {{"subject": "...", "body": "..."}}"""
 

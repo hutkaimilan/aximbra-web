@@ -189,7 +189,8 @@ HARD RULES:
   Numbers and quotes may appear only if they are in the brief or the source text above.
 - No prices unless the brief asks for them (then only from the facts list).
 - Hungarian: formal-neutral, natural, no anglicisms where a Hungarian word exists.
-- Also write the social post that goes with it (60–120 words, strong first line, max 3 hashtags) and a first
+- Also write the social post that goes with it (120–250 words in short paragraphs, a first line under 140
+  characters that works alone, one genuine question to the reader at the end, max 3 hashtags) and a first
   comment holding the link. The post must stand on its own on any platform: do not tell the reader to swipe,
   and do not point to a comment or to a "link below" — some platforms show only the first slide and no comment.
 
@@ -340,7 +341,7 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -
 
 HOOK_MAX = 3.5        # mp: a nyitókép eddig tart, a többi jelenet viszi a mondanivalót
 MAX_HASHTAGS = 3
-FIRST_LINE_MAX = 150  # karakter: a hírfolyam ennyi után vágja le a posztot
+FIRST_LINE_MAX = 140  # karakter: a LinkedIn mobilon ennyi után vágja le a posztot
 _HASHTAG_RE = re.compile(r"(?<![\w&])#\w+")
 
 
@@ -1022,6 +1023,10 @@ FORM_WORDS = {
     "carousel": ("körhint", "korhint", "carousel", "diasor", "több kép", "tobb kep", "slide", "diasor"),
     "video": ("videó", "video", "reels", "reel", "tiktok"),
 }
+# Magyarázó tartalom, ha a formát nem nevezted meg: a körhinta a LinkedInen
+# 2–3-szor tovább tartja az olvasót, mint egy kép (playbook, 15. szabály).
+EXPLAINER_WORDS = ("tipp", "lépés", "lepes", "hogyan", "útmutató", "utmutato", "checklist", "ellenőrzőlist",
+                   "ellenorzolist", "how to")
 # A logó szavai megelőznek mindent: a „kör alakú kép logó” logó, nem kép.
 LOGO_WORDS = ("logó", "logo", "profilkép", "profilkep", "embléma", "emblema", "arculati jel")
 
@@ -1033,7 +1038,9 @@ def pick_form(brief: str) -> str:
         return "logo"
     hits = {f: min((text.find(w) for w in words if w in text), default=-1) for f, words in FORM_WORDS.items()}
     named = {f: i for f, i in hits.items() if i >= 0}
-    return min(named, key=named.get) if named else "video"
+    if named:
+        return min(named, key=named.get)
+    return "carousel" if any(w in text for w in EXPLAINER_WORDS) else "video"
 
 
 FORM_NAMES = {"video": "videó", "image": "kép", "carousel": "körhinta", "logo": "logó"}

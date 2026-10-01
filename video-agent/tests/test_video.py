@@ -309,6 +309,8 @@ def test_form_is_guessed_from_the_brief():
     assert videomaker.pick_form("Kérek egy képet a telefonos AI-ról") == "image"
     assert videomaker.pick_form("30 mp-es videó az e-mail rendezőről") == "video"
     assert videomaker.pick_form("Mutasd be az AXIMBRA-t") == "video"
+    assert videomaker.pick_form("5 tipp, hogyan rendezze a céges postafiókot") == "carousel"
+    assert videomaker.pick_form("Videó: 3 lépés az e-mail rendezéshez") == "video"
 
 
 def test_still_scripts_drop_the_moving_scenes_and_the_voice():

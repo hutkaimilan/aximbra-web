@@ -869,3 +869,41 @@ def test_long_sentence_in_the_message_is_flagged_but_not_in_the_fixed_lines():
     assert any("hosszú mondat" in w for w in verify.check_letter(_lead(body="Jó napot!\n\n" + long + "\n\n" + CLEAN_BODY)))
     assert not verify.long_sentences(CLEAN_BODY)
     assert not verify.long_sentences("Jó napot!\n\nRövid.\n\nHutkai Milán · AXIMBRA · aximbra.hu\n\n" + long)
+
+
+def test_auto_send_spends_the_cap_on_signal_leads_first(store, monkeypatch):
+    monkeypatch.setenv("AUTO_SEND_DAILY", "1")
+    store.set_setting("auto_send", "on")
+    monkeypatch.setattr(pipeline, "readiness", lambda s: {"ready": True, "why": []})
+    plain = store.add_lead(dict(CAND, email="info@sima.hu", website="https://sima.hu", company="Sima", score=95,
+                                signal="none", subject="Kérdés", body=CLEAN_BODY, lang="hu", country="HU"))
+    hot = store.add_lead(dict(CAND, email="info@jel.hu", website="https://jel.hu", company="Jel", score=85,
+                              signal="job_ad", subject="Kérdés", body=CLEAN_BODY, lang="hu", country="HU"))
+    sent = []
+    monkeypatch.setattr(pipeline, "send_one", lambda st, i, **k: sent.append(i) or (True, "ok"))
+    monkeypatch.setattr(pipeline.verify, "rule_violations", lambda l: [])
+    pipeline.auto_send(store, pipeline.RunLog(), now=datetime(2026, 10, 1, 10, 0, tzinfo=timezone.utc), sleep=lambda s: None)
+    assert sent == [hot] and plain
+
+
+def test_reply_watch_runs_by_day_every_half_hour():
+    d = datetime(2026, 10, 1, 9, 0)
+    assert pipeline.reply_watch_due(d, None)
+    assert not pipeline.reply_watch_due(d, d - timedelta(minutes=10))
+    assert pipeline.reply_watch_due(d, d - timedelta(minutes=31))
+    assert not pipeline.reply_watch_due(datetime(2026, 10, 1, 23, 0), None)
+
+
+def test_reply_watch_notifies_only_on_new_replies(monkeypatch, tmp_path):
+    monkeypatch.setenv("SALES_DB_PATH", str(tmp_path / "w.db"))
+    import importlib
+    import app as app_mod
+    importlib.reload(app_mod)
+    told = []
+    monkeypatch.setattr(app_mod, "_notify", lambda *a, **k: told.append(1))
+    monkeypatch.setattr(app_mod.pipeline, "scan_replies", lambda st, log: log)
+    assert app_mod._reply_watch() == 0 and not told
+    lid = app_mod.store.add_lead(dict(CAND, subject="s", body=CLEAN_BODY, lang="hu", country="HU"))
+    monkeypatch.setattr(app_mod.pipeline, "scan_replies",
+                        lambda st, log: st.set_reply(lid, "interested", "Érdekel") or log)
+    assert app_mod._reply_watch() == 1 and told == [1]

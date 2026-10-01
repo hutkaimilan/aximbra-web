@@ -7,6 +7,7 @@ a teljes folyamat hálózat nélkül tesztelhető.
 import logging
 import os
 import random
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -28,6 +29,9 @@ BATCH = 6               # egy modellhívásban ennyi céget kérünk
 FOLLOWUP_AFTER_WORKDAYS = 5
 SEND_GAP = (25, 70)     # másodperc két levél között: nem egyszerre zúdul ki
 MIN_SCORE = 70          # ennél gyengébb illeszkedésre nem pazarolunk levelet
+REPLY_EVERY_MIN = 30    # válaszfigyelés: az érdeklődőnek egy órán belül válaszolni hétszer jobb (HBR, 2,24 M érdeklődő)
+REPLY_HOURS = (7, 21)   # budapesti idő, minden nap
+REPLY_LOCK = threading.Lock()  # a kör és a gyors figyelés ne sorolja be kétszer ugyanazt a választ
 
 
 def _env_int(name: str, default: int, lo: int, hi: int) -> int:
@@ -306,7 +310,9 @@ def auto_send(store: Store, log: RunLog, *, now: datetime, mailer=mailer_mod, sl
         return []
     oldest = (now.astimezone(timezone.utc) - timedelta(days=cfg["max_age_days"])).isoformat(timespec="seconds")
     picks = []
-    for l in store.list("draft"):  # pontszám szerint csökkenő
+    # Vásárlási jellel (álláshirdetés, új telephely...) írt levélre többszörös a válasz,
+    # ezért a keretet előbb ezekre költjük, azon belül pontszám szerint.
+    for l in sorted(store.list("draft"), key=lambda x: ((x.get("signal") or "none") == "none", -(x["score"] or 0))):
         if len(picks) >= room:
             break
         if ((l["score"] or 0) < cfg["min_score"] or l["created_at"] < oldest or l["orig_body"] is None
@@ -412,8 +418,20 @@ def prepare_answer(store: Store, lead_id: int, *, llm=llm_mod, slots_fn=calendar
     return sl
 
 
+def reply_watch_due(now: datetime, last: datetime | None) -> bool:
+    """A gyors válaszfigyelés ideje: nappal, félóránként."""
+    if not (REPLY_HOURS[0] <= now.hour < REPLY_HOURS[1]):
+        return False
+    return last is None or now - last >= timedelta(minutes=REPLY_EVERY_MIN)
+
+
 def scan_replies(store: Store, log: RunLog, *, llm=llm_mod, mailbox_factory=mailer_mod.Mailbox,
                  slots_fn=calendar_slots.slots_for) -> RunLog:
+    with REPLY_LOCK:
+        return _scan_replies(store, log, llm=llm, mailbox_factory=mailbox_factory, slots_fn=slots_fn)
+
+
+def _scan_replies(store: Store, log: RunLog, *, llm, mailbox_factory, slots_fn) -> RunLog:
     sent = [l for l in store.list("sent") if l["reply_kind"] in ("none", "auto")]
     with mailbox_factory() as mb:
         # Visszapattanók: a hibaüzenet szövegében ott a címzett címe.

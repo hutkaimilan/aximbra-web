@@ -560,8 +560,22 @@ def due_slot(now: datetime, times: list[str], done: set) -> str | None:
     return None
 
 
+def _reply_watch() -> int:
+    """Gyors válaszfigyelés két kör között. Csak ha jött új válasz, akkor
+    szól a tulajdonosnak; a vázlatokról a kör értesítése szól."""
+    log = pipeline.RunLog()
+    drafts = {l["id"] for l in store.list("draft")}
+    replied_before = {l["id"] for l in store.list() if l["reply_kind"] != "none"}
+    pipeline.scan_replies(store, log)
+    new = [l for l in store.list() if l["reply_kind"] != "none" and l["id"] not in replied_before]
+    if new:
+        _notify(log, drafts, replied_before)
+    return len(new)
+
+
 def _scheduler():
     done: set = set()
+    last_watch = None
     while True:
         try:
             now = datetime.now(TZ)
@@ -569,6 +583,12 @@ def _scheduler():
             if key and job.start(f"automatikus kör ({key[-5:]})", _morning):
                 done.add(key)
                 done = {k for k in done if k[:10] >= (now.date() - timedelta(days=2)).isoformat()}
+            elif _auto_on() and not job.running and pipeline.reply_watch_due(now, last_watch):
+                last_watch = now
+                try:
+                    _reply_watch()
+                except (AuthError, MailError) as e:
+                    logger.warning("válaszfigyelés kimaradt: %s", e)
         except Exception:  # noqa: BLE001
             logger.exception("ütemező hiba")
         time.sleep(30)

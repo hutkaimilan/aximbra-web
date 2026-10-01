@@ -58,5 +58,17 @@ MARKETING_RULES = """PROVEN CRAFT RULES (follow them unless the brief says other
 10. Social proof only if it is real: no invented clients, reviews or numbers. An honest substitute is an
    invitation to try the live demo — trying it yourself is the strongest proof. (Cialdini; FTC/GVH rules on
    endorsements.)
-11. The post: the first line must work on its own (feeds cut the text after about one to two lines), state the
-   viewer's problem or a concrete promise, then 2–4 short paragraphs, one call to action, max 3 hashtags."""
+11. The post: the first line must work on its own (LinkedIn cuts after ~140 characters on mobile), state the
+   viewer's problem or a concrete promise, then short paragraphs with white space, one call to action, max 3
+   hashtags. On LinkedIn, posts of roughly 1300–1900 characters hold readers longest (dwell time is ranked).
+   (LinkedIn feed data analyses 2025–26; vendor studies, moderate evidence.)
+12. Most viewers are not buying today (only ~5% of B2B buyers are in-market at any time): make it useful and
+   memorable, teach one thing, so they remember AXIMBRA when the need comes. Tie the brand to a concrete
+   buying situation ("Monday morning, 200 unread emails") — these category entry points are how buyers
+   recall a brand. (LinkedIn B2B Institute 95:5 with Binet & Field; Ehrenberg-Bass, Romaniuk.)
+13. Positive feeling beats dull: work that makes people feel something (relief, a smile, recognition) is
+   remembered and acted on far more than neutral information. (System1 ad testing; IPA databank.)
+14. Comments are worth more than likes in the feed: end the post with one genuine, easy question to the reader
+   about their own situation — never "comment YES below" style bait, which the platforms penalise.
+15. Carousels and documents keep LinkedIn readers 2–3x longer than a single image: when the brief does not fix
+   the form, an explainer belongs in a carousel."""
