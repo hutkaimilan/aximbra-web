@@ -195,6 +195,7 @@ details summary{cursor:pointer}
 
   <section id="tab-drafts" class="hide">
     <div class="row" style="margin-bottom:12px">
+      <button id="selAll">Összes kijelölése</button>
       <button class="pri" id="sendAll">Összes kijelölt küldése</button>
       <span class="mute" id="selcount"></span>
     </div>
@@ -320,6 +321,9 @@ function render() {
   $("#selcount").textContent = drafts.length ? (S.config.smtp ? `${selected.size} kijelölve / ${drafts.length} vázlat` : `${drafts.length} vázlat vár`) : "";
   $("#sendAll").disabled = !selected.size || S.job.running;
   $("#sendAll").classList.toggle("hide", !S.config.smtp);
+  const allOn = drafts.length && drafts.every((d) => selected.has(d.id));
+  $("#selAll").textContent = allOn ? "Kijelölés törlése" : "Összes kijelölése";
+  $("#selAll").classList.toggle("hide", !S.config.smtp || !drafts.length);
   const open = document.activeElement && document.activeElement.closest && document.activeElement.closest("[data-id]");
   if (!open) $("#drafts").innerHTML = drafts.length ? drafts.map((l) => `
     <div class="card" data-id="${l.id}">
@@ -489,8 +493,18 @@ document.addEventListener("click", async (e) => {
   try { await api("/api/auto-send", {on}); flash(on ? "Magától küldés bekapcsolva." : "Magától küldés kikapcsolva."); refresh(); }
   catch (err) { flash(err.message); }
 });
+// Egy kattintással mind ki, vagy mind vissza. A küldés napi kerete (25) a
+// szerveren marad: ha több van kijelölve, a keret felettieket nem küldi ki.
+$("#selAll").onclick = () => {
+  const drafts = (S.leads || []).filter((l) => l.status === "draft" || l.status === "failed");
+  const allOn = drafts.every((d) => selected.has(d.id));
+  if (allOn) selected.clear(); else drafts.forEach((d) => selected.add(d.id));
+  render();
+};
 $("#sendAll").onclick = async () => {
-  if (!confirm(`${selected.size} levél megy ki az aximbra Gmailből, 25–70 másodpercenként egy. Mehet?`)) return;
+  const room = Math.max(0, S.cap - S.sent_today);
+  const extra = selected.size > room ? `\n\nMa még ${room} fér bele a napi ${S.cap}-es keretbe: a többi kijelölt holnapra marad.` : "";
+  if (!confirm(`${Math.min(selected.size, room)} levél megy ki az aximbra Gmailből, 25–70 másodpercenként egy. Mehet?${extra}`)) return;
   try {
     for (const id of selected) if (dirty[id]) { await api(`/api/leads/${id}`, dirty[id]); delete dirty[id]; }
     await api("/api/send", {ids: [...selected]}); selected.clear(); refresh();
