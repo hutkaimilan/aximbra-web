@@ -855,10 +855,10 @@ def test_manual_lead_passes_the_same_rules(tmp_path, monkeypatch):
     good = {"company": "Példa Kft.", "email": "info@pelda.hu", "website": "https://pelda.hu", "subject": "Kérdés",
             "body": "Tisztelt Hölgyem/Uram!\n\nRövid levél az aximbra.hu oldalról.\n\n"
                     "Ha nem aktuális, egy „nem” válasz elég, többet nem írok.\n\nÜdvözlettel:\nHutkai Milán"}
-    r = c.post("/api/leads/manual", json=good, auth=A)
+    r = c.post("/api/manual-lead", json=good, auth=A)
     assert r.status_code == 200 and r.json()["id"]
-    assert c.post("/api/leads/manual", json=good, auth=A).status_code == 409            # kétszer nem
-    assert c.post("/api/leads/manual", json={**good, "email": "a@pelda.at"}, auth=A).status_code == 409   # AT soha
+    assert c.post("/api/manual-lead", json=good, auth=A).status_code == 409            # kétszer nem
+    assert c.post("/api/manual-lead", json={**good, "email": "a@pelda.at"}, auth=A).status_code == 409   # AT soha
     bad = {**good, "email": "b@pelda.hu", "body": good["body"].replace("Ha nem aktuális, egy „nem” válasz elég, többet nem írok.", "")}
-    assert c.post("/api/leads/manual", json=bad, auth=A).status_code == 409             # leiratkozás nélkül nem
-    assert c.post("/api/leads/manual", json=good, auth=("x", "rossz")).status_code == 401
+    assert c.post("/api/manual-lead", json=bad, auth=A).status_code == 409             # leiratkozás nélkül nem
+    assert c.post("/api/manual-lead", json=good, auth=("x", "rossz")).status_code == 401

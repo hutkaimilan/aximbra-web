@@ -206,7 +206,7 @@ class ManualLeadIn(BaseModel):
     body: str = Field(min_length=20, max_length=5000)
 
 
-@app.post("/api/leads/manual", dependencies=[Depends(auth)])
+@app.post("/api/manual-lead", dependencies=[Depends(auth)])
 def manual_lead(body: ManualLeadIn):
     """Kézzel felvett cég, kész levéllel. Ugyanazokon a szabályokon megy át,
     mint a keresés vázlatai: célország (AT/DE soha), tiltólista, és a levél
