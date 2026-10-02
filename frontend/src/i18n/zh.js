@@ -162,6 +162,8 @@ const zh = {
   process: {
     tag: "我们如何工作",
     heading: "七个步骤，一道人工关卡",
+    // Harom szakasz: 7 lepest a szem nem tart fejben, harom csoportot igen (chunking).
+    phases: [{ from: 0, label: "理解" }, { from: 2, label: "构建与核查" }, { from: 5, label: "交付与复盘" }],
     sub: "大多数代理由代理来构建。不变的是：批准的一定是人——不是因为模型不好，而是因为责任不能委托出去。",
     steps: [
       { n: "01", title: "梳理工作流程", desc: "我们看时间花在了哪里。不问您想自动化什么，而是问哪项任务每周重复五十次。" },

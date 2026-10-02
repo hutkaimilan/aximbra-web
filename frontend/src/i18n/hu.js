@@ -159,6 +159,8 @@ const hu = {
   process: {
     tag: "Hogyan dolgozunk",
     heading: "Hét lépés, egy emberi kapuval",
+    // Harom szakasz: 7 lepest a szem nem tart fejben, harom csoportot igen (chunking).
+    phases: [{ from: 0, label: "Megértjük" }, { from: 2, label: "Építjük és ellenőrizzük" }, { from: 5, label: "Átadjuk és visszamérjük" }],
     sub: "Az agentek nagy részét agentek építik. Ami nem változik: jóváhagyni ember hagy jóvá — nem azért, mert a modell rossz, hanem mert a felelősség nem delegálható.",
     steps: [
       { n: "01", title: "Munkafolyamat feltérképezés", desc: "Megnézzük, hova megy el az idő. Nem azt kérdezzük, mit szeretnél automatizálni, hanem hogy melyik feladat ismétlődik hetente ötvenszer." },

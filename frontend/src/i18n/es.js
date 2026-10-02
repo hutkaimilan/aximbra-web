@@ -78,6 +78,8 @@ const es = {
   process: {
     tag: "Cómo trabajamos",
     heading: "Seis pasos, una puerta humana",
+    // Harom szakasz: 7 lepest a szem nem tart fejben, harom csoportot igen (chunking).
+    phases: [{ from: 0, label: "Entender" }, { from: 2, label: "Construir y verificar" }, { from: 5, label: "Entregar" }],
     sub: "La mayoría de los agentes los construyen agentes. Lo que no cambia: quien aprueba es una persona — no porque el modelo sea malo, sino porque la responsabilidad no se delega.",
     steps: [
       { n: "01", title: "Mapeo del flujo de trabajo", desc: "Miramos adónde se va el tiempo. No preguntamos qué quieres automatizar, sino qué tarea se repite cincuenta veces por semana." },

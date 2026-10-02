@@ -78,6 +78,8 @@ const fr = {
   process: {
     tag: "Comment nous travaillons",
     heading: "Six étapes, une porte humaine",
+    // Harom szakasz: 7 lepest a szem nem tart fejben, harom csoportot igen (chunking).
+    phases: [{ from: 0, label: "Comprendre" }, { from: 2, label: "Construire et vérifier" }, { from: 5, label: "Livrer" }],
     sub: "La plupart des agents sont construits par des agents. Ce qui ne change pas : c'est un humain qui valide — non parce que le modèle est mauvais, mais parce que la responsabilité ne se délègue pas.",
     steps: [
       { n: "01", title: "Cartographie du flux de travail", desc: "Nous regardons où part le temps. Nous ne demandons pas ce que vous voulez automatiser, mais quelle tâche se répète cinquante fois par semaine." },

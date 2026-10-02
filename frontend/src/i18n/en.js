@@ -159,6 +159,8 @@ const en = {
   process: {
     tag: "How we work",
     heading: "Seven steps, one human gate",
+    // Harom szakasz: 7 lepest a szem nem tart fejben, harom csoportot igen (chunking).
+    phases: [{ from: 0, label: "Understand" }, { from: 2, label: "Build & verify" }, { from: 5, label: "Hand over & measure" }],
     sub: "Most agents are built by agents. What doesn't change: a human is the one who approves — not because the model is bad, but because responsibility can't be delegated.",
     steps: [
       { n: "01", title: "Workflow mapping", desc: "We look at where time goes. We don't ask what you'd like to automate, but which task repeats fifty times a week." },

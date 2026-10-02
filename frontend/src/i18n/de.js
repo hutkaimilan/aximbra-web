@@ -162,6 +162,8 @@ const de = {
   process: {
     tag: "Wie wir arbeiten",
     heading: "Sieben Schritte, ein menschliches Tor",
+    // Harom szakasz: 7 lepest a szem nem tart fejben, harom csoportot igen (chunking).
+    phases: [{ from: 0, label: "Verstehen" }, { from: 2, label: "Bauen & prüfen" }, { from: 5, label: "Übergeben & nachmessen" }],
     sub: "Die meisten Agenten werden von Agenten gebaut. Was sich nicht ändert: Freigeben tut ein Mensch — nicht weil das Modell schlecht ist, sondern weil sich Verantwortung nicht delegieren lässt.",
     steps: [
       { n: "01", title: "Prozessanalyse", desc: "Wir schauen, wohin die Zeit geht. Wir fragen nicht, was Sie automatisieren möchten, sondern welche Aufgabe sich fünfzigmal pro Woche wiederholt." },

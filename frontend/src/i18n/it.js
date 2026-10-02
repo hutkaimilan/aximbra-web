@@ -78,6 +78,8 @@ const it = {
   process: {
     tag: "Come lavoriamo",
     heading: "Sei passi, un varco umano",
+    // Harom szakasz: 7 lepest a szem nem tart fejben, harom csoportot igen (chunking).
+    phases: [{ from: 0, label: "Capire" }, { from: 2, label: "Costruire e verificare" }, { from: 5, label: "Consegnare" }],
     sub: "La maggior parte degli agenti è costruita da agenti. Ciò che non cambia: ad approvare è una persona — non perché il modello sia scadente, ma perché la responsabilità non si delega.",
     steps: [
       { n: "01", title: "Mappatura del flusso di lavoro", desc: "Guardiamo dove va il tempo. Non chiediamo cosa vuoi automatizzare, ma quale attività si ripete cinquanta volte a settimana." },

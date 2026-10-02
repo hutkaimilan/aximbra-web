@@ -78,6 +78,8 @@ const ro = {
   process: {
     tag: "Cum lucrăm",
     heading: "Șase pași, o poartă umană",
+    // Harom szakasz: 7 lepest a szem nem tart fejben, harom csoportot igen (chunking).
+    phases: [{ from: 0, label: "Înțelegem" }, { from: 2, label: "Construim și verificăm" }, { from: 5, label: "Predăm" }],
     sub: "Majoritatea agenților sunt construiți de agenți. Ce nu se schimbă: cel care aprobă este un om — nu pentru că modelul e slab, ci pentru că responsabilitatea nu se deleagă.",
     steps: [
       { n: "01", title: "Cartografierea fluxului de lucru", desc: "Ne uităm unde se duce timpul. Nu întrebăm ce vrei să automatizezi, ci ce sarcină se repetă de cincizeci de ori pe săptămână." },

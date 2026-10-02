@@ -78,6 +78,8 @@ const sk = {
   process: {
     tag: "Ako pracujeme",
     heading: "Šesť krokov, jedna ľudská brána",
+    // Harom szakasz: 7 lepest a szem nem tart fejben, harom csoportot igen (chunking).
+    phases: [{ from: 0, label: "Pochopíme" }, { from: 2, label: "Postavíme a overíme" }, { from: 5, label: "Odovzdáme" }],
     sub: "Väčšinu agentov stavajú agenti. Čo sa nemení: schvaľuje človek — nie preto, že model je zlý, ale preto, že zodpovednosť sa nedá delegovať.",
     steps: [
       { n: "01", title: "Zmapovanie pracovného toku", desc: "Pozrieme sa, kam ide čas. Nepýtame sa, čo chceš automatizovať, ale ktorá úloha sa opakuje päťdesiatkrát týždenne." },

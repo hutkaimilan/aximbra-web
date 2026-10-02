@@ -501,29 +501,66 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
 .card-quote.btn:hover { top: -2px; box-shadow: 0 8px 26px rgba(200,31,255,.45); }
 
 /* ===== PROCESS ===== */
-.steps { list-style: none; margin: 56px 0 0; padding: 0; display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
-.steps > .step { position: relative; padding: 26px 28px 28px; border: 1px solid var(--border);
-  border-radius: 18px; background: var(--panel); backdrop-filter: blur(18px); overflow: hidden;
-  transition: opacity 1s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1), border-color .3s ease; }
-.steps > .step::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 2px;
-  background: linear-gradient(90deg, var(--magenta), var(--violet), var(--cyan)); opacity: .55; }
-.steps > .step:hover { border-color: rgba(200,31,255,.45); transform: translateY(-2px); }
-.steps > .step-last { grid-column: 1 / -1; }
-.steps > .step-gate { border-color: rgba(255,176,32,.45); }
-.steps > .step-gate::before { background: var(--amber); opacity: .8; }
-.step-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 12px; }
-.step-n { font-family: var(--display); font-weight: 700; font-size: 34px; line-height: 1;
-  background: linear-gradient(135deg, var(--magenta), var(--cyan)); -webkit-background-clip: text;
-  background-clip: text; color: transparent; flex: none; }
-.step-gate .step-n { background: none; color: var(--amber); }
-.step h3 { font-family: var(--display); font-weight: 600; font-size: 21px; margin: 0; }
-.step p { color: var(--muted); line-height: 1.7; font-size: 15px; margin: 0; }
-@media (max-width: 760px) {
-  .steps { grid-template-columns: 1fr; gap: 14px; margin-top: 40px; }
-  .steps > .step { padding: 22px 20px 24px; }
-  .step-n { font-size: 28px; }
-  .step h3 { font-size: 19px; }
+.flow { position: relative; margin-top: 60px; --ease: cubic-bezier(.65,0,.35,1); }
+.flow-line, .flow-fill { position: absolute; left: 50%; top: 0; width: 2px; margin-left: -1px; }
+.flow-line { bottom: 0; background: var(--border); }
+.flow-fill { background: linear-gradient(180deg, var(--magenta), var(--violet), var(--cyan));
+  box-shadow: 0 0 14px rgba(200,31,255,.55); transition: height 1s var(--ease), box-shadow .4s ease; }
+.flow-fill.gate { box-shadow: 0 0 18px rgba(255,176,32,.55); }
+.flow-packet { position: absolute; left: 50%; top: 0; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+  border-radius: 50%; background: #fff; z-index: 3; pointer-events: none;
+  box-shadow: 0 0 0 4px rgba(200,31,255,.35), 0 0 24px 6px rgba(200,31,255,.75);
+  transition: transform 1s var(--ease), box-shadow .4s ease, opacity .3s ease; }
+.flow-packet.gate { background: var(--amber); animation: gateHold 1s ease-in-out infinite;
+  box-shadow: 0 0 0 5px rgba(255,176,32,.35), 0 0 30px 8px rgba(255,176,32,.75); }
+.flow-packet.idle { opacity: 0; }
+.flow.rewind .flow-fill, .flow.rewind .flow-packet { transition-duration: .5s; }
+@keyframes gateHold { 50% { box-shadow: 0 0 0 11px rgba(255,176,32,.12), 0 0 40px 12px rgba(255,176,32,.9); } }
+
+.flow-phase { position: relative; z-index: 2; display: flex; justify-content: center; padding: 6px 0 26px; }
+.flow-phase span { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--dim); padding: 7px 14px; border-radius: 40px; border: 1px solid var(--border); background: var(--bg);
+  transition: color .5s ease, border-color .5s ease; }
+.flow-phase.lit span { color: var(--cyan); border-color: rgba(0,233,255,.4); }
+
+.fstep { position: relative; display: grid; grid-template-columns: 1fr 72px 1fr; align-items: start;
+  padding-bottom: 34px; cursor: pointer; }
+.fnode { grid-column: 2; justify-self: center; position: relative; z-index: 2; width: 54px; height: 54px;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--mono);
+  font-size: 13px; border: 1px solid var(--border); background: var(--bg); color: var(--dim);
+  transition: all .5s ease; }
+.fcard { grid-row: 1; padding: 20px 24px 22px; border: 1px solid var(--border); border-radius: 16px;
+  background: var(--panel); backdrop-filter: blur(16px); opacity: .55;
+  transition: opacity .6s ease, border-color .6s ease, box-shadow .6s ease, transform .6s var(--ease); }
+.fstep.left .fcard { grid-column: 1; text-align: right; transform: translateX(-10px); }
+.fstep.right .fcard { grid-column: 3; transform: translateX(10px); }
+.fstep.left .amber-pill { margin-left: auto; }
+.fstep h3 { font-family: var(--display); font-weight: 600; font-size: 21px; margin: 0 0 8px; }
+.fstep p { color: var(--muted); line-height: 1.7; font-size: 15px; margin: 0; }
+
+.fstep.done .fnode { color: var(--violet); border-color: rgba(123,92,255,.6); }
+.fstep.done .fcard { opacity: .85; transform: none; }
+.fstep.active .fnode { color: #fff; border-color: var(--magenta); background: rgba(200,31,255,.14);
+  box-shadow: 0 0 24px rgba(200,31,255,.65); transform: scale(1.08); }
+.fstep.active .fcard { opacity: 1; transform: none; border-color: rgba(200,31,255,.5);
+  box-shadow: 0 10px 40px rgba(200,31,255,.18); }
+.fstep.gate.active .fnode { border-color: var(--amber); color: var(--amber); background: rgba(255,176,32,.12);
+  box-shadow: 0 0 28px rgba(255,176,32,.7); }
+.fstep.gate.active .fcard { border-color: rgba(255,176,32,.6); box-shadow: 0 10px 44px rgba(255,176,32,.2); }
+.fstep.gate .fnode { border-style: dashed; }
+.fstep:hover .fcard { opacity: 1; }
+.flow.still .fcard { opacity: 1; transform: none; }
+
+@media (max-width: 860px) {
+  .flow-line, .flow-fill, .flow-packet { left: 27px; }
+  .flow-phase { justify-content: flex-start; padding-left: 0; }
+  .fstep { grid-template-columns: 54px 1fr; column-gap: 16px; padding-bottom: 22px; }
+  .fnode { grid-column: 1; }
+  .fstep.left .fcard, .fstep.right .fcard { grid-column: 2; text-align: left; transform: translateX(8px); }
+  .fstep.left .amber-pill { margin-left: 0; }
+  .fstep.done .fcard, .fstep.active .fcard, .flow.still .fcard { transform: none; }
+  .fcard { padding: 16px 18px 18px; }
+  .fstep h3 { font-size: 19px; }
 }
 .amber-pill { display: inline-block; margin-top: 14px; font-family: var(--mono); font-size: 13px;
   color: var(--amber); padding: 7px 15px; border-radius: 40px; border: 1px solid rgba(255,176,32,.4);
