@@ -269,6 +269,28 @@ const demos = {
       email: "office@aegis-demo.hu",
     },
   },
+  // Nemetul (mint kinaiul) a kezdolapon lathato resz es a demolapok kerete;
+  // a kitalalt markak oldalai angolul maradnak.
+  de: {
+    back: "← Zurück zu AXIMBRA",
+    noticeTag: "DEMO",
+    noticeText: "Dies ist eine Vorführseite, kein echtes Unternehmen. Marke, Adressen, Preise und Mitarbeitende sind erfunden; was Sie hier eingeben, wird weder gesendet noch gespeichert. Erstellt von AXIMBRA.",
+    labels: { address: "Adresse", phone: "Telefon", email: "E-Mail", hours: "Öffnungszeiten", send: "Senden", name: "Name", message: "Wie können wir helfen?", sent: "Vielen Dank! Wir melden uns in Kürze.", consent: "Mir ist klar, dass dies ein Demo-Formular ist: Nichts von dem, was ich eingebe, wird gesendet oder gespeichert.", sentDemo: "Dies ist eine Demo — nichts wurde gesendet und nichts gespeichert. Auf einer echten Website würde hier der Anfrage-Agent von AXIMBRA laufen.", enlarge: "vergrößert", close: "Schließen", demo: "Demo" },
+    refs: {
+      tag: "Referenzen",
+      heading: "Vier Demos, vier Welten",
+      sub: "Jede Seite ist für eine erfundene Marke gebaut, jeweils in einer anderen Bildsprache — damit Sie sehen, was „echte Struktur, echter Betrieb“ für uns bedeutet.",
+      view: "Ansehen →",
+      copy: "Link kopieren",
+      copied: "Kopiert!",
+      cards: [
+        { tag: "Restaurant", title: "OLAJFA · Restaurant", desc: "Dunkle, filmische Stimmung mit warmen Kupfer-Akzenten." },
+        { tag: "Kosmetikstudio", title: "FLÓRA · Kosmetikstudio", desc: "Hell und weich, Puderrosa und tiefes Grün." },
+        { tag: "Arztpraxis", title: "MEDINA · Praxis", desc: "Klar, vertrauenswürdig, kühles Blau, null Dekoration." },
+        { tag: "Kanzlei", title: "AEGIS · Kanzlei", desc: "Mitternachtsblau und Gold, eine Schrift mit Autorität." },
+      ],
+    },
+  },
   // Kinaiul csak a kezdolapon lathato resz es a demolapok kerete; maguk a
   // kitalalt markak oldalai angolul maradnak, mint a tobbi nem magyar nyelven.
   zh: {

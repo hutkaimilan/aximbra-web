@@ -6,6 +6,7 @@ import { CONTROLLER, CONTROLLER_ADDRESS, LEGAL_UPDATED, PROCESSORS } from "../le
 import { useDocumentMeta } from "../seo";
 import { useLang } from "../i18n";
 import PrivacyEn from "./PrivacyEn";
+import PrivacyDe from "./PrivacyDe";
 
 /**
  * Adatkezelési tájékoztató.
@@ -25,6 +26,7 @@ import PrivacyEn from "./PrivacyEn";
  */
 export default function Adatkezeles() {
   const { lang } = useLang();
+  if (lang === "de") return <PrivacyDe lang={lang} />;
   return lang === "en" ? <PrivacyEn lang={lang} /> : <AdatkezelesHu lang={lang} />;
 }
 

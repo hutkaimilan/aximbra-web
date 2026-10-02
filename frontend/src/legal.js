@@ -27,9 +27,14 @@ export const CONTROLLER_ADDRESS =
 export const CONTROLLER_ADDRESS_EN =
   `${CONTROLLER.addressLine}, ${CONTROLLER.postcode} ${CONTROLLER.city}, Hungary`;
 
+/** Ugyanaz a cím a német oldalakhoz (Impressum, Datenschutzerklärung). */
+export const CONTROLLER_ADDRESS_DE =
+  `${CONTROLLER.addressLine}, ${CONTROLLER.postcode} ${CONTROLLER.city}, Ungarn`;
+
 /** A tájékoztató hatálybalépése. Frissítsd, ha érdemi változás történik. */
 export const LEGAL_UPDATED = "2026. szeptember 17.";
 export const LEGAL_UPDATED_EN = "17 September 2026";
+export const LEGAL_UPDATED_DE = "17. September 2026";
 
 /** Adatfeldolgozók — mind a kódból, nem emlékezetből. Az angol oszlopok az
  *  angol fordításhoz kellenek; a két nyelv egy sorban áll, hogy ne csússzon el. */
@@ -40,6 +45,8 @@ export const PROCESSORS = [
     where: "Amszterdam, Hollandia (EU)",
     roleEn: "Hosting and runtime (the website and the API)",
     whereEn: "Amsterdam, the Netherlands (EU)",
+    roleDe: "Hosting und Laufzeitumgebung (Website und API)",
+    whereDe: "Amsterdam, Niederlande (EU)",
   },
   {
     name: "OpenAI, L.L.C.",
@@ -47,6 +54,8 @@ export const PROCESSORS = [
     where: "Egyesült Államok",
     roleEn: "Language model — processing the text submitted to the demos",
     whereEn: "United States",
+    roleDe: "Sprachmodell — Verarbeitung der in den Demos eingegebenen Texte",
+    whereDe: "Vereinigte Staaten",
   },
   {
     name: "Google LLC",
@@ -54,6 +63,8 @@ export const PROCESSORS = [
     where: "Egyesült Államok",
     roleEn: "Gmail API — only if you connect your account yourself",
     whereEn: "United States",
+    roleDe: "Gmail-API — nur, wenn Sie Ihr Konto selbst verbinden",
+    whereDe: "Vereinigte Staaten",
   },
   {
     name: "Twilio Inc.",
@@ -61,6 +72,8 @@ export const PROCESSORS = [
     where: "Egyesült Államok",
     roleEn: "The phone number on the site: answering and forwarding calls",
     whereEn: "United States",
+    roleDe: "Die Telefonnummer auf der Website: Anrufannahme und Weiterleitung",
+    whereDe: "Vereinigte Staaten",
   },
   {
     name: "Resend (Plus Five Five, Inc.)",
@@ -70,5 +83,7 @@ export const PROCESSORS = [
     where: "Egyesült Államok",
     roleEn: "Sending emails to the controller: call summaries and enquiry form messages",
     whereEn: "United States",
+    roleDe: "Versand von E-Mails an den Verantwortlichen: Anrufzusammenfassungen und Nachrichten aus dem Anfrageformular",
+    whereDe: "Vereinigte Staaten",
   },
 ];

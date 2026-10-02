@@ -11,11 +11,23 @@ import { formatPrice, parseToken } from "../money";
  *  meg, azt is kiirja - egy kalkulator, ami mindig igent mond, reklam. */
 
 const HORIZON = 24;
-const HOURS_PER_MONTH = 174; // a magyar havi altalanos munkaido-alap
+const HOURS_PER_MONTH = 174; // havi munkaido-alap (HU: 174; DE: ~173, ugyanigy szamolunk)
 const WEEKS_PER_MONTH = 52 / 12;
 const SZOCHO = 1.13;
 // Brutto havi ber, 2026: garantalt berminimum es a KSH januari atlagkeresete.
 export const WAGES = { min: 373200, avg: 840600 };
+
+/** Piaconkent mas a ber es a munkaltatoi teher: egy nemet cegvezeto nem a
+ *  magyar minimalberrel szamol. Minden forintban, hogy a money.js ugyanugy
+ *  valtsa at, mint az agent arat (RATES.EUR = 400).
+ *  DE: Mindestlohn 2026 = 13,90 EUR/ora x 174 ora; Destatis 2025. aprilisi
+ *  teljes munkaideju atlag 4784 EUR; munkaltatoi tarsadalombiztositasi resz ~21 %. */
+const EUR = 400;
+export const MARKETS = {
+  hu: { wages: WAGES, load: SZOCHO },
+  de: { wages: { min: Math.round(13.9 * HOURS_PER_MONTH * EUR), avg: 4784 * EUR }, load: 1.21 },
+};
+export const marketFor = (lang) => MARKETS[lang] || MARKETS.hu;
 
 /** Havidij az agent aranak felso vege szerint. */
 export function monthlyFee(buildPrice) {
@@ -24,8 +36,8 @@ export function monthlyFee(buildPrice) {
   return 90000;
 }
 
-export function payback({ build, fee, hours, gross }) {
-  const hourly = (gross * SZOCHO) / HOURS_PER_MONTH;
+export function payback({ build, fee, hours, gross, load = SZOCHO }) {
+  const hourly = (gross * load) / HOURS_PER_MONTH;
   const staffPerMonth = hourly * hours * WEEKS_PER_MONTH;
   const net = staffPerMonth - fee;
   const month = net > 0 ? build / net : null; // folytonos metszespont
@@ -70,7 +82,8 @@ export const Payback = () => {
   const agent = agents[Math.min(pick, agents.length - 1)];
   const build = parseToken(agent.price).to;
   const fee = monthlyFee(build);
-  const { staffPerMonth, month } = payback({ build, fee, hours, gross: WAGES[wage] });
+  const market = marketFor(lang);
+  const { staffPerMonth, month } = payback({ build, fee, hours, gross: market.wages[wage], load: market.load });
 
   const agentAt = (m) => build + fee * m;
   const staffAt = (m) => staffPerMonth * m;
@@ -126,8 +139,8 @@ export const Payback = () => {
             <label className="pb-field">
               <span>{p.wageLabel}</span>
               <select value={wage} onChange={(e) => setWage(e.target.value)} data-testid="payback-wage">
-                {Object.keys(WAGES).map((k) => (
-                  <option key={k} value={k}>{fmt(p.wages[k], { v: money(WAGES[k], 1) })}</option>
+                {Object.keys(market.wages).map((k) => (
+                  <option key={k} value={k}>{fmt(p.wages[k], { v: money(market.wages[k], 1) })}</option>
                 ))}
               </select>
             </label>

@@ -5,9 +5,15 @@ import { CONTACT, mailto } from "../contact";
 import { CONTROLLER, CONTROLLER_ADDRESS, LEGAL_UPDATED, PROCESSORS } from "../legal";
 import { useDocumentMeta } from "../seo";
 import { useLang } from "../i18n";
+import ImpressumDe from "./ImpressumDe";
 
+// Nemet latogatonak nemet Impressum kell (DDG 5. §); a tobbi nyelv a magyart kapja.
 export default function Impresszum() {
   const { lang } = useLang();
+  return lang === "de" ? <ImpressumDe lang={lang} /> : <ImpresszumHu lang={lang} />;
+}
+
+function ImpresszumHu({ lang }) {
   useDocumentMeta({
     title: "Impresszum | AXIMBRA",
     description:
