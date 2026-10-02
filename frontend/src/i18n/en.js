@@ -4,7 +4,7 @@ const CALLBAR = mailto("How many calls are we missing?");
 // Per-language search/social copy. Previously every language served the
 // Hungarian, unaccented title and description from index.html.
 const SEO = {
-  title: "AXIMBRA — AI agency | Custom AI agents for business",
+  title: "AI agents for business — email, enquiries, phone, invoices | AXIMBRA",
   description: "We build custom AI agents that do real work: email triage, lead qualification, phone support. Try the live demos on the site before you talk to us.",
 };
 
@@ -13,7 +13,7 @@ const en = {
   nav: {
     links: [["Agents", "agentek"], ["Process", "folyamat"], ["Websites", "weboldal", "/weboldal"], ["Case study", "eset"]],
     contact: "CONTACT",
-    callbar: "How many calls does your venue miss?",
+    callbar: "How many calls does your company miss?",
     callbarHref: CALLBAR,
     menu: "Menu",
     intro: "AI AGENTS · AXIMBRA",
@@ -21,9 +21,9 @@ const en = {
   hero: {
     eyebrow: "AI agency · custom agents",
     h1: ["We don't build", "chatbots. We build", "coworkers."],
-    sub: "We build AI agents for companies that do one concrete job — sort emails, qualify leads, answer the phone. We don't hand over a demo, but a working system that we keep alive.",
-    ctaPrimary: "See the agents",
-    ctaGhost: "See it live",
+    sub: "Two hundred unread emails on Monday morning, missed calls, invoices typed in by hand? We build AI agents that take that work over. We don't hand over a demo, but a working system that we keep alive.",
+    ctaPrimary: "Try it live",
+    ctaGhost: "Hear a real call",
     phoneCta: { badge: "AI", note: "Answered by an AI agent · in English & Hungarian", origin: "US number (Twilio) — calls from Hungarian numbers ring through to me, and the agent lets you pick Hungarian or English at the start" },
     // A "hivjon vissza" urlap. A lap egy amerikai szamot hirdet; egy
     // magyar cegvezeto azt nem tarcsazza, bejovo hivast viszont felvesz.
@@ -264,7 +264,7 @@ const en = {
   },
   contact: {
     heading: "Which task eats up your week?",
-    para: "Write it in one sentence. Within two working days we'll tell you whether it's worth building an agent for it — and if not, that too.",
+    para: "Write it in one sentence. Within one working day we'll tell you whether it's worth building an agent for it — and if not, that too.",
     phoneNote: "Answered by an AI agent · pick Hungarian or English at the start · calls from Hungarian numbers reach me",
     phoneOrigin: "US number (Twilio). Calls from non-Hungarian numbers go to the AI agent, and I get what you said by email.",
     form: {
@@ -277,7 +277,7 @@ const en = {
       privacyLink: "Privacy notice",
       send: "Send message",
       sending: "Sending…",
-      sent: "Received. We'll reply within two working days.",
+      sent: "Received. We'll reply within one working day.",
       errorGeneric: "We could not send the message. Write to us directly:",
       or: "or call:",
     },

@@ -24,9 +24,9 @@ const de = {
   hero: {
     eyebrow: "KI-Agenten für den Mittelstand",
     h1: ["Wir bauen keine", "Chatbots. Wir bauen", "Mitarbeiter."],
-    sub: "Fachkräfte fehlen, die Routinearbeit bleibt. Wir bauen KI-Agenten, die eine konkrete Aufgabe übernehmen — E-Mails sortieren, Anfragen qualifizieren, Rechnungen und Lieferscheine auslesen. Keine Demo zum Abschied, sondern ein laufendes System, das wir betreuen.",
-    ctaPrimary: "Agenten ansehen",
-    ctaGhost: "Live ausprobieren",
+    sub: "Montagmorgen 200 ungelesene Mails, verpasste Anrufe, Lieferscheine von Hand abgetippt? Fachkräfte fehlen, die Routinearbeit bleibt. Wir bauen KI-Agenten, die diese Arbeit übernehmen — als laufendes System, das wir betreuen.",
+    ctaPrimary: "Live ausprobieren",
+    ctaGhost: "Echten Anruf anhören",
     phoneCta: { badge: "KI", note: "Ein KI-Agent nimmt ab · auf Englisch und Ungarisch", origin: "US-Nummer (Twilio). Anrufe aus dem Ausland nimmt der KI-Agent an; zu Beginn wählen Sie Englisch oder Ungarisch. Für Ihr Projekt kann ein Agent auch Deutsch sprechen." },
     // A "hivjon vissza" urlap. Nemet szammal is mukodik, de a demo-agent
     // angolul es magyarul beszel - ezt kimondjuk, nem a hivasban derul ki.
@@ -266,7 +266,7 @@ const de = {
   },
   contact: {
     heading: "Welche Aufgabe frisst Ihre Woche?",
-    para: "Beschreiben Sie sie in einem Satz. Innerhalb von zwei Werktagen sagen wir Ihnen, ob sich ein Agent dafür lohnt — und wenn nicht, auch das.",
+    para: "Beschreiben Sie sie in einem Satz. Innerhalb eines Werktags sagen wir Ihnen, ob sich ein Agent dafür lohnt — und wenn nicht, auch das.",
     phoneNote: "Ein KI-Agent nimmt ab · zu Beginn Englisch oder Ungarisch wählen",
     phoneOrigin: "US-Nummer (Twilio). Anrufe aus dem Ausland nimmt der KI-Agent an, und ich bekomme Ihr Anliegen per E-Mail.",
     phoneDisabled: "Telefon-Agent — demnächst",
@@ -280,7 +280,7 @@ const de = {
       privacyLink: "Datenschutzerklärung",
       send: "Nachricht senden",
       sending: "Wird gesendet…",
-      sent: "Angekommen. Sie erhalten innerhalb von zwei Werktagen eine Antwort.",
+      sent: "Angekommen. Sie erhalten innerhalb eines Werktags eine Antwort.",
       errorGeneric: "Die Nachricht konnte nicht gesendet werden. Schreiben Sie uns direkt:",
       or: "oder rufen Sie an:",
     },

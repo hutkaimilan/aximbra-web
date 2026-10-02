@@ -4,8 +4,8 @@ const CALLBAR = mailto("Hány hívást hagyunk megválaszolatlanul?");
 // Per-language search/social copy. Previously every language served the
 // Hungarian, unaccented title and description from index.html.
 const SEO = {
-  title: "AXIMBRA — AI ügynökség | Egyedi AI agentek cégeknek",
-  description: "Egyedi AI agenteket építünk cégeknek: e-mail rendezés, érdeklődő-minősítés, telefonos ügyfélszolgálat. Éles demók, amiket azonnal kipróbálhatsz.",
+  title: "AI agentek cégeknek — e-mail, ajánlatkérés, telefon, számlák | AXIMBRA",
+  description: "Túl sok levél, elmaradt hívás, kézzel begépelt számla? Egyedi AI agenteket építünk, amelyek ezt átveszik, és minden lépést ember hagy jóvá. Élő demók regisztráció nélkül.",
 };
 
 const hu = {
@@ -13,7 +13,7 @@ const hu = {
   nav: {
     links: [["Agentek", "agentek"], ["Folyamat", "folyamat"], ["Weboldal", "weboldal", "/weboldal"], ["Esettanulmány", "eset"]],
     contact: "KAPCSOLAT",
-    callbar: "Hány hívást hagy megválaszolatlanul a helye?",
+    callbar: "Hány hívást hagy megválaszolatlanul a cége?",
     callbarHref: CALLBAR,
     menu: "Menü",
     intro: "AI AGENTEK · AXIMBRA",
@@ -21,8 +21,8 @@ const hu = {
   hero: {
     eyebrow: "AI ügynökség · egyedi agentek",
     h1: ["Nem chatbotot", "építünk. Hanem", "munkatársat."],
-    sub: "Olyan AI agenteket építünk cégeknek, amelyek elvégeznek egy konkrét munkát — leveleket rendeznek, érdeklődőt minősítenek, telefont vesznek fel. Nem demót adunk át, hanem működő rendszert, amit mi tartunk életben.",
-    ctaPrimary: "Nézd meg az agenteket",
+    sub: "Hétfő reggel kétszáz olvasatlan levél, elmaradt hívások, kézzel begépelt számlák? Olyan AI agenteket építünk, amelyek ezt a munkát átveszik. Nem demót adunk át, hanem működő rendszert, amit mi tartunk életben.",
+    ctaPrimary: "Próbáld ki élőben",
     ctaGhost: "Működés közben",
     phoneCta: { badge: "HÍVJ", note: "Magyar számról én veszem fel · ha nem érek rá, az AI agent", origin: "Amerikai szám (Twilio) — külföldi számról az AI agent fogadja, és a hívás elején magyar vagy angol nyelvet választhatsz" },
     // A "hivjon vissza" urlap. A lap egy amerikai szamot hirdet; egy
@@ -264,7 +264,7 @@ const hu = {
   },
   contact: {
     heading: "Melyik feladat viszi el a heted?",
-    para: "Írd meg egy mondatban. Két munkanapon belül megmondjuk, megéri-e agentet építeni rá — és ha nem, azt is.",
+    para: "Írd meg egy mondatban. Egy munkanapon belül megmondjuk, megéri-e agentet építeni rá — és ha nem, azt is.",
     phoneNote: "Magyar számról hívva engem ér el · külföldi számról az AI agent veszi fel",
     phoneOrigin: "Amerikai szám (Twilio). Ha nem veszem fel, az AI agent fogadja a hívást, és e-mailben megkapom, amit mondtál.",
     form: {
@@ -277,7 +277,7 @@ const hu = {
       privacyLink: "Adatkezelési tájékoztató",
       send: "Üzenet küldése",
       sending: "Küldés…",
-      sent: "Megérkezett. Két munkanapon belül válaszolunk.",
+      sent: "Megérkezett. Egy munkanapon belül válaszolunk.",
       errorGeneric: "Az üzenetet most nem sikerült elküldeni. Írj közvetlenül:",
       or: "vagy hívj:",
     },
