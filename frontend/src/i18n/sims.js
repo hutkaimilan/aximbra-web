@@ -183,9 +183,25 @@ const sims = {
                   "09:00:20 — Versand"] },
     12: { start: "Monatliche Compliance-Prüfung", beforeLabel: "geprüfte Anforderung",
          afterHead: "3 Lücken, die ein Audit nicht bestehen würden", closing: "Für 43 Anforderungen liegt datierter Nachweis vor.",
+         // A NIS2-lelet nem magyar mintaadat (nincs benne cegnev), ezert nemetul is latszik.
+         items: [
+           { t: "Admin-Rechte — ausgeschiedener Kollege", s: "Zugriffsverwaltung", cat: "m" },
+           { t: "Letzte Sicherung vor 41 Tagen", s: "Datensicherung", cat: "m" },
+           { t: "Ohne Zwei-Faktor-Anmeldung: 7 Konten", s: "Authentifizierung", cat: "m" },
+           { t: "Notfallplan — ohne Datum", s: "Dokumentation", cat: "c" },
+           { t: "Lieferantenvertrag ohne Sicherheitsanhang", s: "Lieferkette", cat: "c" },
+           { t: "Passwortrichtlinie dokumentiert", s: "Authentifizierung", cat: "dim" },
+           { t: "Virenschutz auf allen Geräten aktiv", s: "Endpunktschutz", cat: "dim" },
+           { t: "Firewall-Regeln dokumentiert", s: "Netzwerk", cat: "dim" },
+         ],
+         picks: [
+           { t: "Admin-Rechte bei ausgeschiedenem Kollegen", cat: "m" },
+           { t: "Sicherung seit 41 Tagen nicht gelaufen", cat: "m" },
+           { t: "7 Konten ohne Zwei-Faktor", cat: "m" },
+         ],
          reasons: ["Ein ausgeschiedener Kollege hat weiterhin Administratorrechte", "Die letzte Sicherung lief vor 41 Tagen — zugesagt sind 7", "Sieben Konten melden sich ohne Zwei-Faktor an"] },
-    13: { start: "Wöchentliche Firmensuche starten", beforeLabel: "geprüfte Firmen in deinem Zielmarkt",
-         afterHead: "3 Briefe warten auf deine Freigabe", closing: "Wer Nein sagt, bekommt keine Mail mehr. Nichts geht ohne Freigabe raus.",
+    13: { start: "Wöchentliche Firmensuche starten", beforeLabel: "geprüfte Firmen in Ihrem Zielmarkt",
+         afterHead: "3 Briefe warten auf Ihre Freigabe", closing: "Wer Nein sagt, bekommt keine Mail mehr. Nichts geht ohne Freigabe raus.",
          reasons: ["„Termine gibt es bei Ihnen nur telefonisch. Wer hebt während der Behandlung ab?“", "„Bei besetzter Leitung rufen Sie zurück. Wissen Sie dann schon, um welches Auto es geht?“", "„Tische für heute nur telefonisch. Wer hebt am Freitagabend ab?“"] },
   },
 

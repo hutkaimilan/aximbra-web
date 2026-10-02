@@ -663,8 +663,11 @@ export function simFor(kind, text) {
   if (!base) return null;
   if (!text) return base;
   const merged = { ...base, ...text };
-  if (base.picks) {
-    merged.picks = base.picks.map((p, i) => ({ ...p, reason: (text.reasons || [])[i] || '' }));
+  // Ha a nyelvi szoveg sajat elemeket ad (nem magyar mintaadat), azok
+  // lepnek a magyar helyere; az indoklas akkor is index szerint parosul.
+  const picks = text.picks || base.picks;
+  if (picks) {
+    merged.picks = picks.map((p, i) => ({ ...p, reason: (text.reasons || [])[i] || '' }));
   }
   return merged;
 }
