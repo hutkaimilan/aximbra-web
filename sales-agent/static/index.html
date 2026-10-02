@@ -254,7 +254,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":
 let S = null, tab = "dash";
 const selected = new Set();
 const dirty = {};  // szerkesztett, még nem mentett szövegek: a frissítés ne írja felül
-const PLAN_DEFAULT = {HU:10, SK:2, RO:2, HR:1, SI:0};
+const PLAN_DEFAULT = {HU:8, SK:2, RO:2, HR:1, SI:1, GB:2, IE:1, FR:2, BE:1};
 
 async function api(path, body) {
   const r = await fetch(path, body === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});

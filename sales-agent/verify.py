@@ -172,7 +172,7 @@ def candidate_problems(c: dict) -> list[str]:
     for u in (email.split("@")[-1], c.get("website") or "", c.get("email_url") or ""):
         host = u.lower().split("://")[-1].split("/")[0]
         if host.endswith(BLOCKED_TLDS):
-            p.append("osztrák/német domain")
+            p.append("osztrák/német vagy más tiltott országú domain")
             break
     if c.get("pain") not in PAIN_KEYS:
         p.append("ismeretlen igény")
@@ -198,8 +198,12 @@ _LANG_WORDS = {
            "neću", "više", "pisati", "ako"},
     "sl": {"je", "in", "za", "vam", "ni", "so", "ali", "kaj", "ko", "vas", "pozdravljeni", "bi", "če",
            "ne", "bom", "več", "pisal"},
+    "en": {"the", "and", "you", "your", "we", "our", "of", "for", "with", "this", "that", "would",
+           "not", "are", "if", "or", "hello", "dear", "write", "again", "will", "have", "it", "do"},
+    "fr": {"le", "la", "les", "et", "vous", "votre", "vos", "nous", "pour", "avec", "est", "sont", "une",
+           "des", "du", "que", "qui", "pas", "si", "bonjour", "écrirai", "plus", "suffit", "dans", "sur"},
 }
-_LANG_CHARS = {"hu": "őűáéíóöúü", "sk": "ľťďňôäŕĺ", "ro": "ășțâî", "hr": "ćđ", "sl": ""}
+_LANG_CHARS = {"hu": "őűáéíóöúü", "sk": "ľťďňôäŕĺ", "ro": "ășțâî", "hr": "ćđ", "sl": "", "en": "", "fr": "èàçêùûœ"}
 
 
 def detect_lang(text: str) -> str | None:
@@ -299,7 +303,7 @@ def check_letter(lead: dict) -> list[str]:
 
 _PRICE_RE = re.compile(
     r"\d[\d\s.,]*\s*(ezer|e\.|millió|m\.|mio|tisíc|tis\.|mii|milioane?|milion[a-z]*|tisuć[a-z]*|tisoč[a-z]*)?\s*"
-    r"(ft|huf|forint[a-z]*|eur|euró[a-z]*|euro[a-z]*|lei|ron|kn|kuna)\b|€\s*\d|\d\s*€", re.I)
+    r"(ft|huf|forint[a-z]*|eur|euró[a-z]*|euro[a-z]*|lei|ron|kn|kuna|gbp|pounds?)\b|[€£$]\s*\d|\d\s*[€£]", re.I)
 
 
 def has_price(text: str) -> bool:
@@ -313,13 +317,16 @@ _REFERENCE_RE = re.compile(
     r"\besettanulmány|\bmár\s+\d+\s+(cég|vállalkozás|ügyfél)|\btöbb\s+(száz|tucat|tíz)\s+(cég|ügyfél|vállalkozás)|"
     r"\b(náš|naši|našich|nášmu|našim)\s+(klient|zákazník|partner)|\breferenci[ae]|\bpríkladov[aá]\s+štúdi|"
     r"\b(clientul|clienții|clientii|clienților|partenerii|partenerul)\s+(nostru|noștri|nostri|noastre)|\bstudiu\s+de\s+caz|"
-    r"\b(naš|naši|našim|naših|našeg)\s+(klijent|kupac|partner|stranka|stranke|strank)|\breferenc|\breferin",
+    r"\b(naš|naši|našim|naših|našeg)\s+(klijent|kupac|partner|stranka|stranke|strank)|\breferenc|\breferin|"
+    r"\bour\s+(clients?|customers?|partners?)\b|\bcase\s+stud|\btestimonial|"
+    r"\b(nos|notre)\s+(clients?|partenaires?)\b|\bétude\s+de\s+cas|\btémoignage",
     re.I)
 
 # Statisztika, százalék, szorzó: "40%-kal", "3x gyorsabb", "kétszer annyi".
 _STAT_RE = re.compile(
     r"\d\s?%|\bszázalék|\bpercent|\bprocent|\bpostot|\bodstot|\b\d+\s?[x×]\b|\b\d+-(szor|szer|ször)\b|"
-    r"\b(kétszer|háromszor|négyszer|ötször|tízszer)\s+(annyi|gyorsabb|több|kevesebb)", re.I)
+    r"\b(kétszer|háromszor|négyszer|ötször|tízszer)\s+(annyi|gyorsabb|több|kevesebb)|\bpour\s?cent|"
+    r"\b(twice|three\s+times|ten\s+times)\s+(as|faster|more|fewer)|\bdeux\s+fois\s+plus", re.I)
 
 # Munkatárs megnevezése. Csak a megszólításos, egyértelmű alakokat fogja:
 # egy puszta "Kovács Péter" név, megszólítás nélkül, átcsúszhat. Ezért a
@@ -329,10 +336,10 @@ _UPPER = "A-ZÁÉÍÓÖŐÚÜŰČĎĽĹŇÔŔŠŤÝŽĂÂÎȘȚĆĐ"
 _NAME_RE = re.compile(
     rf"\b[{_UPPER}][a-záéíóöőúüű]+\s+(úr|úrnak|úrral|urat|úrtól|asszony|asszonynak|asszonnyal|asszonyt|kolléganő)\b|"
     rf"\b(pán|pani|pánovi|panej|pána|panu|domnul|doamna|domnului|doamnei|dl\.|dna\.|gospodin|gospodine|"
-    rf"gospođa|gospođo|gospa|gospod|g\.|ga\.)\s+[{_UPPER}]|"
-    rf"\b(Kedves|Tisztelt|Dear|Milý|Milá|Vážený|Vážená|Stimate|Stimată|Dragă|Poštovani|Poštovana|Spoštovani|Spoštovana)"
+    rf"gospođa|gospođo|gospa|gospod|g\.|ga\.|[Mm]r\.?|[Mm]rs\.?|[Mm]s\.?|[Mm]onsieur|[Mm]adame|[Mm]me\.?|M\.)\s+[{_UPPER}]|"
+    rf"\b(Kedves|Tisztelt|Dear|Milý|Milá|Vážený|Vážená|Stimate|Stimată|Dragă|Poštovani|Poštovana|Spoštovani|Spoštovana|Cher|Chère|Bonjour|Hello|Hi)"
     # A kivétellista kis- és nagybetűre is érvényes: „Stimate Domn / Stimată Doamnă” általános megszólítás.
-    rf"\s+(?!(?i:Hölgyem|Uram|Címzett|Partner|Ügyfél|Csapat|Kolleg|Munkatárs|pán|pani|páni|pane|domn|doamn|gospo|gospa|kolegi|kolegovia))"
+    rf"\s+(?!(?i:Hölgyem|Uram|Címzett|Partner|Ügyfél|Csapat|Kolleg|Munkatárs|pán|pani|páni|pane|domn|doamn|gospo|gospa|kolegi|kolegovia|Sir|Madam|team|Monsieur|Madame|équipe))"
     rf"[{_UPPER}][a-záéíóöőúüűčďľĺňôŕšťýžăâîșțćđ]+", re.U)
 
 

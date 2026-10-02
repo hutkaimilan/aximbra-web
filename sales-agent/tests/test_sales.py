@@ -907,3 +907,62 @@ def test_reply_watch_notifies_only_on_new_replies(monkeypatch, tmp_path):
     monkeypatch.setattr(app_mod.pipeline, "scan_replies",
                         lambda st, log: st.set_reply(lid, "interested", "Érdekel") or log)
     assert app_mod._reply_watch() == 1 and told == [1]
+
+
+# ---- új országok: az oldal nyelvei, ahol szabad írni ----
+
+def test_site_languages_cover_allowed_countries_only():
+    from playbook import COUNTRIES, BLOCKED_TLDS
+    assert {"GB", "IE", "FR", "BE"} <= set(COUNTRIES)
+    assert not {"DE", "AT", "CH", "ES", "IT", "CN"} & set(COUNTRIES)
+    assert {".ch", ".es", ".it"} <= set(BLOCKED_TLDS)
+    for tld in ("ch", "es", "it", "de", "at"):
+        assert verify.target_problems({"country": "FR", "email": f"info@x.{tld}", "website": f"https://x.{tld}"})
+
+
+def test_every_country_is_in_the_automatic_plan(monkeypatch, tmp_path):
+    monkeypatch.setenv("SALES_DB_PATH", str(tmp_path / "p.db"))
+    monkeypatch.setenv("AUTO_PLAN", "HU:10,SK:2,RO:2,HR:1,FR:0")
+    import importlib
+    import app as app_mod
+    importlib.reload(app_mod)
+    from playbook import COUNTRIES
+    plan = app_mod._auto_plan()
+    assert set(plan) == set(COUNTRIES) and plan["HU"] == 10 and plan["FR"] == 0 and plan["GB"] >= 1
+
+
+EN_BODY = ("Hello,\n\nYour website says that your support team answers enquiries in three languages.\n\n"
+           "Do you answer the same questions by hand every day?\n\n"
+           "I built an agent that drafts those answers from your own documents for your team to approve.\n\n"
+           "Would this be interesting for you?\n\nMilán Hutkai · AXIMBRA · aximbra.hu/en\n\n"
+           "P.S. You can try it on a sample mailbox at aximbra.hu/en, no sign-up needed.\n\n" + OPT_OUT["en"])
+FR_BODY = ("Bonjour,\n\nSur votre site, vous indiquez que votre service client répond aux demandes du lundi au samedi.\n\n"
+           "Est-ce que vous répondez à la main aux mêmes questions chaque jour ?\n\n"
+           "J’ai construit un agent qui prépare ces réponses à partir de vos documents, que votre équipe valide.\n\n"
+           "Est-ce que cela vous intéresserait ?\n\nMilán Hutkai · AXIMBRA · aximbra.hu/fr\n\n"
+           "P.S. Vous pouvez l’essayer sur une boîte de démonstration sur aximbra.hu/fr, sans inscription.\n\n" + OPT_OUT["fr"])
+
+
+def test_english_and_french_letters_pass_and_are_recognised():
+    assert verify.detect_lang("Do you answer the same questions by hand every day with your team?") == "en"
+    assert verify.detect_lang("Est-ce que vous répondez à la main aux mêmes questions pour votre équipe ?") == "fr"
+    en = _lead(lang="en", country="GB", subject="Support questions", body=EN_BODY, email="info@acme.co.uk",
+               website="https://acme.co.uk")
+    fr = _lead(lang="fr", country="FR", subject="Questions clients", body=FR_BODY, email="contact@acme.fr",
+               website="https://acme.fr")
+    assert verify.rule_violations(en) == []
+    assert verify.rule_violations(fr) == []
+
+
+@pytest.mark.parametrize("bad,why", [
+    ("One of our clients saved time.", "ügyfélre"),
+    ("Nos clients gagnent du temps.", "ügyfélre"),
+    ("Dear Mr. Smith,", "munkatárs"),
+    ("Bonjour Madame Martin,", "munkatárs"),
+    ("It costs £400.", "ár"),
+    ("Trois fois plus vite, 40 pour cent de moins.", "statisztik"),
+])
+def test_rules_hold_in_english_and_french(bad, why):
+    v = verify.rule_violations(_lead(lang="en", country="GB", subject="Support questions", email="info@acme.co.uk",
+                                     website="https://acme.co.uk", body=bad + "\n\n" + EN_BODY))
+    assert any(why in x for x in v), v

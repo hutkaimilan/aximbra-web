@@ -4,23 +4,36 @@ Minden, ami a levél tartalmát meghatározza, itt van egy helyen, hogy a
 kutató, a levélíró és az ellenőrző ugyanabból a szabályból dolgozzon.
 """
 
-# Ausztria és Németország szándékosan nincs itt: ott a kéretlen üzleti
-# e-mail cégeknek is jogsértő (AT: TKG 2021 174. §, DE: UWG 7. §).
+# Az oldal nyelvei: magyar, angol, német, spanyol, francia, olasz, román,
+# szlovák, kínai. Csak oda írunk, ahol cégnek kéretlen üzleti e-mailt
+# leiratkozási lehetőséggel küldeni szabad:
+#  - Ausztria és Németország soha (AT: TKG 2021 174. §, DE: UWG 7. §),
+#    Svájc és Liechtenstein sem (CH: UWG 3. cikk o) pont) — így a német nyelv kimarad.
+#  - Spanyolország nem: az LSSI 21. cikke cégeknek is előzetes hozzájárulást kér.
+#  - Olaszország nem: a Garante szerint cégeknek is hozzájárulás kell (Codice privacy 130.).
+#  - Kínai nyelvterület nem: más jogrend, nem a piacunk.
+#  - Egyesült Királyság (PECR: cégeknek szabad), Írország (cégeknek szabad
+#    leiratkozással), Franciaország (CNIL: a szakmájához kapcsolódó ajánlat szabad),
+#    Belgium (csak személytelen céges cím, pl. info@ — mi amúgy is csak ilyenre írunk).
 COUNTRIES = {
     "HU": {"name": "Magyarország", "lang": "hu", "site": "aximbra.hu"},
     "SK": {"name": "Szlovákia", "lang": "sk", "site": "aximbra.hu/sk"},
     "RO": {"name": "Románia", "lang": "ro", "site": "aximbra.hu/ro"},
     "HR": {"name": "Horvátország", "lang": "hr", "site": "aximbra.hu/en"},
     "SI": {"name": "Szlovénia", "lang": "sl", "site": "aximbra.hu/en"},
+    "GB": {"name": "Egyesült Királyság", "lang": "en", "site": "aximbra.hu/en"},
+    "IE": {"name": "Írország", "lang": "en", "site": "aximbra.hu/en"},
+    "FR": {"name": "Franciaország", "lang": "fr", "site": "aximbra.hu/fr"},
+    "BE": {"name": "Belgium (francia nyelvű rész: Vallónia, Brüsszel)", "lang": "fr", "site": "aximbra.hu/fr"},
 }
 
 # A domain végződése alapján is kizárunk: egy .at cím akkor is osztrák cég,
-# ha a modell tévedésből magyarnak mondja.
-BLOCKED_TLDS = (".at", ".de")
+# ha a modell tévedésből magyarnak mondja. Ugyanígy a tiltott országoké.
+BLOCKED_TLDS = (".at", ".de", ".ch", ".li", ".es", ".it")
 
 LANG_NAMES = {
     "hu": "Hungarian", "sk": "Slovak", "ro": "Romanian",
-    "hr": "Croatian", "sl": "Slovenian",
+    "hr": "Croatian", "sl": "Slovenian", "en": "English", "fr": "French",
 }
 
 PAINS = {
@@ -61,6 +74,8 @@ OPT_OUT = {
     "ro": "Dacă acum nu este de actualitate, un simplu „nu” este suficient — nu vă mai scriu.",
     "hr": "Ako vam to trenutačno nije zanimljivo, dovoljan je kratak „ne” — neću vam više pisati.",
     "sl": "Če vam to trenutno ni zanimivo, zadošča kratek »ne« — ne bom vam več pisal.",
+    "en": "If this is not relevant right now, a short “no” is enough and I will not write again.",
+    "fr": "Si ce n’est pas d’actualité, un simple « non » suffit et je ne vous écrirai plus.",
 }
 
 SIGNATURE = {
@@ -74,6 +89,8 @@ FOLLOW_UP = {
     "ro": "Bună ziua,\n\nVă mai scriu o dată, în caz că mesajul meu anterior s-a pierdut. Dacă nu este de actualitate, un simplu „nu” este suficient și nu vă mai scriu.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/ro",
     "hr": "Poštovani,\n\npišem još jednom, za slučaj da se moja prethodna poruka izgubila. Ako vam nije zanimljivo, dovoljan je kratak „ne” i neću vam više pisati.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/en",
     "sl": "Pozdravljeni,\n\npišem še enkrat, za primer, da se je moje prejšnje sporočilo izgubilo. Če vam ni zanimivo, zadošča kratek »ne« in vam ne bom več pisal.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/en",
+    "en": "Hello,\n\nI am writing once more in case my previous email got lost. If it is not relevant, a short “no” is enough and I will not write again.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/en",
+    "fr": "Bonjour,\n\nJe vous écris une dernière fois, au cas où mon précédent message se serait perdu. Si ce n’est pas d’actualité, un simple « non » suffit et je ne vous écrirai plus.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/fr",
 }
 
 MAX_WORDS = 110  # a törzs + aláírás + ui. + leiratkozás együtt; maga az üzenet 75 alatt
@@ -169,7 +186,7 @@ Method, like an expert SDR:
 1. Any company qualifies that could realistically put one of our agents to work: shared customer inboxes, a customer service or call centre team, many documents (orders, invoices, contracts, delivery notes), several locations, lots of incoming enquiries, or NIS2 obligations. A stated problem is NOT required.
 2. Quote one specific FACT word for word (original language) from the company's own website that shows which agent fits: their customer service hours or channels, number of locations, volume ("5000 shipments a month"), the documents they handle, the enquiries they receive, their NIS2 sector. A generic slogan ("quality is our priority") does NOT qualify.
 3. Buying signals are not required, but a letter built on a current, verified signal gets several times more
-   replies than one without, so look hard for one and prefer those companies: hiring several people for repetitive work (their careers page or job sites like profession.hu, jobs.hu, cvonline, profesia.sk, ejobs.ro, moj-posao.net, mojedelo.com), a new site or plant, NIS2 scope, growth news.
+   replies than one without, so look hard for one and prefer those companies: hiring several people for repetitive work (their careers page or the country's job sites, e.g. profession.hu, jobs.hu, cvonline, profesia.sk, ejobs.ro, moj-posao.net, mojedelo.com, reed.co.uk, irishjobs.ie, welcometothejungle.com, francetravail.fr, stepstone.be), a new site or plant, NIS2 scope, growth news.
 4. Score fit 0–100: how clearly one specific agent maps to that fact, company size (50–1000 ideal), local decision-making (a local HQ, not a foreign group's branch), and a buying signal (a verified, recent one is worth about 10–15 points).
 
 Exclude: micro businesses under 20 staff, restaurants, cafés, beauty salons, small repair shops, public institutions, state-owned companies, hospitals run by the state, schools, military, multinationals whose decisions are made abroad, and these domains: {excl}.
@@ -285,7 +302,8 @@ Answer ONLY with JSON: {{"kind": "no|interested|auto|other"}}"""
 
 def reply_prompt(original: str, reply: str, slots: list[str], lang: str) -> str:
     slot_lines = "\n".join(f"- {s}" for s in slots) or "- (no free slot found: ask them which day suits them)"
-    tz_note = " Times are Budapest time (CET/CEST); Romania is one hour ahead, so give their local time too." if lang == "ro" else ""
+    tz_note = " Times are Budapest time (CET/CEST); Romania is one hour ahead, so give their local time too." if lang == "ro" \
+        else " Times are Budapest time (CET/CEST); the UK and Ireland are one hour behind, so give their local time too." if lang == "en" else ""
     return f"""You are Milán Hutkai, founder of AXIMBRA (a small AI agent studio). A business replied with interest to your cold email. Write the answer in the SAME language they wrote in.
 
 Your email:

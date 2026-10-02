@@ -453,9 +453,14 @@ def _auto_on() -> bool:
     return (os.environ.get("AUTO_RESEARCH") or "").strip().lower() in ("1", "true", "yes")
 
 
+# Minden célországban keres; az AUTO_PLAN csak felülírja a darabszámot
+# (XX:0 kizár egy országot).
+DEFAULT_PLAN = {"HU": 8, "SK": 2, "RO": 2, "HR": 1, "SI": 1, "GB": 2, "IE": 1, "FR": 2, "BE": 1}
+
+
 def _auto_plan() -> dict[str, int]:
-    raw = os.environ.get("AUTO_PLAN", "HU:10,SK:2,RO:2,HR:1")
-    plan = {}
+    raw = os.environ.get("AUTO_PLAN", "")
+    plan = {c: DEFAULT_PLAN.get(c, 1) for c in COUNTRIES}
     for part in raw.split(","):
         if ":" in part:
             k, v = part.split(":", 1)
