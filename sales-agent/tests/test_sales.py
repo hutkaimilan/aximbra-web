@@ -966,3 +966,47 @@ def test_rules_hold_in_english_and_french(bad, why):
     v = verify.rule_violations(_lead(lang="en", country="GB", subject="Support questions", email="info@acme.co.uk",
                                      website="https://acme.co.uk", body=bad + "\n\n" + EN_BODY))
     assert any(why in x for x in v), v
+
+
+# ---- napi tartalomtéma a videós agentnek ------------------------------------
+
+def test_content_sends_two_briefs_once_and_never_leaks_names(store, monkeypatch):
+    import json as _json
+    import content
+    from datetime import datetime as _dt
+    monkeypatch.setenv("CONTENT_DAILY", "1")
+    monkeypatch.setenv("AGENT_TOKEN", "x" * 32)
+    store.add_lead(dict(CAND, lang="hu"))
+    company = CAND["company"]
+    now = _dt(2026, 10, 5, 7, 45)
+    assert content.enabled() and content.due(now, store)
+    assert not content.due(now.replace(hour=7, minute=0), store)          # kezdés előtt nem
+
+    replies = [{"hu": {"brief": f"{company} postafiókja reggel, AXIMBRA e-mail rendező bemutató.", "form": "video"},
+                "en": {"brief": "AXIMBRA phone agent: a missed call at a busy logistics firm, shown in one strong image.", "form": "image"}},
+               {"hu": {"brief": "AXIMBRA: hétfő reggel kétszáz levél a közös postafiókban, kkv-vezetőknek, nyugodt hangulat.", "form": "carousel"},
+                "en": {"brief": "AXIMBRA phone agent: a missed call at a busy logistics firm, shown in one strong image.", "form": "image"}}]
+    monkeypatch.setattr(content.llm, "_ask", lambda prompt: _json.dumps(replies.pop(0)))
+    sent = []
+    fail = {"on": True}
+
+    def fake_send(item):
+        if fail["on"]:
+            fail["on"] = False
+            raise RuntimeError("nem érhető el")
+        sent.append(item)
+    monkeypatch.setattr(content, "_send", fake_send)
+
+    with pytest.raises(content.llm.LLMError):                              # cégnév a témában: eldobja
+        content.run(store, now)
+    with pytest.raises(RuntimeError):                                      # a küldés elhasal
+        content.run(store, now)
+    assert not content.due(now + timedelta(minutes=10), store)            # vár RETRY_MIN percet
+    later = now + timedelta(minutes=content.RETRY_MIN)
+    assert content.due(later, store)
+    content.run(store, later)                                              # ugyanazt a témát küldi újra
+    assert [s["id"] for s in sent] == ["sales-2026-10-05-hu", "sales-2026-10-05-en"]
+    assert sent[0]["targets"] == ["linkedin"] and sent[1]["targets"] == ["instagram"]
+    assert sent[0]["form"] == "carousel" and company.lower() not in sent[0]["brief"].lower()
+    assert not content.due(later + timedelta(hours=2), store)             # ma kész
+    assert content.due(later + timedelta(days=1), store)

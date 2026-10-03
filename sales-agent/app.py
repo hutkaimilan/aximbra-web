@@ -19,6 +19,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
 import advisor
+import content
 import gmail_api
 import llm
 import websearch
@@ -594,9 +595,19 @@ def _scheduler():
                     _reply_watch()
                 except (AuthError, MailError) as e:
                     logger.warning("válaszfigyelés kimaradt: %s", e)
+            if content.enabled() and content.due(now, store):
+                threading.Thread(target=_content_round, args=(now,), daemon=True).start()
         except Exception:  # noqa: BLE001
             logger.exception("ütemező hiba")
         time.sleep(30)
+
+
+def _content_round(now: datetime) -> None:
+    """Napi két téma a videós agentnek. A hibát naplózzuk; RETRY_MIN perc múlva újra."""
+    try:
+        content.run(store, now)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("tartalomtéma kimaradt: %s", e)
 
 
 @app.on_event("startup")

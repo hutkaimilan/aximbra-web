@@ -236,6 +236,7 @@ details summary{cursor:pointer}
   <div class="card">
     <div class="who"><div class="core"></div>Automatika · magától gyárt és posztol</div>
     <p class="mute" style="margin-top:0" id="aInfo"></p>
+    <div id="aInbox" class="mute" style="font-size:13px;margin-bottom:10px"></div>
     <label>Miről készüljenek? Soronként egy téma, sorban halad rajtuk</label>
     <textarea id="aBriefs" style="min-height:120px" placeholder="Álló videó az e-mail rendezőről logisztikai cégvezetőknek, komoly hangulat&#10;Körhinta 5 képben a telefonos AI-ról&#10;Egy kép arról, mit csinál egy AI agent egy webshopnál"></textarea>
     <div class="plan" style="grid-template-columns:1fr 1fr;margin-top:4px">
@@ -436,6 +437,11 @@ function render() {
   $("#leds").innerHTML = led(c.ai, "AI rendező" + (c.ai_engine ? ` · ${esc(c.ai_engine)}` : "")) + led(c.web_search, "Webkeresés") + led(c.elevenlabs, "ElevenLabs hang") + led(c.imagegen, "Képgenerálás") + led(true, "Renderelő");
   renderMedia();
   renderAuto();
+  const ST = {pending: "vár", done: "kész", failed: "elhasalt"};
+  $("#aInbox").innerHTML = (S.inbox || []).length
+    ? "<b>A sales agent témái:</b><br>" + S.inbox.map((i) => `${esc(i.created_at.slice(0, 10))} · ${i.lang} → ${i.targets.join(", ")} · ${ST[i.status] || i.status}`
+        + (i.error ? ` · ${esc(i.error)}` : "") + `<br><span style="opacity:.8">${esc(i.brief.slice(0, 140))}</span>`).join("<br>")
+    : "";
   $("#count").innerHTML = `<b>${S.videos.length}</b> darab`;
   $("#core").classList.toggle("busy", j.running);
   const jb = $("#jobbox");

@@ -21,6 +21,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
 import imagegen
+import inbox
 import llm
 import media
 import publisher
@@ -185,6 +186,7 @@ def state():
         "topics": videomaker.TOPICS,
         "settings": settings_store.load(),
         "publish": publisher.status(),
+        "inbox": inbox.recent(8),
         "config": {
             "ai": llm.available(),
             "ai_engine": llm.engine_name(),
@@ -305,11 +307,77 @@ def _auto_round(say) -> dict:
     return meta
 
 
+# ---- más agentektől érkező témák ----------------------------------------------
+
+def _agent_auth(x_agent_token: str = Header(default="")):
+    """Gépi hívás (pl. a sales agenttől). Külön kulcs, nem a panel jelszava,
+    és csak a témafelvételre jó."""
+    want = os.environ.get("AGENT_TOKEN", "")
+    if len(want) < 24:
+        raise HTTPException(503, "Nincs beállítva AGENT_TOKEN.")
+    if not secrets.compare_digest(x_agent_token.encode(), want.encode()):
+        time.sleep(1)
+        raise HTTPException(401, "Hibás kulcs.")
+
+
+class InboxIn(BaseModel):
+    id: str = Field(max_length=80)
+    brief: str = Field(max_length=2000)
+    lang: str
+    targets: list[str]
+    form: str = "auto"
+    source: str = ""
+
+
+@app.post("/api/inbox", dependencies=[Depends(_agent_auth)])
+def inbox_add(body: InboxIn):
+    try:
+        it, new = inbox.add(body.model_dump())
+    except inbox.InboxError as e:
+        raise HTTPException(422, str(e))
+    return {"ok": True, "new": new, "status": it["status"]}
+
+
+def _inbox_round(it: dict):
+    def run(say) -> dict:
+        # A próbálkozást a gyártás előtt rögzítjük: ha a gyártás elhasal vagy
+        # a gép újraindul, a tétel nem fut végtelen körben.
+        inbox.update(it["id"], tries=it["tries"] + 1,
+                     last_try=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+        s = settings_store.load()
+        say(f"Beérkezett téma ({it['source'] or 'agent'}, {it['lang']}): {it['brief'][:90]}")
+        try:
+            meta = videomaker.make(it["brief"], s["seconds"], it["lang"], s["aspect"], s["voice"], s["male"],
+                                   research=False, form=it.get("form") or "auto", say=say)
+        except stop.Cancelled:
+            raise
+        except Exception as e:  # noqa: BLE001
+            inbox.update(it["id"], error=str(e)[:300])
+            raise
+        live = publisher.enabled_targets()
+        targets = [t for t in it["targets"] if t in live]
+        skipped = [t for t in it["targets"] if t not in live]
+        for t in skipped:
+            say(f"{t}: nincs bekötve, ide nem posztolom.")
+        out = _post_video(meta["id"], targets, meta.get("post", ""), say) if targets else {}
+        if out:
+            settings_store.count_post(datetime.now(timezone.utc), settings_store.load())
+        # Ha a gyártás sikerült, a tétel kész akkor is, ha egy platform elhasalt:
+        # egy újrafutás dupla posztot adna oda, ahova már kiment.
+        inbox.update(it["id"], status="done", video=meta["id"], result=out,
+                     error="; ".join(f"{t}: nincs bekötve" for t in skipped))
+        return meta
+    return run
+
+
 def _scheduler():
     while True:
         try:
             s = settings_store.load()
-            if settings_store.due(datetime.now(timezone.utc), s) and not job.running:
+            it = None if job.running else inbox.next_due()
+            if it:
+                job.start(_inbox_round(it))
+            elif settings_store.due(datetime.now(timezone.utc), s) and not job.running:
                 job.start(_auto_round)
         except Exception:  # noqa: BLE001 — az ütemező sosem állhat le egy hibán
             logger.exception("ütemező hiba")

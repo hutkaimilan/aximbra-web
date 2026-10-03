@@ -773,3 +773,23 @@ def test_instagram_via_its_own_webhook(monkeypatch):
     url, body = sent[0]
     assert url == "https://hook.example/ig" and body["platform"] == "instagram"   # nem a LinkedIn-útra megy
     assert len(body["caption"]) == 2200 and body["video_url"].endswith(".mp4")
+
+
+def test_inbox_dedupes_validates_and_retries(tmp_path, monkeypatch):
+    import inbox
+    monkeypatch.setattr(inbox, "PATH", str(tmp_path / "inbox.json"))
+    now = datetime(2026, 10, 5, 6, tzinfo=timezone.utc)
+    body = {"id": "sales-2026-10-05-hu", "brief": "Álló videó a közös postafiókról, kkv-vezetőknek.",
+            "lang": "hu", "targets": ["linkedin", "tiktok"]}
+    it, new = inbox.add(body, now)
+    assert new and it["targets"] == ["linkedin"] and it["form"] == "auto"
+    assert inbox.add(body, now) == (it, False)                         # újraküldés: nincs dupla
+    for bad in ({**body, "id": "x"}, {**body, "brief": "rövid"}, {**body, "lang": "de"}, {**body, "targets": []}):
+        with pytest.raises(inbox.InboxError):
+            inbox.add({**bad, "id": bad["id"] if bad["id"] == "x" else "id-" + bad["lang"] + str(len(bad["targets"]))}, now)
+    assert inbox.next_due(now)["id"] == it["id"]
+    inbox.update(it["id"], tries=1, last_try=now.isoformat())
+    assert inbox.next_due(now) is None                                  # elhasalt: vár egy órát
+    assert inbox.next_due(now + inbox.RETRY_AFTER)["id"] == it["id"]
+    assert inbox.update(it["id"], tries=2)["status"] == "failed"        # két próba után feladja
+    assert inbox.next_due(now + timedelta(days=1)) is None
