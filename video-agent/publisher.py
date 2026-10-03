@@ -13,7 +13,8 @@ Mindkettőhöz kulcs kell a szolgáltatás környezeti változóiban:
   IG_USER_ID, IG_ACCESS_TOKEN, PUBLIC_BASE_URL, PUBLIC_LINK_SECRET
   LI_ACCESS_TOKEN, LI_AUTHOR_URN   (urn:li:person:… vagy urn:li:organization:…)
 
-LinkedInre van egy második út is, saját fejlesztői app nélkül: LI_WEBHOOK_URL.
+Mindkettőre van egy második út is, saját fejlesztői app nélkül: LI_WEBHOOK_URL
+és IG_WEBHOOK_URL (két külön webhook, hogy egy poszt ne menjen rossz helyre).
 Ilyenkor egy automatizáló (pl. Make.com) webhookjának küldjük el a posztot
 és a fájlok nyilvános címét, a kiposztolást pedig az ő jóváhagyott LinkedIn-
 appja végzi. Ez akkor kell, ha a fiókkal még nem lehet céges oldalt — és így
@@ -60,11 +61,21 @@ IG_POLL_SECONDS = 10
 IG_POLL_TRIES = 30
 
 
-def ig_ready() -> bool:
+def ig_direct() -> bool:
     return bool(_env("IG_USER_ID") and _env("IG_ACCESS_TOKEN") and _env("PUBLIC_BASE_URL"))
 
 
+def ig_webhook() -> bool:
+    return _env("IG_WEBHOOK_URL").startswith("https://") and bool(_env("PUBLIC_BASE_URL"))
+
+
+def ig_ready() -> bool:
+    return ig_direct() or ig_webhook()
+
+
 def ig_missing() -> list[str]:
+    if ig_ready():
+        return []
     need = {"IG_USER_ID": "Instagram fiókazonosító", "IG_ACCESS_TOKEN": "Instagram hozzáférési kulcs",
             "PUBLIC_BASE_URL": "a szolgáltatás nyilvános címe"}
     return [v for k, v in need.items() if not _env(k)]
@@ -179,17 +190,22 @@ def li_missing() -> list[str]:
 
 
 def li_publish_webhook(*, form: str, urls: list[str], caption: str, title: str) -> str:
-    """A poszt átadása az automatizálónak. A fájlokat ő tölti le a nyilvános,
+    return publish_webhook("LI_WEBHOOK_URL", "linkedin", form=form, urls=urls, caption=caption[:2900], title=title)
+
+
+def publish_webhook(var: str, platform: str, *, form: str, urls: list[str], caption: str, title: str) -> str:
+    """A poszt átadása az automatizálónak (platformonként külön webhook, hogy egy
+    rossz útvonal ne posztoljon a másik helyre). A fájlokat ő tölti le a nyilvános,
     aláírt címünkről. Egy kérés, nincs újrapróbálás: ha a webhook egyszer
     már elfogadta, egy második hívás dupla posztot jelentene."""
     if not urls:
         raise PublishError("nincs nyilvános cím; állítsd be a PUBLIC_BASE_URL-t")
-    body = {"platform": "linkedin", "form": form, "caption": caption[:2900], "title": (title or "AXIMBRA")[:200],
+    body = {"platform": platform, "form": form, "caption": caption, "title": (title or "AXIMBRA")[:200],
             "video_url": urls[0] if form == "video" else "",
             "image_urls": [] if form == "video" else urls[:20],
             "first_image_url": "" if form == "video" else urls[0]}
     try:
-        r = httpx.post(_env("LI_WEBHOOK_URL"), json=body, timeout=60)
+        r = httpx.post(_env(var), json=body, timeout=60)
     except httpx.HTTPError as e:
         raise PublishError(f"a Make nem érhető el ({type(e).__name__})") from e
     if r.status_code >= 400:
@@ -345,6 +361,10 @@ def publish(target: str, *, paths: list[str], urls: list[str], caption: str,
     if target == "instagram":
         if not urls:
             raise PublishError("nincs nyilvános cím; állítsd be a PUBLIC_BASE_URL-t")
+        if not ig_direct():
+            # Az Instagram legfeljebb 2200 karaktert enged a leírásban.
+            return publish_webhook("IG_WEBHOOK_URL", "instagram", form=form, urls=urls[:10],
+                                   caption=caption[:2200], title=title)
         if form == "video":
             return ig_publish(urls[0], caption)
         return ig_publish_carousel(urls, caption)

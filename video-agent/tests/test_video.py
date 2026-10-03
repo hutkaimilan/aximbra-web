@@ -374,6 +374,7 @@ def test_a_carousel_of_one_image_goes_out_as_a_plain_image(monkeypatch):
 
 def test_publish_picks_the_route_from_the_form(monkeypatch):
     seen = {}
+    monkeypatch.setattr(publisher, "ig_direct", lambda: True)   # a Graph API-út
     monkeypatch.setattr(publisher, "ig_publish", lambda u, c: seen.setdefault("video", u) or "v")
     monkeypatch.setattr(publisher, "ig_publish_carousel", lambda u, c: seen.setdefault("slides", u) or "k")
     publisher.publish("instagram", paths=["/a.mp4"], urls=["https://x/a.mp4"], caption="c", form="video")
@@ -734,3 +735,41 @@ def test_check_sends_craft_problems_to_one_revision(monkeypatch):
     out = videomaker.check(s, "brief", {"urls": [], "pages": [], "web": []}, 30, "hu")
     assert len(asked) == 1 and "első sora" in asked[0] and "PROVEN CRAFT RULES" in asked[0]
     assert out["post"] == "Ki veszi fel este?"
+
+
+def test_daily_mode_runs_once_after_the_hour_and_retries_a_failed_day(cfg):
+    # 2026-10-05 06:30 UTC = 08:30 Budapest (nyári idő, UTC+2)
+    now = datetime(2026, 10, 5, 6, 30, tzinfo=timezone.utc)
+    on = {**cfg.DEFAULTS, "auto": True, "briefs": ["a"], "daily_hour": 8}
+    assert cfg.due(now, on)
+    assert not cfg.due(now, {**on, "daily_hour": 9})                     # még nincs itt az idő
+    assert not cfg.due(now, {**on, "done_day": "2026-10-05"})            # ma már kiment
+    assert cfg.due(now, {**on, "done_day": "2026-10-04"})
+    failed = {**on, "last_run": (now - timedelta(hours=1)).isoformat()}
+    assert not cfg.due(now, failed)                                      # elhasalt: vár
+    assert cfg.due(now + timedelta(hours=cfg.RETRY_HOURS), failed)       # aztán újra próbál
+    assert cfg.clean({"daily_hour": 99})["daily_hour"] == 23
+    assert cfg.clean({"daily_hour": -5})["daily_hour"] == -1
+    cfg.mark_done(now)
+    assert cfg.load()["done_day"] == "2026-10-05"
+
+
+def test_instagram_via_its_own_webhook(monkeypatch):
+    for v in ("IG_USER_ID", "IG_ACCESS_TOKEN", "LI_ACCESS_TOKEN", "LI_AUTHOR_URN"):
+        monkeypatch.delenv(v, raising=False)
+    monkeypatch.setenv("PUBLIC_BASE_URL", "https://x.example")
+    monkeypatch.setenv("IG_WEBHOOK_URL", "https://hook.example/ig")
+    monkeypatch.setenv("LI_WEBHOOK_URL", "https://hook.example/li")
+    assert publisher.ig_ready() and publisher.ig_missing() == []
+    sent = []
+
+    class R:
+        status_code = 200
+        text = "Accepted"
+
+    monkeypatch.setattr(publisher.httpx, "post", lambda url, json, timeout: sent.append((url, json)) or R())
+    publisher.publish("instagram", paths=["/a.mp4"], urls=["https://x.example/p/1.mp4"],
+                      caption="x" * 3000, form="video")
+    url, body = sent[0]
+    assert url == "https://hook.example/ig" and body["platform"] == "instagram"   # nem a LinkedIn-útra megy
+    assert len(body["caption"]) == 2200 and body["video_url"].endswith(".mp4")

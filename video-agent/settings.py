@@ -10,15 +10,22 @@ import json
 import os
 import threading
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 PATH = os.environ.get("SETTINGS_PATH", "/data/settings.json")
 _lock = threading.Lock()
 
 MIN_HOURS, MAX_HOURS = 2, 48
+TZ = ZoneInfo("Europe/Budapest")
+# Napi módban ha egy kör elhasal (pl. a modell vagy a Make nem válaszol),
+# ennyi óra múlva újra próbálja, de aznap csak egy sikeres darab megy ki.
+RETRY_HOURS = 3
 
 DEFAULTS = {
     "auto": False,            # magától gyárt-e videót
     "every_hours": 8,         # ennyi óránként egyet
+    "daily_hour": -1,         # 0–23: naponta egyszer, ennyi órakor (budapesti idő); -1: ki
+    "done_day": "",           # napi módban: melyik napon ment ki már sikeresen
     "autopost": False,        # a kész videó megy-e ki magától
     "targets": [],            # hova: "instagram", "linkedin"
     "aspect": "9:16",
@@ -78,6 +85,11 @@ def clean(body: dict) -> dict:
             out["every_hours"] = max(MIN_HOURS, min(MAX_HOURS, int(body["every_hours"])))
         except (TypeError, ValueError):
             pass
+    if "daily_hour" in body:
+        try:
+            out["daily_hour"] = max(-1, min(23, int(body["daily_hour"])))
+        except (TypeError, ValueError):
+            pass
     if "seconds" in body:
         try:
             out["seconds"] = max(10, min(90, int(body["seconds"])))
@@ -107,6 +119,8 @@ def due(now: datetime, s: dict) -> bool:
     """Esedékes-e az automatikus gyártás."""
     if not s.get("auto") or not s.get("briefs"):
         return False
+    if int(s.get("daily_hour", -1)) >= 0:
+        return _due_daily(now, s)
     last = s.get("last_run") or ""
     if not last:
         return True
@@ -117,6 +131,30 @@ def due(now: datetime, s: dict) -> bool:
     if prev.tzinfo is None:
         prev = prev.replace(tzinfo=timezone.utc)
     return (now - prev).total_seconds() >= s["every_hours"] * 3600
+
+
+def _parse(ts: str) -> datetime | None:
+    try:
+        t = datetime.fromisoformat(ts)
+    except (TypeError, ValueError):
+        return None
+    return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+
+
+def _due_daily(now: datetime, s: dict) -> bool:
+    """Napi mód: a beállított óra után indul, naponta egy sikeres darab.
+    Ha a kör elhasal, RETRY_HOURS múlva újrapróbálja, de csak aznap."""
+    local = now.astimezone(TZ)
+    if s.get("done_day") == local.date().isoformat():
+        return False
+    if local.hour < int(s["daily_hour"]):
+        return False
+    prev = _parse(s.get("last_run") or "")
+    return prev is None or (now - prev).total_seconds() >= RETRY_HOURS * 3600
+
+
+def mark_done(now: datetime) -> dict:
+    return save({"done_day": now.astimezone(TZ).date().isoformat()})
 
 
 def take_brief(s: dict) -> tuple[str, int]:

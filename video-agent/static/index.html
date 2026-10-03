@@ -239,7 +239,8 @@ details summary{cursor:pointer}
     <label>Miről készüljenek? Soronként egy téma, sorban halad rajtuk</label>
     <textarea id="aBriefs" style="min-height:120px" placeholder="Álló videó az e-mail rendezőről logisztikai cégvezetőknek, komoly hangulat&#10;Körhinta 5 képben a telefonos AI-ról&#10;Egy kép arról, mit csinál egy AI agent egy webshopnál"></textarea>
     <div class="plan" style="grid-template-columns:1fr 1fr;margin-top:4px">
-      <div><label>Milyen gyakran</label><select id="aHours"></select></div>
+      <div><label>Naponta egyszer, ekkor</label><select id="aDaily"></select></div>
+      <div><label>Vagy ilyen gyakran</label><select id="aHours"></select></div>
       <div><label>Hossz</label><select id="aSec"><option value="15">15 mp</option><option value="30">30 mp</option><option value="45">45 mp</option><option value="60">60 mp</option></select></div>
       <div><label>Mit készítsen</label><select id="aForm"><option value="auto">Amit a téma kér</option><option value="video">Videó</option><option value="image">Egy kép</option><option value="carousel">Körhinta</option></select></div>
       <div><label>Képarány</label><select id="aAspect"><option value="9:16">Álló 9:16</option><option value="4:5">Álló 4:5</option><option value="1:1">Négyzet 1:1</option><option value="16:9">Fekvő 16:9</option></select></div>
@@ -389,6 +390,9 @@ function renderAuto() {
   const s = S.settings, p = S.publish;
   if (!$("#aHours").children.length)
     $("#aHours").innerHTML = [2, 4, 6, 8, 10, 12, 24].map((h) => `<option value="${h}">${h} óránként</option>`).join("");
+  if (!$("#aDaily").children.length)
+    $("#aDaily").innerHTML = `<option value="-1">nem, óránként</option>`
+      + Array.from({length: 17}, (_, i) => i + 6).map((h) => `<option value="${h}">${h}:00-kor</option>`).join("");
   $("#aTargets").innerHTML = Object.keys(TNAME).map((t) => {
     const on = p[t].ready, has = (s.targets || []).includes(t);
     return `<label class="tg ${on ? "" : "off"}"><input type="checkbox" data-tg="${t}" ${has ? "checked" : ""} ${on ? "" : "disabled"}>
@@ -397,22 +401,27 @@ function renderAuto() {
   if (aTouched) return;   // amit épp szerkesztesz, azt a frissítés ne írja felül
   $("#aBriefs").value = (s.briefs || []).join("\n");
   $("#aHours").value = s.every_hours; $("#aSec").value = s.seconds;
+  $("#aDaily").value = String(s.daily_hour ?? -1); $("#aHours").disabled = (s.daily_hour ?? -1) >= 0;
   $("#aAspect").value = s.aspect; $("#aVoice").value = s.voice ? (s.male ? "m" : "f") : "";
   $("#aForm").value = s.form || "auto";
   $("#aOn").checked = !!s.auto; $("#aPost").checked = !!s.autopost;
   const next = s.auto && s.last_run ? new Date(Date.parse(s.last_run) + s.every_hours * 3600e3) : null;
   $("#aInfo").textContent = !s.auto ? "Most ki van kapcsolva. Írd le a témákat, állítsd be a gyakoriságot, és kapcsold be."
+    : (s.daily_hour ?? -1) >= 0 ? `Bekapcsolva: naponta egy darab, ${s.daily_hour}:00 után (budapesti idő).`
+      + (s.done_day ? ` Utoljára kész: ${s.done_day}.` : "")
+      + (s.autopost ? " Magától posztol." : " Posztolni te posztolsz.")
     : `Bekapcsolva: ${s.every_hours} óránként egy darab.` + (next ? ` Következő: ${next.toLocaleString("hu-HU", {hour12: false}).slice(0, 16)}.` : " Az első hamarosan indul.")
       + (s.autopost ? ` Magától posztol, naponta legfeljebb ${s.max_posts_per_day}.` : " Posztolni te posztolsz.");
 }
 document.addEventListener("input", (e) => {
-  if (e.target.closest("#aBriefs, #aHours, #aSec, #aAspect, #aForm, #aVoice, #aOn, #aPost")) aTouched = true;
+  if (e.target.closest("#aBriefs, #aDaily, #aHours, #aSec, #aAspect, #aForm, #aVoice, #aOn, #aPost")) aTouched = true;
+  if (e.target.id === "aDaily") $("#aHours").disabled = +e.target.value >= 0;
 });
 $("#aSave").onclick = async () => {
   const voice = $("#aVoice").value;
   try {
     await api("/api/settings", {
-      briefs: $("#aBriefs").value, every_hours: +$("#aHours").value, seconds: +$("#aSec").value,
+      briefs: $("#aBriefs").value, every_hours: +$("#aHours").value, daily_hour: +$("#aDaily").value, seconds: +$("#aSec").value,
       aspect: $("#aAspect").value, form: $("#aForm").value, voice: !!voice, male: voice === "m",
       auto: $("#aOn").checked, autopost: $("#aPost").checked,
       targets: [...document.querySelectorAll("[data-tg]:checked")].map((x) => x.dataset.tg),

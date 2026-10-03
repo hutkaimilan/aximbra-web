@@ -227,6 +227,7 @@ class SettingsIn(BaseModel):
     auto: bool | None = None
     autopost: bool | None = None
     every_hours: int | None = None
+    daily_hour: int | None = None
     seconds: int | None = None
     max_posts_per_day: int | None = None
     aspect: str | None = None
@@ -285,6 +286,7 @@ def _auto_round(say) -> dict:
     meta = videomaker.make(brief, s["seconds"], s["lang"], s["aspect"], s["voice"], s["male"],
                            research=False, form=s.get("form") or "auto", say=say)
     if not s.get("autopost"):
+        settings_store.mark_done(now)
         say("Kész, de kiposztolni te posztolod ki.")
         return meta
     targets = [t for t in (s.get("targets") or []) if t in publisher.enabled_targets()]
@@ -294,8 +296,12 @@ def _auto_round(say) -> dict:
     if settings_store.post_budget(now, s) <= 0:
         say("Magától posztolás: a mai keret betelt.")
         return meta
-    _post_video(meta["id"], targets, meta.get("post", ""), say)
+    out = _post_video(meta["id"], targets, meta.get("post", ""), say)
     settings_store.count_post(now, settings_store.load())
+    # Ha legalább egy helyre kiment, a napi darab megvan; ha mindenhol hibázott,
+    # napi módban pár óra múlva újra próbálja.
+    if any(not str(v).startswith("hiba") for v in (out or {}).values()):
+        settings_store.mark_done(now)
     return meta
 
 
