@@ -14,7 +14,7 @@ import { FirstStep } from "@/components/FirstStep";
 import { Pricing } from "@/components/Pricing";
 import { CaseStudy } from "@/components/CaseStudy";
 import { Contact, Footer } from "@/components/Contact";
-import { References } from "@/components/References";
+import { WebShowcase } from "@/components/WebShowcase";
 import { Founder } from "@/components/Founder";
 import { Payback } from "@/components/Payback";
 import { LanguageProvider, useLang, PREFIXED_LANGS } from "@/i18n";
@@ -105,7 +105,7 @@ function Site() {
         <Proof scrollTo={scrollTo} />
         <Agents />
         <CaseStudy />
-        <References />
+        <div className="container"><WebShowcase /></div>
         <Objections />
         <Payback />
         <Process />

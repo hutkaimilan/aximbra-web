@@ -22,6 +22,10 @@ export function useVisitBeacon(lang) {
   const sent = useRef("");
 
   useEffect(() => {
+    // Beágyazott előnézet (a /weboldal referenciakártyái) nem látogató.
+    let embedded = false;
+    try { embedded = window.self !== window.top; } catch { embedded = true; }
+    if (embedded) return;
     if (sent.current === pathname) return;
     sent.current = pathname;
 

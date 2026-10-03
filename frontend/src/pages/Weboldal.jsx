@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import "./legal.css";
 import "./weboldal.css";
 import { PricingPackages } from "../components/Pricing";
+import { WebShowcase } from "../components/WebShowcase";
 import { useDocumentMeta } from "../seo";
 import { useLang, pathFor } from "../i18n";
 
@@ -35,6 +36,8 @@ export default function Weboldal() {
         <p className="legal-lead">{w.lead}</p>
 
         <PricingPackages />
+
+        <WebShowcase />
 
         <section className="web-block">
           <h2>{w.includedTitle}</h2>
