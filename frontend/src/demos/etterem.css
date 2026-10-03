@@ -52,9 +52,17 @@
 .fire-course p { color: var(--mute); margin: 0; line-height: 1.6; }
 .fire-menu-foot { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; color: var(--mute); }
 .fire-menu-foot b { color: var(--gold); font-weight: 500; }
+.fire-rail { cursor: grab; user-select: none; }
+.fire-rail.drag { cursor: grabbing; scroll-snap-type: none; }
+.fire-nav { display: flex; align-items: center; gap: 14px; }
+.fire-nav > button { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--ink);
+  display: grid; place-items: center; cursor: pointer; transition: border-color .25s, color .25s, opacity .25s; }
+.fire-nav > button:hover:not([disabled]) { border-color: var(--ember); color: var(--ember); }
+.fire-nav > button[disabled] { opacity: .3; cursor: default; }
 .fire-dots { display: flex; gap: 6px; }
-.fire-dots i { width: 26px; height: 2px; background: rgba(243,233,220,.15); transition: background .4s; }
-.fire-dots i.on { background: var(--ember); }
+.fire-dots button { width: 26px; height: 14px; padding: 0; border: none; cursor: pointer;
+  background: linear-gradient(rgba(243,233,220,.15), rgba(243,233,220,.15)) center / 100% 2px no-repeat; transition: background .4s; }
+.fire-dots button.on { background: linear-gradient(var(--ember), var(--ember)) center / 100% 2px no-repeat; }
 
 /* idézet */
 .fire-quote { padding: clamp(70px, 10vw, 120px) 0; text-align: center; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);

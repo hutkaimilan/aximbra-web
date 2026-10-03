@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Minus, Plus, Flame } from "lucide-react";
+import { Minus, Plus, Flame, ChevronLeft, ChevronRight } from "lucide-react";
 import "./etterem.css";
 import { DemoBar } from "./DemoBar";
 import { Rise, reduceMotion, useDemo, useFonts } from "./kit";
@@ -134,11 +134,51 @@ export default function Etterem() {
   useFonts("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@300;400;500;600&display=swap");
   const rail = useRef(null);
   const [act, setAct] = useState(0);
+  const step = () => (rail.current?.firstElementChild?.getBoundingClientRect().width || 300) + 18;
   const onRail = () => {
     const el = rail.current; if (!el) return;
-    const card = el.firstElementChild?.getBoundingClientRect().width || 1;
-    setAct(Math.min(d.courses.length - 1, Math.round(el.scrollLeft / (card + 18))));
+    const max = el.scrollWidth - el.clientWidth;
+    // A sor végén az utolsó fogás az aktív, akkor is, ha nem ér a bal szélre.
+    const i = el.scrollLeft >= max - 4 ? d.courses.length - 1 : Math.round(el.scrollLeft / step());
+    setAct(Math.min(d.courses.length - 1, i));
   };
+  const go = (i) => {
+    const k = Math.max(0, Math.min(d.courses.length - 1, i));
+    rail.current?.scrollTo({ left: k * step(), behavior: "smooth" });
+    setAct(k);
+  };
+  // Egérrel húzható (asztali gépen nincs érintéses lapozás), görgővel is lapoz.
+  const drag = useRef(null);
+  const onDown = (e) => {
+    if (e.pointerType !== "mouse") return;
+    drag.current = { x: e.clientX, left: rail.current.scrollLeft, moved: false };
+    rail.current.classList.add("drag");
+  };
+  const onMove = (e) => {
+    const g = drag.current; if (!g) return;
+    const dx = e.clientX - g.x;
+    if (Math.abs(dx) > 3) g.moved = true;
+    rail.current.scrollLeft = g.left - dx;
+  };
+  const onUp = () => {
+    const g = drag.current; if (!g) return;
+    drag.current = null;
+    rail.current.classList.remove("drag");
+    go(Math.round(rail.current.scrollLeft / step()));
+  };
+  useEffect(() => {
+    const el = rail.current; if (!el) return;
+    const wheel = (e) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      const max = el.scrollWidth - el.clientWidth;
+      // A sor szélén elengedjük, hogy az oldal tovább görögjön.
+      if ((e.deltaY > 0 && el.scrollLeft >= max - 2) || (e.deltaY < 0 && el.scrollLeft <= 2)) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener("wheel", wheel, { passive: false });
+    return () => el.removeEventListener("wheel", wheel);
+  }, []);
 
   return (
     <div className="fire-page demo-page" data-testid="demo-etterem">
@@ -167,7 +207,9 @@ export default function Etterem() {
             <p className="fire-lead">{d.menuSub}</p>
           </Rise>
         </div>
-        <div className="fire-rail" ref={rail} onScroll={onRail} tabIndex={0} aria-label={d.menuTitle}>
+        <div className="fire-rail" ref={rail} onScroll={onRail} tabIndex={0} aria-label={d.menuTitle}
+          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}
+          onKeyDown={(e) => { if (e.key === "ArrowRight") { e.preventDefault(); go(act + 1); } if (e.key === "ArrowLeft") { e.preventDefault(); go(act - 1); } }}>
           {d.courses.map((c, i) => (
             <article key={c.n} className={`fire-course ${i === act ? "on" : ""}`}>
               <span className="fire-n">{c.n}</span>
@@ -178,7 +220,12 @@ export default function Etterem() {
           ))}
         </div>
         <div className="fire-wrap fire-menu-foot">
-          <div className="fire-dots" aria-hidden="true">{d.courses.map((c, i) => <i key={c.n} className={i <= act ? "on" : ""} />)}</div>
+          <div className="fire-nav">
+            <button type="button" onClick={() => go(act - 1)} disabled={act === 0} aria-label="‹"><ChevronLeft size={20} /></button>
+            <div className="fire-dots">{d.courses.map((c, i) => (
+              <button key={c.n} type="button" className={i <= act ? "on" : ""} onClick={() => go(i)} aria-label={c.t} />))}</div>
+            <button type="button" onClick={() => go(act + 1)} disabled={act === d.courses.length - 1} aria-label="›"><ChevronRight size={20} /></button>
+          </div>
           <div><b>{d.price}</b> · {d.pairing}</div>
         </div>
       </section>
