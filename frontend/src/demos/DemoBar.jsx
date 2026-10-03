@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useLang, LANGS } from "../i18n";
 
@@ -12,10 +13,22 @@ import { useLang, LANGS } from "../i18n";
 export const DemoBar = ({ prefix }) => {
   const { t, lang, setLang } = useLang();
   const d = t.demos;
+  const ref = useRef(null);
+  // A sáv magassága (a figyelmeztetés telefonon több sorba törik) CSS-változóba
+  // kerül, hogy az oldal teteje sose csússzon alá.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const set = () => document.documentElement.style.setProperty("--demo-top", `${Math.ceil(el.getBoundingClientRect().height)}px`);
+    set();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(set) : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+  }, []);
   // Notice and bar share one fixed wrapper, so the bar sits below the notice
   // whatever height the notice text wraps to — no measured offset to drift.
   return (
-    <div className="demo-top">
+    <div className="demo-top" ref={ref}>
       <div className="demo-notice" role="note" data-testid="demo-notice">
         <strong>{d.noticeTag}</strong>
         <span>{d.noticeText}</span>

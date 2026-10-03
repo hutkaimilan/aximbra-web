@@ -19,12 +19,12 @@ import { Founder } from "@/components/Founder";
 import { Payback } from "@/components/Payback";
 import { LanguageProvider, useLang, PREFIXED_LANGS } from "@/i18n";
 import { useDocumentMeta, organizationJsonLd } from "@/seo";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import NotFound from "./pages/NotFound";
 import { useVisitBeacon } from "./visits";
 import Etterem from "@/demos/Etterem";
-import Szalon from "@/demos/Szalon";
-import Rendelo from "@/demos/Rendelo";
+import Fogaszat from "@/demos/Fogaszat";
+import Webshop from "@/demos/Webshop";
 import Ugyvedi from "@/demos/Ugyvedi";
 import EmailAgent from "@/demos/EmailAgent";
 import Impresszum from "@/pages/Impresszum";
@@ -126,8 +126,11 @@ const PAGES = [
   { path: "", element: <Site /> },
   { path: "agent/:slug", element: <Site /> },
   { path: "demo/etterem", element: <Etterem /> },
-  { path: "demo/szalon", element: <Szalon /> },
-  { path: "demo/rendelo", element: <Rendelo /> },
+  { path: "demo/fogaszat", element: <Fogaszat /> },
+  { path: "demo/webshop", element: <Webshop /> },
+  // A régi demók címei: a már kiküldött linkek ne vezessenek 404-re.
+  { path: "demo/rendelo", element: <Navigate to="../fogaszat" relative="path" replace /> },
+  { path: "demo/szalon", element: <Navigate to="../webshop" relative="path" replace /> },
   { path: "demo/ugyvedi", element: <Ugyvedi /> },
   { path: "demo/email-agent", element: <EmailAgent /> },
   { path: "weboldal", element: <Weboldal /> },

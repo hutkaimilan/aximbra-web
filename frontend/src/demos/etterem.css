@@ -1,0 +1,113 @@
+/* ================================================== PARÁZS · tűzkonyha */
+.fire-page { --bg: #0D0B09; --bg2: #16120E; --ink: #F3E9DC; --mute: #A89A88; --ember: #FF6B2C; --gold: #D9A55B; --line: rgba(217,165,91,.18);
+  background: var(--bg); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; font-weight: 300; }
+.fire-bar { background: rgba(13,11,9,.6); border-bottom: 1px solid var(--line); }
+.fire-back { color: var(--ink); } .fire-back:hover { color: var(--ember); }
+.fire-lang { background: #1d1813; color: var(--ink); border: 1px solid var(--line); }
+.fire-wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+.fire-sec { padding: clamp(80px, 11vw, 140px) 0; }
+.fire-tag { font-size: 12px; letter-spacing: .3em; text-transform: uppercase; color: var(--ember); }
+.fire-h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 600; font-size: clamp(38px, 5.4vw, 66px); line-height: 1.02; margin: 14px 0 14px; }
+.fire-lead { color: var(--mute); font-size: 17px; line-height: 1.75; max-width: 54ch; }
+.fire-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 30px; font: 500 14px 'Inter', sans-serif;
+  letter-spacing: .12em; text-transform: uppercase; text-decoration: none; color: var(--ink); border: 1px solid rgba(243,233,220,.4);
+  background: transparent; cursor: pointer; transition: background .3s, color .3s, border-color .3s, box-shadow .3s; }
+.fire-btn:hover { border-color: var(--ember); color: var(--ember); }
+.fire-btn.solid { background: var(--ember); border-color: var(--ember); color: #160b05; box-shadow: 0 0 40px -6px rgba(255,107,44,.6); }
+.fire-btn.solid:hover { background: #ff8550; color: #160b05; box-shadow: 0 0 60px -4px rgba(255,107,44,.75); }
+.fire-btn.wide { width: 100%; margin-top: 26px; }
+
+/* hős */
+.fire-hero { position: relative; min-height: 100vh; display: flex; align-items: flex-end; overflow: hidden;
+  background: radial-gradient(80% 60% at 50% 120%, #4a1a08 0%, #1a0d07 45%, var(--bg) 75%); }
+.fire-glow { position: absolute; left: 50%; bottom: -30%; width: 120vmax; height: 70vmax; transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(255,107,44,.38), rgba(255,107,44,.08) 60%, transparent);
+  animation: fireFlicker 3.2s ease-in-out infinite alternate; }
+@keyframes fireFlicker { 0% { opacity: .75; transform: translateX(-50%) scale(1); } 40% { opacity: 1; } 70% { opacity: .82; transform: translateX(-50%) scale(1.04); } 100% { opacity: .95; } }
+.fire-embers { position: absolute; inset: 0; width: 100%; height: 100%; }
+.fire-hero-in { position: relative; z-index: 2; width: 100%; max-width: 1180px; margin: 0 auto; padding: calc(var(--demo-top, 100px) + 60px) 28px clamp(90px, 13vh, 140px); }
+.fire-logo { font-family: 'Cormorant Garamond', serif; font-weight: 700; letter-spacing: .5em; font-size: 18px; color: var(--gold); margin-bottom: 34px; }
+.fire-eyebrow { font-size: 12px; letter-spacing: .32em; text-transform: uppercase; color: var(--ember); }
+.fire-title { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: clamp(52px, 9.5vw, 132px); line-height: .92; margin: 18px 0 24px;
+  max-width: 11ch; text-wrap: balance; background: linear-gradient(180deg, #fff3e3 30%, #ffb27f 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.fire-sub { max-width: 52ch; color: #d4c4b0; font-size: 18px; line-height: 1.75; }
+.fire-cta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 34px; }
+.fire-scroll { position: absolute; z-index: 2; left: 50%; bottom: 26px; width: 1px; height: 54px; background: rgba(243,233,220,.2); overflow: hidden; }
+.fire-scroll span { position: absolute; left: 0; top: -20px; width: 1px; height: 20px; background: var(--ember); animation: fireDrop 2s ease-in-out infinite; }
+@keyframes fireDrop { to { top: 60px; } }
+
+/* menü */
+.fire-rail { display: flex; gap: 18px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 34px max(28px, calc((100vw - 1180px) / 2 + 28px)) 30px;
+  scroll-padding-inline: max(28px, calc((100vw - 1180px) / 2 + 28px)); scrollbar-width: none; }
+.fire-rail::-webkit-scrollbar { display: none; }
+.fire-rail:focus-visible { outline: 2px solid var(--ember); outline-offset: -2px; }
+.fire-course { flex: 0 0 min(320px, 78vw); scroll-snap-align: start; background: linear-gradient(180deg, var(--bg2), #100d0a);
+  border: 1px solid var(--line); padding: 30px 28px 34px; position: relative; transition: border-color .5s, transform .5s; }
+.fire-course.on { border-color: rgba(255,107,44,.55); transform: translateY(-6px); }
+.fire-n { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 22px; color: var(--gold); }
+.fire-plate { width: 150px; height: 150px; display: block; margin: 18px auto 22px; transition: transform 1.2s cubic-bezier(.16,1,.3,1);
+  filter: drop-shadow(0 18px 24px rgba(0,0,0,.6)); }
+.fire-course.on .fire-plate, .fire-course:hover .fire-plate { transform: rotate(-24deg) scale(1.05); }
+.fire-course h3 { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 28px; margin: 0 0 8px; line-height: 1.1; }
+.fire-course p { color: var(--mute); margin: 0; line-height: 1.6; }
+.fire-menu-foot { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; color: var(--mute); }
+.fire-menu-foot b { color: var(--gold); font-weight: 500; }
+.fire-dots { display: flex; gap: 6px; }
+.fire-dots i { width: 26px; height: 2px; background: rgba(243,233,220,.15); transition: background .4s; }
+.fire-dots i.on { background: var(--ember); }
+
+/* idézet */
+.fire-quote { padding: clamp(70px, 10vw, 120px) 0; text-align: center; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  background: radial-gradient(50% 120% at 50% 50%, rgba(255,107,44,.08), transparent); }
+.fire-quote blockquote { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: clamp(36px, 6vw, 76px); line-height: 1.05; margin: 0; }
+.fire-quote cite { display: block; margin-top: 20px; font-style: normal; font-size: 13px; letter-spacing: .3em; text-transform: uppercase; color: var(--gold); }
+
+/* számok */
+.fire-feats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+.fire-k { font-family: 'Cormorant Garamond', serif; font-size: clamp(70px, 9vw, 110px); line-height: .9; color: transparent;
+  -webkit-text-stroke: 1px var(--gold); }
+.fire-feat h3 { font-weight: 500; font-size: 15px; letter-spacing: .2em; text-transform: uppercase; color: var(--ember); margin: 14px 0 10px; }
+.fire-feat p { color: var(--mute); line-height: 1.7; margin: 0; }
+
+/* foglalás */
+.fire-booking { background: linear-gradient(180deg, var(--bg), #120c08); border-top: 1px solid var(--line); }
+.fire-book-grid { display: grid; grid-template-columns: 1fr 1.05fr; gap: 64px; align-items: start; }
+.fire-dl { display: grid; gap: 14px; margin-top: 30px; }
+.fire-dl dt { font-size: 11px; letter-spacing: .26em; text-transform: uppercase; color: var(--gold); }
+.fire-dl dd { margin: 4px 0 0; color: var(--ink); }
+.fire-book, .fire-done { background: var(--bg2); border: 1px solid var(--line); padding: 30px; }
+.fire-lbl { display: block; font-size: 11px; letter-spacing: .26em; text-transform: uppercase; color: var(--gold); margin: 22px 0 12px; }
+.fire-book-row { display: flex; justify-content: space-between; align-items: center; }
+.fire-book-row .fire-lbl { margin: 0; }
+.fire-step { display: flex; align-items: center; gap: 14px; }
+.fire-step button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; display: grid; place-items: center; }
+.fire-step button:hover { border-color: var(--ember); color: var(--ember); }
+.fire-step b { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600; min-width: 20px; text-align: center; }
+.fire-days { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.fire-days button, .fire-slots button { background: #1d1813; border: 1px solid transparent; color: var(--ink); cursor: pointer; padding: 10px 4px;
+  display: grid; justify-items: center; gap: 2px; font: inherit; transition: border-color .25s, background .25s; }
+.fire-days small, .fire-slots small { font-size: 11px; color: var(--mute); }
+.fire-days small { text-transform: capitalize; }
+.fire-days b { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 600; }
+.fire-days button.on, .fire-slots button.on { border-color: var(--ember); background: rgba(255,107,44,.1); }
+.fire-days button:hover, .fire-slots button:not([disabled]):hover { border-color: rgba(255,107,44,.5); }
+.fire-slots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.fire-slots b { font-weight: 500; font-size: 15px; }
+.fire-slots button[disabled] { opacity: .35; text-decoration: line-through; }
+.fire-done { text-align: center; display: grid; justify-items: center; gap: 6px; color: var(--ember); animation: dMsg .6s cubic-bezier(.16,1,.3,1) both; }
+.fire-done-t { font-family: 'Cormorant Garamond', serif; font-size: 28px; line-height: 1.2; color: var(--ink); margin: 10px 0 4px; }
+.fire-done-n { color: var(--mute); font-size: 14px; line-height: 1.6; max-width: 46ch; margin: 0 0 18px; }
+.fire-footer { padding: 34px 28px; text-align: center; font-size: 13px; color: var(--mute); border-top: 1px solid var(--line); }
+.fire-page a:focus-visible, .fire-page button:focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; }
+
+@media (max-width: 900px) {
+  .fire-book-grid, .fire-feats { grid-template-columns: 1fr; gap: 40px; }
+}
+@media (max-width: 600px) {
+  .fire-wrap { padding: 0 18px; }
+  .fire-hero-in { padding: calc(var(--demo-top, 100px) + 40px) 18px 100px; }
+  .fire-days { grid-template-columns: repeat(3, 1fr); }
+  .fire-slots { grid-template-columns: repeat(3, 1fr); }
+  .fire-book, .fire-done { padding: 22px 18px; }
+  .fire-rail { padding-left: 18px; padding-right: 18px; }
+}

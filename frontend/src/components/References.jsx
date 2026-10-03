@@ -3,10 +3,10 @@ import { Reveal } from "./Reveal";
 import { useLang } from "../i18n";
 
 const META = [
-  { to: "/demo/etterem", accent: "#B87333" },
-  { to: "/demo/szalon", accent: "#2C4A3B" },
-  { to: "/demo/rendelo", accent: "#2B6CB0" },
-  { to: "/demo/ugyvedi", accent: "#C9A227" },
+  { to: "/demo/fogaszat", accent: "#5FC4B0" },
+  { to: "/demo/etterem", accent: "#FF6B2C" },
+  { to: "/demo/ugyvedi", accent: "#C9A063" },
+  { to: "/demo/webshop", accent: "#C8643B" },
 ];
 
 export const References = () => {
