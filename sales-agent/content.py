@@ -128,6 +128,8 @@ Szabályok (marketingkutatás alapján):
 2. Egy üzenet, egy agent. Az AXIMBRA neve az elején jelenjen meg.
 3. Semmilyen számot, ügyfelet, eredményt, százalékot ne találj ki. Ami fent nincs, az nincs.
 4. SOHA ne nevezz meg céget, személyt, domaint vagy várost a fenti adatokból — csak az iparágat és a helyzetet.
+   Egyedi, egy céghez köthető részletet (postafiók-nevek, termékek, rendszerek neve) se vegyél át: általánosíts.
+   Ne írd bele, hogy "az értékesítő agent mutatja be" — a téma a nézőnek szól, nem rólad.
 5. Váltogasd a formát: video, image vagy carousel. Egy magyarázó, lépésekből álló téma inkább carousel.
 6. "hu": magyar nyelven, magyar kkv-vezetőknek, LinkedInre: szakmai, nyugodt, a végén kérdés az olvasónak.
    "en": angolul, nemzetközi cégtulajdonosoknak és üzemeltetési vezetőknek, Instagramra: vizuálisabb, rövidebb, erős első kép.
