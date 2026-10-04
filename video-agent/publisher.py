@@ -203,7 +203,10 @@ def publish_webhook(var: str, platform: str, *, form: str, urls: list[str], capt
     body = {"platform": platform, "form": form, "caption": caption, "title": (title or "AXIMBRA")[:200],
             "video_url": urls[0] if form == "video" else "",
             "image_urls": [] if form == "video" else urls[:20],
-            "first_image_url": "" if form == "video" else urls[0]}
+            "first_image_url": "" if form == "video" else urls[0],
+            # Az Instagram körhinta-modulja ilyen elemeket vár: így a Make-ben egy az
+            # egyben rá lehet húzni a "Files" mezőre, nem kell átalakítani.
+            "ig_files": [] if form == "video" else [{"media_type": "IMAGE", "image_url": u} for u in urls[:10]]}
     try:
         r = httpx.post(_env(var), json=body, timeout=60)
     except httpx.HTTPError as e:
