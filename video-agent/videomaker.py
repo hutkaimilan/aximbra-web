@@ -568,10 +568,25 @@ def _tts_gemini(text: str, lang: str) -> bytes | None:
     return _pcm_to_wav(base64.b64decode(data))
 
 
+# Nyelvenkénti alapértelmezett hang (a meglévő videók hangjával egyezik):
+# magyar: Laura, angol: Bella. Környezeti változóval felülírható.
+ELEVEN_VOICES = {"hu": "FGY2WhTYpPnrIDTdsKH5", "en": "hpp4J3VqNfWAUOO0d1Us"}
+
+
+def elevenlabs_voice(lang: str, male: bool = False) -> str:
+    """Sorrend: férfihang (ha kérték) → ELEVENLABS_VOICE_ID_<NYELV> → nyelvi alapértelmezés → ELEVENLABS_VOICE_ID."""
+    env = os.environ.get
+    if male and (env("ELEVENLABS_VOICE_ID_MALE") or "").strip():
+        return env("ELEVENLABS_VOICE_ID_MALE").strip()
+    return ((env(f"ELEVENLABS_VOICE_ID_{lang.upper()}") or "").strip()
+            or ELEVEN_VOICES.get(lang, "")
+            or (env("ELEVENLABS_VOICE_ID") or "").strip())
+
+
 def _tts_elevenlabs(text: str, lang: str, male: bool) -> bytes | None:
     """ElevenLabs, ha van kulcs és hang. A modell a magyart is ismeri."""
     key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
-    voice = (os.environ.get("ELEVENLABS_VOICE_ID_MALE") if male else None) or os.environ.get("ELEVENLABS_VOICE_ID", "")
+    voice = elevenlabs_voice(lang, male)
     if not key or not voice.strip():
         return None
     model = os.environ.get("ELEVENLABS_MODEL", "eleven_flash_v2_5")

@@ -793,3 +793,14 @@ def test_inbox_dedupes_validates_and_retries(tmp_path, monkeypatch):
     assert inbox.next_due(now + inbox.RETRY_AFTER)["id"] == it["id"]
     assert inbox.update(it["id"], tries=2)["status"] == "failed"        # két próba után feladja
     assert inbox.next_due(now + timedelta(days=1)) is None
+
+
+def test_elevenlabs_voice_per_language(monkeypatch):
+    for v in ("ELEVENLABS_VOICE_ID", "ELEVENLABS_VOICE_ID_HU", "ELEVENLABS_VOICE_ID_EN", "ELEVENLABS_VOICE_ID_MALE"):
+        monkeypatch.delenv(v, raising=False)
+    assert videomaker.elevenlabs_voice("hu") == "FGY2WhTYpPnrIDTdsKH5"      # Laura
+    assert videomaker.elevenlabs_voice("en") == "hpp4J3VqNfWAUOO0d1Us"      # Bella
+    monkeypatch.setenv("ELEVENLABS_VOICE_ID_EN", "x1")
+    monkeypatch.setenv("ELEVENLABS_VOICE_ID_MALE", "m1")
+    assert videomaker.elevenlabs_voice("en") == "x1"
+    assert videomaker.elevenlabs_voice("hu", male=True) == "m1"

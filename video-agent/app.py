@@ -191,7 +191,7 @@ def state():
             "ai": llm.available(),
             "ai_engine": llm.engine_name(),
             "web_search": websearch.tavily_on(),
-            "elevenlabs": bool(os.environ.get("ELEVENLABS_API_KEY") and os.environ.get("ELEVENLABS_VOICE_ID")),
+            "elevenlabs": bool(os.environ.get("ELEVENLABS_API_KEY")),
             "imagegen": imagegen.available(),
             "imagegen_engine": imagegen.engine(),
         },
