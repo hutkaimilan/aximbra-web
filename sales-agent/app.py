@@ -602,6 +602,23 @@ def _scheduler():
         time.sleep(30)
 
 
+@app.post("/api/content/run")
+def content_run(x_agent_token: str = Header(default="")):
+    """A napi két téma legyártása és átadása a videós agentnek — a Make ütemezője hívja.
+    Ugyanazon a napon újrahívva nem ír új témát és nem küld duplán (content.run)."""
+    want = os.environ.get("AGENT_TOKEN", "")
+    if len(want) < 24:
+        raise HTTPException(503, "Nincs beállítva AGENT_TOKEN.")
+    if not secrets.compare_digest(x_agent_token.encode(), want.encode()):
+        time.sleep(1)
+        raise HTTPException(401, "Hibás kulcs.")
+    try:
+        sent = content.run(store, datetime.now(TZ))
+    except Exception as e:  # noqa: BLE001 — a Make lássa a hibát, és újrapróbálhassa
+        raise HTTPException(502, f"tartalomkör hiba: {e}")
+    return {"ok": True, "sent": sent}
+
+
 def _content_round(now: datetime) -> None:
     """Napi két téma a videós agentnek. A hibát naplózzuk; RETRY_MIN perc múlva újra."""
     try:

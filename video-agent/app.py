@@ -347,8 +347,14 @@ def _inbox_round(it: dict):
         s = settings_store.load()
         say(f"Beérkezett téma ({it['source'] or 'agent'}, {it['lang']}): {it['brief'][:90]}")
         try:
-            meta = videomaker.make(it["brief"], s["seconds"], it["lang"], s["aspect"], s["voice"], s["male"],
-                                   research=False, form=it.get("form") or "auto", say=say)
+            # Az Instagram képnél és körhintánál csak 4:5 és 1.91:1 közötti arányt fogad el;
+            # a Reel maradhat álló 9:16.
+            form = it.get("form") or "auto"
+            aspect = s["aspect"]
+            if "instagram" in it["targets"] and form != "video":
+                aspect = "4:5"
+            meta = videomaker.make(it["brief"], s["seconds"], it["lang"], aspect, s["voice"], s["male"],
+                                   research=False, form=form, say=say)
         except stop.Cancelled:
             raise
         except Exception as e:  # noqa: BLE001
