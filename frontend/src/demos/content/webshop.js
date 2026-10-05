@@ -1,6 +1,7 @@
 // ŐRLŐ kávépörkölő — kitalált webshop.
 const webshop = {
   hu: {
+    heroAgent: "AI-ügyfélszolgálat kipróbálása",
     liveStep1: "1. Adj le egy próbarendelést a saját e-mail-címedre", liveOrderBtn: "Próbarendelés", liveOrdering: "Rendelés…",
     liveOrdered: "Kész: a(z) {n} rendelés a(z) {e} címre ment. Most kérdezd meg az agentet, hol tart!",
     liveStep2: "2. Írj az ügyfélszolgálatnak", liveAsk: "Szia! Hol tart a(z) {n} rendelésem?", liveStranger: "Próbáld ki idegen címmel is", liveOther: "Mintalevelek",
@@ -45,6 +46,7 @@ const webshop = {
     address: "1095 Budapest, Képzelt rakpart 9.", email: "hello@orlo-demo.hu",
   },
   en: {
+    heroAgent: "Try the AI customer service",
     liveStep1: "1. Place a test order to your own email address", liveOrderBtn: "Place test order", liveOrdering: "Ordering…",
     liveOrdered: "Done: order {n} was placed for {e}. Now ask the agent where it is!",
     liveStep2: "2. Write to customer service", liveAsk: "Hi! Where is my order {n}?", liveStranger: "Try it from another address too", liveOther: "Sample messages",
@@ -89,6 +91,7 @@ const webshop = {
     address: "Imaginary Quay 9, 1095 Budapest", email: "hello@orlo-demo.hu",
   },
   de: {
+    heroAgent: "KI-Kundenservice testen",
     liveStep1: "1. Geben Sie eine Testbestellung an Ihre eigene E-Mail-Adresse auf", liveOrderBtn: "Testbestellung aufgeben", liveOrdering: "Bestellung läuft…",
     liveOrdered: "Fertig: Bestellung {n} für {e} wurde aufgegeben. Fragen Sie den Agenten jetzt, wo sie ist!",
     liveStep2: "2. Schreiben Sie dem Kundenservice", liveAsk: "Guten Tag, wo ist meine Bestellung {n}?", liveStranger: "Auch mit einer anderen Adresse testen", liveOther: "Beispielnachrichten",

@@ -218,6 +218,7 @@ export default function Webshop() {
             <div className="shop-cta">
               <a href="#kavek" className="shop-btn solid">{d.cta}</a>
               <a href="#kovetes" className="shop-btn">{d.ghost}</a>
+              <a href="#ugyfelszolgalat" className="shop-btn shop-btn-ai">✦ {d.heroAgent}</a>
             </div>
           </div>
           <Cup />

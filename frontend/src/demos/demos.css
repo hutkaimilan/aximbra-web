@@ -66,3 +66,4 @@
 .dnt-consent input, .fire-consent input, .vrt-consent input, .shop-consent input { flex: none; width: 16px; height: 16px; margin-top: 2px; }
 .dnt-sent, .fire-sent, .vrt-sent, .shop-sent { padding: 22px; border-radius: 14px; line-height: 1.6; }
 button[disabled] { opacity: .5; cursor: not-allowed; }
+.demo-page section[id] { scroll-margin-top: calc(var(--demo-top, 100px) + 12px); }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { Reveal } from "./Reveal";
 import { LiveDemo } from "./LiveDemo";
 import EmailAgent from "@/demos/EmailAgent";
@@ -8,7 +8,7 @@ import { AgentViz } from "./AgentViz";
 import { AgentSim } from "./AgentSim";
 import { simFor } from "./agentSims";
 import { mailto } from "../contact";
-import { useLang } from "../i18n";
+import { useLang, pathFor } from "../i18n";
 import { formatPrice } from "../money";
 
 export const SLUGS = ["email-rendezo", "erdeklodo-minosito", "belso-admin", "kutatasi-monitor", "ugyfelszolgalat", "tartalom", "webshop", "dokumentum-elemzo", "penzugyi", "toborzas", "it-uzemelteto", "multi-agent", "nis2", "ertekesito", "egyedi"];
@@ -49,7 +49,14 @@ const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote, si
         href={mailto(`${quote.subject} – ${agent.title}`)}>
         {quote.label}
       </LiquidButton>
-      {agent.live && (
+      {agent.live && agent.demoLink && (
+        <div className="card-try">
+          <LiquidButton ghost as={Link} to={pathFor(lang, agent.demoLink)} data-testid={`agent-try-link-${kind}`}>
+            {labels.tryOpen.replace("↓", "→")}
+          </LiquidButton>
+        </div>
+      )}
+      {agent.live && !agent.demoLink && (
         <div className="card-try">
           <LiquidButton ghost data-testid={`agent-try-${agent.demo}`} onClick={onToggle}>
             {open ? labels.tryClose : labels.tryOpen}
@@ -57,7 +64,7 @@ const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote, si
           {open && (agent.demo === "email" ? <EmailAgent embedded /> : <LiveDemo type={agent.demo} />)}
         </div>
       )}
-      {simData && agent.demo !== "email" && (
+      {simData && agent.demo !== "email" && !agent.demoLink && (
         <div className="card-try">
           <LiquidButton ghost data-testid={`agent-sim-btn-${kind}`} onClick={onSim}>
             {simOn ? labels.tryClose : labels.simOpen}
@@ -82,16 +89,20 @@ export const Agents = () => {
   const [simOpen, setSimOpen] = useState(null);
   const [showAll, setShowAll] = useState(false);
   const { slug } = useParams();
+  // Az élőben kipróbálható agentek kerülnek előre; a `kind` (index) marad az eredeti,
+  // mert ahhoz tartozik a slug, a rajz és a szimuláció.
+  const ordered = t.agents.map((a, i) => ({ a, i })).sort((x, y) => (y.a.live ? 1 : 0) - (x.a.live ? 1 : 0));
   useEffect(() => {
     if (!slug) return;
     const idx = SLUGS.indexOf(slug);
     if (idx < 0) return;
-    if (idx >= VISIBLE_AT_FIRST) setShowAll(true);
+    if (ordered.findIndex((o) => o.i === idx) >= VISIBLE_AT_FIRST) setShowAll(true);
     setOpen(null); setSimOpen(idx);
     const tid = setTimeout(() => {
       document.getElementById(`agent-${slug}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 500);
     return () => clearTimeout(tid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
   const s = t.agentsSection;
   return (
@@ -102,8 +113,8 @@ export const Agents = () => {
         <p className="sub">{s.sub}</p>
       </Reveal>
       <div className="grid">
-        {t.agents.slice(0, showAll ? undefined : VISIBLE_AT_FIRST).map((a, i) => (
-          <Reveal key={a.demo || i} delay={(i % 3) * 90} className={(open === a.demo || simOpen === i) ? "span-all" : ""}>
+        {ordered.slice(0, showAll ? undefined : VISIBLE_AT_FIRST).map(({ a, i }, pos) => (
+          <Reveal key={a.demo || i} delay={(pos % 3) * 90} className={(open === a.demo || simOpen === i) ? "span-all" : ""}>
             <TiltCard agent={a} labels={s} kind={i} simText={t.sims[i]} lang={lang}
               quote={{ label: t.pricing.cta, subject: t.pricing.subjectPrefix }}
               open={open === a.demo}

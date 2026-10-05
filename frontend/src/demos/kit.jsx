@@ -51,7 +51,13 @@ export function useDemo(content, path) {
   const d = content[lang] || content.en;
   // noindex: kitalált vállalkozás ne jelenjen meg a keresőben.
   useDocumentMeta({ title: d.seo.title, description: d.seo.description, path, lang, noindex: true });
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (!id) { window.scrollTo(0, 0); return; }
+    // A horgonyra csak a kirajzolás után lehet görgetni.
+    const t1 = setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+    return () => clearTimeout(t1);
+  }, []);
   return { d, L: t.demos.labels, lang };
 }
 
