@@ -54,6 +54,55 @@ const Bag = ({ r }) => (
   </svg>
 );
 
+const AGENT_URL = "https://aximbra-webshop-production.up.railway.app/api/demo/reply";
+
+/** Élő agent: a valódi webshop-agent válaszol a demóbolt rendeléseiből. Nem küld semmit, csak tervezetet ad. */
+const LiveAgent = ({ d }) => {
+  const [from, setFrom] = useState(d.liveSamples[0][0]);
+  const [msg, setMsg] = useState(d.liveSamples[0][1]);
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState(null);
+  const [err, setErr] = useState("");
+  const send = async (e) => {
+    e.preventDefault();
+    if (busy || msg.trim().length < 3) return;
+    setBusy(true); setErr(""); setRes(null);
+    try {
+      const r = await fetch(AGENT_URL, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from_email: from.trim(), subject: "", body: msg.trim() }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.detail || d.liveErr);
+      setRes(j);
+    } catch (x) { setErr(x.message || d.liveErr); } finally { setBusy(false); }
+  };
+  return (
+    <div className="shop-live">
+      <div className="shop-live-samples">
+        {d.liveSamples.map(([f, m], i) => (
+          <button key={i} type="button" className="shop-chip" onClick={() => { setFrom(f); setMsg(m); setRes(null); }}>{f}</button>
+        ))}
+      </div>
+      <form onSubmit={send} className="shop-live-f">
+        <label><span>{d.liveFrom}</span><input value={from} onChange={(e) => setFrom(e.target.value)} maxLength={200} /></label>
+        <label><span>{d.liveMsg}</span><textarea rows={3} value={msg} onChange={(e) => setMsg(e.target.value)} maxLength={2000} /></label>
+        <button type="submit" className="shop-btn solid" disabled={busy}>{busy ? d.liveSending : d.liveSend}</button>
+        <p className="shop-note" style={{ textAlign: "left" }}>{d.liveHint}</p>
+      </form>
+      {err && <p className="shop-track-no" role="status">{err}</p>}
+      {res && (
+        <div className="shop-live-out" role="status">
+          <div className="shop-live-tags">
+            <span className={res.verified ? "ok" : res.order_found ? "warn" : ""}>{res.verified ? d.liveOk : res.order_found ? d.liveNo : d.liveNone}</span>
+            {res.needs_human && <span className="warn">{d.liveHuman}</span>}
+          </div>
+          <div className="shop-live-h">{d.liveDraft}</div>
+          <pre>{res.body}</pre>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Tracker = ({ d }) => {
   const [q, setQ] = useState("");
   const [res, setRes] = useState(null);
@@ -207,6 +256,17 @@ export default function Webshop() {
             <p className="shop-lead">{d.trackSub}</p>
           </Rise>
           <Tracker d={d} />
+        </div>
+      </section>
+
+      <section className="shop-sec" id="ugyfelszolgalat">
+        <div className="shop-wrap shop-track-in">
+          <Rise>
+            <span className="shop-tag">{d.liveTag}</span>
+            <h2 className="shop-h2">{d.liveTitle}</h2>
+            <p className="shop-lead">{d.liveSub}</p>
+          </Rise>
+          <LiveAgent d={d} />
         </div>
       </section>
 

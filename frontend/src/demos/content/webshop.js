@@ -1,6 +1,12 @@
 // ŐRLŐ kávépörkölő — kitalált webshop.
 const webshop = {
   hu: {
+    liveTag: "Élő AI-agent", liveTitle: "Írj az ügyfélszolgálatnak", liveSub: "Ez már nem bemutató szöveg: a valódi AXIMBRA webshop-agent olvassa el a leveledet, megkeresi a rendelést, és megírja a választervezetet. Egy éles boltban ezt egy munkatárs hagyná jóvá.",
+    liveFrom: "Feladó e-mail-címe", liveMsg: "Üzenet", liveSend: "Elküldöm", liveSending: "Az agent dolgozik…",
+    liveDraft: "Az agent választervezete", liveOk: "Azonosított vásárló", liveNo: "Nem a rendelő címe – adatot nem ad ki", liveNone: "Nincs ilyen rendelés",
+    liveHuman: "Munkatárs nézze át", liveErr: "Most nem érem el az agentet. Próbáld újra egy perc múlva.",
+    liveHint: "Próbáld ki: a rendelő címével megkapod a csomag adatait, más címmel nem.",
+    liveSamples: [["anna.kovacs@example.com", "Szia! Hol tart az ORL-1042 rendelésem? Holnapra kellene ajándékba."], ["valaki@gmail.com", "Hol tart az ORL-1042 rendelés?"], ["peter.nagy@example.com", "Az ORL-1043 csomagot vissza szeretném küldeni, hogyan tehetem meg?"]],
     seo: { title: "ŐRLŐ kávépörkölő — AXIMBRA bemutató webshop", description: "Bemutató webshop egy kitalált kávépörkölőnek: pörkölési csúszka, kosár, csomagkövetés ügyfélszolgálati AI-agenttel. Az AXIMBRA készítette." },
     brand: "ŐRLŐ", brandSub: "kávépörkölő",
     ship: "Ingyenes szállítás {x} felett · 48 órán belül pörkölve küldjük",
@@ -36,6 +42,12 @@ const webshop = {
     address: "1095 Budapest, Képzelt rakpart 9.", email: "hello@orlo-demo.hu",
   },
   en: {
+    liveTag: "Live AI agent", liveTitle: "Write to customer service", liveSub: "This is no longer a scripted demo: the real AXIMBRA web-shop agent reads your message, finds the order and drafts the reply. In a live shop, a team member would approve it.",
+    liveFrom: "Sender email", liveMsg: "Message", liveSend: "Send", liveSending: "The agent is working…",
+    liveDraft: "The agent's draft reply", liveOk: "Verified customer", liveNo: "Not the ordering address – no details shared", liveNone: "No such order",
+    liveHuman: "Needs a human", liveErr: "I can't reach the agent right now. Try again in a minute.",
+    liveHint: "Try it: with the ordering address you get the parcel details, with any other address you don't.",
+    liveSamples: [["anna.kovacs@example.com", "Hi! Where is my order ORL-1042? I need it for a gift tomorrow."], ["someone@gmail.com", "Where is order ORL-1042?"], ["peter.nagy@example.com", "I'd like to return order ORL-1043, how do I do that?"]],
     seo: { title: "ŐRLŐ coffee roasters — AXIMBRA demo shop", description: "A demo web shop for an invented coffee roaster: roast slider, cart, order tracking with an AI support agent. Built by AXIMBRA." },
     brand: "ŐRLŐ", brandSub: "coffee roasters",
     ship: "Free shipping over {x} · roasted and sent within 48 hours",
@@ -71,6 +83,12 @@ const webshop = {
     address: "Imaginary Quay 9, 1095 Budapest", email: "hello@orlo-demo.hu",
   },
   de: {
+    liveTag: "Live-KI-Agent", liveTitle: "Schreiben Sie dem Kundenservice", liveSub: "Das ist kein vorgefertigter Text mehr: Der echte AXIMBRA-Webshop-Agent liest Ihre Nachricht, findet die Bestellung und schreibt den Antwortentwurf. In einem echten Shop gibt ihn ein Mitarbeiter frei.",
+    liveFrom: "Absender-E-Mail", liveMsg: "Nachricht", liveSend: "Senden", liveSending: "Der Agent arbeitet…",
+    liveDraft: "Antwortentwurf des Agenten", liveOk: "Kunde verifiziert", liveNo: "Nicht die Bestelladresse – keine Daten herausgegeben", liveNone: "Keine solche Bestellung",
+    liveHuman: "Mitarbeiter prüft", liveErr: "Der Agent ist gerade nicht erreichbar. Bitte in einer Minute erneut versuchen.",
+    liveHint: "Probieren Sie es: Mit der Bestelladresse erhalten Sie die Sendungsdaten, mit einer anderen nicht.",
+    liveSamples: [["anna.kovacs@example.com", "Guten Tag, wo ist meine Bestellung ORL-1042? Ich brauche sie morgen als Geschenk."], ["jemand@gmail.com", "Wo ist die Bestellung ORL-1042?"], ["peter.nagy@example.com", "Ich möchte die Bestellung ORL-1043 zurückgeben. Wie geht das?"]],
     seo: { title: "ŐRLŐ Kaffeerösterei — AXIMBRA Demo-Shop", description: "Demo-Webshop einer erfundenen Kaffeerösterei: Röstgrad-Regler, Warenkorb, Sendungsverfolgung mit KI-Kundenservice. Erstellt von AXIMBRA." },
     brand: "ŐRLŐ", brandSub: "Kaffeerösterei",
     ship: "Versandkostenfrei ab {x} · innerhalb von 48 Stunden geröstet und verschickt",
