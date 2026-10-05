@@ -191,3 +191,4 @@
 .shop-live-step { font-size: 13px; font-weight: 600; }
 .shop-live-ok { margin: 4px 0 0; padding: 10px 14px; border-radius: 12px; background: #E3F1E6; color: #2F6B3F; font-weight: 600; font-size: 14px; }
 .shop-chip.warn { border-color: #E8C3AE; color: #9A3B1E; }
+.shop-live-out pre a { color: var(--terra); word-break: break-all; }

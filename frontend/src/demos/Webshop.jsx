@@ -120,7 +120,10 @@ const LiveAgent = ({ d, lang }) => {
             {res.needs_human && <span className="warn">{d.liveHuman}</span>}
           </div>
           <div className="shop-live-h">{d.liveDraft}</div>
-          <pre>{res.body}</pre>
+          <pre>{res.body.split(/(https?:\/\/\S+)/g).map((part, i) => (
+            /^https?:\/\//.test(part)
+              ? <a key={i} href={part.replace(/[.,)]+$/, "")} target="_blank" rel="noopener noreferrer">{part}</a>
+              : part))}</pre>
         </div>
       )}
     </div>
