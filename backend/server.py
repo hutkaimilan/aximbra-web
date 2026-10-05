@@ -132,7 +132,7 @@ def _llm_client() -> tuple[AsyncOpenAI, str]:
         status_code=503,
         detail="Az élő demó jelenleg nincs beállítva. Írj nekünk: aximbra@gmail.com",
     )
-    if os.environ.get("LLM_PROVIDER", "openai").strip().lower() == "gemini":
+    if _llm_provider() == "gemini":
         key = os.environ.get("GEMINI_API_KEY")
         if not key:
             raise not_configured
@@ -144,6 +144,23 @@ def _llm_client() -> tuple[AsyncOpenAI, str]:
     if not key:
         raise not_configured
     return AsyncOpenAI(api_key=key, timeout=30.0, max_retries=0), os.environ.get("DEMO_MODEL", "gpt-4.1-mini")
+
+
+# A Gemini a rendszerprompt formai kéréseit lazábban veszi, mint az OpenAI:
+# hajlamos kódblokkba tenni a JSON-t, átfordítani a kulcsokat, vagy a megadott
+# értékkészlet helyett saját szót írni. Ez a kiegészítés ezt zárja ki.
+GEMINI_JSON_RULES = (
+    "\n\nKIMENETI SZABÁLYOK (szigorúan):\n"
+    "- Pontosan egy JSON objektumot adj vissza, semmi mást: se bevezető, se magyarázat, se ```json kódblokk.\n"
+    "- A kulcsokat pontosan úgy írd, ahogy fent megadtam: ne fordítsd le, ne adj hozzá újat, ne hagyj ki egyet sem.\n"
+    "- Ahol a feladat felsorolja a lehetséges értékeket, ott csak azok közül válassz, betű szerint ugyanúgy írva.\n"
+    "- Számot számként írj, ne szövegként. A szöveges mezők hosszkorlátját tartsd be.\n"
+    "- Csak abból dolgozz, ami a bemenetben áll. Amit nem tudsz belőle, ne találd ki: ha a feladat ad rá értéket (pl. Ismeretlen vagy other), azt használd."
+)
+
+
+def _llm_provider() -> str:
+    return os.environ.get("LLM_PROVIDER", "openai").strip().lower()
 
 
 async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600) -> str:
@@ -158,6 +175,8 @@ async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600) -> s
     modellvaltas ne torje el a demot.
     """
     client, model = _llm_client()
+    if _llm_provider() == "gemini":
+        system_msg = system_msg + GEMINI_JSON_RULES
     kwargs = {
         "model": model,
         "messages": [
