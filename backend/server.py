@@ -123,6 +123,29 @@ LEAD_SYS = (
 )
 
 
+GEMINI_OPENAI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
+
+def _llm_client() -> tuple[AsyncOpenAI, str]:
+    """LLM_PROVIDER=gemini: a Gemini OpenAI-kompatibilis végpontja, ugyanazzal az SDK-val."""
+    not_configured = HTTPException(
+        status_code=503,
+        detail="Az élő demó jelenleg nincs beállítva. Írj nekünk: aximbra@gmail.com",
+    )
+    if os.environ.get("LLM_PROVIDER", "openai").strip().lower() == "gemini":
+        key = os.environ.get("GEMINI_API_KEY")
+        if not key:
+            raise not_configured
+        # Az ingyenes Gemini-keret percenként korlátoz, a példa-postafiók pedig
+        # tíz hívást indít egyszerre: a 429-et az SDK visszatartással újrapróbálja.
+        return (AsyncOpenAI(api_key=key, base_url=GEMINI_OPENAI_BASE, timeout=30.0, max_retries=3),
+                os.environ.get("DEMO_GEMINI_MODEL", "gemini-2.5-flash-lite"))
+    key = os.environ.get("OPENAI_API_KEY")
+    if not key:
+        raise not_configured
+    return AsyncOpenAI(api_key=key, timeout=30.0, max_retries=0), os.environ.get("DEMO_MODEL", "gpt-4.1-mini")
+
+
 async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600) -> str:
     """
     Egyetlen OpenAI chat-completion hivas, JSON kimenetre kenyszeritve.
@@ -134,16 +157,9 @@ async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600) -> s
     Ilyenkor a hivast egyszer megismeteljuk igazitott parameterekkel, hogy egy
     modellvaltas ne torje el a demot.
     """
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        raise HTTPException(
-            status_code=503,
-            detail="Az élő demó jelenleg nincs beállítva. Írj nekünk: aximbra@gmail.com",
-        )
-
-    client = AsyncOpenAI(api_key=api_key, timeout=30.0, max_retries=0)
+    client, model = _llm_client()
     kwargs = {
-        "model": os.environ.get("DEMO_MODEL", "gpt-4.1-mini"),
+        "model": model,
         "messages": [
             {"role": "system", "content": system_msg},
             {"role": "user", "content": user_text},
@@ -191,7 +207,7 @@ def _parse_json(raw: str) -> dict:
 def _quota_exhausted(e: Exception) -> bool:
     text = str(e)
     return getattr(e, "code", None) == "insufficient_quota" or "insufficient_quota" in text \
-        or "credit_balance_exhausted" in text
+        or "credit_balance_exhausted" in text or "RESOURCE_EXHAUSTED" in text
 
 
 async def _run_demo(request: Request, body: DemoRequest, system_msg: str, model_cls, max_tokens: int = 600):
