@@ -158,7 +158,7 @@ GEMINI_JSON_RULES = (
 )
 
 
-RATE_LIMIT_WAITS = (4, 8, 16)
+RATE_LIMIT_WAITS = (5, 10, 20, 30)
 
 
 def _daily_quota(e: Exception) -> bool:
