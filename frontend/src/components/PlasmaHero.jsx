@@ -1,52 +1,65 @@
 import { useEffect, useRef, useState } from "react";
 
-/* Háttér: egy forgó gömbön ülő agent-hálózat. A csomópontok az agentek, a
- * köztük futó fényimpulzusok az üzenetek; néha borostyán impulzus jön — ez az
- * emberi jóváhagyás, ugyanaz a szín, mint a folyamat-szekcióban. */
+/* Háttér: részecske-örvény. Több ezer fénypont kering egy döntött korongban
+ * egy sötét mag körül; a belső pályák gyorsabbak (Kepler). Minden pozíció a
+ * vertex shaderben számolódik az időből, így nincs CPU-oldali szimuláció. */
 
-const COLORS = ["0,233,255", "200,31,255", "123,92,255"];
-const AMBER = "255,182,72";
+const VERT = `
+attribute vec4 a_seed;
+uniform float u_time; uniform vec2 u_res; uniform vec2 u_mouse; uniform float u_scroll;
+uniform float u_dpr; uniform vec2 u_center; uniform float u_scale; uniform float u_mobile; uniform float u_halo;
+varying vec3 v_col; varying float v_a;
+void main(){
+  float r = a_seed.x, a0 = a_seed.y, h = a_seed.z, k = a_seed.w;
+  float R = mix(0.42, 1.75, pow(r, 1.35));
+  float w = 0.32 / pow(R, 1.5);
+  float ang = a0 + u_time * w;
+  R += 0.045 * sin(ang * 3.0 + u_time * 0.6 + k * 6.2831);
+  float y = h * 0.035 * R + 0.02 * sin(ang * 5.0 + u_time * 0.8 + k * 12.0);
+  vec3 p = vec3(cos(ang) * R, y, sin(ang) * R);
 
-function glowSprite(rgb) {
-  const c = document.createElement("canvas");
-  c.width = c.height = 64;
-  const g = c.getContext("2d");
-  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  gr.addColorStop(0, `rgba(${rgb},1)`);
-  gr.addColorStop(0.22, `rgba(${rgb},0.55)`);
-  gr.addColorStop(1, `rgba(${rgb},0)`);
-  g.fillStyle = gr;
-  g.fillRect(0, 0, 64, 64);
-  return c;
-}
+  float tilt = 0.28 + u_mouse.y * 0.1 + min(u_scroll, 1.5) * 0.35;
+  float roll = 0.18 + u_mouse.x * 0.06;
+  p = vec3(p.x, p.y * cos(tilt) - p.z * sin(tilt), p.y * sin(tilt) + p.z * cos(tilt));
+  p = vec3(p.x * cos(roll) - p.y * sin(roll), p.x * sin(roll) + p.y * cos(roll), p.z);
 
-function buildGraph(n) {
-  const pts = [];
-  for (let i = 0; i < n; i++) {
-    const y = 1 - ((i + 0.5) / n) * 2;
-    const r = Math.sqrt(1 - y * y);
-    const th = i * 2.399963;
-    const j = 0.82 + Math.random() * 0.36;
-    pts.push({ x: Math.cos(th) * r * j, y: y * j, z: Math.sin(th) * r * j, c: i % 3, flash: 0, adj: [] });
-  }
-  const seen = new Set();
-  const edges = [];
-  pts.forEach((a, i) => {
-    pts
-      .map((b, k) => [k, (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2])
-      .filter(([k]) => k !== i)
-      .sort((p, q) => p[1] - q[1])
-      .slice(0, 3)
-      .forEach(([k]) => {
-        const key = i < k ? `${i}-${k}` : `${k}-${i}`;
-        if (seen.has(key)) return;
-        seen.add(key);
-        edges.push([i, k]);
-        pts[i].adj.push(k);
-        pts[k].adj.push(i);
-      });
-  });
-  return { pts, edges };
+  float persp = 3.4 / (3.4 - p.z);
+  vec2 s = p.xy * persp * u_scale;
+  s.x *= u_res.y / u_res.x;
+  vec2 ndc = u_center + s;
+  ndc.y += min(u_scroll, 1.5) * 0.25;
+  gl_Position = vec4(ndc, 0.0, 1.0);
+
+  gl_PointSize = (1.6 + 3.2 * k * k) * persp * u_dpr * mix(1.0, 7.0, u_halo);
+
+  float t = smoothstep(0.42, 1.75, R);
+  vec3 inner = vec3(0.85, 0.97, 1.0), cyan = vec3(0.0, 0.913, 1.0);
+  vec3 violet = vec3(0.482, 0.361, 1.0), magenta = vec3(0.784, 0.121, 1.0);
+  vec3 c = mix(inner, cyan, smoothstep(0.0, 0.12, t));
+  c = mix(c, violet, smoothstep(0.12, 0.5, t));
+  c = mix(c, magenta, smoothstep(0.5, 0.95, t));
+  v_col = c;
+
+  float bright = mix(1.0, 0.35, t) * (0.55 + 0.45 * persp);
+  float keepOffText = mix(smoothstep(-0.15, 0.3, ndc.x), 0.35, u_mobile);
+  float fade = 1.0 - 0.6 * clamp(u_scroll, 0.0, 1.0);
+  v_a = 0.95 * bright * keepOffText * fade * mix(1.0, 0.045, u_halo);
+}`;
+
+const FRAG = `
+precision mediump float;
+varying vec3 v_col; varying float v_a;
+void main(){
+  float d = length(gl_PointCoord - 0.5);
+  float a = smoothstep(0.5, 0.0, d);
+  gl_FragColor = vec4(v_col * a * v_a, 1.0);
+}`;
+
+function compile(gl, type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; }
+  return s;
 }
 
 export const PlasmaHero = () => {
@@ -56,130 +69,84 @@ export const PlasmaHero = () => {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) { setFailed(true); return; }
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false, powerPreference: "high-performance" });
+    if (!gl) { setFailed(true); return; }
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    const mobile = () => window.innerWidth < 900;
-    const { pts, edges } = buildGraph(mobile() ? 70 : 110);
-    const sprites = [...COLORS.map(glowSprite), glowSprite(AMBER)];
-    const proj = pts.map(() => ({ x: 0, y: 0, d: 0, a: 0 }));
+    const vs = compile(gl, gl.VERTEX_SHADER, VERT);
+    const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
+    if (!vs || !fs) { setFailed(true); return; }
+    const prog = gl.createProgram();
+    gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { setFailed(true); return; }
+    gl.useProgram(prog);
 
-    let W = 0, H = 0;
+    const mobile = () => window.innerWidth < 900;
+    const N = mobile() ? 7000 : 14000;
+    const seeds = new Float32Array(N * 4);
+    for (let i = 0; i < N; i++) {
+      seeds[i * 4] = Math.random();
+      seeds[i * 4 + 1] = Math.random() * Math.PI * 2;
+      seeds[i * 4 + 2] = (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+      seeds[i * 4 + 3] = Math.random();
+    }
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, seeds, gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, "a_seed");
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, 0, 0);
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.clearColor(0.0157, 0.0157, 0.047, 1);
+
+    const U = (n) => gl.getUniformLocation(prog, n);
+    const uTime = U("u_time"), uRes = U("u_res"), uMouse = U("u_mouse"), uScroll = U("u_scroll");
+    const uDpr = U("u_dpr"), uCenter = U("u_center"), uScale = U("u_scale"), uMobile = U("u_mobile"), uHalo = U("u_halo");
+
+    let dpr = 1;
     function resize() {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      W = canvas.clientWidth; H = canvas.clientHeight;
-      canvas.width = Math.floor(W * dpr); canvas.height = Math.floor(H * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(canvas.clientWidth * dpr);
+      canvas.height = Math.floor(canvas.clientHeight * dpr);
+      gl.viewport(0, 0, canvas.width, canvas.height);
     }
     resize();
     window.addEventListener("resize", resize);
 
-    let mx = 0, my = 0, tx = 0, ty = 0, px = -9999, py = -9999;
+    let mx = 0, my = 0, tx = 0, ty = 0;
     function onMove(e) {
       tx = (e.clientX / window.innerWidth) * 2 - 1;
-      ty = (e.clientY / window.innerHeight) * 2 - 1;
-      px = e.clientX; py = e.clientY;
+      ty = -((e.clientY / window.innerHeight) * 2 - 1);
     }
     window.addEventListener("mousemove", onMove);
 
-    let sy = 0;
-    const pulses = [];
-    let lastSpawn = 0;
-
-    function spawn(from, now, color) {
-      const a = pts[from].adj;
-      if (!a.length) return;
-      const to = a[(Math.random() * a.length) | 0];
-      pulses.push({ from, to, t0: now, dur: 900 + Math.random() * 700,
-        color: color ?? (Math.random() < 0.05 ? 3 : (Math.random() * 3) | 0) });
-    }
-
+    let sy = 0, raf;
+    const start = performance.now();
     function frame(now) {
-      mx += (tx - mx) * 0.05; my += (ty - my) * 0.05;
+      mx += (tx - mx) * 0.04; my += (ty - my) * 0.04;
       const target = Math.min(window.scrollY / Math.max(window.innerHeight, 1), 4);
       sy += (target - sy) * 0.08;
-
       const m = mobile();
-      const t = reduce ? 0 : now / 1000;
-      const rotY = t * 0.07 + mx * 0.35 + sy * 0.7;
-      const rotX = 0.35 + my * 0.18;
-      const cx = m ? W * 0.88 : W * 0.76;
-      const cy = (m ? H * 0.14 : H * 0.5) - Math.min(sy, 1.5) * H * 0.12;
-      const R = m ? W * 0.5 : Math.min(W * 0.2, H * 0.33);
-      const fade = 1 - 0.55 * Math.min(sy, 1);
-      const cY = Math.cos(rotY), sY = Math.sin(rotY), cX = Math.cos(rotX), sX = Math.sin(rotX);
-
-      pts.forEach((p, i) => {
-        const x1 = p.x * cY + p.z * sY, z1 = -p.x * sY + p.z * cY;
-        const y2 = p.y * cX - z1 * sX, z2 = p.y * sX + z1 * cX;
-        const persp = 3.6 / (3.6 - z2);
-        const o = proj[i];
-        o.x = cx + x1 * R * persp; o.y = cy + y2 * R * persp;
-        o.d = (z2 + 1.25) / 2.5;
-        // A címsor mögött ne világítson: balra halványul.
-        const side = m ? 0.15 : Math.min(1, Math.max(0, (o.x - W * 0.5) / (W * 0.14)));
-        o.a = fade * (0.35 + 0.65 * side);
-        const dm = Math.hypot(o.x - px, o.y - py);
-        if (dm < 140) p.flash = Math.max(p.flash, 0.6 * (1 - dm / 140));
-      });
-
-      ctx.clearRect(0, 0, W, H);
-      ctx.globalCompositeOperation = "lighter";
-
-      ctx.lineWidth = 1;
-      for (const [i, k] of edges) {
-        const a = proj[i], b = proj[k];
-        const al = (0.05 + 0.22 * Math.min(a.d, b.d)) * Math.min(a.a, b.a);
-        ctx.strokeStyle = `rgba(123,92,255,${al.toFixed(3)})`;
-        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-      }
-
-      pts.forEach((p, i) => {
-        const o = proj[i];
-        const s = (6 + 12 * o.d) * (1 + p.flash * 1.4);
-        ctx.globalAlpha = Math.min(1, (0.3 + 0.7 * o.d + p.flash * 0.6) * o.a);
-        ctx.drawImage(sprites[p.c], o.x - s, o.y - s, s * 2, s * 2);
-        if (p.flash > 0.25) {
-          ctx.fillStyle = "rgba(255,255,255,0.9)";
-          ctx.fillRect(o.x - 1, o.y - 1, 2, 2);
-        }
-        p.flash *= 0.94;
-      });
-
-      if (!reduce) {
-        if (now - lastSpawn > (m ? 260 : 160) && pulses.length < 36) {
-          spawn((Math.random() * pts.length) | 0, now);
-          lastSpawn = now;
-        }
-        for (let n = pulses.length - 1; n >= 0; n--) {
-          const q = pulses[n];
-          const k = (now - q.t0) / q.dur;
-          if (k >= 1) {
-            pts[q.to].flash = 1;
-            pulses.splice(n, 1);
-            if (Math.random() < 0.55 && pulses.length < 36) spawn(q.to, now, q.color);
-            continue;
-          }
-          const a = proj[q.from], b = proj[q.to];
-          const al = Math.min(a.a, b.a);
-          for (let tr = 0; tr < 6; tr++) {
-            const kk = Math.max(0, k - tr * 0.035);
-            const e = kk * kk * (3 - 2 * kk);
-            const x = a.x + (b.x - a.x) * e, y = a.y + (b.y - a.y) * e;
-            const s = (tr === 0 ? 9 : 6) * (1 - tr * 0.13);
-            ctx.globalAlpha = al * (tr === 0 ? 1 : 0.45 * (1 - tr / 6));
-            ctx.drawImage(sprites[q.color], x - s, y - s, s * 2, s * 2);
-          }
-        }
-      }
-
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = "source-over";
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.uniform1f(uTime, reduce ? 30 : (now - start) / 1000 + 30);
+      gl.uniform2f(uRes, canvas.width, canvas.height);
+      gl.uniform2f(uMouse, mx, my);
+      gl.uniform1f(uScroll, sy);
+      gl.uniform1f(uDpr, dpr);
+      gl.uniform2f(uCenter, m ? 0.35 : 0.42, m ? 0.6 : 0.05);
+      gl.uniform1f(uScale, m ? 0.7 : 0.62);
+      gl.uniform1f(uMobile, m ? 1 : 0);
+      // Előbb halvány, nagy pontok (fényudvar), rá az éles részecskék.
+      gl.uniform1f(uHalo, 1);
+      gl.drawArrays(gl.POINTS, 0, Math.floor(N / 3));
+      gl.uniform1f(uHalo, 0);
+      gl.drawArrays(gl.POINTS, 0, N);
       if (!reduce && !document.hidden) raf = requestAnimationFrame(frame);
     }
+    raf = requestAnimationFrame(frame);
 
-    let raf = requestAnimationFrame(frame);
     function onVisibility() {
       if (!document.hidden && !reduce) { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); }
     }
