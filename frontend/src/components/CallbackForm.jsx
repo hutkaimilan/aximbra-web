@@ -42,7 +42,8 @@ export const CallbackForm = ({ enabled }) => {
     if (state === "sending") return;
 
     const value = phone.trim();
-    if (value === "") {
+    const digits = value.replace(/\D/g, "").length;
+    if (digits < 8 || digits > 15 || /[^\d\s+()./-]/.test(value)) {
       setState("error");
       setMessage(c.errNumber);
       return;

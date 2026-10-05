@@ -40,9 +40,23 @@ export function ContactForm() {
 
   const set = (k) => (e) => setValues((v) => ({ ...v, [k]: e.target.value }));
 
+  const invalid = () => {
+    if (!values.name.trim()) return f.errName;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(values.email.trim())) return f.errEmail;
+    if (values.message.trim().length < 10) return f.errMessage;
+    if (!consent) return f.errConsent;
+    return "";
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     if (state === "sending") return;
+    const problem = invalid();
+    if (problem) {
+      setError(problem);
+      setState("error");
+      return;
+    }
     setState("sending");
     setError("");
     try {
@@ -54,15 +68,15 @@ export function ContactForm() {
         body: JSON.stringify({ ...values, consent, elapsed_ms: Date.now() - openedAt.current }),
       });
       if (!res.ok) {
-        // A kiszolgáló mondja meg, mi a baj — a mezőnkénti üzenet ott dől el,
-        // és két helyen karbantartani ugyanazt a szabályt garantált eltérés.
-        const body = await res.json().catch(() => ({}));
-        setError(body.detail || "");
+        // A szerver szövege magyar és lehet objektum is (422): nem írjuk ki,
+        // a látogató a saját nyelvén kap üzenetet.
+        setError(res.status === 429 ? "busy" : "");
         setState("error");
         return;
       }
       setState("sent");
     } catch (err) {
+      setError("");
       setState("error");
     }
   };
@@ -130,9 +144,9 @@ export function ContactForm() {
 
       {state === "error" && (
         <p className="cf-error" role="alert" data-testid="cf-error">
-          {error || (
+          {error && error !== "busy" ? error : (
             <>
-              {f.errorGeneric} <a href={mailto()}>{CONTACT.email}</a>{" "}
+              {error === "busy" ? f.errBusy : f.errorGeneric} <a href={mailto()}>{CONTACT.email}</a>{" "}
               {f.or} <a href={CONTACT.phoneHref}>{CONTACT.phone}</a>
             </>
           )}
