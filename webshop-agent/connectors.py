@@ -223,10 +223,117 @@ class Shopify(Shop):
                 if not email or (o.get("email") or "").lower() == email.lower()]
 
 
+# ---- Shoprenter (Hungarian REST API) ----------------------------------------
+
+SHOPRENTER_STATUS = {
+    "new": "received", "processing": "processing", "prepared": "processing",
+    "shipped": "shipped", "delivered": "delivered", "cancelled": "cancelled",
+    "refund_requested": "on_hold", "refunded": "refunded"
+}
+
+
+class Shoprenter(Shop):
+    """Kulcs: Shoprenter admin → Beállítások → API kulcsok → csak olvasási jog."""
+    name = "shoprenter"
+
+    def __init__(self, domain: str, token: str):
+        # domain: pl. "example.shoprenter.hu" vagy "example.myshop.hu"
+        # token: API kulcs
+        self.domain = domain.strip().rstrip("/")
+        if not self.domain.startswith("http"):
+            self.domain = f"https://{self.domain}"
+        self.base = f"{self.domain}/api"
+        self.token = token.strip()
+        self.head = {"X-Shoprenter-Access-Token": self.token}
+
+    def _get(self, path: str, params: dict | None = None):
+        try:
+            r = httpx.get(self.base + path, params=params or {}, headers=self.head, timeout=TIMEOUT)
+        except httpx.HTTPError as e:
+            raise ShopError(f"a webshop nem érhető el ({type(e).__name__})") from e
+        if r.status_code == 404:
+            return None
+        if r.status_code >= 400:
+            raise ShopError(f"Shoprenter: HTTP {r.status_code}")
+        return r.json()
+
+    @staticmethod
+    def _order(o: dict) -> Order:
+        # Shoprenter order structure: orders are under "data" key typically
+        if isinstance(o, dict) and "data" in o:
+            o = o["data"]
+
+        status = SHOPRENTER_STATUS.get(o.get("status", ""), "unknown")
+
+        # Összeállítás: szállítás info
+        shipping = o.get("shipping") or {}
+        carrier = (shipping.get("method", "") or "").replace("_", " ").title()
+
+        # Cikkek
+        items = []
+        for item in o.get("items", []):
+            name = item.get("product_name", "")
+            qty = item.get("quantity", 1)
+            if name:
+                items.append(f"{name} × {qty}")
+
+        # Összesen: az API-tól kapott érték
+        total_price = o.get("total_price", 0)
+        currency = o.get("currency", "HUF")
+        if currency == "HUF":
+            total = f"{int(float(total_price))} {currency}"
+        else:
+            total = f"{total_price} {currency}"
+
+        return Order(
+            number=str(o.get("order_number", "")),
+            email=(o.get("customer", {}).get("email", "") or "").strip(),
+            name=f"{o.get('customer', {}).get('last_name', '')} {o.get('customer', {}).get('first_name', '')}".strip(),
+            status=status,
+            created=(o.get("created_at", "") or "")[:10],
+            total=total,
+            items=items,
+            carrier=carrier,
+            tracking_number=shipping.get("tracking_number") or "",
+            tracking_url=shipping.get("tracking_url") or "",
+            shipped=(shipping.get("shipped_at", "") or "")[:10] if shipping.get("shipped_at") else "",
+            delivered=(o.get("delivered_at", "") or "")[:10] if o.get("delivered_at") else "",
+        )
+
+    def find(self, number=None, email=None):
+        # Shoprenter API: /orders végpont szűréssel
+        results = []
+
+        if number:
+            # Rendelésszám szerinti keresés
+            norm = _norm_num(number)
+            orders_data = self._get("/orders", {"filter[order_number]": number})
+            if orders_data:
+                orders = orders_data if isinstance(orders_data, list) else orders_data.get("data", [])
+                for o in orders:
+                    order = self._order(o)
+                    if not email or order.email.lower() == email.lower():
+                        results.append(order)
+
+        if not results and email:
+            # E-mail szerinti keresés
+            orders_data = self._get("/orders", {"filter[customer_email]": email})
+            if orders_data:
+                orders = orders_data if isinstance(orders_data, list) else orders_data.get("data", [])
+                for o in orders:
+                    order = self._order(o)
+                    if order.email.lower() == email.lower():
+                        results.append(order)
+
+        return results
+
+
 def shop_from_env() -> Shop:
     kind = (os.environ.get("SHOP_KIND") or "demo").strip().lower()
     if kind == "woocommerce":
         return WooCommerce(os.environ["WOO_URL"], os.environ["WOO_KEY"], os.environ["WOO_SECRET"])
     if kind == "shopify":
         return Shopify(os.environ["SHOPIFY_DOMAIN"], os.environ["SHOPIFY_TOKEN"])
+    if kind == "shoprenter":
+        return Shoprenter(os.environ["SHOPRENTER_DOMAIN"], os.environ["SHOPRENTER_TOKEN"])
     return DemoShop()
