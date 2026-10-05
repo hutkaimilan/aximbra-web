@@ -8,7 +8,7 @@ import pytest
 
 import agent
 import connectors
-from connectors import DemoShop, Shopify, WooCommerce
+from connectors import DemoShop, Shopify, WooCommerce, Shoprenter
 
 
 @pytest.fixture(autouse=True)
@@ -77,6 +77,17 @@ def test_shopify_mapping():
                         "fulfillments": [{"tracking_company": "DHL", "tracking_number": "D9", "tracking_url": "https://t/D9",
                                           "created_at": "2026-10-03T08:00:00Z", "shipment_status": "in_transit"}]})
     assert o.number == "1001" and o.status == "shipped" and o.carrier == "DHL" and o.shipped == "2026-10-03"
+
+
+def test_shoprenter_mapping():
+    o = Shoprenter._order({"order_number": "SR-5042", "status": "shipped", "currency": "HUF", "total_price": "12500",
+                           "created_at": "2026-10-01T08:00:00", "customer": {"email": "teszt@example.com", "first_name": "János", "last_name": "Szabó"},
+                           "items": [{"product_name": "Kávé 250g", "quantity": 2}],
+                           "shipping": {"method": "gls", "tracking_number": "GLS123456789", "tracking_url": "https://gls.com/track/GLS123456789", "shipped_at": "2026-10-02T10:00:00"}})
+    assert o.number == "SR-5042" and o.status == "shipped" and o.carrier == "Gls"
+    assert o.tracking_number == "GLS123456789" and o.email == "teszt@example.com"
+    assert o.name == "Szabó János" and o.items == ["Kávé 250g × 2"]
+    assert o.total == "12500 HUF" and o.shipped == "2026-10-02"
 
 
 def test_shop_from_env_defaults_to_demo(monkeypatch):
