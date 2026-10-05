@@ -35,3 +35,25 @@ def test_gemini_without_key_is_a_clean_503(monkeypatch):
 
 def test_gemini_quota_pauses_the_demo():
     assert server._quota_exhausted(Exception("429 RESOURCE_EXHAUSTED: quota"))
+
+
+def test_gemini_gets_the_strict_json_rules(monkeypatch):
+    import asyncio
+    seen = {}
+
+    class Fake:
+        class chat:
+            class completions:
+                @staticmethod
+                async def create(**kw):
+                    seen.update(kw)
+                    class R: choices = [type("C", (), {"message": type("M", (), {"content": "{}"})()})()]
+                    return R()
+
+    monkeypatch.setenv("LLM_PROVIDER", "gemini")
+    monkeypatch.setattr(server, "_llm_client", lambda: (Fake(), "gemini-x"))
+    asyncio.run(server._call_llm("SYS", "hi"))
+    assert seen["messages"][0]["content"].startswith("SYS") and "KIMENETI SZABÁLYOK" in seen["messages"][0]["content"]
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    asyncio.run(server._call_llm("SYS", "hi"))
+    assert seen["messages"][0]["content"] == "SYS"
