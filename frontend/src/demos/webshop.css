@@ -186,3 +186,8 @@
 .shop-live-tags span.warn { background: #F8E6D9; color: #9A3B1E; }
 .shop-live-h { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--terra); font-weight: 700; margin-bottom: 8px; }
 .shop-live-out pre { white-space: pre-wrap; font: 15px/1.65 'DM Sans', sans-serif; margin: 0; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px; color: var(--esp); }
+.shop-live-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.shop-live-row input { flex: 1 1 220px; }
+.shop-live-step { font-size: 13px; font-weight: 600; }
+.shop-live-ok { margin: 4px 0 0; padding: 10px 14px; border-radius: 12px; background: #E3F1E6; color: #2F6B3F; font-weight: 600; font-size: 14px; }
+.shop-chip.warn { border-color: #E8C3AE; color: #9A3B1E; }

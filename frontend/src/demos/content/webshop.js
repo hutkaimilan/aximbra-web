@@ -1,6 +1,9 @@
 // ŐRLŐ kávépörkölő — kitalált webshop.
 const webshop = {
   hu: {
+    liveStep1: "1. Adj le egy próbarendelést a saját e-mail-címedre", liveOrderBtn: "Próbarendelés", liveOrdering: "Rendelés…",
+    liveOrdered: "Kész: a(z) {n} rendelés a(z) {e} címre ment. Most kérdezd meg az agentet, hol tart!",
+    liveStep2: "2. Írj az ügyfélszolgálatnak", liveAsk: "Szia! Hol tart a(z) {n} rendelésem?", liveStranger: "Próbáld ki idegen címmel is", liveOther: "Mintalevelek",
     liveTag: "Élő AI-agent", liveTitle: "Írj az ügyfélszolgálatnak", liveSub: "Ez már nem bemutató szöveg: a valódi AXIMBRA webshop-agent olvassa el a leveledet, megkeresi a rendelést, és megírja a választervezetet. Egy éles boltban ezt egy munkatárs hagyná jóvá.",
     liveFrom: "Feladó e-mail-címe", liveMsg: "Üzenet", liveSend: "Elküldöm", liveSending: "Az agent dolgozik…",
     liveDraft: "Az agent választervezete", liveOk: "Azonosított vásárló", liveNo: "Nem a rendelő címe – adatot nem ad ki", liveNone: "Nincs ilyen rendelés",
@@ -42,6 +45,9 @@ const webshop = {
     address: "1095 Budapest, Képzelt rakpart 9.", email: "hello@orlo-demo.hu",
   },
   en: {
+    liveStep1: "1. Place a test order to your own email address", liveOrderBtn: "Place test order", liveOrdering: "Ordering…",
+    liveOrdered: "Done: order {n} was placed for {e}. Now ask the agent where it is!",
+    liveStep2: "2. Write to customer service", liveAsk: "Hi! Where is my order {n}?", liveStranger: "Try it from another address too", liveOther: "Sample messages",
     liveTag: "Live AI agent", liveTitle: "Write to customer service", liveSub: "This is no longer a scripted demo: the real AXIMBRA web-shop agent reads your message, finds the order and drafts the reply. In a live shop, a team member would approve it.",
     liveFrom: "Sender email", liveMsg: "Message", liveSend: "Send", liveSending: "The agent is working…",
     liveDraft: "The agent's draft reply", liveOk: "Verified customer", liveNo: "Not the ordering address – no details shared", liveNone: "No such order",
@@ -83,6 +89,9 @@ const webshop = {
     address: "Imaginary Quay 9, 1095 Budapest", email: "hello@orlo-demo.hu",
   },
   de: {
+    liveStep1: "1. Geben Sie eine Testbestellung an Ihre eigene E-Mail-Adresse auf", liveOrderBtn: "Testbestellung aufgeben", liveOrdering: "Bestellung läuft…",
+    liveOrdered: "Fertig: Bestellung {n} für {e} wurde aufgegeben. Fragen Sie den Agenten jetzt, wo sie ist!",
+    liveStep2: "2. Schreiben Sie dem Kundenservice", liveAsk: "Guten Tag, wo ist meine Bestellung {n}?", liveStranger: "Auch mit einer anderen Adresse testen", liveOther: "Beispielnachrichten",
     liveTag: "Live-KI-Agent", liveTitle: "Schreiben Sie dem Kundenservice", liveSub: "Das ist kein vorgefertigter Text mehr: Der echte AXIMBRA-Webshop-Agent liest Ihre Nachricht, findet die Bestellung und schreibt den Antwortentwurf. In einem echten Shop gibt ihn ein Mitarbeiter frei.",
     liveFrom: "Absender-E-Mail", liveMsg: "Nachricht", liveSend: "Senden", liveSending: "Der Agent arbeitet…",
     liveDraft: "Antwortentwurf des Agenten", liveOk: "Kunde verifiziert", liveNo: "Nicht die Bestelladresse – keine Daten herausgegeben", liveNone: "Keine solche Bestellung",

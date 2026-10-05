@@ -54,38 +54,62 @@ const Bag = ({ r }) => (
   </svg>
 );
 
-const AGENT_URL = "https://aximbra-webshop-production.up.railway.app/api/demo/reply";
+const AGENT_BASE = "https://aximbra-webshop-production.up.railway.app";
 
 /** Élő agent: a valódi webshop-agent válaszol a demóbolt rendeléseiből. Nem küld semmit, csak tervezetet ad. */
-const LiveAgent = ({ d }) => {
-  const [from, setFrom] = useState(d.liveSamples[0][0]);
-  const [msg, setMsg] = useState(d.liveSamples[0][1]);
-  const [busy, setBusy] = useState(false);
+const LiveAgent = ({ d, lang }) => {
+  const [mine, setMine] = useState("");
+  const [order, setOrder] = useState(null);
+  const [from, setFrom] = useState("");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState("");
   const [res, setRes] = useState(null);
   const [err, setErr] = useState("");
+  const call = async (path, body) => {
+    const r = await fetch(AGENT_BASE + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(typeof j.detail === "string" ? j.detail : d.liveErr);
+    return j;
+  };
+  const place = async (e) => {
+    e.preventDefault();
+    if (busy || !mine.includes("@")) return;
+    setBusy("order"); setErr(""); setRes(null);
+    try {
+      const o = await call("/api/demo/order", { email: mine.trim(), lang });
+      setOrder(o); setFrom(mine.trim()); setMsg(d.liveAsk.replace("{n}", o.number));
+    } catch (x) { setErr(x.message || d.liveErr); } finally { setBusy(""); }
+  };
   const send = async (e) => {
     e.preventDefault();
     if (busy || msg.trim().length < 3) return;
-    setBusy(true); setErr(""); setRes(null);
-    try {
-      const r = await fetch(AGENT_URL, { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from_email: from.trim(), subject: "", body: msg.trim() }) });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.detail || d.liveErr);
-      setRes(j);
-    } catch (x) { setErr(x.message || d.liveErr); } finally { setBusy(false); }
+    setBusy("send"); setErr(""); setRes(null);
+    try { setRes(await call("/api/demo/reply", { from_email: from.trim(), subject: "", body: msg.trim() })); }
+    catch (x) { setErr(x.message || d.liveErr); } finally { setBusy(""); }
   };
   return (
     <div className="shop-live">
-      <div className="shop-live-samples">
-        {d.liveSamples.map(([f, m], i) => (
-          <button key={i} type="button" className="shop-chip" onClick={() => { setFrom(f); setMsg(m); setRes(null); }}>{f}</button>
-        ))}
-      </div>
-      <form onSubmit={send} className="shop-live-f">
+      <form onSubmit={place} className="shop-live-f">
+        <label><span>{d.liveStep1}</span>
+          <div className="shop-live-row">
+            <input type="email" value={mine} onChange={(e) => setMine(e.target.value)} placeholder="te@pelda.hu" maxLength={200} required />
+            <button type="submit" className="shop-btn solid sm" disabled={!!busy}>{busy === "order" ? d.liveOrdering : d.liveOrderBtn}</button>
+          </div>
+        </label>
+        {order && <p className="shop-live-ok">{d.liveOrdered.replace("{n}", order.number).replace("{e}", from || mine)}</p>}
+      </form>
+      <form onSubmit={send} className="shop-live-f" style={{ marginTop: 18 }}>
+        <span className="shop-live-step">{d.liveStep2}</span>
+        <div className="shop-live-samples">
+          {order && <button type="button" className="shop-chip" onClick={() => { setFrom(mine.trim()); setRes(null); }}>{mine.trim()}</button>}
+          {order && <button type="button" className="shop-chip warn" onClick={() => { setFrom("valaki@masik-cim.hu"); setRes(null); }}>{d.liveStranger}</button>}
+          {!order && d.liveSamples.map(([f, m], i) => (
+            <button key={i} type="button" className="shop-chip" onClick={() => { setFrom(f); setMsg(m); setRes(null); }}>{f}</button>
+          ))}
+        </div>
         <label><span>{d.liveFrom}</span><input value={from} onChange={(e) => setFrom(e.target.value)} maxLength={200} /></label>
         <label><span>{d.liveMsg}</span><textarea rows={3} value={msg} onChange={(e) => setMsg(e.target.value)} maxLength={2000} /></label>
-        <button type="submit" className="shop-btn solid" disabled={busy}>{busy ? d.liveSending : d.liveSend}</button>
+        <button type="submit" className="shop-btn solid" disabled={!!busy}>{busy === "send" ? d.liveSending : d.liveSend}</button>
         <p className="shop-note" style={{ textAlign: "left" }}>{d.liveHint}</p>
       </form>
       {err && <p className="shop-track-no" role="status">{err}</p>}
@@ -150,7 +174,7 @@ const Tracker = ({ d }) => {
 };
 
 export default function Webshop() {
-  const { d } = useDemo(C, "/demo/webshop");
+  const { d, lang } = useDemo(C, "/demo/webshop");
   useFonts("https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap");
   const [roast, setRoast] = useState(30);
   const [cart, setCart] = useState({});
@@ -266,7 +290,7 @@ export default function Webshop() {
             <h2 className="shop-h2">{d.liveTitle}</h2>
             <p className="shop-lead">{d.liveSub}</p>
           </Rise>
-          <LiveAgent d={d} />
+          <LiveAgent d={d} lang={lang} />
         </div>
       </section>
 

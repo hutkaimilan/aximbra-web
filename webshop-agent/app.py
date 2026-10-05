@@ -18,7 +18,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 import agent
-from connectors import DemoShop, shop_from_env
+import re
+
+from connectors import DemoShop, create_visitor_order, shop_from_env
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="AXIMBRA webshop agent")
@@ -80,3 +82,19 @@ def demo_reply(m: MailIn, request: Request):
     ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "?")).split(",")[0].strip()
     _limit(ip)
     return agent.reply(DemoShop(), m.from_email, m.subject, m.body, shop_name="ŐRLŐ")
+
+
+class OrderIn(BaseModel):
+    email: str = Field(max_length=200)
+    lang: str = "hu"
+
+
+@app.post("/api/demo/order")
+def demo_order(m: OrderIn, request: Request):
+    """Próbarendelés a látogató saját címére, hogy a saját e-mailjével próbálhassa ki az agentet."""
+    if not re.fullmatch(r"[^@\s]{1,64}@[^@\s]+\.[^@\s]{2,}", m.email.strip()):
+        raise HTTPException(422, "Adj meg egy érvényes e-mail-címet.")
+    ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "?")).split(",")[0].strip()
+    _limit(ip)
+    o = create_visitor_order(m.email, m.lang if m.lang in ("hu", "en", "de") else "en")
+    return {"number": o.number, "items": o.items, "total": o.total}

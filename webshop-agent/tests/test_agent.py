@@ -82,3 +82,11 @@ def test_shopify_mapping():
 def test_shop_from_env_defaults_to_demo(monkeypatch):
     monkeypatch.delenv("SHOP_KIND", raising=False)
     assert isinstance(connectors.shop_from_env(), DemoShop)
+
+
+def test_visitor_order_works_only_for_its_owner():
+    o = connectors.create_visitor_order("en@sajat.hu", "hu")
+    r = agent.reply(DemoShop(), "en@sajat.hu", "", f"Hol tart a {o.number} rendelésem?")
+    assert r["verified"] and o.tracking_number in r["body"]
+    r = agent.reply(DemoShop(), "masik@cim.hu", "", f"Hol tart a {o.number} rendelés?")
+    assert r["order_found"] and not r["verified"] and o.tracking_number not in r["body"]

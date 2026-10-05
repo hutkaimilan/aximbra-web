@@ -72,12 +72,41 @@ DEMO_POLICY = {
 }
 
 
+# A látogatók próbarendelései (csak memóriában, 24 óráig, legfeljebb 2000 db).
+_VISITOR: dict[str, tuple[float, Order]] = {}
+VISITOR_TTL = 24 * 3600
+VISITOR_MAX = 2000
+
+
+def create_visitor_order(email: str, lang: str = "hu") -> Order:
+    import random
+    import time
+    from datetime import date, timedelta
+    now = time.time()
+    for k, (t, _) in list(_VISITOR.items()):
+        if now - t > VISITOR_TTL:
+            _VISITOR.pop(k, None)
+    if len(_VISITOR) >= VISITOR_MAX:
+        _VISITOR.pop(next(iter(_VISITOR)))
+    num = f"ORL-{random.randint(2000, 9999)}"
+    while num in _VISITOR:
+        num = f"ORL-{random.randint(2000, 9999)}"
+    today = date.today()
+    huf = lang == "hu"
+    o = Order(num, email.strip(), "", "shipped", (today - timedelta(days=2)).isoformat(),
+              "10 800 Ft" if huf else "€30.80", ["Etiópia Guji 250 g", "Hétköznapi espresso 250 g"] if huf else ["Ethiopia Guji 250 g", "Everyday espresso 250 g"],
+              "GLS", f"GLS{random.randint(10_000_000, 99_999_999)}", "", shipped=(today - timedelta(days=1)).isoformat())
+    o.tracking_url = f"https://gls-group.com/HU/hu/csomagkovetes?match={o.tracking_number}"
+    _VISITOR[num] = (now, o)
+    return o
+
+
 class DemoShop(Shop):
     name = "demo"
 
     def find(self, number=None, email=None):
         out = []
-        for o in DEMO_ORDERS:
+        for o in DEMO_ORDERS + [v for _, v in _VISITOR.values()]:
             if number and re.sub(r"\D", "", o.number) != re.sub(r"\D", "", number):
                 continue
             if email and o.email.lower() != email.lower():
