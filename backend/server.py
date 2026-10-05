@@ -2,6 +2,7 @@ from fastapi import FastAPI, APIRouter, Request, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
+import asyncio
 import os
 import json
 import time
@@ -11,7 +12,7 @@ from pathlib import Path
 from datetime import datetime, timezone, date
 from pydantic import BaseModel, ValidationError, field_validator
 from typing import Literal
-from openai import AsyncOpenAI, BadRequestError
+from openai import AsyncOpenAI, BadRequestError, RateLimitError
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -136,10 +137,8 @@ def _llm_client() -> tuple[AsyncOpenAI, str]:
         key = os.environ.get("GEMINI_API_KEY")
         if not key:
             raise not_configured
-        # Az ingyenes Gemini-keret percenként korlátoz, a példa-postafiók pedig
-        # tíz hívást indít egyszerre: a 429-et az SDK visszatartással újrapróbálja.
-        return (AsyncOpenAI(api_key=key, base_url=GEMINI_OPENAI_BASE, timeout=30.0, max_retries=3),
-                os.environ.get("DEMO_GEMINI_MODEL", "gemini-2.5-flash-lite"))
+        return (AsyncOpenAI(api_key=key, base_url=GEMINI_OPENAI_BASE, timeout=30.0, max_retries=0),
+                os.environ.get("DEMO_GEMINI_MODEL", "gemini-3.5-flash-lite"))
     key = os.environ.get("OPENAI_API_KEY")
     if not key:
         raise not_configured
@@ -157,6 +156,14 @@ GEMINI_JSON_RULES = (
     "- Számot számként írj, ne szövegként. A szöveges mezők hosszkorlátját tartsd be.\n"
     "- Csak abból dolgozz, ami a bemenetben áll. Amit nem tudsz belőle, ne találd ki: ha a feladat ad rá értéket (pl. Ismeretlen vagy other), azt használd."
 )
+
+
+RATE_LIMIT_WAITS = (4, 8, 16)
+
+
+def _daily_quota(e: Exception) -> bool:
+    text = str(e)
+    return "PerDay" in text or "insufficient_quota" in text or "credit_balance_exhausted" in text
 
 
 def _llm_provider() -> str:
@@ -189,10 +196,17 @@ async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600) -> s
     }
 
     resp = None
-    for _ in range(3):
+    waits = list(RATE_LIMIT_WAITS)
+    for _ in range(3 + len(waits)):
         try:
             resp = await client.chat.completions.create(**kwargs)
             break
+        except RateLimitError as exc:
+            # Percenkénti korlát (a példa-postafiók tíz hívást indít egyszerre):
+            # kivárjuk. A napi keret kimerülésénél a várakozás nem segít.
+            if not waits or _daily_quota(exc):
+                raise
+            await asyncio.sleep(waits.pop(0))
         except BadRequestError as exc:
             msg = str(exc)
             if "temperature" in msg and "temperature" in kwargs:
