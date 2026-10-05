@@ -88,3 +88,6 @@ credentials.json
 *.key
 .credentials
 .preview/
+
+# Prospect lists with personal data stay local (public repo)
+linkedin-felkeresek.md
