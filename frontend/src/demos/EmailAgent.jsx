@@ -1108,7 +1108,7 @@ export default function EmailAgent({ embedded = false }) {
             )}
 
             {done && results?.total === 0 && (
-              <p className="agent-lead">{a.run.noEmails}</p>
+              <p className="agent-lead">{progress?.errors > 0 ? a.run.runFailed : a.run.noEmails}</p>
             )}
 
             <button className="agent-cta ghost" onClick={disconnect}>
