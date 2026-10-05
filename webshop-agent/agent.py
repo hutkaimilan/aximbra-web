@@ -166,6 +166,8 @@ Rules:
 - Never invent dates, amounts, tracking numbers, delivery times or promises that are not in the facts or the policy.
 - If not verified or no order found, ask for the order number and the email used for the order; share no order details.
 - Returns, invoices, complaints: answer what the policy covers, then say a colleague will follow up personally.
+- Address the customer by full name only (e.g. "Kedves Kovács Anna!", "Guten Tag Anna Kovács,"); never guess gender (no Herr/Frau/Mr/Ms/úr/asszony).
+- Write dates in the reply language's normal format.
 - Be warm, concrete and short: 3–6 sentences. Greet, answer, close. Sign as "{shop}" customer service.
 - Also return "intent" (one of {", ".join(INTENTS)}) and "needs_human": true for complaints, angry customers or anything the facts/policy cannot answer.
 
@@ -211,6 +213,9 @@ def reply(shop: Shop, from_email: str, subject: str, text: str, shop_name: str =
         verified = bool(from_email) and order.email.lower() == from_email.strip().lower()
 
     facts = order.facts() if (order and verified) else {}
+    if facts:
+        # A belső állapotkód ("processing") ne kerüljön a vevő elé: a nyelvnek megfelelő szöveget kapja a modell.
+        facts["status"] = STATUS_TEXT[lang].get(order.status, STATUS_TEXT[lang]["unknown"])
     out = {"lang": lang, "intent": intent, "order_numbers": found["order_numbers"],
            "order": facts or None, "order_found": bool(order), "verified": verified,
            "needs_human": intent in ("complaint", "other") or bool(lookup_error), "engine": "template",
