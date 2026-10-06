@@ -36,8 +36,12 @@ let client: OpenAI | null = null;
 
 function openai(): OpenAI {
   if (!client) {
+    // LLM_BASE_URL-lel ugyanez a kliens más, OpenAI-kompatibilis végpontot
+    // hív (pl. Gemini), a saját kulcsával; nélküle marad az OpenAI.
+    const baseURL = process.env['LLM_BASE_URL']?.trim() || undefined;
     client = new OpenAI({
-      apiKey: env().openaiApiKey,
+      apiKey: (baseURL && process.env['LLM_API_KEY']?.trim()) || env().openaiApiKey,
+      baseURL,
       timeout: 12_000,
       // Streamnel az ujraprobalas felmondat utan ujrakezdene a szoveget,
       // ezert a retryt hivasonkent allitjuk, nem globalisan.
