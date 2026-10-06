@@ -286,3 +286,18 @@ test('az egyedi agentre nem mond arat', () => {
   assert.match(en, /Custom agent: there is NO fixed price/);
   assert.match(en, /Never invent a price or a timeline for it/);
 });
+
+test('az SMS-t egyszer ajanlja fel, utana nem kinalja ujra', () => {
+  // Eles teszthivas, 2026-10-06: az agent ot mondaton belul haromszor
+  // ajanlotta fel ugyanazt az SMS-t, minden valasza vegen.
+  const elotte = buildFactsBlock(facts(), '+36301300242', turns(2));
+  assert.match(elotte, /ajánld fel EGYSZER az SMS-t/);
+
+  const utana = buildFactsBlock(facts(), '+36301300242', [
+    ...turns(2),
+    { role: 'assistant', content: 'Küldjem a részleteket SMS-ben erre a számra?' },
+    { role: 'user', content: 'Mennyi ido, amig elindul?' },
+  ]);
+  assert.match(utana, /AZ SMS-T MÁR FELAJÁNLOTTAD/);
+  assert.doesNotMatch(utana, /Küldjem inkább SMS-ben/);
+});
