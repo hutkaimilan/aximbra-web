@@ -390,11 +390,23 @@ Ezt NE most kérdezd meg, és SOHA ne vágj vele a hívó szavába. Előbb vála
   // A telefonos felismeres a cimeket rontja el a leggyakrabban: egy eles
   // teszthivason negy fordulo ment el a cim tisztazasara, es a vegen sem
   // lett belole hasznalhato cim - kozben a telefonszam vegig ott volt.
+  // Az SMS-t egyszer ajanljuk fel. Korabban ez a blokk minden korben
+  // ujra bekerult, es egy teszthivasban az agent ot mondaton belul haromszor
+  // kinalta fel ugyanazt - tolakodo, es elnyomta a hivo kerdeseit.
+  const smsOffered = history.some(
+    (t) => t.role === 'assistant' && /\bsms|esemes|sms-ben/i.test(t.content),
+  );
   const smsPath =
     known && !facts.email
-      ? `# HA KÜLDENED KELL VALAMIT
+      ? smsOffered
+        ? `# AZ SMS-T MÁR FELAJÁNLOTTAD
 
-Érvényes e-mail címet még nem tudsz, a telefonszámot viszont igen. Ne vadássz a címre: ajánld fel az SMS-t. "Küldjem inkább SMS-ben, erre a számra?" Címet csak akkor kérj, ha a hívó ragaszkodik hozzá.
+Ne ajánld fel újra, és ne zárd vele a válaszaidat. Válaszolj arra, amit a hívó kérdez. Ha elfogadta, a hívás legvégén egyetlen mondatban nyugtázd: "Az SMS-t elküldöm erre a számra."
+
+`
+        : `# HA KÜLDENED KELL VALAMIT
+
+Érvényes e-mail címet még nem tudsz, a telefonszámot viszont igen. Ne vadássz a címre: ha küldenél valamit, ajánld fel EGYSZER az SMS-t: "Küldjem inkább SMS-ben, erre a számra?" Címet csak akkor kérj, ha a hívó ragaszkodik hozzá.
 
 `
       : '';
