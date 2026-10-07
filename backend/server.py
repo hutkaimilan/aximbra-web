@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 import asyncio
+import contextvars
 import os
 import json
 import time
@@ -428,22 +429,37 @@ AGENT_SYS = agent_sys("hu")
 
 
 
-async def classify_one(email: dict, lang: str = "hu") -> dict:
-    """One classification for the in-page email agent. Shares the demos' daily
-    cost ceiling so a long mailbox cannot run up an unbounded bill."""
-    _reset_if_new_day()
-    if _state["cost"] >= DAILY_COST_CEILING_USD:
-        raise HTTPException(status_code=429, detail="Az agent mára elérte a napi keretét.")
-    text = (
+# Egy futás leveleit csoportosan osztályozzuk: a Gemini ingyenes kerete
+# percenként csak néhány hívást enged, és ötven levél ötven hívása 429-be
+# futott — a látogató percekig nézte a forgó jelet, a levelek egy része pedig
+# kimaradt. Tíz levél egy hívásban: ötven levélhez öt hívás.
+# A csoport kulcsa a futás munkamenete, így két látogató levelei soha nem
+# kerülnek egy promptba. Csoport nélkül (közvetlen hívás) marad az egyes hívás.
+_batch_group: contextvars.ContextVar = contextvars.ContextVar("agent_batch_group", default=None)
+AGENT_BATCH_SIZE = max(1, int(_env_float("AGENT_BATCH_SIZE", 10)))
+AGENT_BATCH_WINDOW = 1.5  # mp: ennyit vár a csomag a többi levélre, mielőtt elindul
+AGENT_BATCH_BODY_CHARS = 3000
+_batches: dict = {}
+_batch_tasks: set = set()
+
+AGENT_BATCH_RULES = (
+    "\n\nBATCH MODE: instead of a single email you receive several, each introduced by a "
+    "line '### EMAIL id=N'. Classify every email independently, as if it were the only one: "
+    "never let one email's content influence another's result. Return ONE JSON object of the "
+    'form {"results": [{"id": N, ...the keys above...}, ...]} with exactly one entry per id.'
+)
+
+
+def _agent_text(email: dict, body_chars: int) -> str:
+    return (
         f"Feladó: {email.get('sender', '')}\n"
         f"Tárgy: {email.get('subject', '')}\n"
         f"Dátum: {email.get('date', '')}\n\n"
-        f"Levél törzse:\n{(email.get('body') or email.get('snippet') or '')[:6000]}"
+        f"Levél törzse:\n{(email.get('body') or email.get('snippet') or '')[:body_chars]}"
     )
-    raw = await _call_llm(agent_sys(lang), text, max_tokens=700)
-    _state["cost"] += EST_COST_PER_CALL_USD
-    data = _parse_json(raw)
 
+
+def _normalise_agent(data: dict) -> dict:
     category = data.get("category")
     if category not in AGENT_CATEGORIES:
         category = "other"
@@ -469,6 +485,104 @@ async def classify_one(email: dict, lang: str = "hu") -> dict:
         "summary": str(data.get("summary") or "")[:400],
         "next_step": str(data.get("next_step") or "")[:400],
     }
+
+
+async def _classify_single(email: dict, lang: str) -> dict:
+    raw = await _call_llm(agent_sys(lang), _agent_text(email, 6000), max_tokens=700)
+    return _parse_json(raw)
+
+
+def _batch_results(raw: str) -> dict:
+    """{id: eredmény} a csomag válaszából. Elfogadja a csupasz listát is."""
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.lower().startswith("json"):
+            text = text[4:]
+    try:
+        data = json.loads(text)
+    except ValueError:
+        data = _parse_json(raw)
+    rows = data.get("results") if isinstance(data, dict) else data
+    out = {}
+    for r in rows if isinstance(rows, list) else []:
+        if isinstance(r, dict) and r.get("id") is not None:
+            out[str(r["id"]).strip()] = r
+    return out
+
+
+async def _run_batch(lang: str, items: list):
+    try:
+        if len(items) == 1:
+            by_id = {"1": await _classify_single(items[0][0], lang)}
+        else:
+            text = "\n\n".join(
+                f"### EMAIL id={i}\n{_agent_text(email, AGENT_BATCH_BODY_CHARS)}"
+                for i, (email, _) in enumerate(items, 1)
+            )
+            raw = await _call_llm(agent_sys(lang) + AGENT_BATCH_RULES, text,
+                                  max_tokens=min(8000, 450 * len(items) + 200))
+            by_id = _batch_results(raw)
+    except Exception as e:  # noqa - minden várakozó ugyanazt a hibát kapja
+        for _, fut in items:
+            if not fut.done():
+                fut.set_exception(e)
+        return
+    for i, (email, fut) in enumerate(items, 1):
+        if fut.done():  # a hívó közben feladta
+            continue
+        row = by_id.get(str(i))
+        if row is None:
+            # A modell kihagyott egyet: azt az egyet külön kérdezzük meg.
+            try:
+                row = await _classify_single(email, lang)
+            except Exception as e:  # noqa
+                if not fut.done():
+                    fut.set_exception(e)
+                continue
+        if not fut.done():
+            fut.set_result(row)
+
+
+def _flush_batch(key):
+    b = _batches.pop(key, None)
+    if not b:
+        return
+    b["timer"].cancel()
+    task = b["loop"].create_task(_run_batch(key[2], b["items"]))
+    _batch_tasks.add(task)
+    task.add_done_callback(_batch_tasks.discard)
+
+
+def _enqueue_batch(group, lang: str, email: dict) -> asyncio.Future:
+    loop = asyncio.get_running_loop()
+    key = (id(loop), group, lang)
+    b = _batches.get(key)
+    if b is None:
+        b = _batches[key] = {
+            "loop": loop, "items": [],
+            "timer": loop.call_later(AGENT_BATCH_WINDOW, _flush_batch, key),
+        }
+    fut = loop.create_future()
+    b["items"].append((email, fut))
+    if len(b["items"]) >= AGENT_BATCH_SIZE:
+        _flush_batch(key)
+    return fut
+
+
+async def classify_one(email: dict, lang: str = "hu") -> dict:
+    """One classification for the in-page email agent. Shares the demos' daily
+    cost ceiling so a long mailbox cannot run up an unbounded bill."""
+    _reset_if_new_day()
+    if _state["cost"] >= DAILY_COST_CEILING_USD:
+        raise HTTPException(status_code=429, detail="Az agent mára elérte a napi keretét.")
+    group = _batch_group.get()
+    if group is None or AGENT_BATCH_SIZE <= 1:
+        data = await _classify_single(email, lang)
+    else:
+        data = await _enqueue_batch(group, lang, email)
+    _state["cost"] += EST_COST_PER_CALL_USD
+    return _normalise_agent(data)
 
 
 # ---------- Reply drafting (in-page only, never sent) ----------

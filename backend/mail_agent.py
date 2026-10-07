@@ -155,10 +155,12 @@ def _is_trashable(doc: dict) -> bool:
 SESSION_HEADER = "X-Agent-Session"
 SESSION_TTL_SECONDS = 30 * 60
 MAX_EMAILS = 50
-# How many emails are fetched and classified at once. Deliberately small: it is
-# the knob that trades run time against rate limits and budget overshoot, and 5
-# turns a ~50-call sequential crawl into something a visitor will wait through.
-RUN_CONCURRENCY = 5
+# How many emails are fetched and classified at once. It is the knob that trades
+# run time against rate limits and budget overshoot. 10 matches the classifier's
+# batch size (server.AGENT_BATCH_SIZE): ten fetched emails go to the model in one
+# call, so fifty emails cost five model calls instead of fifty — the free Gemini
+# tier answered fifty single calls with 429s and a page that never finished.
+RUN_CONCURRENCY = 10
 # A példa-postafiók tíz levele egyszerre mehet: fix darabszám, nincs mellette
 # Gmail-kérés, és ez az első, amit a látogató lát a rendszerből.
 SAMPLE_CONCURRENCY = 10
@@ -1129,7 +1131,7 @@ async def start_sample(request: Request, lang: str = "hu"):
 
 async def run_sample(sid: str):
     """Classify the example inbox. Same classifier, same limits, no Gmail."""
-    from server import classify_one  # noqa: circular by design, runtime only
+    from server import classify_one, _batch_group  # noqa: circular by design, runtime only
     from sample_inbox import sample_emails
 
     sess = _sessions.get(sid)
@@ -1140,6 +1142,8 @@ async def run_sample(sid: str):
         return
     emails = sample_emails(datetime.now(timezone.utc))
     state.update({"running": True, "total": len(emails), "message": "running"})
+    # A futás levelei egy csomagban mennek a modellhez (lásd server._batch_group).
+    _batch_group.set(sid)
 
     # A példa-postafiók tíz levél, fix, és nincs mellette Gmail-hívás: itt az
     # egész futás elfér egy hullámban. Az éles postafiók marad az öt szálon —
@@ -1240,7 +1244,7 @@ def _decode_attachment(data: str) -> bytes:
 async def run_agent(sid: str):
     """Read-only pass over the visitor's last 30 days. Imported lazily so the
     classifier's OpenAI client is only touched when a run actually starts."""
-    from server import classify_one  # noqa: circular by design, runtime only
+    from server import classify_one, _batch_group  # noqa: circular by design, runtime only
 
     sess = _sessions.get(sid)
     if not sess:
@@ -1249,6 +1253,8 @@ async def run_agent(sid: str):
     if state["running"]:
         return
     state.update({"running": True, "message": "fetching"})
+    # A futás levelei csomagokban mennek a modellhez (lásd server._batch_group).
+    _batch_group.set(sid)
     try:
         # Every googleapiclient call is synchronous; run it in a worker thread so
         # a mailbox pass never freezes the rest of the API.
@@ -1298,7 +1304,7 @@ async def run_agent(sid: str):
                     # a saját nyelvén, nem a kiszolgáló.
                     halted["reason"] = "budget"
                 except Exception as e:  # noqa - one bad email must not stop the rest
-                    logger.warning("agent email failed: %s", type(e).__name__)
+                    logger.warning("agent email failed: %s %s", type(e).__name__, str(e)[:160])
                     state["errors"] += 1
                 finally:
                     state["done"] += 1

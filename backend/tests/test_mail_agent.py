@@ -1395,7 +1395,7 @@ def test_sample_run_uses_one_wave(monkeypatch):
     from datetime import datetime, timezone
 
     assert mail_agent.SAMPLE_CONCURRENCY >= 10
-    assert mail_agent.RUN_CONCURRENCY == 5, "az éles futás maradjon óvatos"
+    assert mail_agent.RUN_CONCURRENCY == 10, "az éles futás egy csomagnyi levelet tartson egyszerre"
 
     peak = {"now": 0, "max": 0}
 
