@@ -127,6 +127,7 @@ const en = {
     agentLabel: "Which agent",
     hoursLabel: "Hours a week it takes off your hands",
     hoursUnit: "h",
+    teamNote: "A multi-agent system takes over a process that spans several teams, so here we count several people's time: 80 hours a week is two full-time jobs.",
     wageLabel: "Whose wage to compare with",
     wages: { min: "Hungarian guaranteed minimum wage (gross {v})", avg: "Hungarian average wage (gross {v})" },
     result: "From month {m}, the agent is cheaper.",

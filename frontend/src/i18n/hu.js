@@ -127,6 +127,7 @@ const hu = {
     agentLabel: "Melyik agent",
     hoursLabel: "Heti hány órát vesz le a válladról",
     hoursUnit: "óra",
+    teamNote: "A multi-agent rendszer egy több osztályon átívelő folyamatot vesz át, ezért itt több ember munkaidejével számolunk: heti 80 óra két teljes állás.",
     wageLabel: "Kinek a bérével számoljunk",
     wages: { min: "garantált bérminimum (bruttó {v})", avg: "országos átlagkereset (bruttó {v})" },
     result: "{m} hónap után olcsóbb az agent.",
