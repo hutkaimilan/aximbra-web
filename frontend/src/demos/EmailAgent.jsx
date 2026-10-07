@@ -60,6 +60,15 @@ const post = (path, body) => fetch(`${API}${path}`, {
 
 const TONE_KEYS = ["hivatalos", "kozvetlen"];
 
+// A „válasz mindegyikre" gomb vázlatai egymás után készülnek, nem egyszerre:
+// tíz párhuzamos modellhívás az ingyenes kereten 429-be futna.
+let draftChain = Promise.resolve();
+const queueDraft = (job) => {
+  const next = draftChain.then(job, job);
+  draftChain = next.catch(() => {});
+  return next;
+};
+
 /**
  * Reply draft for one email.
  *
@@ -72,7 +81,7 @@ const TONE_KEYS = ["hivatalos", "kozvetlen"];
  * access, and it asks for an explicit confirmation first — that save is the one
  * action in the whole agent that changes the mailbox. Sending is never offered.
  */
-const DraftPanel = ({ email, canDraft }) => {
+const DraftPanel = ({ email, canDraft, autoStart = false }) => {
   const { t } = useLang();
   const a = t.agent;
   const [tone, setTone] = useState("hivatalos");
@@ -128,6 +137,17 @@ const DraftPanel = ({ email, canDraft }) => {
       setSaving(false);
     }
   };
+
+  // Tömeges vázlatírás: a sorba áll, és csak akkor indul, ha még nincs vázlat.
+  const started = useRef(false);
+  useEffect(() => {
+    if (!autoStart || started.current || draft) return;
+    started.current = true;
+    setBusy(true);
+    queueDraft(() => write()).catch(() => {});
+    // write a saját állapotát kezeli; a függőség szándékosan csak az autoStart.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
 
   const copy = async () => {
     const text = `${draft.targy}\n\n${draft.valasz}`;
@@ -325,6 +345,83 @@ const SearchPanel = ({ onResults, onClear, active }) => {
   );
 };
 
+/**
+ * Két hónapnál régebbi levelek a beérkezettek között. A szám a Gmailből jön,
+ * az áthelyezés csak engedéllyel és egy második, külön megerősítéssel indul.
+ * Egy kör legfeljebb 500 levelet visz; ha marad, a gomb újra felajánlja.
+ */
+const OldMailPanel = ({ canTrash }) => {
+  const { t } = useLang();
+  const a = t.agent.run;
+  const [info, setInfo] = useState(null);
+  const [err, setErr] = useState("");
+  const [ask, setAsk] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [moved, setMoved] = useState(0);
+
+  const load = useCallback(async () => {
+    setErr("");
+    try { setInfo(await get("/old")); } catch (e) { setErr(a.oldFailed); }
+  }, [a.oldFailed]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const go = async () => {
+    setBusy(true); setErr("");
+    try {
+      const r = await post("/old/trash", { confirm: true });
+      setMoved((n) => n + (r.trashed || 0));
+      setInfo((i) => ({ ...(i || {}), count: r.remaining, capped: false }));
+    } catch (e) {
+      setErr(e.message || a.oldFailed);
+    } finally {
+      setBusy(false); setAsk(false);
+    }
+  };
+
+  return (
+    <div className="agent-old" data-testid="agent-old">
+      <div className="agent-old-text">
+        <b>{a.oldTitle}</b>
+        <p>
+          {!info && !err ? a.oldChecking
+            : info && info.count === 0 ? a.oldNone
+            : info ? fmt(info.capped ? a.oldCountCapped : a.oldCount, { n: info.count })
+            : null}
+        </p>
+        {moved > 0 && (
+          <p className="agent-old-done" data-testid="agent-old-done">
+            {fmt(a.oldDone, { n: moved })}{" "}
+            {info?.count > 0 && fmt(a.oldMore, { n: info.count })}
+          </p>
+        )}
+        {err && <p className="agent-old-err" role="alert">{err}</p>}
+      </div>
+      {info?.count > 0 && (
+        !canTrash ? (
+          <p className="agent-junk-nogrant">{a.junkNoGrant}</p>
+        ) : ask ? (
+          <div className="agent-junk-confirm" data-testid="agent-old-confirm">
+            <span>{fmt(a.oldConfirm, { n: Math.min(info.count, 500) })}</span>
+            <button type="button" className="agent-junk-yes" onClick={go} disabled={busy}
+              data-testid="agent-old-yes">
+              {busy ? <><span className="spin" /> {a.oldBusy}</> : a.junkYes}
+            </button>
+            <button type="button" className="agent-junk-no" onClick={() => setAsk(false)} disabled={busy}>
+              {a.junkNo}
+            </button>
+          </div>
+        ) : (
+          <button type="button" className="agent-junk-all" onClick={() => setAsk(true)}
+            data-testid="agent-old-all">
+            {fmt(a.oldAll, { n: Math.min(info.count, 500) })}
+          </button>
+        )
+      )}
+    </div>
+  );
+};
+
 /* Shown between the Connect button and Google. Google puts an "unverified app"
    screen in front of every restricted Gmail scope until the app has passed a
    paid security audit; meeting it cold reads as a scam. This says why it
@@ -424,8 +521,14 @@ export default function EmailAgent({ embedded = false }) {
   const [showWarn, setShowWarn] = useState(false);
   // Stable, so the dialog's key listener isn't torn down on every render.
   const closeWarn = useCallback(() => setShowWarn(false), []);
-  const [onlyNeedsReply, setOnlyNeedsReply] = useState(false);
-  const [onlyJunk, setOnlyJunk] = useState(false);
+  // Egy szűrő egyszerre: null (mind) | "reply" | "junk" | "cat:<kulcs>".
+  const [filter, setFilter] = useState(null);
+  const onlyNeedsReply = filter === "reply";
+  const onlyJunk = filter === "junk";
+  const catFilter = filter && filter.startsWith("cat:") ? filter.slice(4) : null;
+  const toggleFilter = (f) => { setFilter((cur) => (cur === f ? null : f)); setJunkAsk(false); setOpenId(null); };
+  // „Válaszvázlat mindegyikre": a válaszra váró sorok kinyílnak és sorban vázlatot kérnek.
+  const [bulkDraft, setBulkDraft] = useState(false);
   const [openId, setOpenId] = useState(null);
   // A keresés találatai a futás eredménye helyett jelennek meg, nem mellette:
   // két lista egymás alatt csak kérdés lenne, hogy melyiket is nézem.
@@ -532,7 +635,7 @@ export default function EmailAgent({ embedded = false }) {
     setStarting(true);
     setError("");
     try {
-      const { session } = await post(`/sample?lang=${lang}`, {});
+      const { session } = await post(`/sample?lang=${lang}&v2=true`, {});
       setToken(session);
       const s = await get("/status");
       setStatus(s);
@@ -553,7 +656,7 @@ export default function EmailAgent({ embedded = false }) {
       // The wider grant is requested only when the visitor ticked the box. The
       // default path asks Google for read access and nothing else.
       const d = await get(
-        `/connect?lang=${lang}` +
+        `/connect?lang=${lang}&v2=true&ret=${encodeURIComponent(window.location.origin)}` +
         (allowDrafts ? "&drafts=true" : "") +
         (allowCleanup ? "&cleanup=true" : "")
       );
@@ -578,7 +681,7 @@ export default function EmailAgent({ embedded = false }) {
       setJunkDone((n) => n + (r.trashed || 0));
       const nextResults = await get("/results");
       setResults(nextResults);
-      if (!(nextResults?.trashable || []).length) setOnlyJunk(false);
+      if (!(nextResults?.trashable || []).length && filter === "junk") setFilter(null);
       setOpenId(null);
     } catch (e) {
       setJunkErr(e.message || a.err.generic);
@@ -912,14 +1015,7 @@ export default function EmailAgent({ embedded = false }) {
                   <button
                     type="button"
                     className={`agent-tile agent-tile-btn ${onlyNeedsReply ? "on" : ""}`}
-                    onClick={() => {
-                      const next = !onlyNeedsReply;
-                      setOnlyNeedsReply(next);
-                      if (next) {
-                        setOnlyJunk(false);
-                        setJunkAsk(false);
-                      }
-                    }}
+                    onClick={() => toggleFilter("reply")}
                     disabled={results.needs_reply === 0}
                     aria-pressed={onlyNeedsReply}
                     data-testid="agent-tile-needs-reply">
@@ -934,12 +1030,7 @@ export default function EmailAgent({ embedded = false }) {
                   <button
                     type="button"
                     className={`agent-tile agent-tile-btn agent-tile-junk ${onlyJunk ? "on" : ""}`}
-                    onClick={() => {
-                      const next = !onlyJunk;
-                      setOnlyJunk(next);
-                      setJunkAsk(false);
-                      if (next) setOnlyNeedsReply(false);
-                    }}
+                    onClick={() => toggleFilter("junk")}
                     disabled={junkIds.length === 0}
                     aria-pressed={onlyJunk}
                     data-testid="agent-tile-junk">
@@ -961,20 +1052,44 @@ export default function EmailAgent({ embedded = false }) {
                   </div>
                 </div>
 
-                <div className="agent-cats">
-                  <div className="k">{a.run.categories}</div>
-                  {Object.entries(results.counts)
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([cat, n]) => (
-                      <div className="agent-cat-row" key={cat}>
-                        <span className="agent-cat-name">{a.cat[cat] || cat}</span>
-                        <span className="agent-cat-bar">
-                          <span style={{ width: `${(n / results.total) * 100}%` }} />
-                        </span>
-                        <span className="agent-cat-n">{n}</span>
-                      </div>
-                    ))}
+                {/* A régi levelek takarítása a gyűjtők fölött: a gyűjtőre kattintva
+                    a lista közvetlenül alatta jelenik meg. */}
+                {done && <OldMailPanel canTrash={canTrash} />}
+
+                {/* Gyűjtők: minden levéltípusnak egy gomb, rákattintva csak azok
+                    a levelek látszanak. A számok a kiszolgálótól jönnek. */}
+                <div className="agent-collectors" data-testid="agent-collectors">
+                  <div className="k">{a.run.collectors}</div>
+                  <div className="agent-collector-row">
+                    <button type="button" className={`agent-collector ${!filter ? "on" : ""}`}
+                      aria-pressed={!filter} onClick={() => { setFilter(null); setOpenId(null); }}
+                      data-testid="agent-collector-all">
+                      {a.run.all} <span className="n">{results.analyses.length}</span>
+                    </button>
+                    <button type="button" className={`agent-collector reply ${onlyNeedsReply ? "on" : ""}`}
+                      aria-pressed={onlyNeedsReply} disabled={results.needs_reply === 0}
+                      onClick={() => toggleFilter("reply")} data-testid="agent-collector-reply">
+                      {a.run.needsReply} <span className="n">{results.needs_reply}</span>
+                    </button>
+                    <button type="button" className={`agent-collector junk ${onlyJunk ? "on" : ""}`}
+                      aria-pressed={onlyJunk} disabled={junkIds.length === 0}
+                      onClick={() => toggleFilter("junk")} data-testid="agent-collector-junk">
+                      {a.run.junkTitle} <span className="n">{junkIds.length}</span>
+                    </button>
+                    {Object.entries(results.counts)
+                      .sort((x, y) => y[1] - x[1])
+                      .map(([cat, n]) => (
+                        <button type="button" key={cat}
+                          className={`agent-collector ${catFilter === cat ? "on" : ""}`}
+                          aria-pressed={catFilter === cat}
+                          onClick={() => toggleFilter(`cat:${cat}`)}
+                          data-testid={`agent-collector-${cat}`}>
+                          {a.cat[cat] || cat} <span className="n">{n}</span>
+                        </button>
+                      ))}
+                  </div>
                 </div>
+
 
                 {/* Deletion is deliberately a second step. The overview only
                     offers "show these"; controls that can move mail appear after
@@ -1025,9 +1140,19 @@ export default function EmailAgent({ embedded = false }) {
                 {onlyNeedsReply && (
                   <div className="agent-filter-note" data-testid="agent-filter-note">
                     {a.run.filterNote}{" "}
-                    <button type="button" onClick={() => setOnlyNeedsReply(false)}>
+                    <button type="button" onClick={() => setFilter(null)}>
                       {fmt(a.run.showAllN, { n: results.total })}
                     </button>
+                  </div>
+                )}
+
+                {onlyNeedsReply && results.needs_reply > 0 && !bulkDraft && (
+                  <div className="agent-bulk" data-testid="agent-bulk-draft">
+                    <button type="button" className="agent-draft-btn" onClick={() => setBulkDraft(true)}
+                      data-testid="agent-bulk-draft-go">
+                      {fmt(a.run.draftAll, { n: results.needs_reply })}
+                    </button>
+                    <span className="agent-draft-note">{a.run.draftAllNote}</span>
                   </div>
                 )}
 
@@ -1035,7 +1160,7 @@ export default function EmailAgent({ embedded = false }) {
                   <div className="agent-filter-note agent-filter-note-junk" data-testid="agent-junk-filter-note">
                     {a.run.junkFilterNote}{" "}
                     <button type="button" onClick={() => {
-                      setOnlyJunk(false);
+                      setFilter(null);
                       setJunkAsk(false);
                     }}>
                       {fmt(a.run.showAllN, { n: results.total })}
@@ -1046,11 +1171,13 @@ export default function EmailAgent({ embedded = false }) {
                 <div className="agent-list">
                   {results.analyses
                     .filter((e) => (!onlyNeedsReply || e.needs_reply === "igen") &&
-                      (!onlyJunk || junkSet.has(e.id)))
+                      (!onlyJunk || junkSet.has(e.id)) &&
+                      (!catFilter || e.category === catFilter))
                     .map((e) => {
                     const u = urgencyOf(e.urgency);
-                    const open = openId === e.id;
                     const needs = e.needs_reply === "igen";
+                    const auto = bulkDraft && needs;
+                    const open = openId === e.id || auto;
                     return (
                       // `needs` paints the row in the same cyan as the tile's
                       // number, so the count and the emails it refers to read as
@@ -1097,7 +1224,7 @@ export default function EmailAgent({ embedded = false }) {
                             <p>{e.next_step || "—"}</p>
                             <div className="k">{a.run.theEmail}</div>
                             <pre>{e.body || e.snippet || a.run.empty}</pre>
-                            <DraftPanel email={e} canDraft={status.can_draft === true} />
+                            <DraftPanel email={e} canDraft={status.can_draft === true} autoStart={auto} />
                           </div>
                         )}
                       </div>

@@ -564,3 +564,34 @@
   .agent-warn { padding: 18px 16px 16px; font-size: 14px; }
   .agent-warn h3 { font-size: 17px; }
 }
+
+/* Gyűjtők: minden levéltípusnak egy gomb, a szám mellette. */
+.agent-collectors { border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 18px; }
+.agent-collectors .k { font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--dim); margin-bottom: 12px; }
+.agent-collector-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.agent-collector { display: inline-flex; align-items: center; gap: 8px; min-height: 40px;
+  font-family: var(--body); font-size: 14px; color: var(--muted); background: rgba(120,140,220,.06);
+  border: 1px solid var(--border); border-radius: 40px; padding: 8px 14px; cursor: pointer;
+  transition: border-color .2s ease, color .2s ease, background .2s ease; }
+.agent-collector .n { font-family: var(--mono); font-size: 12px; color: var(--text);
+  background: rgba(120,140,220,.14); border-radius: 20px; padding: 2px 8px; }
+.agent-collector:hover:not(:disabled) { border-color: var(--cyan); color: var(--text); }
+.agent-collector.on { color: #04040C; background: var(--cyan); border-color: var(--cyan); }
+.agent-collector.on .n { color: #04040C; background: rgba(4,4,12,.14); }
+.agent-collector.reply:not(.on) .n { color: var(--cyan); }
+.agent-collector.junk:not(.on) .n { color: var(--amber); }
+.agent-collector:disabled { opacity: .4; cursor: default; }
+
+/* Két hónapnál régebbi levelek. */
+.agent-old { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 18px;
+  background: rgba(255,176,32,.03); }
+.agent-old-text { flex: 1 1 260px; min-width: 0; }
+.agent-old-text b { color: var(--text); }
+.agent-old-text p { margin: 6px 0 0; font-size: 14px; color: var(--muted); line-height: 1.6; }
+.agent-old-done { color: var(--cyan) !important; }
+.agent-old-err { color: var(--amber) !important; }
+
+/* Válaszvázlat mindegyikre. */
+.agent-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 14px; }
