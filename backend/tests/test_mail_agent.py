@@ -67,14 +67,22 @@ def test_agent_alters_existing_mail_in_exactly_one_way():
                       "messages().insert", "messages().batchModify",
                       "batchDelete", ".delete("):
         assert forbidden not in src, forbidden
-    # Trashing exists, and only in the one endpoint that is gated on it.
-    assert src.count(".trash(") == 1
+    # Trashing exists in two places: the junk endpoint and the batch helper of
+    # the old-mail cleanup. Both are reached only through a gated endpoint.
+    assert src.count(".trash(") == 2
     idx = src.find("async def trash(")
     assert idx != -1
     body = src[idx: src.find("@router.post", idx + 10)]
     assert 'sess.get("can_trash")' in body
     assert "body.confirm" in body
-    assert "_is_trashable(d)" in body
+    assert "_is_trashable(d," in body
+    # A régi levelek takarítása: ugyanaz a két kapu.
+    idx = src.find("async def old_trash(")
+    assert idx != -1
+    body = src[idx: src.find("@router.post", idx + 10)]
+    assert 'sess.get("can_trash")' in body
+    assert "body.confirm" in body
+    assert src.count("_trash_ids") == 3  # definíció + két hívás, mind az old_trash-ban
 
 def test_run_survives_an_online_only_grant():
     """A demo asks for online access, so Google returns no refresh token and the
@@ -622,7 +630,7 @@ def test_the_oauth_handoff_survives_a_restart():
     mail_agent._sessions.clear()
     out = mail_agent._unpack_state(state)
     assert out == {"verifier": verifier, "with_compose": True, "with_modify": False,
-                   "lang": "hu"}
+                   "lang": "hu", "v2": False, "ret": ""}
 
 
 def test_a_forged_or_tampered_state_is_refused():

@@ -39,6 +39,17 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
 GMAIL_REDIRECT_URI = os.environ.get("AGENT_REDIRECT_URI", "").strip()
 SITE_URL = os.environ.get("FRONTEND_URL", "").strip()
+# Előnézeti felületek (pl. egy jóváhagyásra váró változat), ahová a Google-kör
+# után vissza szabad térni. Csak pontos egyezés számít: egy tetszőleges címre
+# visszairányító callback nyitott átirányító lenne, a munkamenet-tokennel együtt.
+RETURN_ORIGINS = {
+    o.strip().rstrip("/") for o in os.environ.get("AGENT_RETURN_ORIGINS", "").split(",") if o.strip()
+}
+
+
+def _safe_return(origin: str) -> str:
+    origin = (origin or "").strip().rstrip("/")
+    return origin if origin in RETURN_ORIGINS else ""
 
 
 def _log_agent_config():
@@ -149,8 +160,18 @@ def _scopes_for(with_compose: bool, with_modify: bool) -> list:
     return scopes
 
 
-def _is_trashable(doc: dict) -> bool:
-    return doc.get("category") in TRASHABLE_CATEGORIES
+# A második változat (v2) a saját levélrendező szabályát követi: a hírlevél és a
+# spam mellett a lényegtelen szolgáltatói értesítés (alacsony sürgősség) is
+# kiszűrhető. A sürgős szolgáltatói levél (pl. lejáró előfizetés) marad.
+NOTICE_CATEGORY = "provider_notice"
+NOTICE_MAX_URGENCY = 2
+
+
+def _is_trashable(doc: dict, wide: bool = False) -> bool:
+    if doc.get("category") in TRASHABLE_CATEGORIES:
+        return True
+    return wide and doc.get("category") == NOTICE_CATEGORY \
+        and (doc.get("urgency") or 0) <= NOTICE_MAX_URGENCY
 
 SESSION_HEADER = "X-Agent-Session"
 SESSION_TTL_SECONDS = 30 * 60
@@ -170,6 +191,20 @@ LOOKBACK_DAYS = 30
 # and they are user-triggered rather than part of the run, so they get their own
 # per-session cap on top of the shared daily ceiling.
 MAX_DRAFTS_PER_SESSION = 6
+# v2: a „válasz mindegyikre" gomb egy futás összes válaszra váró levelét kérheti.
+MAX_DRAFTS_PER_SESSION_V2 = 20
+
+# Két hónapnál régebbi levelek a beérkezettek között. A csillagozott kimarad:
+# azt a tulajdonos szándékosan tartja meg. Csak Kukába (30 napig visszaállítható).
+OLD_DAYS = 60
+OLD_QUERY = f"in:inbox older_than:{OLD_DAYS}d -is:starred"
+OLD_COUNT_CAP = 2000   # ennyi fölött „legalább ennyi"-t írunk, nem lapozunk tovább
+OLD_TRASH_MAX = 500    # egy kattintás ennyit visz; a maradékra újra lehet kattintani
+OLD_TRASH_CHUNK = 25   # a Gmail másodpercenkénti kerete 250 egység, egy trash 5
+SAMPLE_OLD_COUNT = 86  # a példa-postafiók kitalált régi levelei
+# Két hétnél régebbi levél nem sürgős: ami addig nem égett le, az nem ma fog.
+STALE_DAYS = 14
+STALE_URGENCY = 2
 
 _sessions: dict = {}
 # asyncio only holds weak references to running tasks, so a fire-and-forget run
@@ -262,7 +297,7 @@ def _safe_lang(value) -> str:
 
 
 def _pack_state(code_verifier: str, with_compose: bool, lang: str = "hu",
-                with_modify: bool = False) -> str:
+                with_modify: bool = False, v2: bool = False, ret: str = "") -> str:
     """Carry the OAuth handoff in the state parameter instead of server memory.
 
     It used to live in a module-level dict, which meant any restart between
@@ -277,7 +312,7 @@ def _pack_state(code_verifier: str, with_compose: bool, lang: str = "hu",
     """
     payload = json.dumps(
         {"v": code_verifier, "c": bool(with_compose), "m": bool(with_modify),
-         "l": _safe_lang(lang)},
+         "l": _safe_lang(lang), "x": bool(v2), "r": _safe_return(ret)},
         separators=(",", ":"),
     )
     return _fernet.encrypt(payload.encode()).decode()
@@ -295,7 +330,9 @@ def _unpack_state(state: str):
             return None
         return {"verifier": verifier, "with_compose": bool(data.get("c")),
                 "with_modify": bool(data.get("m")),
-                "lang": _safe_lang(data.get("l"))}
+                "lang": _safe_lang(data.get("l")),
+                "v2": bool(data.get("x")),
+                "ret": _safe_return(data.get("r") or "")}
     except Exception:  # noqa - forged, tampered or expired
         return None
 
@@ -503,11 +540,13 @@ async def status(request: Request):
         # A run over the example inbox rather than someone's Gmail. The page says
         # so rather than letting the results pass for the visitor's own mail.
         "sample": bool(sess and sess.get("sample")),
+        "v2": bool(sess and sess.get("v2")),
     }
 
 
 @router.get("/connect")
-async def connect(drafts: bool = False, cleanup: bool = False, lang: str = "hu"):
+async def connect(drafts: bool = False, cleanup: bool = False, lang: str = "hu",
+                  v2: bool = False, ret: str = ""):
     """`drafts=true` asks Google for draft-writing access as well.
 
     It comes from a box the visitor ticks, never from a default, and it is carried
@@ -522,7 +561,8 @@ async def connect(drafts: bool = False, cleanup: bool = False, lang: str = "hu")
         access_type="online",
         prompt="consent",
         include_granted_scopes="false",
-        state=_pack_state(flow.code_verifier, drafts, lang, with_modify=cleanup),
+        state=_pack_state(flow.code_verifier, drafts, lang, with_modify=cleanup,
+                          v2=v2, ret=ret),
     )
     return {"auth_url": url}
 
@@ -536,7 +576,8 @@ async def callback(code: str = "", state: str = "", error: str = ""):
     st_early = _unpack_state(state)
     if st_early and st_early["lang"] != "hu":
         lang_prefix = f"/{st_early['lang']}"
-    target = f"{SITE_URL}{lang_prefix}/demo/email-agent"
+    base = (st_early and st_early["ret"]) or SITE_URL
+    target = f"{base}{lang_prefix}/demo/email-agent"
     if error:
         return RedirectResponse(f"{target}?error=access_denied")
     st = _unpack_state(state)
@@ -565,6 +606,8 @@ async def callback(code: str = "", state: str = "", error: str = ""):
             # A felület nyelve, az OAuth-körön keresztül hozva: az összefoglalók
             # és a sürgősség-indoklás ezen a nyelven készülnek.
             "lang": st["lang"],
+            # A jóváhagyásra váró második változat szabályai (lásd _is_trashable).
+            "v2": st["v2"],
             # What Google actually granted, not what we asked for. A visitor can
             # untick scopes on the consent screen, so asking is not receiving —
             # and an endpoint that trusted the request would fail later, inside a
@@ -719,6 +762,7 @@ async def results(request: Request):
     # breakdown follows the list for the same reason: a bar counting mail that
     # is no longer there would contradict what sits underneath it.
     live = [d for d in docs if not d.get("trashed")]
+    wide = bool(sess.get("v2"))
     counts = {}
     for d in live:
         counts[d["category"]] = counts.get(d["category"], 0) + 1
@@ -729,8 +773,8 @@ async def results(request: Request):
         "total": len(docs),
         "needs_reply": len([d for d in live if d.get("needs_reply") == "igen"]),
         # The urgent list is what still needs attention, never junk.
-        "top_urgent": [d for d in live if not _is_trashable(d)][:3],
-        "trashable": [d["id"] for d in live if _is_trashable(d)],
+        "top_urgent": [d for d in live if not _is_trashable(d, wide)][:3],
+        "trashable": [d["id"] for d in live if _is_trashable(d, wide)],
         "trashed": len([d for d in docs if d.get("trashed")]),
     }
 
@@ -761,10 +805,11 @@ async def draft(request: Request, body: DraftBody):
         raise HTTPException(status_code=404, detail="Ez a levél nem szerepel a futásban.")
 
     # Count distinct drafts, so re-reading a cached one is not charged twice.
-    if len(sess["drafts"]) >= MAX_DRAFTS_PER_SESSION:
+    cap = MAX_DRAFTS_PER_SESSION_V2 if sess.get("v2") else MAX_DRAFTS_PER_SESSION
+    if len(sess["drafts"]) >= cap:
         raise HTTPException(
             status_code=429,
-            detail=f"Ebben a munkamenetben {MAX_DRAFTS_PER_SESSION} fogalmazvány a keret. "
+            detail=f"Ebben a munkamenetben {cap} fogalmazvány a keret. "
                    "Frissítsd az oldalt, vagy írj nekünk.",
         )
 
@@ -1047,7 +1092,8 @@ async def trash(request: Request, body: TrashBody):
     wanted = set(body.ids)
     allowed = [
         d for d in sess["analyses"]
-        if d.get("id") in wanted and _is_trashable(d) and not d.get("trashed")
+        if d.get("id") in wanted and _is_trashable(d, bool(sess.get("v2")))
+        and not d.get("trashed")
     ]
     refused = len(wanted) - len(allowed)
 
@@ -1084,8 +1130,118 @@ async def trash(request: Request, body: TrashBody):
     return {"ok": True, "trashed": done, "failed": failed, "refused": refused}
 
 
+# ---------- Két hónapnál régebbi levelek ----------
+def _old_ids(service, creds, limit: int) -> list:
+    """A régi levelek azonosítói, legfeljebb `limit` darab. Csak a lista-hívás:
+    a levelek tartalmát ehhez nem kell letölteni."""
+    ids, token = [], None
+    while len(ids) < limit:
+        resp = service.users().messages().list(
+            userId="me", q=OLD_QUERY, maxResults=min(500, limit - len(ids)), pageToken=token,
+        ).execute(http=_fresh_http(creds))
+        ids += [m["id"] for m in resp.get("messages", [])]
+        token = resp.get("nextPageToken")
+        if not token:
+            break
+    return ids[:limit]
+
+
+def _gone(exc) -> bool:
+    return getattr(getattr(exc, "resp", None), "status", None) == 404
+
+
+def _trash_ids(service, creds, mids: list) -> tuple:
+    """Kukába, kis kötegekben, kötegenként szünettel: egy ötvenes köteg a Gmail
+    másodpercenkénti keretét egymaga kimeríti, és a fele 429-cel visszajön."""
+    import time
+    ok, bad = [], []
+
+    def done(request_id, _resp, exc):
+        # 404: a levél már nincs meg — a cél teljesült.
+        (ok if exc is None or _gone(exc) else bad).append(request_id)
+
+    for i in range(0, len(mids), OLD_TRASH_CHUNK):
+        chunk = mids[i:i + OLD_TRASH_CHUNK]
+        batch = service.new_batch_http_request(callback=done)
+        for mid in chunk:
+            batch.add(service.users().messages().trash(userId="me", id=mid), request_id=mid)
+        try:
+            batch.execute(http=_fresh_http(creds))
+        except Exception as e:  # noqa - az egész köteg elakadt (hálózat): jelöljük, megyünk tovább
+            logger.warning("old trash chunk failed: %s", type(e).__name__)
+            bad += [m for m in chunk if m not in ok and m not in bad]
+        time.sleep(1.0)
+    return ok, bad
+
+
+@router.get("/old")
+async def old_count(request: Request):
+    """Hány levél régebbi két hónapnál a beérkezettek között (csillagozott nélkül)."""
+    sess = _require(request)
+    if sess.get("sample"):
+        return {"count": sess.get("old_left", 0), "capped": False, "days": OLD_DAYS}
+    service = SafeGmailProxy(
+        await asyncio.to_thread(build, "gmail", "v1", credentials=sess["creds"])
+    )
+    try:
+        ids = await asyncio.to_thread(_old_ids, service, sess["creds"], OLD_COUNT_CAP)
+    except Exception as e:  # noqa
+        logger.info("old count failed: %s", type(e).__name__)
+        raise HTTPException(status_code=502, detail={"code": "old_failed"})
+    return {"count": len(ids), "capped": len(ids) >= OLD_COUNT_CAP, "days": OLD_DAYS}
+
+
+class OldTrashBody(BaseModel):
+    confirm: bool = False
+
+
+@router.post("/old/trash")
+async def old_trash(request: Request, body: OldTrashBody):
+    """A két hónapnál régebbi levelek Kukába — csak kifejezett megerősítéssel és
+    takarítási engedéllyel. Egy hívás legfeljebb OLD_TRASH_MAX levelet visz; a
+    válasz megmondja, maradt-e még."""
+    sess = _require(request)
+    if not body.confirm:
+        raise HTTPException(status_code=400, detail="Megerősítés nélkül nem törlünk.")
+    if sess.get("sample"):
+        n = min(sess.get("old_left", 0), OLD_TRASH_MAX)
+        sess["old_left"] = sess.get("old_left", 0) - n
+        return {"ok": True, "trashed": n, "failed": 0, "remaining": sess["old_left"]}
+    if not sess.get("can_trash"):
+        raise HTTPException(
+            status_code=403,
+            detail="Ehhez a munkamenethez nincs takarítási engedély. "
+                   "Csatlakozz újra, és pipáld be a takarítást.",
+        )
+    if sess.get("old_busy"):
+        raise HTTPException(status_code=409, detail="A takarítás már fut.")
+    sess["old_busy"] = True
+    try:
+        service = SafeGmailProxy(
+            await asyncio.to_thread(build, "gmail", "v1", credentials=sess["creds"])
+        )
+        ids = await asyncio.to_thread(_old_ids, service, sess["creds"], OLD_TRASH_MAX)
+        ok, bad = await asyncio.to_thread(_trash_ids, service, sess["creds"], ids)
+        if bad:
+            # Ami a sebességkorláton fennakadt, arra egy kis szünet után még egyszer.
+            await asyncio.sleep(5)
+            more, bad = await asyncio.to_thread(_trash_ids, service, sess["creds"], bad)
+            ok += more
+        left = await asyncio.to_thread(_old_ids, service, sess["creds"], OLD_COUNT_CAP)
+    except Exception as e:  # noqa
+        logger.warning("old trash failed: %s", type(e).__name__)
+        raise HTTPException(status_code=502, detail={"code": "old_failed"})
+    finally:
+        sess["old_busy"] = False
+    trashed = set(ok)
+    for d in sess["analyses"]:
+        if d.get("id") in trashed:
+            d["trashed"] = True
+    return {"ok": True, "trashed": len(ok), "failed": len(bad), "remaining": len(left)}
+
+
 @router.post("/sample")
-async def start_sample(request: Request, lang: str = "hu"):
+async def start_sample(request: Request, lang: str = "hu", v2: bool = False):
     """Start a run over the example inbox — no Google account involved.
 
     The real Gmail path works, but it puts Google's red "unverified app" screen
@@ -1115,6 +1271,8 @@ async def start_sample(request: Request, lang: str = "hu"):
         # reach a real mailbox even by mistake.
         "creds": None,
         "sample": True,
+        "v2": v2,
+        "old_left": SAMPLE_OLD_COUNT if v2 else 0,
         "can_draft": False,
         "drafts": {},
         "saved": {},
@@ -1127,6 +1285,19 @@ async def start_sample(request: Request, lang: str = "hu"):
     _runs.add(task)
     task.add_done_callback(_runs.discard)
     return {"session": _fernet.encrypt(sid.encode()).decode()}
+
+
+def _cap_stale(email: dict, analysis: dict, now: datetime) -> dict:
+    """v2: két hétnél régebbi levél legfeljebb STALE_URGENCY sürgősségű."""
+    try:
+        sent = datetime.fromisoformat(email.get("date") or "")
+    except ValueError:
+        return analysis
+    if sent.tzinfo is None:
+        sent = sent.replace(tzinfo=timezone.utc)
+    if (now - sent).days < STALE_DAYS or (analysis.get("urgency") or 0) <= STALE_URGENCY:
+        return analysis
+    return {**analysis, "urgency": STALE_URGENCY}
 
 
 async def run_sample(sid: str):
@@ -1161,6 +1332,8 @@ async def run_sample(sid: str):
                 return
             try:
                 analysis = await classify_one(email, sess.get("lang", "hu"))
+                if sess.get("v2"):
+                    analysis = _cap_stale(email, analysis, datetime.now(timezone.utc))
                 sess["analyses"].append({**email, **analysis})
             except HTTPException:
                 # A megállás oka egységesen a napi keret; a szöveget a lap adja
@@ -1298,6 +1471,8 @@ async def run_agent(sid: str):
                     email = _parse(full)
                     await _add_attachment_text(service, sess, email)
                     analysis = await classify_one(email, sess.get("lang", "hu"))
+                    if sess.get("v2"):
+                        analysis = _cap_stale(email, analysis, datetime.now(timezone.utc))
                     sess["analyses"].append({**email, **analysis})
                 except HTTPException:
                     # A megállás oka egységesen a napi keret; a szöveget a lap adja
