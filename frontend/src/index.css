@@ -937,6 +937,7 @@ textarea:focus-visible,
   color: var(--text); margin: 0; }
 .pb-hero.pb-never { font-size: clamp(17px, 2.4vw, 21px); color: var(--muted); font-weight: 500; }
 .pb-hero-sub { color: var(--muted); margin: 6px 0 0; font-size: 15px; }
+.pb-team-note { margin: 4px 0 0; font-size: 13px; color: var(--muted); border-left: 2px solid var(--violet); padding-left: 10px; }
 .pb-legend { list-style: none; padding: 0; margin: 14px 0 4px; display: flex; flex-wrap: wrap;
   gap: 8px 22px; font-size: 13px; color: var(--muted); }
 .pb-legend li { display: inline-flex; align-items: center; gap: 8px; }

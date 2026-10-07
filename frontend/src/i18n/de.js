@@ -130,6 +130,7 @@ const de = {
     agentLabel: "Welcher Agent",
     hoursLabel: "Wie viele Stunden pro Woche er übernimmt",
     hoursUnit: "Std.",
+    teamNote: "Ein Multi-Agent-System übernimmt einen Prozess über mehrere Abteilungen, deshalb rechnen wir hier mit der Arbeitszeit mehrerer Personen: 80 Stunden pro Woche sind zwei Vollzeitstellen.",
     wageLabel: "Mit welchem Lohn vergleichen",
     wages: { min: "Deutscher Mindestlohn (brutto {v})", avg: "Durchschnittsverdienst Vollzeit in Deutschland (brutto {v})" },
     result: "Ab Monat {m} ist der Agent günstiger.",

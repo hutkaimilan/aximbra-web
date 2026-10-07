@@ -11,6 +11,12 @@ import { formatPrice, parseToken } from "../money";
  *  meg, azt is kiirja - egy kalkulator, ami mindig igent mond, reklam. */
 
 const HORIZON = 24;
+// A multi-agent rendszer több ember munkáját veszi át egy folyamaton: egy
+// ember heti 40 órájával mérve sosem térülne meg, és ez nem is igaz rá.
+// A 6 millió fölötti ár csak a multi-agentnél fordul elő.
+const TEAM_PRICE = 5000000;
+const MAX_SOLO = 40, MAX_TEAM = 200, TEAM_DEFAULT = 80;
+const isTeam = (a) => (parseToken(a?.price)?.to || 0) > TEAM_PRICE;
 const HOURS_PER_MONTH = 174; // havi munkaido-alap (HU: 174; DE: ~173, ugyanigy szamolunk)
 const WEEKS_PER_MONTH = 52 / 12;
 const SZOCHO = 1.13;
@@ -82,8 +88,11 @@ export const Payback = () => {
   const agent = agents[Math.min(pick, agents.length - 1)];
   const build = parseToken(agent.price).to;
   const fee = monthlyFee(build);
+  const team = isTeam(agent);
+  const maxHours = team ? MAX_TEAM : MAX_SOLO;
+  const h = Math.min(hours, maxHours);
   const market = marketFor(lang);
-  const { staffPerMonth, month } = payback({ build, fee, hours, gross: market.wages[wage], load: market.load });
+  const { staffPerMonth, month } = payback({ build, fee, hours: h, gross: market.wages[wage], load: market.load });
 
   const agentAt = (m) => build + fee * m;
   const staffAt = (m) => staffPerMonth * m;
@@ -127,13 +136,17 @@ export const Payback = () => {
           <div className="pb-controls">
             <label className="pb-field">
               <span>{p.agentLabel}</span>
-              <select value={pick} onChange={(e) => setPick(Number(e.target.value))} data-testid="payback-agent">
+              <select value={pick} onChange={(e) => {
+                const i = Number(e.target.value);
+                setPick(i);
+                setHours((cur) => (isTeam(agents[i]) ? TEAM_DEFAULT : cur > MAX_SOLO ? 10 : cur));
+              }} data-testid="payback-agent">
                 {agents.map((a, i) => <option key={a.title} value={i}>{a.title}</option>)}
               </select>
             </label>
             <label className="pb-field">
-              <span>{p.hoursLabel}: <b>{hours} {p.hoursUnit}</b></span>
-              <input type="range" min="1" max="40" step="1" value={hours}
+              <span>{p.hoursLabel}: <b>{h} {p.hoursUnit}</b></span>
+              <input type="range" min={team ? 5 : 1} max={maxHours} step={team ? 5 : 1} value={h}
                 onChange={(e) => setHours(Number(e.target.value))} data-testid="payback-hours" />
             </label>
             <label className="pb-field">
@@ -145,6 +158,8 @@ export const Payback = () => {
               </select>
             </label>
           </div>
+
+          {team && p.teamNote && <p className="pb-team-note" data-testid="payback-team-note">{p.teamNote}</p>}
 
           <div className="pb-result" aria-live="polite" data-testid="payback-result">
             {within ? (

@@ -130,6 +130,7 @@ const zh = {
     agentLabel: "选择代理",
     hoursLabel: "每周为您省下的工时",
     hoursUnit: "小时",
+    teamNote: "多智能体系统接管跨多个部门的流程，因此这里按多人的工时计算：每周 80 小时相当于两个全职岗位。",
     wageLabel: "按谁的工资比较",
     wages: { min: "匈牙利保障最低工资（税前 {v}）", avg: "匈牙利平均工资（税前 {v}）" },
     result: "从第 {m} 个月起，代理更便宜。",
