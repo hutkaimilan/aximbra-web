@@ -1010,3 +1010,93 @@ def test_content_sends_two_briefs_once_and_never_leaks_names(store, monkeypatch)
     assert sent[0]["form"] == "carousel" and company.lower() not in sent[0]["brief"].lower()
     assert not content.due(later + timedelta(hours=2), store)             # ma kész
     assert content.due(later + timedelta(days=1), store)
+
+
+def test_content_covers_every_agent_before_repeating_any(store, monkeypatch):
+    """A panasz az volt, hogy az e-mail rendezőről húsz poszt van kint, a
+    multi-agent rendszerről nulla. A névsort ezért a kód forgatja, nem a modell."""
+    import json as _json
+    import content
+    from playbook import AGENTS
+    monkeypatch.setenv("CONTENT_DAILY", "1")
+    monkeypatch.setenv("AGENT_TOKEN", "x" * 32)
+    monkeypatch.setattr(content.llm, "_ask", lambda prompt: _json.dumps(
+        {"hu": {"brief": "AXIMBRA: hétfő reggel a közös postafiók, kkv-vezetőknek, nyugodt hangulat.",
+                "form": "video"},
+         "en": {"brief": "AXIMBRA: Monday morning at a logistics firm, one strong opening image.",
+                "form": "image"}}))
+    sent = []
+    monkeypatch.setattr(content, "_send", lambda item: sent.append(item))
+
+    start = datetime(2026, 10, 5, 7, 45)
+    for d in range(len(AGENTS)):
+        content.run(store, start + timedelta(days=d))
+
+    order = _json.loads(store.get_setting("content_agents"))
+    assert order == [a["key"] for a in AGENTS]            # mind sorra kerül, pont egyszer
+    assert len(set(order)) == len(AGENTS) >= 15
+
+    # Egy nap = egy agent, és az a LinkedInre is, az Instagramra is kimegy.
+    day = (start + timedelta(days=3)).date().isoformat()
+    pair = [s for s in sent if s["id"].startswith(f"sales-{day}-")]
+    assert [s["targets"] for s in pair] == [["linkedin"], ["instagram"]]
+    assert {s["source"] for s in pair} == {f"sales agent · {AGENTS[3]['key']}"}
+
+    # A tizenhatodik nap a legrégebbit hozza vissza, nem a modell kedvencét.
+    content.run(store, start + timedelta(days=len(AGENTS)))
+    assert _json.loads(store.get_setting("content_agents"))[-1] == AGENTS[0]["key"]
+
+
+def test_rotation_lists_exactly_the_agents_the_website_sells():
+    """Ha az oldalra új agentkártya kerül, de a névsorba nem, arról megint nulla
+    poszt menne ki — csendben, ugyanúgy, mint eddig. A forrás az aximbra.hu
+    magyar szövege; a sorrendnek is egyeznie kell, hogy a kettő összenézhető
+    maradjon."""
+    import re
+    from playbook import AGENTS
+    site = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "src", "i18n", "hu.js")
+    if not os.path.exists(site):
+        pytest.skip("a frontend nincs a checkoutban")
+    with open(site, encoding="utf-8") as f:
+        s = f.read()
+    start = s.index("\n  agents: [")
+    titles = re.findall(r'title:\s*"([^"]+)"', s[start:s.index("\n  ]", start)])
+    assert [a["hu"] for a in AGENTS] == titles
+    assert len({a["key"] for a in AGENTS}) == len(AGENTS)
+
+
+def test_content_retry_keeps_the_same_agent_and_never_burns_one(store, monkeypatch):
+    """Egy elhasalt küldés (vagy modellhívás) nem léptetheti a névsort: aznap
+    ugyanaz az agent jön vissza, és a sikertelen nap nem ég el."""
+    import json as _json
+    import content
+    from playbook import AGENTS
+    monkeypatch.setenv("CONTENT_DAILY", "1")
+    monkeypatch.setenv("AGENT_TOKEN", "x" * 32)
+    now = datetime(2026, 10, 5, 7, 45)
+
+    monkeypatch.setattr(content.llm, "_ask", lambda prompt: "nem JSON")
+    with pytest.raises(content.llm.LLMError):                     # a modell elhasal
+        content.run(store, now)
+    assert store.get_setting("content_agents") in (None, "[]")    # a névsor nem lépett
+
+    monkeypatch.setattr(content.llm, "_ask", lambda prompt: _json.dumps(
+        {"hu": {"brief": "AXIMBRA: hétfő reggel a közös postafiók, kkv-vezetőknek, nyugodt hangulat.",
+                "form": "video"},
+         "en": {"brief": "AXIMBRA: Monday morning at a logistics firm, one strong opening image.",
+                "form": "image"}}))
+    fail = {"on": True}
+
+    def flaky(item):
+        if fail["on"]:
+            fail["on"] = False
+            raise RuntimeError("a videós agent nem érhető el")
+        sent.append(item)
+    sent = []
+    monkeypatch.setattr(content, "_send", flaky)
+
+    with pytest.raises(RuntimeError):
+        content.run(store, now)
+    content.run(store, now + timedelta(minutes=content.RETRY_MIN))
+    assert _json.loads(store.get_setting("content_agents")) == [AGENTS[0]["key"]]
+    assert {s["source"] for s in sent} == {f"sales agent · {AGENTS[0]['key']}"}

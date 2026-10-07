@@ -5,6 +5,13 @@ cégeknél; ebből ír egy-egy rövid témát, és elküldi a videós agent beé
 sorába. Cégnevet, személynevet soha nem adhat tovább: amit a modell ír, azt a
 kód is átszűri a frissen talált cégek nevére és domainjére.
 
+Naponta egy agent kerül sorra, és a nap mindkét témája (LinkedIn és Instagram)
+ugyanarról az egyről szól. Hogy melyik, azt a KÓD dönti el, nem a modell:
+a legrégebben szerepelt agent jön, így a tizenöt mind sorra kerül, mielőtt
+bármelyik másodszor jönne. Amíg a választás a modellre volt bízva, mindig a
+legkézenfekvőbbre (e-mail rendező) esett, a lista vége pedig soha nem került
+elő — a posztok eloszlása ezért nem a modell ízlésén múlik.
+
 Hibatűrés:
 - a napi témát egyszer generálja és elmenti; ha a küldés elhasal, ugyanazt a
   szöveget ugyanazzal az azonosítóval küldi újra, a videós agent pedig az
@@ -24,7 +31,7 @@ from datetime import datetime, timedelta
 import httpx
 
 import llm
-from playbook import SECTORS
+from playbook import AGENTS, SECTORS
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +103,32 @@ def _market(store, now: datetime) -> dict:
     return {"groups": out, "names": names, "best": best}
 
 
-def _prompt(m: dict, recent: list[str], today: str) -> str:
+# ---- melyik agent kerül ma sorra --------------------------------------------
+
+AGENT_KEYS = tuple(a["key"] for a in AGENTS)
+HISTORY_KEEP = 2 * len(AGENTS)
+
+
+def _history(store) -> list[str]:
+    try:
+        hist = json.loads(store.get_setting("content_agents") or "[]")
+    except ValueError:
+        return []
+    if not isinstance(hist, list):
+        return []
+    return [k for k in hist if isinstance(k, str) and k in AGENT_KEYS]
+
+
+def pick_agent(store) -> dict:
+    """A legrégebben szerepelt agent jön. Aki még sosem volt, az előre kerül, a
+    holtversenyt pedig a névsor sorrendje dönti el — a választás így
+    determinisztikus és visszanézhető. Ebből következik, amit kértünk: mind a
+    tizenöt sorra kerül, mielőtt bármelyik másodszor jönne."""
+    last = {k: i for i, k in enumerate(_history(store))}
+    return min(AGENTS, key=lambda a: last.get(a["key"], -1))
+
+
+def _prompt(m: dict, recent: list[str], today: str, agent: dict) -> str:
     def block(g):
         sec = ", ".join(f"{k} ({v})" for k, v in g["sectors"].most_common(5)) or "nincs még adat"
         pains = "\n".join(f"- {p}" for p in g["pains"]) or "- nincs még adat"
@@ -106,10 +138,15 @@ def _prompt(m: dict, recent: list[str], today: str) -> str:
     rec = "\n".join(f"- {r}" for r in recent) or "- nincs"
     return f"""Te az AXIMBRA értékesítési agentje vagy. Ma ({today}) két tartalomtémát írsz a videós agentnek.
 
-AXIMBRA: egyszemélyes AI-agent stúdió (aximbra.hu). Agentek: e-mail rendező (közös postafiókot besorol, rangsorol),
-telefonos AI (felveszi a hívást, rögzíti a kérést; az aximbra.hu-n 10 mp-en belül visszahív), érdeklődő-minősítő,
-dokumentumelemző (számla, szállítólevél, szerződés mezői), NIS2 bizonyítékgyűjtő (támadás ellen NEM véd), értékesítő agent.
-Minden agent a cég saját rendszerén fut, és semmi nem megy ki emberi jóváhagyás nélkül.
+AXIMBRA: egyszemélyes AI-agent stúdió (aximbra.hu). Minden agent a cég saját rendszerén fut, és semmi nem megy ki
+emberi jóváhagyás nélkül. Az oldalon élő demók vannak regisztráció nélkül.
+
+A MAI AGENT — mindkét téma erről szól, másikról ma nem írsz:
+  magyarul: {agent["hu"]} — {agent["hu_what"]}
+  angolul: {agent["en"]} — {agent["en_what"]}
+A sorrendet nem te döntöd el: minden agent sorra kerül, ma ez következik. Ha ez a mai agent nem illik a lenti
+piaci jelekhez, akkor sem váltasz agentet — olyan helyzetet keresel, ahol ennek az agentnek van dolga.
+Nem kötelező kimondani az agent nevét: elég, ha a téma az ő helyzetéről szól, és abból látszik, mit old meg.
 
 Amit az utóbbi {LOOKBACK_DAYS} napban a magyar cégeknél láttunk:
 {block(m["groups"]["hu"])}
@@ -119,13 +156,13 @@ Amit a külföldi (UK, IE, FR, BE, SK, RO, HR, SI) cégeknél láttunk:
 
 Ahol eddig a legtöbb érdeklődő válasz jött: {best}
 
-Az utóbbi napok témái (NE ismételd őket, válassz más helyzetet vagy más agentet):
+Az utóbbi napok témái (NE ismételd őket — a mai agent adott, tehát MÁS HELYZETET válassz, ne másik agentet):
 {rec}
 
 Szabályok (marketingkutatás alapján):
 1. Egy téma = egy konkrét, felismerhető helyzet a vevő napjából (kategória-belépési pont), pl. "hétfő reggel 200 levél".
    Ne általános "az AI segít" üzenet.
-2. Egy üzenet, egy agent. Az AXIMBRA neve az elején jelenjen meg.
+2. Egy üzenet, egy agent — a mai. Az AXIMBRA neve az elején jelenjen meg.
 3. Semmilyen számot, ügyfelet, eredményt, százalékot ne találj ki. Ami fent nincs, az nincs.
 4. SOHA ne nevezz meg céget, személyt, domaint vagy várost a fenti adatokból — csak az iparágat és a helyzetet.
    Egyedi, egy céghez köthető részletet (postafiók-nevek, termékek, rendszerek neve) se vegyél át: általánosíts.
@@ -144,13 +181,13 @@ def leaks(text: str, names: set[str]) -> list[str]:
     return sorted(n for n in names if re.search(r"(?<![\w])" + re.escape(n) + r"(?![\w])", low))
 
 
-def generate(store, now: datetime) -> dict:
+def generate(store, now: datetime, agent: dict) -> dict:
     m = _market(store, now)
     try:
         recent = json.loads(store.get_setting("content_recent") or "[]")
     except ValueError:
         recent = []
-    data = llm.extract_json(llm._ask(_prompt(m, recent[-10:], now.date().isoformat())))
+    data = llm.extract_json(llm._ask(_prompt(m, recent[-10:], now.date().isoformat(), agent)))
     if not isinstance(data, dict):
         raise llm.LLMError("a témaíró nem objektumot adott")
     out = {}
@@ -188,25 +225,40 @@ def run(store, now: datetime, say=logger.info) -> dict:
             briefs = json.loads(store.get_setting(f"content_briefs_{day}") or "{}")
         except ValueError:
             briefs = {}
+        if not isinstance(briefs, dict):
+            briefs = {}
         if not all(lang in briefs for lang in ROUTES):
-            briefs = generate(store, now)
+            # A mai agentet a kód választja, és a nap témáival EGYÜTT mentjük:
+            # egy sikertelen küldés utáni újrafutás ugyanazt a napot folytatja,
+            # nem lép tovább a névsorban és nem ír át egy már kiküldött témát.
+            agent = pick_agent(store)
+            briefs = generate(store, now, agent)
+            briefs["agent"] = agent["key"]
             store.set_setting(f"content_briefs_{day}", json.dumps(briefs, ensure_ascii=False))
+            # A névsor csak akkor lép, ha a témák tényleg megvannak — egy
+            # elhasalt modellhívás nem égethet el egy agentet.
+            store.set_setting("content_agents",
+                              json.dumps((_history(store) + [agent["key"]])[-HISTORY_KEEP:]))
             try:
                 recent = json.loads(store.get_setting("content_recent") or "[]")
             except ValueError:
                 recent = []
-            recent = (recent + [b["brief"][:160] for b in briefs.values()])[-20:]
+            recent = (recent + [briefs[lang]["brief"][:160] for lang in ROUTES])[-20:]
             store.set_setting("content_recent", json.dumps(recent, ensure_ascii=False))
+        # A mai agent a küldő nevében is látszik, hogy a videós agent paneljén
+        # végig lehessen nézni, melyikről ment már poszt.
+        key = briefs.get("agent") or ""
+        source = f"sales agent · {key}" if key else "sales agent"
         sent = {}
         for lang, target in ROUTES.items():
             if store.get_setting(f"content_sent_{lang}") == day:
                 continue
             b = briefs[lang]
             _send({"id": f"sales-{day}-{lang}", "brief": b["brief"], "lang": lang,
-                   "targets": [target], "form": b["form"], "source": "sales agent"})
+                   "targets": [target], "form": b["form"], "source": source})
             store.set_setting(f"content_sent_{lang}", day)
             sent[lang] = b["brief"]
-            say(f"Tartalomtéma elküldve ({lang} → {target}): {b['brief'][:80]}")
+            say(f"Tartalomtéma elküldve ({lang} → {target}, {key or 'agent'}): {b['brief'][:80]}")
         return sent
     finally:
         _lock.release()
