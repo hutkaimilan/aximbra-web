@@ -48,6 +48,16 @@ html,body{width:var(--W);height:var(--H);overflow:hidden;background:var(--bg);co
 .cap{display:inline-block;padding:7px 12px;border-radius:10px;background:rgba(0,0,0,.62);color:#fff;font:500 16px/1.35 var(--sans);opacity:0}
 
 .scene{position:absolute;inset:0;padding:96px var(--pad) 84px;display:flex;flex-direction:column;justify-content:safe center;gap:20px;opacity:0}
+/* Álló videó: a LinkedIn, az Instagram és a TikTok az alsó negyedbe teszi a
+   nevet és a poszt szövegét, jobbra pedig az ikonoszlopot. Ami oda esik, azt a
+   néző nem látja — a felirat és a jelenet szövege ezért e fölött marad. */
+body.vid .scene{padding:92px 80px 300px var(--pad);gap:16px}
+body.vid .caption{bottom:236px;right:80px}
+body.vid .phone{width:212px;height:392px;border-radius:34px;padding:9px}
+body.vid .screen{border-radius:28px}
+/* Egy hosszú szó se lógjon ki: törhet, és a build() a betűméretet is igazítja. */
+.h,.sub,.url,.quote{overflow-wrap:anywhere}
+.h .w{max-width:100%}
 body.land .scene{flex-direction:row;align-items:center;gap:40px;padding:80px var(--pad) 70px}
 body.land .scene .txt{flex:1 1 55%}
 body.land .scene .vis{flex:0 0 auto}
@@ -99,6 +109,11 @@ body.tall .cname,body.square .cname{font-size:15px}
 .avatar::before{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(#00e5ff,#8b5cff,#ff3df2,#00e5ff);animation:spin 3s linear infinite}
 .avatar b{position:relative;width:72px;height:72px;border-radius:50%;background:#05070f;display:grid;place-items:center;font:700 22px var(--sans)}
 .cname{font:700 18px var(--sans)}.cstate{font:500 12px var(--mono);color:#19f5a0;letter-spacing:.1em}
+.sms{position:absolute;inset:0;padding:38px 11px 11px;background:#0b0f1a;color:#eef4ff;display:flex;flex-direction:column;gap:9px}
+.sms .top{text-align:center;padding:4px 6px 9px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sms .top b{display:block;font:700 14px var(--sans)}.sms .top small{font:500 10px var(--mono);color:#94a3c4;letter-spacing:.12em}
+.smsb{align-self:flex-start;max-width:90%;padding:9px 12px;border-radius:16px 16px 16px 5px;background:#1f2a40;font:500 13px/1.4 var(--sans);opacity:0}
+.smsok{align-self:center;margin-top:4px;font:700 11px var(--mono);letter-spacing:.14em;color:#19f5a0;opacity:0}
 .bub{max-width:90%;padding:8px 11px;border-radius:14px;font:500 13px/1.35 var(--sans);opacity:0}
 .bub.ai{align-self:flex-start;background:linear-gradient(135deg,rgba(0,229,255,.22),rgba(139,92,255,.25));border:1px solid rgba(0,229,255,.35)}
 .bub.me{align-self:flex-end;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12)}
@@ -195,6 +210,11 @@ function scene(s, t0, shots, dims, lib) {
         vis: phone(`<div class="call"><div class="avatar"><b>AI</b></div><div class="cname">${esc(s.caller || "AXIMBRA AI")}</div>
           <div class="cstate">● ${esc(s.status || "HÍVÁS FOLYAMATBAN")}</div>
           ${L.map((l, i) => `<div class="bub ${i % 2 ? "me" : "ai"}" style="animation:${anim("rise", .45, t0 + 1.1 + i * per(L.length) * 1.4)}">${esc(l)}</div>`).join("")}</div>`, t0)};
+    case "sms":
+      return {txt: head(s, t0) + rise("sub", s.sub, t0 + .6),
+        vis: phone(`<div class="sms"><div class="top"><b>${esc(s.caller || "SMS")}</b><small>ÜZENET · MOST</small></div>
+          ${L.map((l, i) => `<div class="smsb" style="animation:${anim("rise", .45, t0 + 1.1 + i * per(L.length) * 1.2)}">${esc(l)}</div>`).join("")}
+          <div class="smsok" style="animation:${anim("rise", .45, t0 + 1.5 + L.length * per(L.length) * 1.2)}">✓ KÉZBESÍTVE</div></div>`, t0)};
     case "inbox":
       return {txt: head(s, t0) + rise("sub", s.sub, t0 + .6),
         vis: phone(`<div class="inbox"><div class="top">${esc(s.app || "Beérkezett levelek")}</div>${L.map((l, i) => {
@@ -251,9 +271,10 @@ window.build = (cfg) => {
   document.body.dataset.theme = cfg.theme || "neon";
   const shape = cfg.aspect === "1:1" ? "square" : cfg.aspect === "16:9" ? "land"
     : cfg.aspect === "4:5" ? "tall" : "";
-  document.body.className = [shape, cfg.stills ? "stills" : ""].filter(Boolean).join(" ");
+  const vid = !shape && !cfg.stills;
+  document.body.className = [shape, cfg.stills ? "stills" : "", vid ? "vid" : ""].filter(Boolean).join(" ");
   const visH = cfg.aspect === "1:1" ? 354 : cfg.aspect === "16:9" ? 398
-    : cfg.aspect === "4:5" ? 382 : 518;
+    : cfg.aspect === "4:5" ? 382 : vid ? 374 : 518;
   let t = 0, caps = "";
   const html = cfg.scenes.map((s, i) => {
     const t0 = t, last = i === cfg.scenes.length - 1;
@@ -269,9 +290,22 @@ window.build = (cfg) => {
   document.getElementById("brandname").textContent = cfg.brand || "AXIMBRA";
   document.getElementById("scenes").innerHTML = html;
   document.getElementById("captions").innerHTML = caps;
+  fitText();
   ENDS = cfg.scenes.reduce((acc, s) => (acc.push((acc[acc.length - 1] || 0) + s.seconds), acc), []);
   return t;
 };
+// Ami nem fér ki, az kisebb betűvel jelenik meg, nem levágva: egy hosszú szó
+// vagy cím addig csökken, amíg a sorába és legfeljebb három sorba be nem fér.
+function fitText() {
+  for (const el of document.querySelectorAll("#scenes .h, #scenes .url, #scenes .bignum, #scenes .quote")) {
+    let size = parseFloat(getComputedStyle(el).fontSize);
+    const lh = () => parseFloat(getComputedStyle(el).lineHeight) || size * 1.1;
+    for (let i = 0; i < 30 && size > 18 && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > lh() * 3 + 2); i++) {
+      size -= 2;
+      el.style.fontSize = size + "px";
+    }
+  }
+}
 // Álló dia: mivel nincs kimenő halványítás, a korábbi jelenetek ott maradnának
 // egymáson. Ezért egyszerre csak a kért diát mutatjuk, a végállapotában.
 let ENDS = [];

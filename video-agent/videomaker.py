@@ -55,15 +55,19 @@ TEMPLATE = os.path.join(HERE, "static", "video_template.html")
 VIDEO_DIR = os.environ.get("VIDEO_DIR", "/data/videos")
 FPS = int(os.environ.get("VIDEO_FPS", "30"))
 KEEP = 20
-KINDS = ("hook", "statement", "problem", "benefit", "steps", "compare", "site", "call", "inbox",
+KINDS = ("hook", "statement", "problem", "benefit", "steps", "compare", "site", "call", "inbox", "sms",
          "agents", "number", "quote", "photo", "gallery", "clip", "cta")
-VISUAL_KINDS = ("site", "call", "inbox", "photo", "gallery", "clip")
+VISUAL_KINDS = ("site", "call", "inbox", "sms", "photo", "gallery", "clip")
+# Mozgó jelenetek: álló diában szöveges dia lesz belőlük.
+MOTION_KINDS = ("site", "call", "inbox", "sms", "clip")
 MEDIA_KINDS = ("photo", "gallery", "clip")
 THEMES = ("neon", "clean", "warm", "mono")
 ASPECTS = {"9:16": (540, 960), "4:5": (540, 675), "1:1": (540, 540), "16:9": (960, 540)}
 FORMS = ("auto", "video", "image", "carousel", "logo")
 MAX_SLIDES = 8
-MIN_TOTAL, MAX_TOTAL = 10, 90
+MIN_TOTAL, MAX_TOTAL = 10, 120
+# Egy hosszabb (90 mp fölötti) videó több jelenetet bír el.
+MAX_SCENES, MAX_SCENES_LONG = 10, 15
 SAMPLE_RATE = 24000
 
 # Gyors kiindulópontok a felületen; a leírás mindig felülírja.
@@ -178,6 +182,8 @@ problem, benefit, agents or cta — "site", "call" and "inbox" animate, so they 
 - "site": headline + sub, shows captured website "shot" (index) scrolling on a phone. Only if a site is listed above.
 - "call": a phone call answered by an AI; "lines" = 3–4 short alternating turns, AI first, no speaker labels; optional "caller", "status".
 - "inbox": an inbox being sorted; "app" = inbox title; "lines" = 3–5 items formatted "subject|category tag".
+- "sms": a text message arriving on a phone, e.g. a booking confirmation; "caller" = sender name, "lines" = 1–3
+  messages exactly as the customer receives them.
 - "agents": headline + 3–6 "lines" (names), optional "tile_label".
 - "photo": one image with the text. Set "media" to a library id, OR set "image_prompt" to have one generated
   (describe the picture in English: subject, setting, light, mood). "layout": "full" (text over the image) or
@@ -244,7 +250,15 @@ _TAIL_LABEL_RE = re.compile(r"\s*[|:–-]\s*(AI(\s+agent)?|Ügyfél|Hívó|Érde
 _LABEL_RE = re.compile(r"^\s*(AI|Ügyfél|Hívó|Caller|Customer|Agent|Ügyintéző)\s*:\s*", re.I)
 # A modell szeret diaszámot írni a kickerbe („3. SLIDE”). Az olvasónak semmit
 # nem mond, a körhinta amúgy is számozza magát, ezért kiszedjük.
-_SLIDENO_RE = re.compile(r"^\s*(?:\d+\s*[.)]?\s*(?:slide|dia|kép|oldal)|(?:slide|dia|kép|oldal)\s*[.:#]?\s*\d+)\s*$", re.I)
+_SLIDENO_RE = re.compile(r"^\s*(?:\d+\s*[.)]?\s*(?:slide|dia|kép|oldal|jelenet|scene)|(?:slide|dia|kép|oldal|jelenet|scene)\s*[.:#]?\s*\d+)\s*$", re.I)
+# Ha a brief címekkel jelöli a jeleneteket („2. jelenet: https://aximbra.hu/#agentek"),
+# a rendező ezt egyszer szó szerint a képernyőre tette, levágva. Képernyőre URL
+# csak a záróképen kerülhet (az a "url" mező), máshol kiszedjük.
+_URL_RE = re.compile(r"\bhttps?://\S+|\bwww\.\S+|\b[a-z0-9-]+\.(?:hu|com|app|io|eu)(?:/\S*)?", re.I)
+
+
+def _no_url(text) -> str:
+    return re.sub(r"\s{2,}", " ", _URL_RE.sub("", str(text or ""))).strip(" -–—:|·")
 
 
 def _media_id(v) -> str:
@@ -274,11 +288,13 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -
             shot = max(0, min(max(0, n_shots - 1), int(s.get("shot") or 0)))
         except (TypeError, ValueError):
             shot = 0
-        lines = lambda key, n: [_clip(_LABEL_RE.sub("", str(l)), 70) for l in (s.get(key) or []) if str(l).strip()][:n]
+        lines = lambda key, n: [_clip(_LABEL_RE.sub("", l), 70) for l in
+                                (_no_url(x) for x in (s.get(key) or [])) if l.strip()][:n]
+        kicker = _no_url(s.get("kicker"))
         scenes.append({
-            "kind": s["kind"], "kicker": "" if _SLIDENO_RE.match(str(s.get("kicker") or "")) else _clip(s.get("kicker"), 28),
-            "headline": _clip(s.get("headline"), 80),
-            "sub": _clip(s.get("sub"), 140), "lines": lines("lines", 6), "lines2": lines("lines2", 4),
+            "kind": s["kind"], "kicker": "" if _SLIDENO_RE.match(kicker) else _clip(kicker, 28),
+            "headline": _clip(_no_url(s.get("headline")), 80),
+            "sub": _clip(_no_url(s.get("sub")), 140), "lines": lines("lines", 6), "lines2": lines("lines2", 4),
             "left_title": _clip(s.get("left_title"), 20), "right_title": _clip(s.get("right_title"), 20),
             "media": _media_id(s.get("media")),
             "medias": [m for m in (_media_id(x) for x in (s.get("medias") or [])) if m][:4],
@@ -286,7 +302,9 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -
             "layout": "side" if str(s.get("layout") or "").strip() == "side" else "full",
             "shot": shot, "app": _clip(s.get("app"), 30), "caller": _clip(s.get("caller"), 24), "status": _clip(s.get("status"), 24),
             "tile_label": _clip(s.get("tile_label"), 12), "center": bool(s.get("center")),
-            "url": _clip(re.sub(r"^https?://(www\.)?|/+$", "", str(s.get("url") or "").strip()), 40), "button": _clip(s.get("button"), 40), "voice": _clip(s.get("voice"), 260),
+            "url": _clip(re.sub(r"^https?://(www\.)?|/+$", "", str(s.get("url") or "").strip()), 40), "button": _clip(s.get("button"), 40),
+            # Felolvasva a „https://" sem jó; a domain marad.
+            "voice": _clip(re.sub(r"https?://(www\.)?", "", str(s.get("voice") or "")), 260),
             "seconds": max(2.0, min(12.0, sec)),
         })
     # A hívásbuborékba nem kell, ki beszél: az elején és a végén is levágjuk.
@@ -302,10 +320,25 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -
     # Álló diához a mozgó jelenetek nem valók: azokból szöveges dia lesz.
     if still:
         for s in scenes:
-            if s["kind"] in ("site", "call", "inbox", "clip"):
+            if s["kind"] in MOTION_KINDS:
                 s["kind"] = "statement"
+    # Ugyanaz az oldalrész kétszer: a néző ugyanazt látja kétszer, csak más
+    # narrációval. Egy felvétel egyszer megy; a második egy még nem használtra
+    # vált, ha van, különben szöveges jelenet lesz belőle.
+    used: set = set()
+    for s in scenes:
+        if s["kind"] != "site":
+            continue
+        if s["shot"] in used:
+            free = [i for i in range(n_shots) if i not in used]
+            if not free:
+                s["kind"] = "statement"
+                continue
+            s["shot"] = free[0]
+        used.add(s["shot"])
     # A körhinta záró diával együtt fér bele a felső korlátba.
-    scenes = [s for s in scenes if s["headline"] or s["kind"] in VISUAL_KINDS][:MAX_SLIDES - 1 if still else 10]
+    cap = MAX_SLIDES - 1 if still else (MAX_SCENES_LONG if seconds > 90 else MAX_SCENES)
+    scenes = [s for s in scenes if s["headline"] or s["kind"] in VISUAL_KINDS][:cap]
     if not scenes or (len(scenes) < 2 and form != "image"):
         raise VideoError("a forgatókönyvben túl kevés használható jelenet van")
     if form == "image":
@@ -734,6 +767,11 @@ def capture_site(browser, url: str, phone_w: int) -> dict | None:
 
 
 PHONE_SCREEN_W = {"9:16": 258, "4:5": 192, "1:1": 184, "16:9": 198}
+# Álló videóban a telefon kisebb (a platformok alsó sávja fölé kell férnie,
+# lásd body.vid a sablonban): 212 px széles, 9 px kerettel. A felvétel ehhez
+# méretezett magasságából számolja a sablon a görgetést; a régi szélességgel
+# túlfutott az oldal végén, és fekete rész látszott.
+PHONE_SCREEN_W_VIDEO = 194
 
 
 @contextlib.contextmanager
@@ -760,7 +798,8 @@ def _staged(script: dict, urls: list[str], aspect: str, captions: bool, stills: 
             for i in used:
                 if i < len(urls):
                     say(f"Weboldal felvétele: {urls[i]}")
-                    shots[i] = capture_site(browser, urls[i], PHONE_SCREEN_W[aspect])
+                    shots[i] = capture_site(browser, urls[i], PHONE_SCREEN_W_VIDEO if aspect == "9:16" and not stills
+                                            else PHONE_SCREEN_W[aspect])
             scenes = []
             for sc in script["scenes"]:
                 if sc["kind"] == "site" and not (sc["shot"] < len(shots) and shots[sc["shot"]]):

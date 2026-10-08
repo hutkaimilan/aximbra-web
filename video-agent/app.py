@@ -328,7 +328,7 @@ class InboxIn(BaseModel):
     form: str = "auto"
     source: str = ""
     # Ha nincs megadva, a beállítások hossza számít (a napi témák így futnak).
-    seconds: int | None = Field(default=None, ge=10, le=90)
+    seconds: int | None = Field(default=None, ge=10, le=120)
     # Elkészül, de nem posztolódik: a panelen vár jóváhagyásra.
     hold: bool = False
 
@@ -405,7 +405,7 @@ def _startup():
 
 class VideoIn(BaseModel):
     brief: str = Field(min_length=8, max_length=4000)
-    seconds: int = Field(default=30, ge=10, le=90)
+    seconds: int = Field(default=30, ge=10, le=120)
     lang: str = Field(default="hu", pattern="^(hu|en)$")
     aspect: str = Field(default="9:16", pattern="^(9:16|4:5|1:1|16:9)$")
     voice: bool = True
