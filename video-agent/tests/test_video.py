@@ -1336,3 +1336,12 @@ def test_google_account_chooser_blurs_every_account_but_ours():
     assert got == {"pappa hutkai", "kiss péter", "epistemebudape il.com"}
     assert "aximbra@gmail.com" not in got and "tovább ide: aximbra" not in got and "másik fiók használata" not in got
     assert redact.chooser_sensitive([L("Inbox", 10), L("PaPPa Hutkai", 50)]) == set()
+
+
+def test_a_broken_model_answer_is_asked_again(monkeypatch):
+    answers = iter(["nem json {", '{"ok": 1}'])
+    monkeypatch.setattr(llm, "_ask", lambda p, **k: next(answers))
+    assert videomaker._ask_json("x") == {"ok": 1}
+    monkeypatch.setattr(llm, "_ask", lambda p, **k: "nem json")
+    with pytest.raises(llm.LLMError):
+        videomaker._ask_json("x")
