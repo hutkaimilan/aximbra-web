@@ -17,7 +17,8 @@ import websearch
 
 logger = logging.getLogger(__name__)
 
-MAX_QUESTION = 4000
+# Egy kész videós brief-kérés (szerkezettel, címekkel) 4000 karakternél hosszabb is lehet.
+MAX_QUESTION = 12000
 HISTORY_TURNS = 10
 
 
