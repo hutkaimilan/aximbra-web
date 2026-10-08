@@ -384,7 +384,9 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -
             shot = max(0, min(max(0, n_shots - 1), int(s.get("shot") or 0)))
         except (TypeError, ValueError):
             shot = 0
-        lines = lambda key, n: [_clip(_LABEL_RE.sub("", l), 70) for l in
+        # Az SMS- és hívásbuborék egy teljes üzenet: ott ne vágjuk le a végét („See you…”).
+        width = 130 if s["kind"] in ("sms", "call") else 70
+        lines = lambda key, n: [_clip(_LABEL_RE.sub("", l), width) for l in
                                 (_no_url(x) for x in (s.get(key) or [])) if l.strip()][:n]
         kicker = _no_url(s.get("kicker"))
         scenes.append({
