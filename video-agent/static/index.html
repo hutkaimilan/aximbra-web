@@ -267,7 +267,8 @@ pre.txt{white-space:pre-wrap;font:14px/1.55 var(--sans);margin:0;background:rgba
         <button type="button" data-v="90">1,5 perc</button><button type="button" data-v="120">2 perc</button></div></div>
       <div id="oVoice"><label>Hang</label><div class="seg" data-k="voice">
         <button type="button" data-v="f">Női narráció</button><button type="button" data-v="m">Férfi narráció</button>
-        <button type="button" data-v="">Nincs hang</button></div></div>
+        <button type="button" data-v="">Nincs hang</button></div>
+        <label class="ck" id="oCap"><input type="checkbox" id="vCaptions" checked> Felirat: a narráció szövege a kép alján</label></div>
       <div><label>Nyelv</label><div class="seg" data-k="lang">
         <button type="button" data-v="hu">Magyar</button><button type="button" data-v="en">Angol</button></div></div>
     </div>
@@ -390,7 +391,7 @@ document.addEventListener("click", (e) => {
   const b = e.target.closest(".seg[data-k] button"); if (!b) return;
   const k = b.closest(".seg").dataset.k;
   F[k] = b.dataset.v; paintSeg();
-  if (k === "form") formChanged();
+  if (k === "form" || k === "voice") formChanged();
   if (k === "filter") { listKey = ""; renderList(); }
   if (k === "mfilter") { mKey = ""; renderMedia(); }
   summary();
@@ -399,6 +400,7 @@ function formChanged() {
   const f = F.form, still = f === "image" || f === "carousel" || f === "logo";
   $("#oSec").classList.toggle("hide", still);
   $("#oVoice").classList.toggle("hide", still);
+  $("#oCap").classList.toggle("hide", !F.voice);
   $("#oAspect").classList.toggle("hide", f === "logo");
   $("#vGo").textContent = {image: "Kép elkészítése", carousel: "Körhinta elkészítése", video: "Videó elkészítése", logo: "Logók tervezése"}[f] || "Elkészítem";
 }
@@ -407,6 +409,7 @@ function summary() {
   const parts = [f === "auto" ? "a leírás dönti el a formát" : FORM_NAME[f]];
   if (f !== "logo") parts.push(F.aspect);
   if (!still) parts.push(+F.seconds >= 60 ? `${+F.seconds / 60} perc`.replace(".", ",") : `${F.seconds} mp`, F.voice ? (F.voice === "m" ? "férfi hang" : "női hang") : "néma");
+  if (!still && F.voice) parts.push($("#vCaptions").checked ? "felirattal" : "felirat nélkül");
   parts.push(F.lang === "en" ? "angol" : "magyar");
   if (attached.length) parts.push(`${attached.length} csatolt anyag`);
   $("#vSum").textContent = parts.join(" · ");
@@ -450,6 +453,7 @@ $("#vAttach").onchange = async (e) => {
   $("#vAttachInfo").textContent = attached.length ? "Feltöltve. Az elmosás a háttérben fut, közben nyugodtan indíthatod a gyártást — megvárja." : "";
   mKey = ""; refresh();
 };
+$("#vCaptions").onchange = summary;
 $("#vLibBtn").onclick = () => { $("#vLib").classList.toggle("hide"); libKey = ""; renderLib(); };
 let libKey = "";
 function renderLib() {
@@ -474,7 +478,8 @@ $("#vGo").onclick = async () => {
   if (b.length < 8) { flash("Írd le, mit készítsek."); brief.focus(); return; }
   try {
     await api("/api/videos", {brief: b, seconds: +F.seconds, lang: F.lang, aspect: F.aspect, form: F.form,
-      voice: !!F.voice, male: F.voice === "m", research: $("#vResearch").checked, media: attached.map((m) => m.id)});
+      voice: !!F.voice, male: F.voice === "m", research: $("#vResearch").checked, media: attached.map((m) => m.id),
+      captions: $("#vCaptions").checked});
     jobHidden = false;
     flash("Elindult. A fenti sávban látod, hol tart.");
     attached = []; drawAttached(); $("#vAttachInfo").textContent = ""; refresh();
@@ -538,7 +543,7 @@ function renderOne() {
   box.innerHTML = `<a class="back" href="#edit">← Vissza a listához</a>
   <div class="card">
     <b style="font-size:18px;display:block">${esc(v.title)}</b>
-    <div class="mute" style="margin-bottom:12px">${esc(FORM_NAME[f])} · ${esc(o.aspect || "9:16")}${f === "video" ? ` · ${esc(v.seconds)} mp · ${v.voice_engine ? "hang: " + esc(v.voice_engine) : "néma"}` : ""} · ${o.lang === "en" ? "angol" : "magyar"} · ${esc(when(v.created_at))}</div>
+    <div class="mute" style="margin-bottom:12px">${esc(FORM_NAME[f])} · ${esc(o.aspect || "9:16")}${f === "video" ? ` · ${esc(v.seconds)} mp · ${v.voice_engine ? "hang: " + esc(v.voice_engine) + (o.captions === false ? " · felirat nélkül" : " · felirattal") : "néma"}` : ""} · ${o.lang === "en" ? "angol" : "magyar"} · ${esc(when(v.created_at))}</div>
     ${preview}
     ${parent || kids.length ? `<h3>Változatok</h3><div class="ver">${parent ? `<button type="button" data-open="${esc(parent.id)}">← Eredeti: ${esc(parent.title.slice(0, 40))}</button>` : ""}
       ${kids.map((k) => `<button type="button" data-open="${esc(k.id)}">Módosított: ${esc(when(k.created_at))} →</button>`).join("")}</div>` : ""}
@@ -547,6 +552,7 @@ function renderOne() {
   <div class="card">
     <div class="step"><span class="no">✎</span><h2>Módosítás</h2></div>
     <p class="mute" style="margin:0 0 8px">Új változat készül, ez az eredeti megmarad. Koppints a gyors kérésekre, vagy írd le saját szavaiddal.</p>
+    ${f === "video" && v.voice_engine ? `<button type="button" id="eCap" style="width:100%;margin-bottom:8px">${o.captions === false ? "Felirat visszakapcsolása" : "Felirat kikapcsolása"}<small style="display:block;font-size:12px;color:var(--mute)">ugyanaz a videó, csak a felirat ${o.captions === false ? "kerül vissza" : "tűnik el"}</small></button>` : ""}
     <div class="chips" id="eChips">${f === "logo" ? "" : EDITS.map((t) => `<button type="button" data-ed="${esc(t)}">${esc(t)}</button>`).join("")}</div>
     <textarea id="eFb" maxlength="2000" style="min-height:100px;margin-top:10px" placeholder="Pl.: a 3. jelenetben lassabban mutasd az eredményt, a végén legyen ott az e-mail cím"></textarea>
     <button type="button" class="pri big" id="eGo" style="margin-top:10px">Új változat készítése</button>
@@ -583,6 +589,12 @@ $("#editOne").addEventListener("click", async (e) => {
   const t = e.target;
   try {
     if (t.dataset.ed) { const a = $("#eFb"); a.value = (a.value.trim() ? a.value.trim() + "\n" : "") + t.dataset.ed; a.focus(); }
+    const capBtn = t.closest("#eCap");
+    if (capBtn) {
+      const off = (v.opts || {}).captions !== false;
+      await api(`/api/videos/${v.id}/revise`, {feedback: off ? "Vedd ki a feliratot." : "Kapcsold be a feliratot."});
+      jobHidden = false; flash(off ? "Felirat nélküli változat készül." : "Felirattal készül újra."); refresh();
+    }
     if (t.id === "eGo") {
       const fb = $("#eFb").value.trim();
       if (fb.length < 3) { flash("Írd le, mit változtassak."); return; }
@@ -601,6 +613,7 @@ $("#editOne").addEventListener("click", async (e) => {
       Object.assign(F, {form: kindOf(v), aspect: o.aspect || "9:16", seconds: String(o.seconds || 30),
         voice: o.voice === false ? "" : (o.male ? "m" : "f"), lang: t.id === "eReuseEn" ? "en" : (o.lang || "hu")});
       $("#vResearch").checked = !!o.research;
+      $("#vCaptions").checked = o.captions !== false;
       attached = (o.attach || []).map((id) => S.media.find((m) => m.id === id)).filter(Boolean);
       paintSeg(); formChanged(); drawAttached(); go("#new");
       flash(t.id === "eReuseEn" ? "Betöltve angolra állítva. Csatold az angol felvételt, ha van, és nyomd meg a gombot." : "Betöltve. Módosíts, amit akarsz, és nyomd meg a gombot.");
@@ -786,6 +799,7 @@ function render() {
   $("#vGo").disabled = j.running;
   $("#vGo").title = j.running ? "Épp készül valami, várd meg." : "";
   $("#eGo") && ($("#eGo").disabled = j.running);
+  $("#eCap") && ($("#eCap").disabled = j.running);
   if (attached.length) drawAttached();
   const view = (location.hash.slice(1) || "home").split("/")[0];
   if (view === "home") renderRecent();

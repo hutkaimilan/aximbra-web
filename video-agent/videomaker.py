@@ -254,6 +254,41 @@ Answer ONLY with JSON:
 WHAT = {"video": "short video script", "image": "single still image", "carousel": "carousel of still slides"}
 
 
+# A narráció feliratát (a hang szövege a kép alján) nem a forgatókönyv adja,
+# hanem a videó beállítása. A „vedd ki a feliratot” kérést ezért kódban
+# ismerjük fel: a modell erre a képernyő-szövegeket írta át, a felirat maradt.
+_CAPTION_WORD_RE = re.compile(r"felirat|subtit|caption", re.I)
+_CAPTION_OFF_RE = re.compile(r"\bki\b|kiv[eé]|kisz[eé]d|kikapcs|t[öo]r[öo]l|n[eé]lk[üu]l|\bne\b|nincs|"
+                             r"t[üu]ntesd|t[üu]ntesse|elt[üu]ntet|\bremove|\bwithout|\bno\b|\boff\b|\bhide|\bdrop|get rid", re.I)
+_CAPTION_ON_RE = re.compile(r"legyen(?:ek)?\s+(?:\w+\s+)?felirat|k[eé]rek|tegy[eé]l|tegyen|tedd|vissza|bekapcs|kapcsold be|"
+                            r"\badd\b|\bwith\b|\bturn on|\bshow", re.I)
+
+
+def wants_captions(text: str) -> bool | None:
+    """False, ha a szöveg a narráció feliratának elhagyását kéri; True, ha
+    kifejezetten kéri; None, ha nem szól róla. Mondatonként nézzük, és
+    a tiltás erősebb (a „ne legyen” is tartalmazza a „legyen”-t)."""
+    verdict = None
+    for sentence in re.split(r"[.!?\n;]+", text or ""):
+        if not _CAPTION_WORD_RE.search(sentence):
+            continue
+        # Az idegen nyelvű képernyőhöz kért fordító felirat („angol feliratot
+        # tegyen”) más funkció: az nem a narráció felirata.
+        if re.search(r"angol|magyar|english|hungarian|ford[ií]t", sentence, re.I):
+            continue
+        if _CAPTION_OFF_RE.search(sentence):
+            return False
+        if _CAPTION_ON_RE.search(sentence):
+            verdict = True
+    return verdict
+
+
+def _without_caption_talk(text: str) -> str:
+    """A visszajelzés a feliratról szóló mondatok nélkül."""
+    rest = [x.strip() for x in re.split(r"[.!?\n;]+", text or "") if x.strip() and not _CAPTION_WORD_RE.search(x)]
+    return " ".join(x for x in rest if len(x) > 2)
+
+
 def revise_prompt(script: dict, feedback: str, lang: str, form: str = "video") -> str:
     slim = {k: script[k] for k in ("title", "tagline", "brand", "theme", "scenes", "post", "first_comment") if k in script}
     still = form in ("image", "carousel")
@@ -261,6 +296,7 @@ def revise_prompt(script: dict, feedback: str, lang: str, form: str = "video") -
 Same JSON structure, same scene kinds available (hook, statement, problem, benefit, steps, compare, site, call,
 inbox, agents, number, quote, photo, gallery, clip, cta). Keep the "media" ids that are still wanted.
 {'Keep it still: the same number of slides as now, no narration, leave "voice" empty.' if still else ''}
+{'The subtitle (caption) part of the feedback is already handled outside the script: do NOT remove or shorten headlines, on-screen text or narration because of it.' if wants_captions(feedback) is not None else ''}
 Language: {_lang_name(lang)}. Never invent statistics, customers, testimonials or results.
 While fixing, keep to these rules:
 {playbook.MARKETING_RULES}
@@ -1140,7 +1176,7 @@ def _produce(script: dict, opts: dict, ctx: dict, say, parent: str | None, form:
             if engine:
                 say(f"Hang kész ({ {'elevenlabs': 'ElevenLabs', 'gemini': 'Gemini'}.get(engine, 'Edge')} felolvasó).")
         total = render(script, ctx["urls"], os.path.join(VIDEO_DIR, f"{vid}.mp4"), opts["aspect"], audio,
-                       captions=any(sc["voice"] for sc in script["scenes"]), say=say)
+                       captions=opts.get("captions", True) and any(sc["voice"] for sc in script["scenes"]), say=say)
         files = [f"{vid}.mp4"]
         done = f"{total:.0f} mp"
     meta = {"id": vid, "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "parent": parent,
@@ -1188,7 +1224,7 @@ FORM_NAMES = {"video": "videó", "image": "kép", "carousel": "körhinta", "logo
 
 def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", voice: bool = True,
          male: bool = False, research: bool = False, form: str = "auto", say=lambda m: None,
-         attach: list | None = None) -> dict:
+         attach: list | None = None, captions: bool = True) -> dict:
     brief = (brief or "").strip()[:12000]
     if len(brief) < 8:
         raise VideoError("írd le, mit készítsek")
@@ -1201,7 +1237,8 @@ def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", 
         say(f"Formátum a leírás alapján: {FORM_NAMES[form]}.")
     attach = _wait_ready([m for m in (attach or []) if media.get(m)][:8], say)
     opts = {"brief": brief, "seconds": seconds, "lang": lang, "aspect": aspect, "voice": voice,
-            "male": male, "research": research, "form": form, "attach": attach}
+            "male": male, "research": research, "form": form, "attach": attach,
+            "captions": bool(captions) and wants_captions(brief) is not False}
     say("Kontextus: linkek beolvasása…")
     ctx = gather(brief, research, say)
     ctx["attached"] = attach
@@ -1262,6 +1299,10 @@ def revise(vid: str, feedback: str, say=lambda m: None) -> dict:
     # A módosítás nem vált formátumot: amit videónak kértél, videó marad.
     form = opts.get("form") or meta.get("form") or "video"
     opts = {**opts, "form": form}
+    want = wants_captions(feedback)
+    if want is not None:
+        opts["captions"] = want
+        say("Felirat: " + ("bekapcsolva." if want else "kikapcsolva."))
     ctx = {"urls": meta.get("ctx_urls") or [], "pages": [], "web": []}
     if form == "logo":
         previous = []
@@ -1273,6 +1314,11 @@ def revise(vid: str, feedback: str, say=lambda m: None) -> dict:
         say("Módosítás: a logók újratervezése…")
         d = design_logos(opts["brief"], ctx, opts["lang"], say, feedback, previous)
         return _finish(_logo_script(d), opts, ctx, say, parent=vid)
+    if want is not None and form == "video" and not _without_caption_talk(feedback):
+        # Csak a feliratról szólt a kérés: ugyanaz a forgatókönyv, újrarenderelve.
+        say("Módosítás: ugyanaz a videó, a felirat beállításával újra összerakva…")
+        script = {k: meta[k] for k in ("title", "tagline", "brand", "theme", "scenes", "post", "first_comment") if k in meta}
+        return _finish(script, opts, ctx, say, parent=vid)
     say("Módosítás: a forgatókönyv átírása…")
     raw = llm._ask(revise_prompt(meta, feedback, opts["lang"], form))
     script = normalize(llm.extract_json(raw), opts["seconds"], len(ctx["urls"]), form)
