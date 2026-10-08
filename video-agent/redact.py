@@ -36,7 +36,7 @@ MATCH_RATIO = 0.82    # ennyire hasonló szöveg ugyanaz a sor a következő min
 KEEP_TERMS = tuple(t.strip().lower() for t in os.environ.get("REDACT_KEEP", "aximbra,episteme").split(",") if t.strip())
 # Az elmosási szabály változata: ha szigorodik, a korábban feldolgozott
 # felvételeket újra átnézzük (media.resume_pending).
-POLICY_VERSION = 2
+POLICY_VERSION = 3  # 3: a halványszürke szöveget is olvassuk (négy OCR-változat)
 
 EMAIL_RE = re.compile(r"[\w.+-]+\s?@\s?[\w-]+(?:\.[\w-]+)+", re.I)
 PHONE_RE = re.compile(r"(?:\+|00)?\d[\d\s/().-]{7,}\d")
