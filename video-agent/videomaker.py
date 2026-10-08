@@ -219,10 +219,10 @@ problem, benefit, agents or cta — "site", "call" and "inbox" animate, so they 
   * Keep the recording's order; never speed through text the narration talks about; a stretch of 1× after
     a fast one is what makes the result land.
   * Sign-in, account-chooser and consent screens prove the demo is real: keep them at 2–3×, do not cut them.
-  * SUBTITLES: when the on-screen text of a stretch (listed as "on screen (xx)") is in another language than
-    this video, put a short translation of it into that scene's "sub", in the video's language — e.g. Google's
-    Hungarian "unverified app" warning gets an English sub in an English video. The viewer must understand
-    every screen.
+  * SUBTITLES are added automatically, timed to the recording: wherever the screen is in another language
+    (e.g. Google's Hungarian sign-in and warning screens in an English video), a short translation appears
+    only while that screen is visible. Do NOT put translations into "sub" for clip scenes; leave "sub" empty
+    there, so the two never overlap.
 - "number": headline = a number FROM THE BRIEF OR SOURCES ONLY, sub = what it means.
 - "quote": headline = a quote FROM THE BRIEF OR SOURCES ONLY, sub = its source.
 - "cta": headline + "url" + sub + "button". Always last.
@@ -1175,6 +1175,7 @@ def _produce(script: dict, opts: dict, ctx: dict, say, parent: str | None, form:
         files = render_stills(script, ctx["urls"], VIDEO_DIR, vid, opts["aspect"], say)
         done = f"{len(files)} kép"
     else:
+        _attach_cues(script, opts["lang"], say)
         if opts["voice"]:
             say("Hangalámondás…")
             audio, engine = narrate(script, opts["lang"], opts.get("male", False), say)
@@ -1283,6 +1284,78 @@ def _wait_ready(ids: list, say=lambda m: None) -> list:
     if len(ok) < len(ids):
         say(f"{len(ids) - len(ok)} csatolt fájl kimarad: az elmosása nem sikerült vagy nem ért véget.")
     return ok
+
+
+CUES_VERSION = 1
+
+
+def clip_cues(mid: str, lang: str) -> list[dict]:
+    """Időzített felirat egy felvételhez: csak ott, ahol a képernyő más nyelvű,
+    mint a videó, és rendszer-/bejelentkező képernyő látszik (Google-fiókválasztó,
+    figyelmeztetés, engedélykérés). Felvételenként és nyelvenként egyszer kérjük
+    le a modelltől, utána a média leírásában tároljuk."""
+    m = media.get(mid)
+    if not m or m.get("kind") != "clip":
+        return []
+    cache = (m.get("cues") or {}).get(lang)
+    if isinstance(cache, dict) and cache.get("v") == CUES_VERSION:
+        return cache.get("items") or []
+    segs = m.get("segments") or []
+    foreign = [(i, g) for i, g in enumerate(segs)
+               if g.get("screen_text") and g.get("screen_lang") and not g["screen_lang"].startswith(lang)]
+    items = []
+    if foreign:
+        listing = "\n".join(f'{i}. {g["from"]:.0f}–{g["to"]:.0f} s, {g["pace"]}: {g["what"]} | on screen '
+                            f'({g["screen_lang"]}): "{g["screen_text"]}"' for i, g in foreign)
+        prompt = f"""Segments of a screen recording whose on-screen text is not in {_lang_name(lang)}:
+{listing}
+
+For each segment showing a sign-in, account chooser, warning, permission/consent or other system screen,
+write a subtitle in {_lang_name(lang)}: a very short summary of what the screen says or asks, max 6 words,
+not a word-for-word translation (e.g. "Google sign-in: choose account", "Google: app not verified — continue",
+"Allow read access to Gmail"). For segments showing content (email subjects, message lists, results) give "".
+Never write names, email addresses or phone numbers.
+Answer ONLY with JSON: {{"subs": [{{"i": 0, "text": ""}}]}}"""
+        try:
+            data = llm.extract_json(llm._ask(prompt))
+        except Exception as e:  # noqa: BLE001 — felirat nélkül is kész lesz a videó
+            logger.info("felirat nem készült (%s): %s", mid, e)
+            return []
+        by_i = {}
+        for x in (data or {}).get("subs") or []:
+            try:
+                by_i[int(x.get("i"))] = _clip(_no_url(x.get("text")), 60)
+            except (TypeError, ValueError, AttributeError):
+                continue
+        for i, g in foreign:
+            text = by_i.get(i, "")
+            if not text or _PII_RE.search(text):
+                continue
+            if items and items[-1]["text"] == text and g["from"] - items[-1]["to"] < 1.0:
+                items[-1]["to"] = g["to"]
+            else:
+                items.append({"from": g["from"], "to": g["to"], "text": text})
+    m = media.get(mid) or m
+    m["cues"] = {**(m.get("cues") or {}), lang: {"v": CUES_VERSION, "items": items}}
+    media._save(mid, m)
+    return items
+
+
+_PII_RE = re.compile(r"@|\+?\d[\d\s-]{6,}")
+
+
+def _attach_cues(script: dict, lang: str, say) -> None:
+    for sc in script["scenes"]:
+        sc.pop("cues", None)
+        if sc.get("kind") == "clip" and sc.get("media"):
+            cues = clip_cues(sc["media"], lang)
+            # Csak az a jelenet kapja meg, amelyik szakaszába felirat esik.
+            a, b = sc.get("from") or 0.0, (sc.get("from") or 0.0) + sc["seconds"] * (sc.get("speed") or 1)
+            if any(c["from"] < b and c["to"] > a for c in cues):
+                sc["cues"] = cues
+    n = sum(1 for sc in script["scenes"] if sc.get("cues"))
+    if n:
+        say(f"Felirat a más nyelvű képernyőkhöz: {n} jelenetben, a felvételhez időzítve.")
 
 
 def _logo_script(d: dict) -> dict:
