@@ -813,9 +813,9 @@ def test_inbox_can_hold_a_long_video_for_approval(tmp_path, monkeypatch):
     monkeypatch.setattr(inbox, "PATH", str(tmp_path / "inbox.json"))
     now = datetime(2026, 10, 8, 9, tzinfo=timezone.utc)
     body = {"id": "sales-summary-1", "brief": "Összefoglaló videó az aximbra.hu oldalról, végig az oldallal.",
-            "lang": "hu", "targets": [], "hold": True, "seconds": 120, "form": "video"}
+            "lang": "hu", "targets": [], "hold": True, "seconds": 150, "form": "video"}
     it, new = inbox.add(body, now)
-    assert new and it["hold"] is True and it["seconds"] == 90 and it["targets"] == []
+    assert new and it["hold"] is True and it["seconds"] == 120 and it["targets"] == []
     with pytest.raises(inbox.InboxError):
         inbox.add({**body, "id": "sales-summary-2", "hold": False}, now)    # cél és jóváhagyás nélkül nem
     plain, _ = inbox.add({**body, "id": "sales-daily", "hold": False, "targets": ["linkedin"],
@@ -854,3 +854,53 @@ def test_up_to_six_site_sections_are_captured_and_read_once(monkeypatch):
     ctx = videomaker.gather(brief, research=False)
     assert len(ctx["urls"]) == 6 and ctx["urls"][1] == "https://aximbra.hu/#agentek"
     assert reads == ["https://aximbra.hu", "https://epistemebudapest.up.railway.app"]
+
+
+def test_no_url_or_scene_number_reaches_the_screen():
+    """Élesben a rendező a briefből a „2. jelenet" címkét és a
+    https://aximbra.hu/#agentek címet tette a képernyőre, levágva."""
+    data = {"scenes": [
+        {"kind": "site", "kicker": "2. jelenet", "headline": "https://aximbra.hu/#agentek",
+         "sub": "15 agent-típus — https://aximbra.hu/#agentek", "shot": 1,
+         "voice": "Nézze meg: https://aximbra.hu", "seconds": 8},
+        {"kind": "statement", "kicker": "Jelenet 3", "headline": "Élő *demók* regisztráció nélkül", "seconds": 6},
+        {"kind": "cta", "headline": "Próbálja ki", "url": "https://aximbra.hu/", "seconds": 4}]}
+    out = videomaker.normalize(data, 30, n_shots=2)
+    site, stmt, cta = out["scenes"]
+    assert site["kicker"] == "" and stmt["kicker"] == ""
+    assert "http" not in site["headline"] and "aximbra.hu" not in site["sub"]
+    assert site["sub"] == "15 agent-típus"
+    assert "http" not in site["voice"] and "aximbra.hu" in site["voice"]       # a narráció a domaint kimondhatja
+    assert cta["url"] == "aximbra.hu"                                          # a záróképen marad a cím
+
+
+def test_the_same_page_is_never_shown_twice():
+    """Kétszer ugyanaz az oldalrész, csak más narrációval: a második egy még
+    nem használt felvételre vált, vagy szöveges jelenet lesz."""
+    scene = lambda shot, h: {"kind": "site", "headline": h, "shot": shot, "seconds": 6}
+    data = {"scenes": [scene(0, "Egy"), scene(0, "Kettő"), scene(0, "Három"),
+                       {"kind": "cta", "headline": "Vége", "seconds": 4}]}
+    out = videomaker.normalize(data, 30, n_shots=2)
+    shots = [(s["kind"], s["shot"]) for s in out["scenes"][:3]]
+    assert shots[0] == ("site", 0) and shots[1] == ("site", 1) and shots[2][0] == "statement"
+
+
+def test_a_two_minute_video_keeps_its_length_and_more_scenes():
+    data = {"scenes": [{"kind": "statement", "headline": f"Jelenet szöveg {i}", "seconds": 9} for i in range(14)]
+            + [{"kind": "cta", "headline": "Vége", "seconds": 5}]}
+    out = videomaker.normalize(data, 120, n_shots=0)
+    assert len(out["scenes"]) == 15
+    assert abs(sum(s["seconds"] for s in out["scenes"]) - 120) < 1.5
+    short = videomaker.normalize(data, 60, n_shots=0)
+    assert len(short["scenes"]) == videomaker.MAX_SCENES + 1                  # 10 + záró
+
+
+def test_an_sms_confirmation_scene_survives_in_a_video_but_not_on_a_still():
+    data = {"scenes": [{"kind": "sms", "headline": "A *visszaigazolás* azonnal megy", "caller": "EPISTEME",
+                        "lines": ["Foglalását rögzítettük: péntek 19:00, 2 fő."], "seconds": 6},
+                       {"kind": "cta", "headline": "Vége", "seconds": 4}]}
+    vid = videomaker.normalize(data, 20, n_shots=0)
+    assert vid["scenes"][0]["kind"] == "sms" and vid["scenes"][0]["caller"] == "EPISTEME"
+    still = videomaker.normalize(data, 20, n_shots=0, form="carousel")
+    assert still["scenes"][0]["kind"] == "statement"
+    assert '"sms"' in videomaker.director_prompt("x", {"urls": [], "pages": [], "web": [], "library": []}, 30, "hu", "9:16", True)

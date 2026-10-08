@@ -68,9 +68,9 @@ def add(body: dict, now: datetime | None = None) -> tuple[dict, bool]:
     seconds = body.get("seconds")
     if seconds is not None:
         try:
-            seconds = max(10, min(90, int(seconds)))
+            seconds = max(10, min(120, int(seconds)))
         except (TypeError, ValueError):
-            raise InboxError("a hossz 10 és 90 másodperc közötti egész szám")
+            raise InboxError("a hossz 10 és 120 másodperc közötti egész szám")
     with _lock:
         items = _load()
         for it in items:

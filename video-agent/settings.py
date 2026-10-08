@@ -92,7 +92,7 @@ def clean(body: dict) -> dict:
             pass
     if "seconds" in body:
         try:
-            out["seconds"] = max(10, min(90, int(body["seconds"])))
+            out["seconds"] = max(10, min(120, int(body["seconds"])))
         except (TypeError, ValueError):
             pass
     if "max_posts_per_day" in body:
