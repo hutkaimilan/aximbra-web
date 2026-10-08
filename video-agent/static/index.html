@@ -87,7 +87,7 @@ a{color:var(--c);text-decoration:none}
 .log{font:12px/1.6 var(--mono);white-space:pre-wrap;background:rgba(2,3,8,.85);border:1px solid var(--line);border-radius:12px;padding:12px;max-height:260px;overflow:auto;color:#9ff3ff;margin-top:8px}
 .tag{display:inline-block;font:500 11px var(--mono);border:1px solid var(--line);border-radius:999px;padding:2px 9px;margin:0 4px 4px 0;color:var(--mute)}
 .tag.ok{border-color:rgba(25,245,160,.5);color:var(--ok)}.tag.bad{border-color:rgba(255,77,109,.5);color:#ff9fb1}.tag.w{border-color:rgba(255,176,32,.5);color:var(--a)}
-#warn{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:30;max-width:calc(100% - 32px);padding:11px 16px;border-radius:12px;
+#warn{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 150px);transform:translateX(-50%);z-index:30;max-width:calc(100% - 32px);padding:11px 16px;border-radius:12px;
   background:rgba(10,14,26,.96);border:1px solid var(--line2);box-shadow:0 10px 30px rgba(0,0,0,.5);font-size:14px}
 
 /* ---- szakasz-fejléc: lépésszám + cím ---- */
@@ -347,7 +347,14 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let S = null;
 async function api(path, body) {
-  const r = await fetch(path, body === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  // Ha 30 mp alatt nem jön válasz, mondjuk meg, ne pörögjön némán.
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 30000);
+  let r;
+  try {
+    r = await fetch(path, body === undefined ? {signal: ctl.signal} : {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body), signal: ctl.signal});
+  } catch (e) {
+    throw new Error(e.name === "AbortError" ? "nem jött válasz 30 mp alatt — gyenge a kapcsolat?" : "nincs kapcsolat a szerverrel");
+  } finally { clearTimeout(t); }
   let data = null; try { data = await r.json(); } catch {}
   if (!r.ok) throw new Error((data && (data.detail?.[0]?.msg || data.detail)) || ("Hiba " + r.status));
   return data;
@@ -402,7 +409,7 @@ function formChanged() {
   $("#oVoice").classList.toggle("hide", still);
   $("#oCap").classList.toggle("hide", !F.voice);
   $("#oAspect").classList.toggle("hide", f === "logo");
-  $("#vGo").textContent = {image: "Kép elkészítése", carousel: "Körhinta elkészítése", video: "Videó elkészítése", logo: "Logók tervezése"}[f] || "Elkészítem";
+  goState();
 }
 function summary() {
   const f = F.form, still = f !== "video" && f !== "auto";
@@ -446,10 +453,18 @@ $("#vUp").onclick = () => $("#vAttach").click();
 $("#vAttach").onchange = async (e) => {
   const files = [...(e.target.files || [])]; e.target.value = "";
   for (const [i, f] of files.entries()) {
-    $("#vAttachInfo").textContent = `${i + 1}/${files.length}: ${f.name} feltöltése…`;
-    try { attached.push(await upload(f, "ehhez a darabhoz csatolva", $("#vRedact").checked)); drawAttached(); }
-    catch (err) { flash(`${f.name}: ${err.message}`); }
+    const tag = `${i + 1}/${files.length}: ${f.name} (${kb(f.size)}) feltöltése`;
+    $("#vAttachInfo").textContent = tag + "…";
+    try { attached.push(await upload(f, "ehhez a darabhoz csatolva", $("#vRedact").checked,
+      (p) => { upPct = p; $("#vAttachInfo").textContent = `${tag}: ${p}%`; goState(); })); drawAttached(); }
+    catch (err) {
+      // A felvétel nélkül nem indítjuk el a gyártást, amit rá vártál.
+      if (startWhenUploaded) { startWhenUploaded = false; flash(`${f.name}: ${err.message}. A gyártás NEM indult el.`); }
+      else flash(`${f.name}: ${err.message}`);
+    }
   }
+  upPct = 0; goState();
+  startIfWaiting();
   $("#vAttachInfo").textContent = attached.length ? "Feltöltve. Az elmosás a háttérben fut, közben nyugodtan indíthatod a gyártást — megvárja." : "";
   mKey = ""; refresh();
 };
@@ -473,9 +488,31 @@ $("#vLibGrid").onclick = (e) => {
   else { if (attached.length >= 8) { flash("Legfeljebb 8 anyag csatolható."); return; } attached.push(S.media.find((m) => m.id === id)); }
   drawAttached(); renderLib();
 };
-$("#vGo").onclick = async () => {
+let upPct = 0, starting = false, startWhenUploaded = false;
+// Az indító gomb állapota: amíg feltöltés fut, az indítás megvárja (a kérés
+// különben beragad a nagy feltöltés mögé, és vele együtt elvész).
+function goState() {
+  const b = $("#vGo");
+  if (!b) return;
+  const running = !!(S && S.job && S.job.running);
+  b.disabled = running || starting || (uploading > 0 && startWhenUploaded);
+  b.textContent = starting ? "Indítás…"
+    : uploading > 0 ? (startWhenUploaded ? `Indul, amint a feltöltés kész (${upPct}%)` : `Elkészítem, ha feltöltött (${upPct}%)`)
+    : {image: "Kép elkészítése", carousel: "Körhinta elkészítése", video: "Videó elkészítése", logo: "Logók tervezése"}[F.form] || "Elkészítem";
+}
+// A várakozó indítás csak azután mehet, hogy a feltöltött fájl bekerült a csatoltak közé.
+function startIfWaiting() {
+  if (!uploading && startWhenUploaded) { startWhenUploaded = false; startNow(); }
+}
+$("#vGo").onclick = () => {
+  if (brief.value.trim().length < 8) { flash("Írd le, mit készítsek."); brief.focus(); return; }
+  if (uploading > 0) { startWhenUploaded = true; goState(); flash("A feltöltés után magától elindul."); return; }
+  startNow();
+};
+async function startNow() {
+  if (starting) return;
   const b = brief.value.trim();
-  if (b.length < 8) { flash("Írd le, mit készítsek."); brief.focus(); return; }
+  starting = true; goState();
   try {
     await api("/api/videos", {brief: b, seconds: +F.seconds, lang: F.lang, aspect: F.aspect, form: F.form,
       voice: !!F.voice, male: F.voice === "m", research: $("#vResearch").checked, media: attached.map((m) => m.id),
@@ -483,8 +520,9 @@ $("#vGo").onclick = async () => {
     jobHidden = false;
     flash("Elindult. A fenti sávban látod, hol tart.");
     attached = []; drawAttached(); $("#vAttachInfo").textContent = ""; refresh();
-  } catch (e) { flash(e.message); }
-};
+  } catch (e) { flash("Nem indult el: " + e.message); }
+  finally { starting = false; goState(); }
+}
 
 /* ================= meglévők ================= */
 let openId = "", listKey = "", oneKey = "";
@@ -632,12 +670,24 @@ const kb = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, M
 const thumb = (m) => m.kind === "clip"
   ? (m.status === "processing" ? `<div class="th"></div>` : `<video class="th" src="/api/media/${esc(m.id)}#t=1" muted playsinline preload="metadata"></video>`)
   : `<img class="th" src="/api/media/${esc(m.id)}" alt="" loading="lazy">`;
-async function upload(f, note, redact) {
+// XHR, mert a fetch nem mutatja, hol tart a feltöltés: egy gyenge wifin
+// felküldött nagy felvételnél enélkül nem látszik, hogy halad-e egyáltalán.
+let uploading = 0;
+function upload(f, note, redact, onPct = () => {}) {
   const fd = new FormData(); fd.append("file", f); fd.append("note", note); fd.append("redact", redact ? "true" : "false");
-  const r = await fetch("/api/media", {method: "POST", body: fd});
-  const d = await r.json().catch(() => null);
-  if (!r.ok) throw new Error((d && d.detail) || ("Hiba " + r.status));
-  return d;
+  uploading++; goState();
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open("POST", "/api/media");
+    x.upload.onprogress = (e) => { if (e.lengthComputable) onPct(Math.floor(e.loaded / e.total * 100)); };
+    x.onload = () => {
+      let d = null; try { d = JSON.parse(x.responseText); } catch {}
+      if (x.status >= 200 && x.status < 300) resolve(d);
+      else reject(new Error((d && d.detail) || ("Hiba " + x.status)));
+    };
+    x.onerror = () => reject(new Error("a feltöltés megszakadt (gyenge a kapcsolat?) — próbáld újra jobb neten"));
+    x.send(fd);
+  }).finally(() => { uploading--; goState(); });
 }
 function renderMedia() {
   const list = S.media.filter((m) => !F.mfilter || (F.mfilter === "clip" ? m.kind === "clip" : m.kind !== "clip"));
@@ -680,11 +730,12 @@ $("#mGo").onclick = async () => {
   const b = $("#mGo"); b.disabled = true;
   let ok = 0;
   for (const [i, f] of files.entries()) {
-    $("#mInfo").textContent = `${i + 1}/${files.length}: ${f.name} feltöltése…`;
-    try { await upload(f, $("#mNote").value, $("#mRedact").checked); ok++; } catch (e) { flash(`${f.name}: ${e.message}`); }
+    const tag = `${i + 1}/${files.length}: ${f.name} (${kb(f.size)})`;
+    $("#mInfo").textContent = tag + " feltöltése…";
+    try { await upload(f, $("#mNote").value, $("#mRedact").checked, (p) => { $("#mInfo").textContent = `${tag}: ${p}%`; }); ok++; } catch (e) { flash(`${f.name}: ${e.message}`); }
   }
   b.disabled = false; $("#mInfo").textContent = ""; $("#mNote").value = "";
-  picked = []; drawPicked();
+  picked = []; drawPicked(); startIfWaiting();
   if (ok) flash(`${ok} fájl feltöltve. Az elmosás a háttérben fut (75 mp-es felvételnél kb. 2 perc).`);
   mKey = ""; refresh();
 };
@@ -796,7 +847,7 @@ function render() {
   if (wasRunning && !j.running) { listKey = ""; oneKey = ""; recentKey = ""; }
   renderJob();
   wasRunning = j.running;
-  $("#vGo").disabled = j.running;
+  goState();
   $("#vGo").title = j.running ? "Épp készül valami, várd meg." : "";
   $("#eGo") && ($("#eGo").disabled = j.running);
   $("#eCap") && ($("#eCap").disabled = j.running);
