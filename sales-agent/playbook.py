@@ -358,6 +358,65 @@ WEBSITE TEXT:
 {pages}"""
 
 
+# ---- a tartalomtémák névsora -------------------------------------------------
+
+# Az aximbra.hu tizenöt agentkártyája, ugyanabban a sorrendben. A napi
+# tartalomtéma ebből a listából kap egy agentet, körbe — enélkül a modell
+# magától mindig a legkézenfekvőbbre (e-mail rendező) írt, és a lista vége
+# soha nem került sorra.
+#
+# Ár és átfutás szándékosan NINCS itt: a poszt úgysem árazhat, és egy
+# második árlista előbb-utóbb elcsúszna az oldalétól (az az AXIMBRA_FACTS).
+# Itt csak az van, ami egy témához kell: a név és a helyzet, amit megold.
+AGENTS = (
+    {"key": "email", "hu": "E-mail rendező", "en": "Email sorter",
+     "hu_what": "a közös postafiókot reggelre kategóriába sorolja, sürgősséget állapít meg, és megmondja, kihez tartozik",
+     "en_what": "sorts a shared inbox by morning: categories, urgency, and who each message belongs to"},
+    {"key": "leads", "hu": "Érdeklődő-minősítő", "en": "Lead qualifier",
+     "hu_what": "végignézi a beérkező érdeklődést, pontozza, és megmondja, mit érdemes vele kezdeni — ma vagy három hónap múlva",
+     "en_what": "reviews incoming leads, scores them, and says what to do with each — today or in three months"},
+    {"key": "admin", "hu": "Belső admin agent", "en": "Internal admin agent",
+     "hu_what": "adatot visz át rendszerek között, jelentést állít össze, űrlapot tölt ki — a láthatatlan munka",
+     "en_what": "moves data between systems, compiles reports, fills out forms — the invisible work"},
+    {"key": "research", "hu": "Kutatási monitor", "en": "Research monitor",
+     "hu_what": "figyeli a versenytársakat, a jogszabályt vagy a piacot, és csak akkor szól, ha valóban történt valami",
+     "en_what": "watches competitors, regulation or the market, and only speaks up when something actually happened"},
+    {"key": "support", "hu": "Ügyfélszolgálati agent", "en": "Customer support agent",
+     "hu_what": "a cég saját dokumentumaiból válaszol, forrásmegjelöléssel; amit nem tud, átadja embernek",
+     "en_what": "answers from the company's own documents, with sources; what it doesn't know, it hands to a human"},
+    {"key": "content", "hu": "Tartalom-agent", "en": "Content agent",
+     "hu_what": "egy hangnemre betanítva ír hírlevelet, termékleírást, közösségi posztot; a jóváhagyás a cégnél marad",
+     "en_what": "writes newsletters, product copy and social posts in one trained voice; approval stays with the company"},
+    {"key": "webshop", "hu": "Webshop-asszisztens", "en": "Webshop assistant",
+     "hu_what": "megválaszolja a vásárlói leveleket (hol a csomag, visszaküldés, számla), a rendelést a webshopból keresi ki",
+     "en_what": "answers customer emails (where is my parcel, returns, invoices) and looks the order up in the shop"},
+    {"key": "documents", "hu": "Dokumentum-elemző", "en": "Document analyzer",
+     "hu_what": "szerződést, számlát, ajánlatot olvas, és kiszedi belőle azt a néhány mezőt, amiért eddig valaki végigolvasta",
+     "en_what": "reads contracts, invoices and quotes and pulls out the few fields someone used to read the whole thing for"},
+    {"key": "finance", "hu": "Pénzügyi asszisztens", "en": "Financial assistant",
+     "hu_what": "költséget kategorizál, eltérést jelez, riportot állít össze; minden állítás mögött ott a forrássor",
+     "en_what": "categorizes costs, flags anomalies, compiles reports; every statement has a source line behind it"},
+    {"key": "recruiting", "hu": "Toborzási agent", "en": "Recruitment agent",
+     "hu_what": "önéletrajzot előszűr strukturált szempontok szerint, audit-naplóval és emberi felülbírálattal (EU AI Act)",
+     "en_what": "pre-screens CVs by structured criteria, with an audit log and human override (EU AI Act)"},
+    {"key": "itops", "hu": "IT-üzemeltető agent", "en": "IT operations agent",
+     "hu_what": "logot néz, riasztást osztályoz, ismert hibára lefuttatja a javítást; amit nem ismer, azzal felébreszti az ügyeletest",
+     "en_what": "watches logs, classifies alerts, runs the fix for known issues, and wakes the on-call for the rest"},
+    {"key": "multi", "hu": "Multi-agent rendszer", "en": "Multi-agent system",
+     "hu_what": "több agent egy folyamaton, átadásokkal és ellenőrzési pontokkal; akkor van értelme, ha a folyamat tényleg összetett",
+     "en_what": "several agents in one process, with handoffs and checkpoints; worth it only when the process is genuinely complex"},
+    {"key": "nis2", "hu": "NIS2-megfelelési agent", "en": "NIS2 compliance agent",
+     "hu_what": "folyamatosan gyűjti, amit az audit kér: ki fér hozzá mihez, mikor volt mentés, hol hiányzik a kétlépcsős belépés — támadás ellen NEM véd",
+     "en_what": "continuously collects what the audit asks for: who can reach what, when backups ran, where MFA is missing — it does NOT protect against attacks"},
+    {"key": "sales", "hu": "Értékesítő agent", "en": "Sales agent",
+     "hu_what": "megkeresi az illeszkedő cégeket, elolvassa az oldalukat, és mindegyiknek egy valódi megfigyelésre épülő rövid levelet ír",
+     "en_what": "finds companies that fit, reads their websites, and writes each one a short letter built on one real observation"},
+    {"key": "custom", "hu": "Egyedi agent", "en": "Custom agent",
+     "hu_what": "ami nincs a listán: ha a feladat reális, a cég saját folyamatára épül meg; ha nem reális, azt mondjuk meg",
+     "en_what": "what isn't on the list: if the task is realistic we build it for the company's own process, and if it isn't we say so"},
+)
+
+
 # ---- tanácsadó ---------------------------------------------------------------
 
 # Az árak és határidők az aximbra.hu-ról valók (ugyanaz a lista, amit a
