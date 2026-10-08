@@ -1189,7 +1189,7 @@ FORM_NAMES = {"video": "videó", "image": "kép", "carousel": "körhinta", "logo
 def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", voice: bool = True,
          male: bool = False, research: bool = False, form: str = "auto", say=lambda m: None,
          attach: list | None = None) -> dict:
-    brief = (brief or "").strip()[:4000]
+    brief = (brief or "").strip()[:12000]
     if len(brief) < 8:
         raise VideoError("írd le, mit készítsek")
     if aspect not in ASPECTS:
