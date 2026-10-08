@@ -1170,3 +1170,56 @@ def test_content_retry_keeps_the_same_agent_and_never_burns_one(store, monkeypat
     content.run(store, now + timedelta(minutes=content.RETRY_MIN))
     assert _json.loads(store.get_setting("content_agents")) == [AGENTS[0]["key"]]
     assert {s["source"] for s in sent} == {f"sales agent · {AGENTS[0]['key']}"}
+
+
+def test_a_video_order_is_briefed_once_and_held_for_approval(store, monkeypatch):
+    """Milán kérése → a sales agent briefje → a videós agent. Egyszer fut,
+    90 mp, nem posztolódik magától, és minden oldal címe benne marad."""
+    import json as _json
+    import content
+    from orders import ORDERS
+    order = ORDERS[0]
+    monkeypatch.setenv("CONTENT_DAILY", "1")
+    monkeypatch.setenv("AGENT_TOKEN", "x" * 32)
+    prompts = []
+    body = ("Kinek: magyar kkv-vezetőknek. Horog: hétfő reggel 200 levél. " * 12)[:900]
+
+    def ask(prompt):
+        prompts.append(prompt)
+        return _json.dumps({"brief": body + " https://aximbra.hu/#agentek"})
+    monkeypatch.setattr(content.llm, "_ask", ask)
+    fail = {"on": True}
+    sent = []
+
+    def send(item):
+        if fail["on"]:
+            raise RuntimeError("a videós agent nem érhető el")
+        sent.append(item)
+    monkeypatch.setattr(content, "_send", send)
+
+    now = datetime(2026, 10, 8, 11, 0)
+    assert [o["id"] for o in content.orders_due(store, now)] == [order["id"]]
+    with pytest.raises(RuntimeError):
+        content.run_orders(store, now)
+    assert content.orders_due(store, now + timedelta(minutes=5)) == []           # vár RETRY_MIN percet
+    fail["on"] = False
+    content.run_orders(store, now + timedelta(minutes=content.RETRY_MIN))
+    assert len(prompts) == 1                                                     # a briefet nem írta újra
+    assert "EPISTEME" in prompts[0] and "https://epistemebudapest.up.railway.app" in prompts[0]
+    (item,) = sent
+    assert item["hold"] is True and item["seconds"] == 90 and item["targets"] == []
+    assert item["form"] == "video" and item["lang"] == "hu" and len(item["brief"]) <= 2000
+    assert all(u in item["brief"] for u in order["urls"])                         # a hiányzó címek a végére kerültek
+    content.run_orders(store, now + timedelta(days=1))
+    assert len(sent) == 1                                                        # egyszer, nem naponta
+
+
+def test_a_bad_order_brief_gives_up_after_three_tries(store, monkeypatch):
+    import content
+    monkeypatch.setattr(content.llm, "_ask", lambda prompt: '{"brief": "túl rövid"}')
+    monkeypatch.setattr(content, "_send", lambda item: pytest.fail("rossz briefet küldött"))
+    now = datetime(2026, 10, 8, 11, 0)
+    for i in range(content.ORDER_TRIES):
+        with pytest.raises(content.llm.LLMError):
+            content.run_orders(store, now + timedelta(minutes=i * content.RETRY_MIN))
+    assert content.orders_due(store, now + timedelta(days=1)) == []
