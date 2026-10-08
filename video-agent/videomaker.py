@@ -616,10 +616,23 @@ def fill_images(script: dict, aspect: str, say=lambda m: None) -> dict:
     return script
 
 
+def _ask_json(prompt: str, say=lambda m: None, tries: int = 2):
+    """A modell néha csonka vagy hibás JSON-t ad (élesben egy egész gyártás
+    hasalt el ezen): ilyenkor egyszer újrakérdezzük."""
+    for attempt in range(tries):
+        try:
+            return llm.extract_json(llm._ask(prompt))
+        except llm.LLMError as e:
+            if attempt + 1 >= tries:
+                raise
+            say("A modell hibás választ adott, újrakérdezem…")
+            logger.info("újrapróbálás: %s", e)
+
+
 def write_script(brief: str, ctx: dict, seconds: int, lang: str, aspect: str, voice: bool,
                  say=lambda m: None, form: str = "video") -> dict:
-    raw = llm._ask(director_prompt(brief, ctx, seconds, lang, aspect, voice, form))
-    script = normalize(llm.extract_json(raw), seconds, len(ctx["urls"]), form)
+    script = normalize(_ask_json(director_prompt(brief, ctx, seconds, lang, aspect, voice, form), say),
+                       seconds, len(ctx["urls"]), form)
     return check(script, brief, ctx, seconds, lang, say, form)
 
 
@@ -1461,8 +1474,8 @@ def revise(vid: str, feedback: str, say=lambda m: None) -> dict:
         script = {k: meta[k] for k in ("title", "tagline", "brand", "theme", "scenes", "post", "first_comment") if k in meta}
         return _finish(script, opts, ctx, say, parent=vid)
     say("Módosítás: a forgatókönyv átírása…")
-    raw = llm._ask(revise_prompt(meta, feedback, opts["lang"], form))
-    script = normalize(llm.extract_json(raw), opts["seconds"], len(ctx["urls"]), form)
+    script = normalize(_ask_json(revise_prompt(meta, feedback, opts["lang"], form), say),
+                       opts["seconds"], len(ctx["urls"]), form)
     script = check(script, opts["brief"] + " " + feedback, ctx, opts["seconds"], opts["lang"], say, form)
     script = fill_images(script, opts["aspect"], say)
     return _finish(script, opts, ctx, say, parent=vid)
