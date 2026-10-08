@@ -309,8 +309,8 @@ function renderVideos() {
     <div class="row" style="flex-wrap:nowrap"><input class="vfb" placeholder="Pl.: rövidebb nyitás, több a demóból, a végén legyen ott az e-mail cím"><button class="vrev">Újra</button></div>
     <details><summary class="mute">poszt, első komment, leírás</summary>
       <label>Poszt</label><pre class="vpost" style="white-space:pre-wrap;font:inherit;margin:0">${esc(v.post)}</pre>
-      <label>Első komment (ide a link)</label><div>${esc(v.first_comment)}</div>
-      <label>Leírás</label><div class="mute" style="white-space:pre-wrap">${esc(v.brief || "")}</div></details></div>`;
+      <label>Első komment (ide a link)</label><div data-copy>${esc(v.first_comment)}</div>
+      <label>Leírás</label><div class="mute" data-copy style="white-space:pre-wrap">${esc(v.brief || "")}</div></details></div>`;
   }).join("") || `<div class="card mute">Még nincs semmi. Írd le fent, mit akarsz — videót, képet vagy körhintát —, és nyomd meg a gombot.</div>`;
 }
 
@@ -515,6 +515,54 @@ $("#videos").onclick = async (e) => {
 };
 refresh();
 setInterval(() => { if (!document.hidden) refresh(); }, 3000);
+</script>
+<style>
+.cpbtn{display:inline-flex;align-items:center;gap:6px;margin:6px 0 2px;padding:5px 10px;border-radius:999px;font:600 12px var(--sans,inherit);
+  background:rgba(0,229,255,.08);color:var(--c,#00e5ff);border:1px solid rgba(0,229,255,.35);cursor:pointer}
+.cpbtn:hover{background:rgba(0,229,255,.16)}
+.cpbtn.ok{color:#19f5a0;border-color:rgba(25,245,160,.5)}
+</style>
+<script>
+/* „Szöveg kimásolása" gomb minden szövegdoboz alá: szövegmezők, a tanácsadó
+   válaszai, levelek, posztok, napló. Ami újrarajzolódik, az újra gombot kap. */
+(() => {
+  const SEL = "textarea, pre, .msg:not(.me), .log, [data-copy]";
+  const textOf = (el) => {
+    if (el.tagName === "TEXTAREA") return el.value;
+    const c = el.cloneNode(true);
+    c.querySelectorAll(".who, .src, .cpbtn").forEach((x) => x.remove());
+    return (c.textContent || "").replace(/^\s+|\s+$/g, "");
+  };
+  async function copy(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch {
+      const t = document.createElement("textarea");
+      t.value = text; t.style.cssText = "position:fixed;left:-9999px;top:0";
+      document.body.appendChild(t); t.select();
+      let ok = false; try { ok = document.execCommand("copy"); } catch {}
+      t.remove(); return ok;
+    }
+  }
+  function add(el) {
+    if (el.dataset.cp || el.closest(".cpbtn")) return;
+    el.dataset.cp = "1";
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "cpbtn"; b.textContent = "⧉ Szöveg kimásolása";
+    b.addEventListener("click", async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const ok = await copy(textOf(el));
+      b.textContent = ok ? "✓ Kimásolva" : "Nem sikerült — jelöld ki kézzel";
+      b.classList.toggle("ok", ok);
+      setTimeout(() => { b.textContent = "⧉ Szöveg kimásolása"; b.classList.remove("ok"); }, 1800);
+    });
+    // A beszélgetés-kártyán belülre, minden más után.
+    if (el.classList.contains("msg")) el.appendChild(b); else el.insertAdjacentElement("afterend", b);
+  }
+  let pending = false;
+  const scan = () => { pending = false; document.querySelectorAll(SEL).forEach(add); };
+  new MutationObserver(() => { if (!pending) { pending = true; requestAnimationFrame(scan); } })
+    .observe(document.body, {childList: true, subtree: true});
+  scan();
+})();
 </script>
 </body>
 </html>
