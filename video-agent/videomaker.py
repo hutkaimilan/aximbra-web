@@ -117,7 +117,8 @@ def gather(brief: str, research: bool, say=lambda m: None) -> dict:
     if research:
         say("Webes háttérkutatás…")
         web = websearch.search(brief[:280], n=4)
-    return {"urls": urls[:MAX_SITES], "pages": pages, "web": web, "library": media.listing()}
+    return {"urls": urls[:MAX_SITES], "pages": pages, "web": web,
+            "library": [m for m in media.listing() if media.ready(m)]}
 
 
 # ---- forgatókönyv -----------------------------------------------------------
@@ -400,7 +401,9 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -
     for s in scenes:
         if s["kind"] == "clip":
             m = media.get(s["media"]) or {}
-            if m.get("kind") != "clip":
+            if m.get("kind") == "clip" and not media.ready(m):
+                s["kind"] = "statement"      # még elmosás alatt, vagy elhasalt: nem mehet ki
+            elif m.get("kind") != "clip":
                 s["kind"] = "photo" if m.get("kind") == "image" else "statement"
             elif m.get("seconds"):
                 _fit_clip(s, float(m["seconds"]))
@@ -1189,7 +1192,7 @@ def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", 
     if form == "auto":
         form = pick_form(brief)
         say(f"Formátum a leírás alapján: {FORM_NAMES[form]}.")
-    attach = [m for m in (attach or []) if media.get(m)][:8]
+    attach = _wait_ready([m for m in (attach or []) if media.get(m)][:8], say)
     opts = {"brief": brief, "seconds": seconds, "lang": lang, "aspect": aspect, "voice": voice,
             "male": male, "research": research, "form": form, "attach": attach}
     say("Kontextus: linkek beolvasása…")
@@ -1207,6 +1210,30 @@ def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", 
     say(f"Forgatókönyv kész: {script['title']} ({len(script['scenes'])} "
         f"{'dia' if form != 'video' else 'jelenet'}, {script['theme']} stílus).")
     return _finish(script, opts, ctx, say)
+
+
+ATTACH_WAIT_SECONDS = 20 * 60
+
+
+def _wait_ready(ids: list, say=lambda m: None) -> list:
+    """A csatolt klipek közül amelyik még elmosás alatt van, azt megvárjuk
+    (legfeljebb ATTACH_WAIT_SECONDS-ig). Ami elhasalt, az kimarad: elmosás
+    nélkül nem mehet ki."""
+    deadline = time.time() + ATTACH_WAIT_SECONDS
+    told = False
+    while True:
+        metas = [media.get(i) for i in ids]
+        busy = [m for m in metas if m and m.get("status") == "processing"]
+        if not busy or time.time() > deadline:
+            break
+        if not told:
+            say(f"Várom a csatolt felvétel elmosását és elemzését ({len(busy)} db)…")
+            told = True
+        stop.sleep(5)
+    ok = [m["id"] for m in (media.get(i) for i in ids) if media.ready(m)]
+    if len(ok) < len(ids):
+        say(f"{len(ids) - len(ok)} csatolt fájl kimarad: az elmosása nem sikerült vagy nem ért véget.")
+    return ok
 
 
 def _logo_script(d: dict) -> dict:

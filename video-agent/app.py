@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import secrets
+import asyncio
 import threading
 import time
 from datetime import datetime, timezone
@@ -199,12 +200,14 @@ def state():
 
 
 @app.post("/api/media", dependencies=[Depends(auth)])
-async def media_add(file: UploadFile = File(...), note: str = Form("")):
+async def media_add(file: UploadFile = File(...), note: str = Form(""), redact: bool = Form(True)):
     data = await file.read(media.MAX_BYTES + 1)
     if len(data) > media.MAX_BYTES:
         raise HTTPException(413, "Túl nagy fájl (legfeljebb 250 MB).")
     try:
-        return media.store(data, file.content_type or "", file.filename or "", note.strip()[:200])
+        # A normalizálás és a képelmosás ffmpeg/Tesseract: ne fogja a többi kérést.
+        return await asyncio.to_thread(media.store, data, file.content_type or "", file.filename or "",
+                                       note.strip()[:200], redact)
     except media.MediaError as e:
         raise HTTPException(400, str(e))
 
@@ -401,6 +404,9 @@ def _scheduler():
 @app.on_event("startup")
 def _startup():
     threading.Thread(target=_scheduler, daemon=True).start()
+    n = media.resume_pending()
+    if n:
+        logger.info("félbemaradt klipfeldolgozás folytatása: %d db", n)
 
 
 class VideoIn(BaseModel):

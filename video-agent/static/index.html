@@ -213,6 +213,7 @@ details summary{cursor:pointer}
     <div class="picked" id="mPicked"></div>
     <label>Mi ez? (nem kötelező)</label>
     <input id="mNote" maxlength="200" placeholder="Pl.: az AXIMBRA logó fehér háttéren">
+    <label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink)"><input type="checkbox" id="mRedact" checked style="width:auto"> Nevek, e-mail-címek, telefonszámok elmosása</label>
     <div class="row" style="margin-top:12px"><button class="pri" id="mGo">Feltöltés</button><span class="mute" id="mInfo"></span></div>
     <div id="mList" class="mgrid"></div>
   </div>
@@ -228,6 +229,7 @@ details summary{cursor:pointer}
         ＋ Kép / videó csatolása<input type="file" id="vAttach" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" multiple style="display:none"></label>
       <span class="mute" id="vAttachInfo"></span>
     </div>
+    <label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);margin-top:6px"><input type="checkbox" id="vRedact" checked style="width:auto"> Nevek, e-mail-címek, telefonszámok elmosása a csatolt anyagon</label>
     <div class="chips" id="vAttached" style="margin-top:6px"></div>
     <div class="plan" style="grid-template-columns:1fr 1fr;margin-top:4px">
       <div><label>Mit készítsek</label><select id="vForm"><option value="auto">Amit a leírás kér (magától dönt)</option><option value="video">Videó</option><option value="image">Egy kép</option><option value="carousel">Körhinta (3–6 kép)</option><option value="logo">Logó / profilkép (3 változat)</option></select></div>
@@ -323,7 +325,7 @@ function renderVideos() {
 
 let mSeen = "";
 function renderMedia() {
-  const key = S.media.map((m) => m.id).join();
+  const key = S.media.map((m) => m.id + (m.status || "")).join();
   if (key === mSeen) return;
   mSeen = key;
   $("#mList").innerHTML = S.media.map((m) => `<div class="mitem" data-mid="${esc(m.id)}">
@@ -331,7 +333,10 @@ function renderMedia() {
     <button class="x" title="Törlés">×</button>
     ${m.kind === "clip" ? `<video src="/api/media/${esc(m.id)}" muted playsinline preload="metadata"></video>`
       : `<img src="/api/media/${esc(m.id)}" alt="">`}
-    <div class="nm">${esc(m.note || m.name)}</div></div>`).join("");
+    <div class="nm">${esc(m.note || m.name)}</div>
+    ${m.status === "processing" ? `<div class="mute">⏳ elmosás és elemzés…</div>`
+      : m.status === "failed" ? `<div style="color:var(--bad,#ff4d6d)">✕ ${esc(m.error || "hiba")} — nem kerül videóba</div>`
+      : m.redacted ? `<div class="mute">🔒 ${m.redacted} adat elmosva</div>` : ""}</div>`).join("");
 }
 let picked = [];
 const OK_TYPE = /^(image\/(jpeg|png|webp)|video\/(mp4|quicktime|webm))$/;
@@ -373,6 +378,7 @@ $("#mGo").onclick = async () => {
   for (const [i, f] of files.entries()) {
     $("#mInfo").textContent = `${i + 1}/${files.length}: ${f.name} feldolgozása…`;
     const fd = new FormData(); fd.append("file", f); fd.append("note", $("#mNote").value);
+    fd.append("redact", $("#mRedact").checked ? "true" : "false");
     try {
       const r = await fetch("/api/media", {method: "POST", body: fd});
       const d = await r.json().catch(() => null);
@@ -440,6 +446,8 @@ $("#aSave").onclick = async () => {
 
 function render() {
   const c = S.config, j = S.job;
+  // A csatolt felvétel állapota (elmosás → kész) magától frissüljön.
+  if (typeof attached !== "undefined" && attached.length) drawAttached();
   const led = (on, name) => `<span class="led ${on ? "on" : "off"}"><i></i>${name}</span>`;
   $("#leds").innerHTML = led(c.ai, "AI rendező" + (c.ai_engine ? ` · ${esc(c.ai_engine)}` : "")) + led(c.web_search, "Webkeresés") + led(c.elevenlabs, "ElevenLabs hang") + led(c.imagegen, "Képgenerálás") + led(true, "Renderelő");
   renderMedia();
@@ -490,10 +498,11 @@ $("#jobStop").onclick = async () => {
 // Az ehhez a videóhoz csatolt média: feltöltjük a médiatárba (a klipet ott
 // meg is nézi és részekre bontja), és az azonosítókat a kéréssel küldjük —
 // a rendezőnek mindet fel kell használnia.
-let attached = [];
+var attached = [];  // var: a render() már az első frissítéskor hivatkozhat rá
 function drawAttached() {
+  attached = attached.map((m) => (S && S.media || []).find((x) => x.id === m.id) || m);
   $("#vAttached").innerHTML = attached.map((m, i) =>
-    `<button type="button" data-ai="${i}" title="Eltávolítás">${m.kind === "clip" ? "🎬" : "🖼"} ${esc(m.name)}${m.kind === "clip" && m.seconds ? ` · ${Math.round(m.seconds)} mp` : ""}${m.kind === "clip" ? (m.segments && m.segments.length ? ` · ${m.segments.length} rész` : " · elemzés nélkül") : ""} ✕</button>`).join("");
+    `<button type="button" data-ai="${i}" title="Eltávolítás">${m.kind === "clip" ? "🎬" : "🖼"} ${esc(m.name)}${m.kind === "clip" && m.seconds ? ` · ${Math.round(m.seconds)} mp` : ""}${m.status === "processing" ? " · ⏳ elmosás…" : m.status === "failed" ? " · ✕ elmosás sikertelen" : m.kind === "clip" ? (m.segments && m.segments.length ? ` · ${m.segments.length} rész` : " · elemzés nélkül") : ""}${m.redacted ? ` · 🔒 ${m.redacted}` : ""} ✕</button>`).join("");
 }
 $("#vAttached").onclick = (e) => {
   const b = e.target.closest("[data-ai]"); if (!b) return;
@@ -504,6 +513,7 @@ $("#vAttach").onchange = async (e) => {
   for (const [i, f] of files.entries()) {
     $("#vAttachInfo").textContent = `${i + 1}/${files.length}: ${f.name} feltöltése${f.type.startsWith("video") ? " és elemzése (egy hosszabb felvételnél pár perc)" : ""}…`;
     const fd = new FormData(); fd.append("file", f); fd.append("note", "ehhez a videóhoz csatolva");
+    fd.append("redact", $("#vRedact").checked ? "true" : "false");
     try {
       const r = await fetch("/api/media", {method: "POST", body: fd});
       const d = await r.json().catch(() => null);

@@ -1,0 +1,344 @@
+"""Személyes adatok elmosása feltöltött képen és képernyőfelvételen.
+
+Egy képernyőfelvételen (pl. egy postafiók, ahogy az agent rendezi) nevek,
+e-mail-címek, telefonszámok látszanak. Ezek nem kerülhetnek ki egy nyilvános
+posztba, ezért a feltöltött anyagot a médiatárba kerülés előtt kitakarjuk:
+
+1. A felvételből másodpercenként SAMPLE_FPS képkockát veszünk, és a Tesseract
+   minden szövegsort megtalál rajta, a helyével együtt.
+2. Az e-mail-cím és a telefonszám szabállyal megy; hogy egy sor név-e (ember
+   vagy cég), azt a modell dönti el a sorok szövegéből. Kétség esetén takarunk.
+3. MINDEN képkockán pixelezzük ezeket a sorokat. Két minta között a sort
+   követjük: ugyanaz a szöveg a következő mintán máshol van (görgetés), a
+   kettő között a helyét arányosan számoljuk. Ami csak az egyik mintán
+   látszik, azt a görgetés irányában visszafelé/előre toljuk.
+
+Az eredeti fájl nem marad meg: a médiatárba csak az elmosott változat kerül.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import os
+import re
+import subprocess
+import tempfile
+from difflib import SequenceMatcher
+
+logger = logging.getLogger(__name__)
+
+SAMPLE_FPS = 3
+PAD = 8               # px: a felismert sor köré ennyivel nagyobb takarás
+PIXEL = 14            # px: ekkora „kockákra" esik szét a takart rész
+MATCH_RATIO = 0.82    # ennyire hasonló szöveg ugyanaz a sor a következő mintán
+KEEP_NAMES = ("aximbra", "episteme")  # a saját márkát nem takarjuk
+
+EMAIL_RE = re.compile(r"[\w.+-]+\s?@\s?[\w-]+(?:\.[\w-]+)+", re.I)
+PHONE_RE = re.compile(r"(?:\+|00)?\d[\d\s/().-]{7,}\d")
+AT_RE = re.compile(r"@|\bgmail\b|\bfreemail\b|\bcitromail\b", re.I)
+
+
+class RedactError(RuntimeError):
+    pass
+
+
+def _ffmpeg() -> str:
+    exe = os.environ.get("FFMPEG_PATH")
+    if exe:
+        return exe
+    import imageio_ffmpeg
+    return imageio_ffmpeg.get_ffmpeg_exe()
+
+
+def available() -> bool:
+    """Van-e szövegfelismerő a gépen (a Dockerfile telepíti)."""
+    try:
+        return subprocess.run(["tesseract", "--version"], capture_output=True, timeout=20).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+# ---- 1. szövegsorok egy képen ------------------------------------------------
+
+def ocr_lines(png_path: str) -> list[dict]:
+    """A kép szövegsorai: [{"text", "box": [x0, y0, x1, y1]}]. Sötét felületen
+    (a legtöbb app sötét módban) a Tesseract a megfordított képet olvassa jobban,
+    ezért mindkettőt lefuttatjuk, és a sorokat összefésüljük."""
+    from PIL import Image, ImageOps
+
+    img = Image.open(png_path).convert("L")
+    w, h = img.size
+    scale = 2 if w < 700 else 1    # a kis képet nagyítva jobban olvassa; 720 px-en már nem kell
+    big = img.resize((w * scale, h * scale), Image.LANCZOS) if scale > 1 else img
+    lines: list[dict] = []
+    with tempfile.TemporaryDirectory() as d:
+        for variant in (big, ImageOps.invert(big)):
+            p = os.path.join(d, "v.png")
+            variant.save(p)
+            # Egy szálon: a felvétel kockáit párhuzamosan olvassuk, és ha mindegyik
+            # Tesseract az összes magot akarná, egymást fojtanák meg.
+            r = subprocess.run(["tesseract", p, "stdout", "-l", "hun+eng", "--psm", "11", "tsv"],
+                               capture_output=True, timeout=180, env={**os.environ, "OMP_THREAD_LIMIT": "1"})
+            if r.returncode != 0:
+                continue
+            lines += _tsv_lines(r.stdout.decode("utf-8", "replace"), scale)
+    return _dedupe(lines)
+
+
+def _tsv_lines(tsv: str, scale: int) -> list[dict]:
+    groups: dict = {}
+    for row in tsv.splitlines()[1:]:
+        c = row.split("\t")
+        if len(c) < 12 or c[0] != "5":
+            continue
+        text = c[11].strip()
+        try:
+            conf = float(c[10])
+        except ValueError:
+            conf = -1
+        if not text or conf < 30:
+            continue
+        x, y, ww, hh = (int(v) for v in c[6:10])
+        key = (c[2], c[3], c[4])  # blokk, bekezdés, sor
+        g = groups.setdefault(key, {"words": [], "box": [x, y, x + ww, y + hh]})
+        g["words"].append(text)
+        b = g["box"]
+        g["box"] = [min(b[0], x), min(b[1], y), max(b[2], x + ww), max(b[3], y + hh)]
+    return [{"text": " ".join(g["words"]), "box": [v // scale for v in g["box"]]} for g in groups.values()]
+
+
+def _overlap(a, b) -> float:
+    ix = max(0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0, min(a[3], b[3]) - max(a[1], b[1]))
+    inter = ix * iy
+    small = min((a[2] - a[0]) * (a[3] - a[1]), (b[2] - b[0]) * (b[3] - b[1])) or 1
+    return inter / small
+
+
+def _dedupe(lines: list[dict]) -> list[dict]:
+    out: list[dict] = []
+    for ln in sorted(lines, key=lambda l: -len(l["text"])):
+        if any(_overlap(ln["box"], o["box"]) > 0.6 for o in out):
+            continue
+        out.append(ln)
+    return out
+
+
+# ---- 2. melyik sor személyes adat -------------------------------------------
+
+def _norm(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").lower()).strip()
+
+
+def rule_sensitive(text: str) -> bool:
+    return bool(EMAIL_RE.search(text) or PHONE_RE.search(text) or AT_RE.search(text))
+
+
+CLASSIFY_PROMPT = """Below are text lines read from a screen recording that will be posted publicly. Mark every
+line that contains personal or identifying data: a person's name (full or first name), an email address or a part
+of one, a phone number, a street address, an account or order number, or the name of a real company or
+organisation (a sender, a client, a supplier). Do NOT mark the names AXIMBRA or EPISTEME, nor generic interface
+words (Inbox, Beérkezett, Kategória, Sürgős, Ma, Tegnap, Válasz, buttons, menu items, category labels).
+When unsure, mark it — an extra blur costs nothing, a missed name is a privacy breach.
+
+LINES (id: text):
+{lines}
+
+Answer ONLY with JSON: {{"ids": [list of ids to blur]}}"""
+
+
+def classify(texts: list[str]) -> set[str]:
+    """A takarandó sorok normalizált szövege. Szabály + modell; ha a modell nem
+    érhető el, a nagybetűvel kezdődő kétszavas sorokat is takarjuk (név-gyanú)."""
+    uniq = []
+    for t in texts:
+        n = _norm(t)
+        if n and n not in uniq:
+            uniq.append(n)
+    hit = {n for n in uniq if rule_sensitive(n)}
+    rest = [n for n in uniq if n not in hit and len(n) >= 2]
+    if not rest:
+        return hit
+    try:
+        import llm
+        listing = "\n".join(f"{i}: {t[:90]}" for i, t in enumerate(rest[:600]))
+        data = llm.extract_json(llm._ask(CLASSIFY_PROMPT.format(lines=listing)))
+        ids = data.get("ids") if isinstance(data, dict) else data
+        for i in ids or []:
+            try:
+                hit.add(rest[int(i)])
+            except (ValueError, TypeError, IndexError):
+                continue
+    except Exception as e:  # noqa: BLE001 — modell nélkül óvatosabban takarunk
+        logger.warning("névfelismerés modell nélkül: %s", e)
+        for orig in texts:
+            if re.search(r"\b[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű]+\s+[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű]+", orig):
+                hit.add(_norm(orig))
+    return {n for n in hit if not any(n == k or n.startswith(k + " ") and len(n) <= len(k) + 3 for k in KEEP_NAMES)}
+
+
+# ---- 3. követés két minta között ---------------------------------------------
+
+def _similar(a: str, b: str) -> bool:
+    return a == b or SequenceMatcher(None, a, b).ratio() >= MATCH_RATIO
+
+
+def plan(samples: list[dict], sensitive: set[str], dt: float) -> list[dict]:
+    """Takarási terv: minden mintaközre a sorok kezdő és záró helye.
+    samples: [{"t", "lines": [{"text", "box"}]}] időrendben.
+    Visszaad: [{"t0", "t1", "boxes": [(box_at_t0, box_at_t1)]}]."""
+    marked = [{"t": s["t"], "lines": [l for l in s["lines"] if _norm(l["text"]) in sensitive]} for s in samples]
+    out = []
+    for i, cur in enumerate(marked):
+        nxt = marked[i + 1] if i + 1 < len(marked) else None
+        t0, t1 = cur["t"], (nxt["t"] if nxt else cur["t"] + dt)
+        pairs, used, dys = [], set(), []
+        if nxt:
+            for a in cur["lines"]:
+                for j, b in enumerate(nxt["lines"]):
+                    if j not in used and _similar(_norm(a["text"]), _norm(b["text"])):
+                        used.add(j)
+                        pairs.append((a["box"], b["box"]))
+                        dys.append(b["box"][1] - a["box"][1])
+                        break
+        # A görgetés iránya és mértéke ebben a mintaközben (a párosított sorokból).
+        dy = sorted(dys)[len(dys) // 2] if dys else 0
+        matched_a = {tuple(p[0]) for p in pairs}
+        for a in cur["lines"]:
+            if tuple(a["box"]) not in matched_a:            # eltűnik: tovább gördül
+                pairs.append((a["box"], _shift(a["box"], dy)))
+        for j, b in enumerate(nxt["lines"] if nxt else []):
+            if j not in used:                                 # most jön be: visszafelé
+                pairs.append((_shift(b["box"], -dy), b["box"]))
+        # A görgetés nem egyenletes (elindul, lassul, megáll): a két minta közti
+        # helyet csak becsüljük. A takarás ezért a mozgás felével magasabb,
+        # állóképen pedig nem nő.
+        grow = abs(dy) / 2
+        pairs = [(_grow(a, grow), _grow(b, grow)) for a, b in pairs]
+        out.append({"t0": t0, "t1": t1, "boxes": pairs})
+    # Az első minta előtti rész (a felvétel eleje) is takarva legyen.
+    if out:
+        first = out[0]
+        out.insert(0, {"t0": max(0.0, first["t0"] - dt), "t1": first["t0"],
+                       "boxes": [(p[0], p[0]) for p in first["boxes"]]})
+    return out
+
+
+def _grow(box, g):
+    return [box[0], box[1] - g, box[2], box[3] + g]
+
+
+def _shift(box, dy):
+    return [box[0], box[1] + dy, box[2], box[3] + dy]
+
+
+def boxes_at(plan_: list[dict], t: float) -> list[list[int]]:
+    """A t időpontban takarandó téglalapok (a két szomszédos mintaközé is)."""
+    out = []
+    for seg in plan_:
+        if seg["t0"] - 1e-6 <= t <= seg["t1"] + 1e-6:
+            span = (seg["t1"] - seg["t0"]) or 1.0
+            k = min(1.0, max(0.0, (t - seg["t0"]) / span))
+            for a, b in seg["boxes"]:
+                out.append([round(a[n] + (b[n] - a[n]) * k) for n in range(4)])
+    return out
+
+
+# ---- 4. a takarás rárajzolása --------------------------------------------------
+
+def pixelate(img, boxes: list[list[int]]):
+    """A téglalapok pixelezése (visszafordíthatatlan: a kockákból a szöveg nem áll vissza)."""
+    from PIL import Image
+
+    w, h = img.size
+    for b in boxes:
+        x0, y0 = max(0, b[0] - PAD), max(0, b[1] - PAD)
+        x1, y1 = min(w, b[2] + PAD), min(h, b[3] + PAD)
+        if x1 - x0 < 2 or y1 - y0 < 2:
+            continue
+        reg = img.crop((x0, y0, x1, y1))
+        small = reg.resize((max(1, (x1 - x0) // PIXEL), max(1, (y1 - y0) // PIXEL)), Image.BILINEAR)
+        img.paste(small.resize(reg.size, Image.NEAREST), (x0, y0))
+    return img
+
+
+def redact_image(path: str) -> int:
+    """Egy kép takarása helyben. Visszaadja, hány sort takart ki."""
+    from PIL import Image
+
+    lines = ocr_lines(path)
+    sens = classify([l["text"] for l in lines])
+    boxes = [l["box"] for l in lines if _norm(l["text"]) in sens]
+    if boxes:
+        img = Image.open(path).convert("RGB")
+        pixelate(img, boxes).save(path, quality=92)
+    return len(boxes)
+
+
+def _probe(path: str) -> tuple[int, int, float]:
+    r = subprocess.run([_ffmpeg(), "-hide_banner", "-i", path], capture_output=True, timeout=60)
+    text = r.stderr.decode(errors="replace")
+    m = re.search(r",\s(\d{2,5})x(\d{2,5})[\s,]", text)
+    d = re.search(r"Duration:\s(\d+):(\d+):(\d+\.?\d*)", text)
+    f = re.search(r"(\d+(?:\.\d+)?)\s*fps", text)
+    if not m:
+        raise RedactError("a felvétel méretét nem sikerült kiolvasni")
+    secs = int(d.group(1)) * 3600 + int(d.group(2)) * 60 + float(d.group(3)) if d else 0.0
+    return int(m.group(1)), int(m.group(2)), float(f.group(1)) if f else 30.0
+
+
+def redact_clip(path: str, say=lambda m: None) -> int:
+    """Egy (néma, WebM) klip takarása helyben. Visszaadja a takart sorok számát
+    (különböző szövegek). Hiba esetén RedactError: a hívó ilyenkor nem engedheti
+    a klipet videóba, mert nem tudjuk, mi maradt rajta."""
+    from PIL import Image
+
+    if not available():
+        raise RedactError("nincs szövegfelismerő a gépen")
+    w, h, fps = _probe(path)
+    fps = fps or 30.0
+    with tempfile.TemporaryDirectory() as d:
+        r = subprocess.run([_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", "-i", path,
+                            "-vf", f"fps={SAMPLE_FPS}", os.path.join(d, "s%05d.png")], capture_output=True, timeout=900)
+        if r.returncode != 0:
+            raise RedactError("a felvételből nem sikerült képkockát venni")
+        names = sorted(n for n in os.listdir(d) if n.startswith("s"))
+        say(f"Személyes adatok keresése: {len(names)} képkocka…")
+        # A Tesseract külön folyamat: a magokon párhuzamosan futtatjuk, így egy
+        # kétperces felvétel sem tart tovább néhány percnél.
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=max(1, min(6, os.cpu_count() or 2))) as ex:
+            found = list(ex.map(lambda n: ocr_lines(os.path.join(d, n)), names))
+        # Az fps szűrő az i-edik kockát az i/SAMPLE_FPS időpont köré teszi.
+        samples = [{"t": (i + 0.5) / SAMPLE_FPS, "lines": lines} for i, lines in enumerate(found)]
+        sensitive = classify([l["text"] for s in samples for l in s["lines"]])
+        steps = plan(samples, sensitive, 1.0 / SAMPLE_FPS)
+        say(f"Elmosás: {len(sensitive)} különböző név/e-mail/szám…")
+        out = os.path.join(d, "out.webm")
+        dec = subprocess.Popen([_ffmpeg(), "-hide_banner", "-loglevel", "error", "-i", path,
+                                "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
+        enc = subprocess.Popen([_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", "-f", "rawvideo",
+                                "-pix_fmt", "rgb24", "-s", f"{w}x{h}", "-r", f"{fps}", "-i", "-",
+                                "-an", "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "36", "-deadline", "realtime",
+                                "-cpu-used", "8", "-row-mt", "1", out], stdin=subprocess.PIPE)
+        size, k = w * h * 3, 0
+        try:
+            while True:
+                buf = dec.stdout.read(size)
+                if len(buf) < size:
+                    break
+                boxes = boxes_at(steps, k / fps)
+                if boxes:
+                    img = pixelate(Image.frombytes("RGB", (w, h), buf), boxes)
+                    buf = img.tobytes()
+                enc.stdin.write(buf)
+                k += 1
+        finally:
+            enc.stdin.close()
+            dec.stdout.close()
+            dec.wait(timeout=60)
+            enc.wait(timeout=900)
+        if enc.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0 or k == 0:
+            raise RedactError("az elmosott felvételt nem sikerült elkészíteni")
+        os.replace(out, path)
+    return len(sensitive)
