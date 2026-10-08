@@ -60,15 +60,24 @@ def add(body: dict, now: datetime | None = None) -> tuple[dict, bool]:
     if lang not in ("hu", "en"):
         raise InboxError("nyelv: hu vagy en")
     targets = [t for t in (body.get("targets") or []) if t in TARGETS]
-    if not targets:
+    # „hold": a videó elkészül, de nem posztolódik — a panelen vár jóváhagyásra.
+    hold = bool(body.get("hold"))
+    if not targets and not hold:
         raise InboxError("legalább egy cél kell: instagram vagy linkedin")
     form = body.get("form") if body.get("form") in FORMS else "auto"
+    seconds = body.get("seconds")
+    if seconds is not None:
+        try:
+            seconds = max(10, min(90, int(seconds)))
+        except (TypeError, ValueError):
+            raise InboxError("a hossz 10 és 90 másodperc közötti egész szám")
     with _lock:
         items = _load()
         for it in items:
             if it["id"] == tid:
                 return it, False
         it = {"id": tid, "brief": brief, "lang": lang, "targets": targets, "form": form,
+              "seconds": seconds, "hold": hold,
               "source": str(body.get("source") or "")[:40], "status": "pending", "tries": 0,
               "created_at": now.isoformat(timespec="seconds"), "last_try": "", "result": {}, "error": ""}
         cutoff = (now - timedelta(days=KEEP_DAYS)).isoformat()

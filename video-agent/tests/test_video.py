@@ -804,3 +804,53 @@ def test_elevenlabs_voice_per_language(monkeypatch):
     monkeypatch.setenv("ELEVENLABS_VOICE_ID_MALE", "m1")
     assert videomaker.elevenlabs_voice("en") == "x1"
     assert videomaker.elevenlabs_voice("hu", male=True) == "m1"
+
+
+def test_inbox_can_hold_a_long_video_for_approval(tmp_path, monkeypatch):
+    """Egy összefoglaló videó 90 mp, és nem posztolódik magától: a panelen
+    vár jóváhagyásra. Cél nélkül csak így fogadható el."""
+    import inbox
+    monkeypatch.setattr(inbox, "PATH", str(tmp_path / "inbox.json"))
+    now = datetime(2026, 10, 8, 9, tzinfo=timezone.utc)
+    body = {"id": "sales-summary-1", "brief": "Összefoglaló videó az aximbra.hu oldalról, végig az oldallal.",
+            "lang": "hu", "targets": [], "hold": True, "seconds": 120, "form": "video"}
+    it, new = inbox.add(body, now)
+    assert new and it["hold"] is True and it["seconds"] == 90 and it["targets"] == []
+    with pytest.raises(inbox.InboxError):
+        inbox.add({**body, "id": "sales-summary-2", "hold": False}, now)    # cél és jóváhagyás nélkül nem
+    plain, _ = inbox.add({**body, "id": "sales-daily", "hold": False, "targets": ["linkedin"],
+                          "seconds": None}, now)
+    assert plain["seconds"] is None and plain["hold"] is False           # a napi témák úgy futnak, mint eddig
+
+
+def test_a_held_item_is_rendered_but_never_posted(tmp_path, monkeypatch):
+    import app as video_app
+    import inbox
+    monkeypatch.setattr(inbox, "PATH", str(tmp_path / "inbox.json"))
+    it, _ = inbox.add({"id": "sales-summary-3", "brief": "Összefoglaló videó az aximbra.hu oldalról, 90 mp.",
+                       "lang": "hu", "targets": ["linkedin"], "hold": True, "seconds": 90, "form": "video"})
+    made = {}
+
+    def make(brief, seconds, *a, **k):
+        made["seconds"] = seconds
+        return {"id": "v1", "post": ""}
+    monkeypatch.setattr(video_app.videomaker, "make", make)
+    monkeypatch.setattr(video_app, "_post_video", lambda *a, **k: pytest.fail("jóváhagyás nélkül posztolt"))
+    said = []
+    video_app._inbox_round(inbox.next_due())(said.append)
+    assert made["seconds"] == 90
+    assert inbox._load()[0]["status"] == "done" and inbox._load()[0]["video"] == "v1"
+    assert any("jóváhagyásra vár" in m for m in said)
+
+
+def test_up_to_six_site_sections_are_captured_and_read_once(monkeypatch):
+    import websearch
+    reads = []
+    monkeypatch.setattr(websearch, "read_page", lambda u: reads.append(u) or {"text": "x" * 100})
+    monkeypatch.setattr(videomaker.media, "listing", lambda: [])
+    brief = ("Végig az oldallal: https://aximbra.hu https://aximbra.hu/#agentek https://aximbra.hu/#folyamat "
+             "https://aximbra.hu/#megterules https://aximbra.hu/#eset https://epistemebudapest.up.railway.app "
+             "https://hetedik.example.com")
+    ctx = videomaker.gather(brief, research=False)
+    assert len(ctx["urls"]) == 6 and ctx["urls"][1] == "https://aximbra.hu/#agentek"
+    assert reads == ["https://aximbra.hu", "https://epistemebudapest.up.railway.app"]

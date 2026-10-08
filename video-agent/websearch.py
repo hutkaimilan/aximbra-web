@@ -88,7 +88,7 @@ def search(query: str, n: int = 4) -> list[dict]:
     return _gemini_grounded(query)
 
 
-def urls_in(text: str) -> list[str]:
+def urls_in(text: str, limit: int = 4) -> list[str]:
     """A kérdésben szereplő linkek és domainek (pl. „aximbra.hu”)."""
     found = [u.rstrip(".,;:") for u in URL_RE.findall(text or "")]
     for d in DOMAIN_RE.findall(text or ""):
@@ -99,7 +99,7 @@ def urls_in(text: str) -> list[str]:
         if u not in seen:
             seen.add(u)
             out.append(u)
-    return out[:4]
+    return out[:limit]
 
 
 UA = "Mozilla/5.0 (compatible; AximbraVideo/1.0; +https://aximbra.hu)"

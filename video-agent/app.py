@@ -324,9 +324,13 @@ class InboxIn(BaseModel):
     id: str = Field(max_length=80)
     brief: str = Field(max_length=2000)
     lang: str
-    targets: list[str]
+    targets: list[str] = []
     form: str = "auto"
     source: str = ""
+    # Ha nincs megadva, a beállítások hossza számít (a napi témák így futnak).
+    seconds: int | None = Field(default=None, ge=10, le=90)
+    # Elkészül, de nem posztolódik: a panelen vár jóváhagyásra.
+    hold: bool = False
 
 
 @app.post("/api/inbox", dependencies=[Depends(_agent_auth)])
@@ -353,13 +357,17 @@ def _inbox_round(it: dict):
             aspect = s["aspect"]
             if "instagram" in it["targets"] and form != "video":
                 aspect = "4:5"
-            meta = videomaker.make(it["brief"], s["seconds"], it["lang"], aspect, s["voice"], s["male"],
-                                   research=False, form=form, say=say)
+            meta = videomaker.make(it["brief"], it.get("seconds") or s["seconds"], it["lang"], aspect,
+                                   s["voice"], s["male"], research=False, form=form, say=say)
         except stop.Cancelled:
             raise
         except Exception as e:  # noqa: BLE001
             inbox.update(it["id"], error=str(e)[:300])
             raise
+        if it.get("hold"):
+            say("Elkészült, jóváhagyásra vár: nem posztolom, a panelen lehet kiküldeni.")
+            inbox.update(it["id"], status="done", video=meta["id"], result={}, error="")
+            return meta
         live = publisher.enabled_targets()
         targets = [t for t in it["targets"] if t in live]
         skipped = [t for t in it["targets"] if t not in live]

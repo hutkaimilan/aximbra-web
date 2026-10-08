@@ -89,20 +89,31 @@ class VideoError(RuntimeError):
 
 # ---- kontextus ----------------------------------------------------------------
 
+# Ennyi oldalról (vagy oldalszakaszról, pl. https://aximbra.hu/#agentek) készül
+# képernyőkép. Egy összefoglaló videónak több szakasz kell, mint egy napi posztnak.
+MAX_SITES = 6
+
+
 def gather(brief: str, research: bool, say=lambda m: None) -> dict:
     """A leírás linkjei (szöveg + a videóba kerülő URL-ek) és opcionális webes háttér."""
-    urls = websearch.urls_in(brief)
+    urls = websearch.urls_in(brief, MAX_SITES)
     if not urls and re.search(r"aximbr", brief, re.I):
         urls = ["https://aximbra.hu"]
-    pages = []
-    for u in urls[:4]:
-        p = websearch.read_page(u)
-        pages.append({"url": u, "text": (p or {}).get("text", "")[:2500]})
+    pages, read = [], set()
+    for u in urls[:MAX_SITES]:
+        # Ugyanannak az oldalnak a szakaszai (#agentek, #eset) egy szöveg:
+        # egyszer olvassuk be, ne töltse meg ötször ugyanazzal a promptot.
+        base = u.split("#", 1)[0].rstrip("/")
+        if base in read:
+            continue
+        read.add(base)
+        p = websearch.read_page(base or u)
+        pages.append({"url": base or u, "text": (p or {}).get("text", "")[:2500]})
     web = []
     if research:
         say("Webes háttérkutatás…")
         web = websearch.search(brief[:280], n=4)
-    return {"urls": urls[:4], "pages": pages, "web": web, "library": media.listing()}
+    return {"urls": urls[:MAX_SITES], "pages": pages, "web": web, "library": media.listing()}
 
 
 # ---- forgatókönyv -----------------------------------------------------------
@@ -689,21 +700,31 @@ def _launch(pw):
 
 
 def capture_site(browser, url: str, phone_w: int) -> dict | None:
-    """Az oldal mobilnézetben, a tetejétől legfeljebb 3200 px-ig, végiggörgetve."""
+    """Az oldal mobilnézetben, legfeljebb 3200 px, végiggörgetve. Ha a címben
+    szakasz van (https://aximbra.hu/#agentek), attól a szakasztól indul — így
+    egy hosszú oldal lejjebb lévő részei is bekerülhetnek a videóba."""
     page = browser.new_page(viewport={"width": 390, "height": 844}, device_scale_factor=2,
                             ignore_https_errors=bool(os.environ.get("CHROMIUM_PROXY")))
     try:
-        page.goto(url, wait_until="networkidle", timeout=45000)
+        base, _, frag = url.partition("#")
+        page.goto(base or url, wait_until="networkidle", timeout=45000)
         page.wait_for_timeout(2500)
-        height = min(3200, page.evaluate("document.documentElement.scrollHeight"))
+        total = page.evaluate("document.documentElement.scrollHeight")
+        top = 0
+        if frag and re.fullmatch(r"[A-Za-z][\w-]{0,60}", frag):
+            top = int(page.evaluate(
+                "(id) => { const el = document.getElementById(id);"
+                " return el ? el.getBoundingClientRect().top + window.scrollY : 0; }", frag) or 0)
+        top = max(0, min(top, max(0, total - 844)))
+        height = max(844, min(3200, total - top))
         # Az oldal lejjebb lévő részei csak görgetéskor úsznak be; görgetés
         # nélkül a képen feketék maradnak. Ezért előbb végiggörgetjük.
-        for y in range(0, height + 844, 350):
+        for y in range(0, top + height + 844, 350):
             page.evaluate(f"window.scrollTo(0, {y})")
             page.wait_for_timeout(220)
-        page.evaluate("window.scrollTo(0, 0)")
+        page.evaluate(f"window.scrollTo(0, {top})")
         page.wait_for_timeout(1500)
-        png = page.screenshot(clip={"x": 0, "y": 0, "width": 390, "height": height}, full_page=True)
+        png = page.screenshot(clip={"x": 0, "y": top, "width": 390, "height": height}, full_page=True)
         return {"src": "data:image/png;base64," + base64.b64encode(png).decode(), "height": round(height * phone_w / 390)}
     except Exception as e:  # noqa: BLE001 — az oldal nélkül is elkészülhet a videó
         logger.warning("képernyőkép hiba (%s): %s", url, e)
