@@ -212,6 +212,27 @@ async def media_add(file: UploadFile = File(...), note: str = Form(""), redact: 
         raise HTTPException(400, str(e))
 
 
+@app.post("/api/media/chunk", dependencies=[Depends(auth)])
+async def media_chunk(file: UploadFile = File(...), upload_id: str = Form(...), index: int = Form(...),
+                      total: int = Form(...)):
+    data = await file.read(media.CHUNK_MAX + 1)
+    try:
+        await asyncio.to_thread(media.save_chunk, upload_id, index, total, data)
+    except media.MediaError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True, "index": index}
+
+
+@app.post("/api/media/chunk/done", dependencies=[Depends(auth)])
+async def media_chunk_done(upload_id: str = Form(...), total: int = Form(...), name: str = Form(""),
+                           content_type: str = Form(""), note: str = Form(""), redact: bool = Form(True)):
+    try:
+        return await asyncio.to_thread(media.finish_chunks, upload_id, total, content_type, name[:200],
+                                       note.strip()[:200], redact)
+    except media.MediaError as e:
+        raise HTTPException(400, str(e))
+
+
 @app.get("/api/media/{mid}", dependencies=[Depends(auth)])
 def media_file(mid: str):
     path = media.path_of(mid)

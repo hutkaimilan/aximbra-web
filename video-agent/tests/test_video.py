@@ -1282,3 +1282,25 @@ def test_foreign_screens_get_timed_subtitles_once(tmp_path, monkeypatch):
     # magyar videóban a magyar képernyőhöz nem kell felirat
     monkeypatch.setattr(llm, "_ask", lambda p, **k: _json.dumps({"subs": []}))
     assert videomaker.clip_cues("c0ffee000001", "hu") == []
+
+
+def test_chunked_upload_is_reassembled_and_retries_overwrite(tmp_path, monkeypatch):
+    monkeypatch.setattr(media, "MEDIA_DIR", str(tmp_path))
+    got = {}
+    monkeypatch.setattr(media, "store", lambda data, ct, name, note="", redact_pii=True: got.update(
+        data=data, ct=ct, name=name) or {"id": "x"})
+    uid = "ab" * 16
+    media.save_chunk(uid, 1, 3, b"BBB")
+    media.save_chunk(uid, 0, 3, b"xx")
+    media.save_chunk(uid, 0, 3, b"AAA")          # újraküldött darab felülír
+    with pytest.raises(media.MediaError):
+        media.finish_chunks(uid, 3, "video/mp4", "rec.mp4")   # a 3. darab hiányzik
+    media.save_chunk(uid, 2, 3, b"C")
+    assert media.finish_chunks(uid, 3, "video/mp4", "rec.mp4") == {"id": "x"}
+    assert got["data"] == b"AAABBBC" and got["name"] == "rec.mp4"
+    assert not os.path.exists(os.path.join(str(tmp_path), ".uploads", uid))
+    for bad in ("../../etc", "XYZ"):
+        with pytest.raises(media.MediaError):
+            media.save_chunk(bad, 0, 1, b"a")
+    with pytest.raises(media.MediaError):
+        media.save_chunk(uid, 3, 3, b"a")
