@@ -1236,3 +1236,22 @@ def test_revise_turns_captions_off_without_rewriting_the_script(tmp_path, monkey
         {"kind": "hook", "headline": "Új nyitás", "voice": "Rövid nyitás."}, {"kind": "cta", "headline": "Próbálja ki"}]}))
     videomaker.revise(m["id"], "rövidebb nyitás")
     assert seen["captions"] is False
+
+
+def test_edge_female_voice_gets_a_spelling_it_can_say(monkeypatch):
+    import sys, types
+    said = {}
+
+    class Comm:
+        def __init__(self, text, voice):
+            said[voice] = text
+
+        async def save(self, path):
+            open(path, "wb").write(b"")
+
+    monkeypatch.setitem(sys.modules, "edge_tts", types.SimpleNamespace(Communicate=Comm))
+    text = videomaker.spoken("Az AI agent beolvassa a leveleket.", "hu")
+    videomaker._tts_edge(text, "hu", male=False)
+    videomaker._tts_edge(text, "hu", male=True)
+    assert "écsent" in said["hu-HU-NoemiNeural"] and "dzs" not in said["hu-HU-NoemiNeural"]
+    assert "édzsent" in said["hu-HU-TamasNeural"]

@@ -753,6 +753,11 @@ def _tts_edge(text: str, lang: str, male: bool) -> bytes | None:
     except ImportError:
         return None
     voice = VOICES[lang]["edge_male" if male else "edge"]
+    if voice == "hu-HU-NoemiNeural":
+        # A női magyar Edge-hang a „dzs”-t z-nek ejti („édzsent” → „ézent”).
+        # Gépi leirattal kipróbálva mondatban a „cs” jön ki a legközelebb
+        # („écsent” → „éjcsent”); a „dcs” „ts”-nek hallatszik. A férfihang jól ejti.
+        text = text.replace("dzs", "cs").replace("Dzs", "Cs")
     try:
         with tempfile.TemporaryDirectory() as d:
             mp3 = os.path.join(d, "v.mp3")
