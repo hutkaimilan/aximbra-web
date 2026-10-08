@@ -963,3 +963,99 @@ def test_attached_media_reaches_the_director(monkeypatch):
     with pytest.raises(videomaker.VideoError):
         videomaker.make("Összefoglaló videó", 60, form="video", attach=[img["id"], "nincsilyen123"])
     assert seen["attached"] == [img["id"]]
+
+
+# ---- személyes adatok elmosása ------------------------------------------------
+
+def test_redaction_follows_a_scrolling_line_between_samples():
+    """Görgetésnél a sor két minta között is takarva marad: a helyét
+    arányosan számoljuk, és ami csak az egyik mintán van, azt a görgetés
+    irányában toljuk."""
+    import redact
+    samples = [{"t": 0.0, "lines": [{"text": "Kovács Anna", "box": [10, 300, 200, 330]},
+                                    {"text": "Beérkezett levelek", "box": [10, 20, 300, 50]}]},
+               {"t": 1.0, "lines": [{"text": "Kovács Anna", "box": [10, 100, 200, 130]},
+                                    {"text": "Szabó Péter", "box": [10, 600, 200, 630]}]}]
+    steps = redact.plan(samples, {"kovács anna", "szabó péter"}, 1.0)
+    mid = redact.boxes_at(steps, 0.5)
+    covers = lambda want: any(b[0] <= want[0] and b[1] <= want[1] and b[2] >= want[2] and b[3] >= want[3] for b in mid)
+    assert covers([10, 200, 200, 230])                     # félúton a két hely között
+    assert covers([10, 700, 200, 730])                     # a később bejövő sor, visszafelé tolva (t=0-kor 800-on)
+    assert not any(b[1] <= 20 <= b[3] and b[1] > -50 for b in mid if b[3] < 100)  # a felület szövege nem takart
+    still = redact.plan([{"t": 0.0, "lines": [{"text": "Kovács Anna", "box": [10, 300, 200, 330]}]},
+                         {"t": 1.0, "lines": [{"text": "Kovács Anna", "box": [10, 300, 200, 330]}]}], {"kovács anna"}, 1.0)
+    assert redact.boxes_at(still, 0.5) == [[10, 300, 200, 330]]   # állóképen nem nő a takarás
+
+
+def test_rules_catch_emails_and_phones_and_the_model_names(monkeypatch):
+    import redact
+    monkeypatch.setattr(redact.llm if hasattr(redact, "llm") else __import__("llm"), "_ask",
+                        lambda prompt: '{"ids": [0]}')
+    hit = redact.classify(["Kovács Anna", "kovacs.anna@fenyves.hu", "+36 30 123 4567", "Beérkezett", "AXIMBRA"])
+    assert "kovacs.anna@fenyves.hu" in hit and "+36 30 123 4567" in hit
+    assert "kovács anna" in hit and "beérkezett" not in hit and "aximbra" not in hit
+
+
+def test_without_the_model_capitalised_name_pairs_are_still_blurred(monkeypatch):
+    import llm as video_llm
+    import redact
+
+    def boom(prompt):
+        raise video_llm.LLMError("nincs modell")
+    monkeypatch.setattr(video_llm, "_ask", boom)
+    hit = redact.classify(["Kovács Anna", "Számla korrekció", "toth@ceg.hu"])
+    assert hit == {"kovács anna", "toth@ceg.hu"}
+
+
+def test_a_clip_is_unusable_until_redacted_and_stays_out_if_it_fails(tmp_path, monkeypatch):
+    import media
+    import redact
+    monkeypatch.setattr(media, "MEDIA_DIR", str(tmp_path))
+    monkeypatch.setattr(media, "_start_processing", lambda mid: None)       # kézzel futtatjuk
+    monkeypatch.setattr(media, "analyse_clip", lambda path, secs: [])
+
+    class R:
+        returncode = 0
+    def fake_run(args, timeout=180):
+        open(args[-1], "wb").write(b"webm")
+        return R()
+    monkeypatch.setattr(media, "_run", fake_run)
+    monkeypatch.setattr(media, "_probe", lambda p: {"width": 720, "height": 1560, "seconds": 75.0})
+    m = media.add_clip(b"x" * 10, "felvetel.mp4")
+    assert m["status"] == "processing" and not media.ready(media.get(m["id"]))
+    monkeypatch.setattr(redact, "redact_clip", lambda path, say=None: 12)
+    media._process_clip(m["id"])
+    assert media.ready(media.get(m["id"])) and media.get(m["id"])["redacted"] == 12
+
+    m2 = media.add_clip(b"y" * 10, "masik.mp4")
+    def fail(path, say=None):
+        raise redact.RedactError("nincs szövegfelismerő")
+    monkeypatch.setattr(redact, "redact_clip", fail)
+    media._process_clip(m2["id"])
+    assert media.get(m2["id"])["status"] == "failed" and not media.ready(media.get(m2["id"]))
+    # a hibás klip a videóból is kimarad
+    data = {"scenes": [{"kind": "clip", "media": m2["id"], "headline": "Felvétel", "seconds": 5},
+                       {"kind": "cta", "headline": "Vége", "seconds": 4}]}
+    out = videomaker.normalize(data, 10, n_shots=0)
+    assert out["scenes"][0]["kind"] == "statement"
+
+
+@pytest.mark.skipif(not __import__("redact").available(), reason="nincs tesseract")
+def test_a_screenshot_loses_its_names_and_emails(tmp_path, monkeypatch):
+    """Valódi szövegfelismeréssel: a képen a név és az e-mail-cím elmosódik,
+    a felület szövege olvasható marad."""
+    import llm as video_llm
+    import redact
+    from PIL import Image, ImageDraw, ImageFont
+    monkeypatch.setattr(video_llm, "_ask", lambda prompt: (_ for _ in ()).throw(video_llm.LLMError("x")))
+    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 26)
+    img = Image.new("RGB", (720, 400), (12, 15, 26))
+    d = ImageDraw.Draw(img)
+    d.text((30, 40), "Beérkezett levelek", font=font, fill=(230, 236, 250))
+    d.text((30, 140), "Kovács Anna", font=font, fill=(235, 240, 255))
+    d.text((30, 200), "kovacs.anna@fenyvesbutor.hu", font=font, fill=(160, 175, 210))
+    p = str(tmp_path / "s.jpg")
+    img.save(p, quality=95)
+    assert redact.redact_image(p) >= 2
+    text = " ".join(l["text"] for l in redact.ocr_lines(p))
+    assert "Kovács" not in text and "@" not in text and "Beérkezett" in text

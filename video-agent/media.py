@@ -19,6 +19,7 @@ import secrets
 import shutil
 import subprocess
 import tempfile
+import threading
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
@@ -136,7 +137,12 @@ def _save(mid: str, meta: dict) -> dict:
     return meta
 
 
-def add_image(data: bytes, name: str, note: str = "", source: str = "upload") -> dict:
+def ready(m: dict | None) -> bool:
+    """Használható-e videóban: a feltöltött klip csak az elmosás után az."""
+    return bool(m) and m.get("status", "ready") == "ready"
+
+
+def add_image(data: bytes, name: str, note: str = "", source: str = "upload", redact_pii: bool = False) -> dict:
     """Kép normalizálása: legfeljebb MAX_IMAGE_W széles JPEG."""
     if not data:
         raise MediaError("üres fájl")
@@ -153,14 +159,23 @@ def add_image(data: bytes, name: str, note: str = "", source: str = "upload") ->
                   "-q:v", "3", out])
         if r.returncode != 0 or not os.path.exists(out):
             raise MediaError("ezt a képet nem sikerült beolvasni")
+    redacted = None
+    if redact_pii:
+        import redact
+        try:
+            redacted = redact.redact_image(out)
+        except Exception as e:  # noqa: BLE001 — elmosás nélkül nem kerülhet a tárba
+            os.remove(out)
+            logger.warning("képelmosás hiba: %s", e)
+            raise MediaError("a személyes adatok elmosása nem sikerült, a kép nem került a tárba") from e
     info = _probe(out)
     return _save(mid, {"id": mid, "kind": "image", "file": f"{mid}.jpg", "name": (name or "kép")[:80],
                        "note": note[:200], "source": source, "width": info.get("width"),
-                       "height": info.get("height"),
+                       "height": info.get("height"), "redacted": redacted,
                        "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds")})
 
 
-def add_clip(data: bytes, name: str, note: str = "") -> dict:
+def add_clip(data: bytes, name: str, note: str = "", redact_pii: bool = True) -> dict:
     """Klip normalizálása: néma WebM, legfeljebb MAX_CLIP_SECONDS hosszú.
 
     Néma, mert a videó hangsávját a narráció adja; a klip eredeti hangja
@@ -188,10 +203,57 @@ def add_clip(data: bytes, name: str, note: str = "") -> dict:
     info = _probe(out)
     meta = {"id": mid, "kind": "clip", "file": f"{mid}.webm", "name": (name or "klip")[:80],
             "note": note[:200], "source": "upload", "width": info.get("width"),
-            "height": info.get("height"), "seconds": info.get("seconds"),
+            "height": info.get("height"), "seconds": info.get("seconds"), "segments": [],
+            # Az elmosás és az elemzés a háttérben fut (egy hosszabb felvételnél
+            # percekig): addig a klip nem kerülhet videóba.
+            "status": "processing", "redact": bool(redact_pii), "redacted": None,
             "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-    meta["segments"] = analyse_clip(out, meta.get("seconds") or 0)
-    return _save(mid, meta)
+    _save(mid, meta)
+    _start_processing(mid)
+    return meta
+
+
+_busy: set = set()
+_busy_lock = threading.Lock()
+
+
+def _start_processing(mid: str) -> None:
+    with _busy_lock:
+        if mid in _busy:
+            return
+        _busy.add(mid)
+    threading.Thread(target=_process_clip, args=(mid,), daemon=True).start()
+
+
+def _process_clip(mid: str) -> None:
+    """Elmosás (ha kérték), aztán a részek elemzése — az elmosott változaton,
+    így a modell sem látja a személyes adatokat."""
+    try:
+        m = get(mid)
+        path = path_of(mid)
+        if not m or not path:
+            return
+        if m.get("redact"):
+            import redact
+            try:
+                m["redacted"] = redact.redact_clip(path)
+            except Exception as e:  # noqa: BLE001 — elmosás nélkül nem használható
+                logger.warning("klipelmosás hiba (%s): %s", mid, e)
+                _save(mid, {**m, "status": "failed", "error": "A személyes adatok elmosása nem sikerült."})
+                return
+        m["segments"] = analyse_clip(path, m.get("seconds") or 0)
+        _save(mid, {**m, "status": "ready"})
+    finally:
+        with _busy_lock:
+            _busy.discard(mid)
+
+
+def resume_pending() -> int:
+    """Újraindulás után a félbemaradt feldolgozások folytatása."""
+    pending = [m["id"] for m in listing() if m.get("status") == "processing"]
+    for mid in pending:
+        _start_processing(mid)
+    return len(pending)
 
 
 ANALYSIS_PROMPT = """This is a screen recording ({seconds:.0f} s) that will be edited into a short social video.
@@ -245,12 +307,12 @@ def analyse_clip(path: str, seconds: float) -> list[dict]:
         return []
 
 
-def store(data: bytes, content_type: str, name: str, note: str = "") -> dict:
+def store(data: bytes, content_type: str, name: str, note: str = "", redact_pii: bool = True) -> dict:
     ct = (content_type or "").split(";")[0].strip().lower()
     if ct in IMAGE_TYPES:
-        return add_image(data, name, note)
+        return add_image(data, name, note, redact_pii=redact_pii)
     if ct in CLIP_TYPES:
-        return add_clip(data, name, note)
+        return add_clip(data, name, note, redact_pii=redact_pii)
     raise MediaError("csak kép (JPG, PNG, WebP) vagy videó (MP4, MOV, WebM) tölthető fel")
 
 
