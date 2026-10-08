@@ -185,7 +185,9 @@ Source text you may draw facts from:
 
 {FORM_RULES.get(form, FORM_RULES["video"])}
 Format: {aspect}{"" if still else f", about {seconds} seconds"}.
-On-screen language: {_lang_name(lang)}.
+On-screen language: {_lang_name(lang)}. EVERY text in the script — headline, kicker, sub, lines, narration, call and
+SMS messages, post — must be in {_lang_name(lang)}, even when the brief is written in another language: then
+translate the brief's wording, never copy it.
 {'Write a spoken narration line ("voice") for every scene: natural, conversational, max ~2.3 words per second of the scene.' if voice and not still else 'No narration: every message must be readable on screen. Leave "voice" empty.'}
 
 Scene kinds (pick what fits the brief; a still slide reads best as statement, number, quote, photo, compare, steps,
@@ -618,11 +620,35 @@ def write_script(brief: str, ctx: dict, seconds: int, lang: str, aspect: str, vo
     return check(script, brief, ctx, seconds, lang, say, form)
 
 
+# Magyar szöveg angol videóban: ékezet vagy gyakori magyar szó. (Fordítva,
+# angol szó magyar videóban, nem jelezzük: ott sok az angol szakszó.)
+_HU_CHARS_RE = re.compile(r"[őűŐŰáéíóúöüÁÉÍÓÚÖÜ]")
+_HU_WORDS_RE = re.compile(r"\b(és|az|hogy|nem|egy|vagy|mint|csak|már|mert|ezt|azt|ami|aki|neked|cég\w*)\b", re.I)
+
+
+def wrong_language(script: dict, lang: str) -> list[str]:
+    if lang != "en":
+        return []
+    bad = []
+    for sc in script["scenes"]:
+        for t in _scene_texts(sc) + [str(x) for x in (sc.get("messages") or []) if isinstance(x, str)]:
+            if t and (_HU_CHARS_RE.search(t) or len(_HU_WORDS_RE.findall(t)) >= 2):
+                bad.append(t)
+    if script.get("post") and _HU_CHARS_RE.search(script["post"]):
+        bad.append(script["post"][:120])
+    return bad
+
+
 def check(script: dict, brief: str, ctx: dict, seconds: int, lang: str, say=lambda m: None,
           form: str = "video") -> dict:
     sources = brief + " " + " ".join(p["text"] for p in ctx["pages"]) + " " + " ".join(w["text"] for w in ctx["web"])
     v = violations(script, sources)
     craft = craft_issues(script, form)
+    foreign = wrong_language(script, lang)
+    if foreign:
+        say(f"Ellenőrzés: {len(foreign)} szöveg nem {'angol' if lang == 'en' else 'magyar'}, lefordíttatom…")
+        craft = craft + [f"This text is not in {_lang_name(lang)} — translate it (keep the meaning, keep it short): "
+                         f'"{t}"' for t in foreign[:20]]
     if v or craft:
         say("Ellenőrzés: " + ", ".join(x for x in (f"{len(v)} alátámasztatlan állítás" if v else "",
                                                    f"{len(craft)} marketinghiba" if craft else "") if x) + ", javítom…")
@@ -639,6 +665,18 @@ def check(script: dict, brief: str, ctx: dict, seconds: int, lang: str, say=lamb
         script = _strip_claims(script, sources)
         if len(script["scenes"]) < (1 if form == "image" else 2):
             raise VideoError("az ellenőrzés után túl kevés jelenet maradt")
+    # Ha a javító kör után is maradt idegen nyelvű szöveg, még egy, csak fordító kör.
+    left = wrong_language(script, lang)
+    if left:
+        say(f"Még {len(left)} szöveg nincs lefordítva, újra fordíttatom…")
+        fb = "\n".join(f'Translate into {_lang_name(lang)}, change nothing else: "{t}"' for t in left[:20])
+        try:
+            fixed = normalize(llm.extract_json(llm._ask(revise_prompt(script, fb, lang, form))),
+                              seconds, len(ctx["urls"]), form)
+            if len(fixed["scenes"]) >= (1 if form == "image" else 2):
+                script = _strip_claims(fixed, sources)
+        except (llm.LLMError, VideoError) as e:
+            logger.warning("fordító kör hiba: %s", e)
     return script
 
 
@@ -1247,6 +1285,11 @@ def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", 
             "captions": bool(captions) and wants_captions(brief) is not False}
     say("Kontextus: linkek beolvasása…")
     ctx = gather(brief, research, say)
+    if lang == "en":
+        en = [english_site(u) for u in ctx["urls"]]
+        if en != ctx["urls"]:
+            say("Angol videó: az aximbra.hu angol változatát veszem fel.")
+            ctx["urls"] = en
     ctx["attached"] = attach
     if attach:
         say(f"Csatolt média: {len(attach)} db — a rendező mindet felhasználja.")
@@ -1356,6 +1399,22 @@ def _attach_cues(script: dict, lang: str, say) -> None:
     n = sum(1 for sc in script["scenes"] if sc.get("cues"))
     if n:
         say(f"Felirat a más nyelvű képernyőkhöz: {n} jelenetben, a felvételhez időzítve.")
+
+
+_AXIMBRA_RE = re.compile(r"^(https?://)(?:www\.)?aximbra\.hu(/[^#?]*)?([?#].*)?$", re.I)
+
+
+def english_site(url: str) -> str:
+    """Angol videóhoz az aximbra.hu angol oldala: /#agentek → /en#agentek,
+    /demo/x → /en/demo/x. Ami már nyelvi előtagos, vagy más oldal, marad."""
+    m = _AXIMBRA_RE.match(url or "")
+    if not m:
+        return url
+    path = m.group(2) or "/"
+    if re.match(r"^/[a-z]{2}(/|$)", path):
+        return url
+    path = "/en" if path == "/" else "/en" + path
+    return f"https://aximbra.hu{path}{m.group(3) or ''}"
 
 
 def _logo_script(d: dict) -> dict:
