@@ -107,7 +107,8 @@ def listing() -> list[dict]:
     for name in os.listdir(MEDIA_DIR):
         if name.endswith(".json"):
             m = get(name[:-5])
-            if m and os.path.exists(os.path.join(MEDIA_DIR, m["file"])):
+            if m and (os.path.exists(os.path.join(MEDIA_DIR, m["file"]))
+                      or (m.get("raw") and os.path.exists(os.path.join(MEDIA_DIR, m["raw"])))):
                 out.append(m)
     return sorted(out, key=lambda m: m.get("created_at", ""), reverse=True)
 
@@ -116,7 +117,8 @@ def delete(mid: str) -> bool:
     m = get(mid)
     if not m:
         return False
-    for p in (os.path.join(MEDIA_DIR, m["file"]), _meta_path(mid)):
+    for p in (os.path.join(MEDIA_DIR, m["file"]), _meta_path(mid),
+              *([os.path.join(MEDIA_DIR, m["raw"])] if m.get("raw") else [])):
         try:
             os.remove(p)
         except OSError:
@@ -178,41 +180,51 @@ def add_image(data: bytes, name: str, note: str = "", source: str = "upload", re
 
 
 def add_clip(data: bytes, name: str, note: str = "", redact_pii: bool = True) -> dict:
-    """Klip normalizálása: néma WebM, legfeljebb MAX_CLIP_SECONDS hosszú.
+    """A feltöltött videó mentése; a többi a háttérben fut.
 
-    Néma, mert a videó hangsávját a narráció adja; a klip eredeti hangja
-    ütközne vele. WebM, mert a fej nélküli Chromium azt biztosan dekódolja."""
+    Az átalakítás (néma, 720 px-es WebM), az elmosás és az elemzés egy hosszabb
+    felvételnél perceket vesz igénybe. Ha a feltöltés erre várna, az iPhone
+    böngészője kb. egy perc csend után „Load failed"-del feladja — élesben egy
+    75 mp-es felvétel így nem jutott át. Ezért a kérés a fájl mentése után
+    azonnal visszatér, és a klip „processing", amíg el nem készül."""
     if not data:
         raise MediaError("üres fájl")
     if len(data) > MAX_BYTES:
         raise MediaError("túl nagy fájl")
     mid = _new_id()
     os.makedirs(MEDIA_DIR, exist_ok=True)
-    out = os.path.join(MEDIA_DIR, f"{mid}.webm")
-    with tempfile.TemporaryDirectory() as d:
-        src = os.path.join(d, "in")
-        with open(src, "wb") as f:
-            f.write(data)
-        # 720 px elég: a videóban egy telefon képernyőjén vagy 540 px szélesen
-        # jelenik meg. A gyors beállítás egy kétperces felvételt is perceken
-        # belül feldolgoz, így a feltöltés nem fut ki az időből.
-        r = _run(["-i", src, "-t", str(MAX_CLIP_SECONDS), "-an",
-                  "-vf", "scale='min(720,iw)':-2:flags=lanczos,fps=30",
-                  "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "36", "-deadline", "realtime",
-                  "-cpu-used", "8", "-row-mt", "1", out], timeout=900)
-        if r.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
-            raise MediaError("ezt a videót nem sikerült beolvasni")
-    info = _probe(out)
-    meta = {"id": mid, "kind": "clip", "file": f"{mid}.webm", "name": (name or "klip")[:80],
-            "note": note[:200], "source": "upload", "width": info.get("width"),
-            "height": info.get("height"), "seconds": info.get("seconds"), "segments": [],
-            # Az elmosás és az elemzés a háttérben fut (egy hosszabb felvételnél
-            # percekig): addig a klip nem kerülhet videóba.
-            "status": "processing", "redact": bool(redact_pii), "redacted": None,
+    raw = f"{mid}.upload"
+    with open(os.path.join(MEDIA_DIR, raw), "wb") as f:
+        f.write(data)
+    meta = {"id": mid, "kind": "clip", "file": f"{mid}.webm", "raw": raw, "name": (name or "klip")[:80],
+            "note": note[:200], "source": "upload", "width": None, "height": None, "seconds": None,
+            "segments": [], "status": "processing", "redact": bool(redact_pii), "redacted": None,
             "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     _save(mid, meta)
     _start_processing(mid)
     return meta
+
+
+def _normalize_clip(mid: str, m: dict) -> dict:
+    """A nyers feltöltésből néma WebM. Néma, mert a videó hangsávját a narráció
+    adja; WebM, mert a fej nélküli Chromium azt biztosan dekódolja. 720 px elég:
+    a videóban egy telefon képernyőjén vagy 540 px szélesen jelenik meg."""
+    src = os.path.join(MEDIA_DIR, m["raw"])
+    out = os.path.join(MEDIA_DIR, m["file"])
+    r = _run(["-i", src, "-t", str(MAX_CLIP_SECONDS), "-an",
+              "-vf", "scale='min(720,iw)':-2:flags=lanczos,fps=30",
+              "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "36", "-deadline", "realtime",
+              "-cpu-used", "8", "-row-mt", "1", out], timeout=900)
+    if r.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
+        raise MediaError("ezt a videót nem sikerült beolvasni")
+    try:
+        os.remove(src)          # az eredeti (elmosatlan) feltöltés nem marad meg
+    except OSError:
+        pass
+    info = _probe(out)
+    m = {**m, "width": info.get("width"), "height": info.get("height"), "seconds": info.get("seconds")}
+    m.pop("raw", None)
+    return _save(mid, m)
 
 
 _busy: set = set()
@@ -232,8 +244,17 @@ def _process_clip(mid: str) -> None:
     így a modell sem látja a személyes adatokat."""
     try:
         m = get(mid)
+        if not m:
+            return
+        if m.get("raw"):
+            try:
+                m = _normalize_clip(mid, m)
+            except Exception as e:  # noqa: BLE001
+                logger.warning("klip-átalakítás hiba (%s): %s", mid, e)
+                _save(mid, {**m, "status": "failed", "error": "Ezt a videót nem sikerült beolvasni."})
+                return
         path = path_of(mid)
-        if not m or not path:
+        if not path:
             return
         if m.get("redact"):
             import redact
