@@ -673,21 +673,59 @@ const thumb = (m) => m.kind === "clip"
 // XHR, mert a fetch nem mutatja, hol tart a feltöltés: egy gyenge wifin
 // felküldött nagy felvételnél enélkül nem látszik, hogy halad-e egyáltalán.
 let uploading = 0;
-function upload(f, note, redact, onPct = () => {}) {
-  const fd = new FormData(); fd.append("file", f); fd.append("note", note); fd.append("redact", redact ? "true" : "false");
-  uploading++; goState();
+// Egy kérés: XHR, hogy lássuk, hol tart (a fetch ezt nem mutatja).
+function xhrPost(url, fd, onLoaded = () => {}) {
   return new Promise((resolve, reject) => {
     const x = new XMLHttpRequest();
-    x.open("POST", "/api/media");
-    x.upload.onprogress = (e) => { if (e.lengthComputable) onPct(Math.floor(e.loaded / e.total * 100)); };
+    x.open("POST", url);
+    x.timeout = 240000;   // a Railway 5 perc után úgyis elvágja
+    x.upload.onprogress = (e) => onLoaded(e.loaded);
     x.onload = () => {
       let d = null; try { d = JSON.parse(x.responseText); } catch {}
       if (x.status >= 200 && x.status < 300) resolve(d);
-      else reject(new Error((d && d.detail) || ("Hiba " + x.status)));
+      else { const err = new Error((d && d.detail) || ("Hiba " + x.status)); err.status = x.status; reject(err); }
     };
-    x.onerror = () => reject(new Error("a feltöltés megszakadt (gyenge a kapcsolat?) — próbáld újra jobb neten"));
+    x.onerror = () => reject(new Error("megszakadt a kapcsolat"));
+    x.ontimeout = () => reject(new Error("túl lassú a kapcsolat"));
     x.send(fd);
-  }).finally(() => { uploading--; goState(); });
+  });
+}
+// A nagy fájl 4 MB-os darabokban megy fel; ha egy darab elakad, csak azt
+// küldjük újra (legfeljebb 6-szor, egyre hosszabb szünettel). Így gyenge
+// neten is felér, és egyik kérés sem fut bele a szerver 5 perces korlátjába.
+const CHUNK = 4 * 1024 * 1024;
+async function upload(f, note, redact, onPct = () => {}) {
+  uploading++; goState();
+  try {
+    if (f.size <= CHUNK) {
+      const fd = new FormData(); fd.append("file", f); fd.append("note", note); fd.append("redact", redact ? "true" : "false");
+      return await xhrPost("/api/media", fd, (n) => onPct(Math.floor(n / f.size * 100)));
+    }
+    const id = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
+    const total = Math.ceil(f.size / CHUNK);
+    for (let i = 0; i < total; i++) {
+      const part = f.slice(i * CHUNK, Math.min(f.size, (i + 1) * CHUNK));
+      for (let attempt = 0; ; attempt++) {
+        const fd = new FormData();
+        fd.append("file", part, "part"); fd.append("upload_id", id); fd.append("index", i); fd.append("total", total);
+        try {
+          await xhrPost("/api/media/chunk", fd, (n) => onPct(Math.min(99, Math.floor((i * CHUNK + n) / f.size * 100))));
+          break;
+        } catch (e) {
+          if (e.status && e.status < 500 && e.status !== 408 && e.status !== 429) throw e;   // valódi hiba: nem próbáljuk újra
+          if (attempt >= 5) throw new Error(`a(z) ${i + 1}/${total}. darab nem ért fel (${e.message}) — próbáld újra jobb neten`);
+          await new Promise((r) => setTimeout(r, [2, 4, 8, 15, 30][attempt] * 1000));
+        }
+      }
+    }
+    onPct(99);
+    const fd = new FormData();
+    fd.append("upload_id", id); fd.append("total", total); fd.append("name", f.name);
+    fd.append("content_type", f.type); fd.append("note", note); fd.append("redact", redact ? "true" : "false");
+    const d = await xhrPost("/api/media/chunk/done", fd);
+    onPct(100);
+    return d;
+  } finally { uploading--; goState(); }
 }
 function renderMedia() {
   const list = S.media.filter((m) => !F.mfilter || (F.mfilter === "clip" ? m.kind === "clip" : m.kind !== "clip"));

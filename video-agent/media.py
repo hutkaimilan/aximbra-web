@@ -17,6 +17,7 @@ import os
 import re
 import secrets
 import shutil
+import time
 import subprocess
 import tempfile
 import threading
@@ -390,6 +391,73 @@ def store(data: bytes, content_type: str, name: str, note: str = "", redact_pii:
     if ct in CLIP_TYPES:
         return add_clip(data, name, note, redact_pii=redact_pii)
     raise MediaError("csak kép (JPG, PNG, WebP) vagy videó (MP4, MOV, WebM) tölthető fel")
+
+
+# ---- darabolt feltöltés -----------------------------------------------------
+# A Railway egy kérést legfeljebb 5 percig enged: egy nagy telefonos felvétel
+# gyenge neten ennyi idő alatt nem ér fel egyben. Ezért a felület kis
+# darabokban küldi (darabonként újrapróbálva), és itt rakjuk össze.
+
+CHUNK_MAX = 8 * 1024 * 1024
+UPLOAD_TTL = 24 * 3600
+_UPLOAD_ID_RE = re.compile(r"[a-f0-9]{16,40}")
+
+
+def _upload_dir(upload_id: str) -> str:
+    if not _UPLOAD_ID_RE.fullmatch(upload_id or ""):
+        raise MediaError("hibás feltöltés-azonosító")
+    return os.path.join(MEDIA_DIR, ".uploads", upload_id)
+
+
+def _prune_uploads() -> None:
+    root = os.path.join(MEDIA_DIR, ".uploads")
+    if not os.path.isdir(root):
+        return
+    for name in os.listdir(root):
+        d = os.path.join(root, name)
+        try:
+            if time.time() - os.path.getmtime(d) > UPLOAD_TTL:
+                shutil.rmtree(d, ignore_errors=True)
+        except OSError:
+            pass
+
+
+def save_chunk(upload_id: str, index: int, total: int, data: bytes) -> None:
+    """Egy darab mentése. Ugyanazt a darabot újra küldve felülírja (újrapróbálás)."""
+    if not (0 < total <= MAX_BYTES // CHUNK_MAX + 2) or not (0 <= index < total):
+        raise MediaError("hibás darabszám")
+    if not data or len(data) > CHUNK_MAX:
+        raise MediaError("hibás darabméret")
+    d = _upload_dir(upload_id)
+    if index == 0:
+        _prune_uploads()
+    os.makedirs(d, exist_ok=True)
+    tmp = os.path.join(d, f"{index:05d}.part")
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.replace(tmp, os.path.join(d, f"{index:05d}"))
+
+
+def finish_chunks(upload_id: str, total: int, content_type: str, name: str, note: str = "",
+                  redact_pii: bool = True) -> dict:
+    """A darabok összerakása és a szokásos feldolgozás (mint egy egyben feltöltött fájlnál)."""
+    d = _upload_dir(upload_id)
+    parts = [os.path.join(d, f"{i:05d}") for i in range(total)]
+    missing = [i for i, p in enumerate(parts) if not os.path.exists(p)]
+    if total <= 0 or missing:
+        raise MediaError(f"hiányzó darab: {missing[:5]}")
+    size = sum(os.path.getsize(p) for p in parts)
+    if size > MAX_BYTES:
+        shutil.rmtree(d, ignore_errors=True)
+        raise MediaError("túl nagy fájl (legfeljebb 250 MB)")
+    buf = bytearray()
+    for p in parts:
+        with open(p, "rb") as f:
+            buf += f.read()
+    try:
+        return store(bytes(buf), content_type, name, note, redact_pii)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
 
 
 def copy_out(mid: str, dest_dir: str) -> str | None:
