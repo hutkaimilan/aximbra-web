@@ -1192,3 +1192,47 @@ def test_upload_returns_at_once_and_conversion_runs_in_the_background(tmp_path, 
     done = media.get(m["id"])
     assert done["status"] == "ready" and done["seconds"] == 75.4 and "raw" not in done
     assert not (tmp_path / m["raw"]).exists()                     # az elmosatlan eredeti nem marad meg
+
+
+def test_caption_requests_are_recognised():
+    off = ["vedd ki a feliratot", "Ne legyen felirat a videón", "felirat nélkül", "remove the subtitles",
+           "Rövidebb nyitás. Vegye ki a feliratokat!"]
+    assert all(videomaker.wants_captions(t) is False for t in off)
+    assert videomaker.wants_captions("kapcsold be a feliratot") is True
+    assert videomaker.wants_captions("legyen rajta felirat") is True
+    # Nem a narráció felirata: a méretre vagy a fordító feliratra vonatkozó kérés.
+    for t in ("rövidebb nyitás", "a feliratok legyenek nagyobbak", "A Google-képernyőkhöz angol feliratot tegyen."):
+        assert videomaker.wants_captions(t) is None
+
+
+def test_revise_turns_captions_off_without_rewriting_the_script(tmp_path, monkeypatch):
+    import json as _json
+    monkeypatch.setattr(videomaker, "VIDEO_DIR", str(tmp_path))
+    (tmp_path / "abcdef012345.mp4").write_bytes(b"x")
+    scenes = [{"kind": "hook", "headline": "Hány órát?", "voice": "Hány órát veszít a csapatod?", "seconds": 3}]
+    (tmp_path / "abcdef012345.json").write_text(_json.dumps({
+        "id": "abcdef012345", "title": "T", "theme": "clean", "scenes": scenes,
+        "opts": {"brief": "E-mail rendező videó", "seconds": 20, "lang": "hu", "aspect": "9:16", "voice": False,
+                 "male": False, "research": False, "form": "video"}, "ctx_urls": []}), encoding="utf-8")
+
+    def no_llm(*a, **k):
+        raise AssertionError("a felirat kikapcsolásához nem kell új forgatókönyv")
+
+    monkeypatch.setattr(llm, "_ask", no_llm)
+    seen = {}
+
+    def fake_render(script, urls, out, aspect, audio, captions, say):
+        seen["captions"] = captions
+        seen["headline"] = script["scenes"][0]["headline"]
+        open(out, "wb").write(b"mp4")
+        return 20.0
+
+    monkeypatch.setattr(videomaker, "render", fake_render)
+    m = videomaker.revise("abcdef012345", "Vedd ki a feliratot!")
+    assert seen == {"captions": False, "headline": "Hány órát?"}
+    assert m["opts"]["captions"] is False and m["parent"] == "abcdef012345"
+    # A következő módosítás is felirat nélkül marad, amíg vissza nem kéred.
+    monkeypatch.setattr(llm, "_ask", lambda p, **k: _json.dumps({"title": "Új", "scenes": [
+        {"kind": "hook", "headline": "Új nyitás", "voice": "Rövid nyitás."}, {"kind": "cta", "headline": "Próbálja ki"}]}))
+    videomaker.revise(m["id"], "rövidebb nyitás")
+    assert seen["captions"] is False

@@ -420,6 +420,8 @@ class VideoIn(BaseModel):
     male: bool = False
     research: bool = False
     form: str = Field(default="auto", pattern="^(auto|video|image|carousel|logo)$")
+    # A narráció felirata a kép alján.
+    captions: bool = True
 
 
 class ReviseIn(BaseModel):
@@ -430,7 +432,7 @@ class ReviseIn(BaseModel):
 def video_make(body: VideoIn):
     return _start(lambda say: videomaker.make(body.brief, body.seconds, body.lang, body.aspect, body.voice,
                                               body.male, body.research, body.form, say=say,
-                                              attach=body.media))
+                                              attach=body.media, captions=body.captions))
 
 
 @app.post("/api/videos/{vid}/revise", dependencies=[Depends(auth)])
