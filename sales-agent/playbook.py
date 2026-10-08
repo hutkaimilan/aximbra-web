@@ -417,6 +417,16 @@ AGENTS = (
 )
 
 
+# A telefonos agent nem kártya az oldalon, hanem külön szekció („Egy telefonáló
+# agent, éles vonalon") — ezért nincs az AGENTS-ben, amit a kártyákhoz mérünk.
+# A forgatásba viszont bele kell kerülnie: ez az egyetlen agent, ami valódi
+# telefonszámon, élőben kipróbálható. A szöveg az oldal esettanulmányáé.
+VOICE_AGENT = {
+    "key": "voice", "hu": "Telefonos agent", "en": "Phone agent",
+    "hu_what": "felveszi a telefont, időpontot vagy asztalt foglal, magyarul, angolul és spanyolul beszél, SMS-ben visszaigazol; valódi számon fut, nem videó róla",
+    "en_what": "answers the phone, books the appointment or table, speaks Hungarian, English and Spanish, confirms by SMS; it runs on a real number, not in a video",
+}
+
 # ---- tanácsadó ---------------------------------------------------------------
 
 # Az árak és határidők az aximbra.hu-ról valók (ugyanaz a lista, amit a
