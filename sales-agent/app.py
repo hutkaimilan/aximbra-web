@@ -13,7 +13,7 @@ import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
@@ -401,6 +401,46 @@ _advisor_lock = threading.Lock()
 class AskIn(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
     lead_id: int | None = None
+    # A tanácsadóhoz csatolt fájlok azonosítói (/api/advisor/files).
+    files: list[str] = Field(default_factory=list, max_length=6)
+
+
+# Csatolt fájlok: a Gemini fájltárában vannak (kb. 48 óráig), itt csak a
+# hivatkozásuk. Memóriában tartjuk; újraindulás után újra kell csatolni.
+ADVISOR_FILE_MAX = 200 * 1024 * 1024
+ADVISOR_FILE_TTL = timedelta(hours=46)
+ADVISOR_FILE_TYPES = ("image/", "video/", "audio/", "application/pdf", "text/")
+_advisor_files: dict = {}
+
+
+def _advisor_file_list(ids: list[str]) -> list[dict]:
+    now = datetime.now(TZ)
+    for k in [k for k, v in _advisor_files.items() if now - v["at"] > ADVISOR_FILE_TTL]:
+        _advisor_files.pop(k, None)
+    missing = [i for i in ids if i not in _advisor_files]
+    if missing:
+        raise HTTPException(410, "Egy csatolt fájl már nem elérhető (újraindulás vagy lejárt). Csatold újra.")
+    return [_advisor_files[i] for i in ids]
+
+
+@app.post("/api/advisor/files", dependencies=[Depends(auth)])
+def advisor_file(file: UploadFile = File(...)):
+    mime = (file.content_type or "").split(";")[0].strip().lower()
+    if not mime.startswith(ADVISOR_FILE_TYPES):
+        raise HTTPException(400, "Kép, videó, hang, PDF vagy szöveg csatolható.")
+    data = file.file.read(ADVISOR_FILE_MAX + 1)
+    if not data:
+        raise HTTPException(400, "Üres fájl.")
+    if len(data) > ADVISOR_FILE_MAX:
+        raise HTTPException(413, "Túl nagy fájl (legfeljebb 200 MB).")
+    try:
+        up = llm.upload_file(data, mime, file.filename or "fajl")
+    except llm.LLMError as e:
+        logger.warning("csatolás hiba: %s", e)
+        raise HTTPException(502, f"A csatolás nem sikerült: {e}")
+    fid = secrets.token_hex(8)
+    _advisor_files[fid] = {**up, "name": (file.filename or "fájl")[:80], "at": datetime.now(TZ)}
+    return {"id": fid, "name": _advisor_files[fid]["name"], "mime": up["mime"], "size": len(data)}
 
 
 @app.get("/api/advisor", dependencies=[Depends(auth)])
@@ -413,7 +453,8 @@ def advisor_ask(body: AskIn):
     if not _advisor_lock.acquire(blocking=False):
         raise HTTPException(409, "Még az előző kérdésen dolgozom, várd meg.")
     try:
-        return advisor.ask(store, body.question, body.lead_id)
+        files = _advisor_file_list(body.files)
+        return advisor.ask(store, body.question, body.lead_id, files)
     except ValueError as e:
         raise HTTPException(400, str(e))
     except llm.LLMError as e:

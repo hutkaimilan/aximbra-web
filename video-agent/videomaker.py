@@ -136,13 +136,25 @@ alone, and in order they must tell one argument. No narration; leave "voice" emp
 }
 
 
+def _shelf_line(m: dict) -> str:
+    line = f"  {m['id']}  {m['kind']}  {m['name']}" + (f" — {m['note']}" if m.get("note") else "")
+    if m.get("kind") == "clip":
+        shape = "tall/phone recording" if (m.get("height") or 0) > (m.get("width") or 0) else "landscape"
+        line += f"  [{float(m.get('seconds') or 0):.0f} s, {shape}]"
+        for g in m.get("segments") or []:
+            line += f"\n      {g['from']:.0f}–{g['to']:.0f} s  {g['pace']}: {g['what']}"
+    return line
+
+
 def director_prompt(brief: str, ctx: dict, seconds: int, lang: str, aspect: str, voice: bool,
                     form: str = "video") -> str:
     still = form in ("image", "carousel")
     sites = "\n".join(f"  [{i}] {u}" for i, u in enumerate(ctx["urls"])) or "  (none — do not use the 'site' scene)"
     lib = ctx.get("library") or []
-    shelf = "\n".join(f"  {m['id']}  {m['kind']}  {m['name']}" + (f" — {m['note']}" if m.get("note") else "")
-                      for m in lib) or "  (empty — you may still ask for generated images)"
+    shelf = "\n".join(_shelf_line(m) for m in lib) or "  (empty — you may still ask for generated images)"
+    attached = [m for m in (media.get(x) for x in ctx.get("attached") or []) if m]
+    must = ("THE USER ATTACHED THESE FOR THIS VIDEO — use every one of them (each at least once), they are the\n"
+            "point of the brief:\n" + "\n".join(_shelf_line(m) for m in attached)) if attached else ""
     pages = "\n\n".join(f"TEXT OF {p['url']}:\n{p['text']}" for p in ctx["pages"] if p["text"]) or "(none)"
     web = "\n\n".join(f"WEB: {w['title']} — {w['url']}\n{w['text']}" for w in ctx["web"]) or "(none)"
     return f"""You are an award-winning creative director making social content from a brief. No person appears on camera.
@@ -157,8 +169,9 @@ Company facts (AXIMBRA, use when the brief is about AXIMBRA):
 Websites captured for the video (use their index in "shot"):
 {sites}
 
-The user's media library (put an id in "media"; clips are silent and at most 20 s):
+The user's media library (put an id in "media"; clips are silent):
 {shelf}
+{must}
 
 Source text you may draw facts from:
 {pages}
@@ -189,8 +202,19 @@ problem, benefit, agents or cta — "site", "call" and "inbox" animate, so they 
   (describe the picture in English: subject, setting, light, mood). "layout": "full" (text over the image) or
   "side" (image beside the text). Never ask for a recognisable real person.
 - "gallery": headline + "medias" = 2–4 library ids shown in a grid.
-- "clip": an uploaded video clip playing behind the text. "media" must be a library id of kind "clip", and
-  "seconds" must stay within that clip's length. The clip is silent; the narration carries the sound.
+- "clip": an uploaded video clip. "media" = a library id of kind "clip". A long recording is used in several
+  consecutive "clip" scenes, each one a stretch of it: "from" = where the stretch starts (seconds into the
+  clip), "speed" = playback speed (1, 1.5, 2, 3 or 4), "seconds" = screen time; the stretch covers
+  seconds × speed of the recording, which must fit before the clip ends. "layout": "phone" shows it inside a
+  phone frame (use this for a phone screen recording, i.e. a tall clip), "full" plays it behind the text.
+  The clip is silent; the narration carries the sound.
+  EDITING A SCREEN RECORDING (follow the clip's segments listed in the library):
+  * "wait" (loading, spinner, login or consent screens, hesitation): skip it with "from", or play it at 4×.
+  * "action" (typing, scrolling, tapping between screens): 2–3×, so it reads as momentum, not waiting.
+  * "result" (the list sorts itself, a label or answer appears, a confirmation arrives): 1×, at least 2.5 s
+    on screen, and the narration names what the viewer sees right then.
+  * Keep the recording's order; never speed through text the narration talks about; a stretch of 1× after
+    a fast one is what makes the result land.
 - "number": headline = a number FROM THE BRIEF OR SOURCES ONLY, sub = what it means.
 - "quote": headline = a quote FROM THE BRIEF OR SOURCES ONLY, sub = its source.
 - "cta": headline + "url" + sub + "button". Always last.
@@ -214,7 +238,7 @@ HARD RULES:
 Answer ONLY with JSON:
 {{"title": "", "tagline": "max 3 words", "brand": "AXIMBRA or the brand in the brief", "theme": "neon|clean|warm|mono",
 "scenes": [{{"kind": "", "kicker": "", "headline": "", "sub": "", "lines": [], "lines2": [], "left_title": "", "right_title": "",
-  "shot": 0, "media": "", "medias": [], "image_prompt": "", "layout": "full", "app": "", "caller": "", "status": "",
+  "shot": 0, "media": "", "from": 0, "speed": 1, "medias": [], "image_prompt": "", "layout": "full", "app": "", "caller": "", "status": "",
   "tile_label": "", "center": false, "url": "", "button": "", "voice": "", "seconds": 0}}],
 "post": "", "first_comment": ""}}"""
 
@@ -261,6 +285,32 @@ def _no_url(text) -> str:
     return re.sub(r"\s{2,}", " ", _URL_RE.sub("", str(text or ""))).strip(" -–—:|·")
 
 
+SPEEDS = (1.0, 1.5, 2.0, 3.0, 4.0)
+
+
+def _num(v, default: float, lo: float, hi: float) -> float:
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return default
+    return max(lo, min(hi, x))
+
+
+def _fit_clip(s: dict, length: float) -> None:
+    """A jelenet a felvétel egy szakasza: from-tól seconds × speed hosszan.
+    Ha nem fér a felvétel végéig, előbb gyorsít (legfeljebb 4×), aztán rövidít."""
+    if not length:
+        return
+    s["from"] = min(s.get("from") or 0.0, max(0.0, length - 1.0))
+    avail = length - s["from"]
+    if s["seconds"] * s["speed"] > avail:
+        need = next((v for v in SPEEDS if v >= s["speed"] and s["seconds"] * v <= avail), None)
+        if need:
+            s["speed"] = need
+        else:
+            s["seconds"] = max(1.0, round(avail / s["speed"], 2))
+
+
 def _media_id(v) -> str:
     v = str(v or "").strip()
     return v if re.fullmatch(r"[a-z0-9]{12}", v) else ""
@@ -299,7 +349,10 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -
             "media": _media_id(s.get("media")),
             "medias": [m for m in (_media_id(x) for x in (s.get("medias") or [])) if m][:4],
             "image_prompt": _clip(s.get("image_prompt"), 400),
-            "layout": "side" if str(s.get("layout") or "").strip() == "side" else "full",
+            "layout": (str(s.get("layout") or "").strip() if str(s.get("layout") or "").strip() in ("side", "phone")
+                       else "full"),
+            "from": _num(s.get("from"), 0.0, 0.0, 600.0),
+            "speed": min(SPEEDS, key=lambda v: abs(v - _num(s.get("speed"), 1.0, 0.25, 8.0))),
             "shot": shot, "app": _clip(s.get("app"), 30), "caller": _clip(s.get("caller"), 24), "status": _clip(s.get("status"), 24),
             "tile_label": _clip(s.get("tile_label"), 12), "center": bool(s.get("center")),
             "url": _clip(re.sub(r"^https?://(www\.)?|/+$", "", str(s.get("url") or "").strip()), 40), "button": _clip(s.get("button"), 40),
@@ -350,7 +403,7 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -
             if m.get("kind") != "clip":
                 s["kind"] = "photo" if m.get("kind") == "image" else "statement"
             elif m.get("seconds"):
-                s["seconds"] = min(s["seconds"], float(m["seconds"]))
+                _fit_clip(s, float(m["seconds"]))
     # Egyetlen kép magában áll, nem kell rá külön záró dia.
     if form != "image":
         ctas = [s for s in scenes if s["kind"] == "cta"]
@@ -371,6 +424,8 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -
         k = target / total if total else 1
         for s in scenes:
             s["seconds"] = round(max(2.0, min(14.0, s["seconds"] * k)), 2)
+            if s["kind"] == "clip":
+                _fit_clip(s, float((media.get(s["media"]) or {}).get("seconds") or 0))
     # Az első másodpercek döntenek: a nyitókép rövid, hogy gyorsan jöjjön a lényeg.
     if not still and scenes[0]["kind"] == "hook":
         scenes[0]["seconds"] = min(scenes[0]["seconds"], HOOK_MAX)
@@ -1122,7 +1177,8 @@ FORM_NAMES = {"video": "videó", "image": "kép", "carousel": "körhinta", "logo
 
 
 def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", voice: bool = True,
-         male: bool = False, research: bool = False, form: str = "auto", say=lambda m: None) -> dict:
+         male: bool = False, research: bool = False, form: str = "auto", say=lambda m: None,
+         attach: list | None = None) -> dict:
     brief = (brief or "").strip()[:4000]
     if len(brief) < 8:
         raise VideoError("írd le, mit készítsek")
@@ -1133,10 +1189,14 @@ def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", 
     if form == "auto":
         form = pick_form(brief)
         say(f"Formátum a leírás alapján: {FORM_NAMES[form]}.")
+    attach = [m for m in (attach or []) if media.get(m)][:8]
     opts = {"brief": brief, "seconds": seconds, "lang": lang, "aspect": aspect, "voice": voice,
-            "male": male, "research": research, "form": form}
+            "male": male, "research": research, "form": form, "attach": attach}
     say("Kontextus: linkek beolvasása…")
     ctx = gather(brief, research, say)
+    ctx["attached"] = attach
+    if attach:
+        say(f"Csatolt média: {len(attach)} db — a rendező mindet felhasználja.")
     if form == "logo":
         opts["aspect"] = "1:1"
         say("Logótervezés…")

@@ -63,7 +63,7 @@ def _clean(text: str) -> str:
     return text.strip()
 
 
-def ask(store, question: str, lead_id: int | None = None) -> dict:
+def ask(store, question: str, lead_id: int | None = None, files: list | None = None) -> dict:
     question = (question or "").strip()[:MAX_QUESTION]
     if not question:
         raise ValueError("üres kérdés")
@@ -86,7 +86,12 @@ def ask(store, question: str, lead_id: int | None = None) -> dict:
     for q in queries:
         add(websearch.search(q))
 
-    answer = _clean(llm._ask(playbook.advisor_prompt(question, history, _context(store, lead_id), sources, bool(queries))))
+    prompt = playbook.advisor_prompt(question, history, _context(store, lead_id), sources, bool(queries))
+    if files:
+        # A csatolmányokat a modell maga nézi meg; a prompt csak megnevezi őket.
+        prompt += ("\n\nCSATOLT FÁJLOK (a kérdés előtt látod őket, nézd meg alaposan, és azokra építs): "
+                   + ", ".join(f["name"] for f in files))
+    answer = _clean(llm._ask(prompt, files=files))
     if not answer:
         raise llm.LLMError("a tanácsadó nem adott választ")
 
@@ -95,6 +100,6 @@ def ask(store, question: str, lead_id: int | None = None) -> dict:
         refs.append({"title": s["title"], "url": s["url"]})
         refs += s.get("links") or []
     refs = [r for r in refs if r.get("url")][:12]
-    store.advisor_add("user", question)
+    store.advisor_add("user", question + ("\n📎 " + ", ".join(f["name"] for f in files) if files else ""))
     store.advisor_add("assistant", answer, json.dumps(refs, ensure_ascii=False))
     return {"answer": answer, "sources": refs, "queries": queries}

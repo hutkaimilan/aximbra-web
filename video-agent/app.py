@@ -202,7 +202,7 @@ def state():
 async def media_add(file: UploadFile = File(...), note: str = Form("")):
     data = await file.read(media.MAX_BYTES + 1)
     if len(data) > media.MAX_BYTES:
-        raise HTTPException(413, "Túl nagy fájl (legfeljebb 60 MB).")
+        raise HTTPException(413, "Túl nagy fájl (legfeljebb 250 MB).")
     try:
         return media.store(data, file.content_type or "", file.filename or "", note.strip()[:200])
     except media.MediaError as e:
@@ -405,6 +405,8 @@ def _startup():
 
 class VideoIn(BaseModel):
     brief: str = Field(min_length=8, max_length=4000)
+    # Az űrlapon ehhez a videóhoz csatolt képek/klipek: a rendezőnek mindet fel kell használnia.
+    media: list[str] = Field(default_factory=list, max_length=8)
     seconds: int = Field(default=30, ge=10, le=120)
     lang: str = Field(default="hu", pattern="^(hu|en)$")
     aspect: str = Field(default="9:16", pattern="^(9:16|4:5|1:1|16:9)$")
@@ -421,7 +423,8 @@ class ReviseIn(BaseModel):
 @app.post("/api/videos", dependencies=[Depends(auth)])
 def video_make(body: VideoIn):
     return _start(lambda say: videomaker.make(body.brief, body.seconds, body.lang, body.aspect, body.voice,
-                                              body.male, body.research, body.form, say=say))
+                                              body.male, body.research, body.form, say=say,
+                                              attach=body.media))
 
 
 @app.post("/api/videos/{vid}/revise", dependencies=[Depends(auth)])

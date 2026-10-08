@@ -904,3 +904,62 @@ def test_an_sms_confirmation_scene_survives_in_a_video_but_not_on_a_still():
     still = videomaker.normalize(data, 20, n_shots=0, form="carousel")
     assert still["scenes"][0]["kind"] == "statement"
     assert '"sms"' in videomaker.director_prompt("x", {"urls": [], "pages": [], "web": [], "library": []}, 30, "hu", "9:16", True)
+
+
+def test_a_long_recording_is_cut_into_stretches_with_speed(monkeypatch):
+    """Egy 75 mp-es felvétel több jelenetre bontva: a várakozás gyorsítva, az
+    eredmény 1×. Ami nem fér a felvétel végéig, gyorsul vagy rövidül."""
+    clip = {"id": "c" * 12, "kind": "clip", "seconds": 75.0, "width": 720, "height": 1560, "name": "rec"}
+    monkeypatch.setattr(videomaker.media, "get", lambda mid: clip if mid == clip["id"] else None)
+    data = {"scenes": [
+        {"kind": "clip", "media": clip["id"], "from": 0, "speed": 3, "seconds": 5, "layout": "phone", "headline": "Beérkezik"},
+        {"kind": "clip", "media": clip["id"], "from": 15, "speed": 1, "seconds": 6, "layout": "phone", "headline": "Kész"},
+        {"kind": "clip", "media": clip["id"], "from": 70, "speed": 1, "seconds": 9, "layout": "phone", "headline": "Vége"},
+        {"kind": "cta", "headline": "Próbálja ki", "seconds": 4}]}
+    out = videomaker.normalize(data, 24, n_shots=0)
+    a, b, c = out["scenes"][:3]
+    assert (a["from"], a["speed"], a["layout"]) == (0.0, 3.0, "phone")
+    assert (b["from"], b["speed"]) == (15.0, 1.0)
+    assert c["from"] == 70.0 and c["seconds"] * c["speed"] <= 5.0 + 1e-6      # a felvétel végéig fér
+    for s in (a, b, c):
+        assert s["from"] + s["seconds"] * s["speed"] <= 75.0 + 1e-6
+
+
+def test_the_director_sees_clip_segments_and_must_use_attachments(monkeypatch):
+    clip = {"id": "d" * 12, "kind": "clip", "seconds": 75.0, "width": 720, "height": 1560, "name": "email-agent",
+            "segments": [{"from": 0, "to": 12, "what": "bejelentkezés, töltés", "pace": "wait"},
+                         {"from": 12, "to": 20, "what": "a levelek kategóriát kapnak", "pace": "result"}]}
+    monkeypatch.setattr(videomaker.media, "get", lambda mid: clip if mid == clip["id"] else None)
+    ctx = {"urls": [], "pages": [], "web": [], "library": [clip], "attached": [clip["id"]]}
+    p = videomaker.director_prompt("Összefoglaló", ctx, 120, "hu", "9:16", True)
+    assert "75 s, tall/phone recording" in p and "0–12 s  wait: bejelentkezés, töltés" in p
+    assert "THE USER ATTACHED THESE" in p and p.count(clip["id"]) >= 2
+    assert '"from": 0, "speed": 1' in p and "4×" in p
+
+
+def test_clip_segments_are_cleaned_and_a_failed_analysis_keeps_the_clip(monkeypatch):
+    import media
+    segs = media._clean_segments([{"from": 0, "to": 6, "what": "töltés", "pace": "wait"},
+                                  {"from": 6, "to": 6.2, "what": "túl rövid", "pace": "result"},
+                                  {"from": "x", "to": 9}, {"from": 9, "to": 99, "what": "lista", "pace": "?"}], 75)
+    assert [(s["from"], s["to"], s["pace"]) for s in segs] == [(0.0, 6.0, "wait"), (9.0, 75.0, "action")]
+
+    class R:
+        returncode = 1
+    monkeypatch.setattr(media, "_run", lambda *a, **k: R())
+    assert media.analyse_clip("/nincs.webm", 75) == []
+
+
+def test_attached_media_reaches_the_director(monkeypatch):
+    seen = {}
+    img = {"id": "e" * 12, "kind": "image", "name": "kep"}
+    monkeypatch.setattr(videomaker.media, "get", lambda mid: img if mid == img["id"] else None)
+    monkeypatch.setattr(videomaker, "gather", lambda brief, research, say: {"urls": [], "pages": [], "web": [], "library": [img]})
+
+    def write(brief, ctx, *a, **k):
+        seen["attached"] = ctx.get("attached")
+        raise videomaker.VideoError("eddig kellett")
+    monkeypatch.setattr(videomaker, "write_script", write)
+    with pytest.raises(videomaker.VideoError):
+        videomaker.make("Összefoglaló videó", 60, form="video", attach=[img["id"], "nincsilyen123"])
+    assert seen["attached"] == [img["id"]]
