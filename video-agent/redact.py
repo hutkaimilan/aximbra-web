@@ -66,19 +66,34 @@ def available() -> bool:
 # ---- 1. szövegsorok egy képen ------------------------------------------------
 
 def ocr_lines(png_path: str) -> list[dict]:
-    """A kép szövegsorai: [{"text", "box": [x0, y0, x1, y1]}]. Sötét felületen
-    (a legtöbb app sötét módban) a Tesseract a megfordított képet olvassa jobban,
-    ezért mindkettőt lefuttatjuk, és a sorokat összefésüljük."""
+    """A kép szövegsorai: [{"text", "box": [x0, y0, x1, y1]}].
+
+    Egy menet nem elég: sötét felületen a Tesseract a megfordított képet olvassa
+    jobban, a halványszürke másodlagos szöveget (pl. egy levél összefoglalója)
+    pedig csak kontrasztnövelés után látja — élesben egy név így maradt kint.
+    Ezért négy változatot olvasunk, és a sorokat összefésüljük."""
     from PIL import Image, ImageOps
 
     img = Image.open(png_path).convert("L")
     w, h = img.size
     scale = 2 if w < 700 else 1    # a kis képet nagyítva jobban olvassa; 720 px-en már nem kell
     big = img.resize((w * scale, h * scale), Image.LANCZOS) if scale > 1 else img
+    hist = big.histogram()
+    half, acc, bg = (big.size[0] * big.size[1]) / 2, 0, 0
+    for v, n in enumerate(hist):
+        acc += n
+        if acc >= half:
+            bg = v
+            break
+    dark = bg < 128
+    # Küszöbölés a háttérhez képest: ami attól eltér, az fekete betű fehér alapon.
+    binar = big.point(lambda v: 0 if (v > bg + 25 if dark else v < bg - 25) else 255)
+    eq = ImageOps.equalize(big)
+    variants = (big, ImageOps.invert(big), binar, ImageOps.invert(eq) if dark else eq)
     lines: list[dict] = []
     with tempfile.TemporaryDirectory() as d:
-        for variant in (big, ImageOps.invert(big)):
-            p = os.path.join(d, "v.png")
+        for i, variant in enumerate(variants):
+            p = os.path.join(d, f"v{i}.png")
             variant.save(p)
             # Egy szálon: a felvétel kockáit párhuzamosan olvassuk, és ha mindegyik
             # Tesseract az összes magot akarná, egymást fojtanák meg.
