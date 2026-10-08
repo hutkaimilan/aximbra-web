@@ -597,8 +597,6 @@ def _scheduler():
                     logger.warning("válaszfigyelés kimaradt: %s", e)
             if content.enabled() and content.due(now, store):
                 threading.Thread(target=_content_round, args=(now,), daemon=True).start()
-            if content.enabled() and content.orders_due(store, now):
-                threading.Thread(target=_orders_round, args=(now,), daemon=True).start()
         except Exception:  # noqa: BLE001
             logger.exception("ütemező hiba")
         time.sleep(30)
@@ -619,14 +617,6 @@ def content_run(x_agent_token: str = Header(default="")):
     except Exception as e:  # noqa: BLE001 — a Make lássa a hibát, és újrapróbálhassa
         raise HTTPException(502, f"tartalomkör hiba: {e}")
     return {"ok": True, "sent": sent}
-
-
-def _orders_round(now: datetime) -> None:
-    """Egyszeri videómegbízások (orders.py). A hibát naplózzuk; RETRY_MIN perc múlva újra."""
-    try:
-        content.run_orders(store, now)
-    except Exception as e:  # noqa: BLE001
-        logger.warning("videómegbízás kimaradt: %s", e)
 
 
 def _content_round(now: datetime) -> None:
