@@ -1157,3 +1157,38 @@ def test_dim_secondary_text_is_found_and_blurred(tmp_path, monkeypatch):
     img.save(p)
     assert redact.redact_image(p) >= 1
     assert "Fábián" not in " ".join(l["text"] for l in redact.ocr_lines(p))
+
+
+def test_the_redacted_clip_is_written_next_to_the_original(tmp_path, monkeypatch):
+    """Élesben a kész elmosás a /tmp → /data átnevezésen hasalt el (két külön
+    lemez). A kész fájl most a végleges mellé készül, és onnan cserél."""
+    import redact
+    src = open(redact.__file__, encoding="utf-8").read()
+    assert 'out = path + ".redacting.webm"' in src
+    assert 'os.path.join(d, "out.webm")' not in src
+
+
+def test_upload_returns_at_once_and_conversion_runs_in_the_background(tmp_path, monkeypatch):
+    """Élesben egy 75 mp-es felvétel „Load failed"-del elhasalt: a feltöltés
+    megvárta az átalakítást. Most a kérés a mentés után visszatér."""
+    import media
+    monkeypatch.setattr(media, "MEDIA_DIR", str(tmp_path))
+    started = []
+    monkeypatch.setattr(media, "_start_processing", lambda mid: started.append(mid))
+    monkeypatch.setattr(media, "_run", lambda *a, **k: pytest.fail("a feltöltés nem alakíthat át"))
+    m = media.add_clip(b"raw-mov-bytes", "felvetel.mov")
+    assert started == [m["id"]] and m["status"] == "processing"
+    assert (tmp_path / m["raw"]).exists() and media.get(m["id"])["id"] == m["id"]
+    assert [x["id"] for x in media.listing()] == [m["id"]]        # látszik a tárban, amíg dolgozik
+
+    class R:
+        returncode = 0
+    monkeypatch.setattr(media, "_run", lambda args, timeout=180: open(args[-1], "wb").write(b"webm") and R())
+    monkeypatch.setattr(media, "_probe", lambda p: {"width": 720, "height": 1560, "seconds": 75.4})
+    monkeypatch.setattr(media, "analyse_clip", lambda p, s: [])
+    import redact
+    monkeypatch.setattr(redact, "redact_clip", lambda p, say=None: 9)
+    media._process_clip(m["id"])
+    done = media.get(m["id"])
+    assert done["status"] == "ready" and done["seconds"] == 75.4 and "raw" not in done
+    assert not (tmp_path / m["raw"]).exists()                     # az elmosatlan eredeti nem marad meg

@@ -354,7 +354,10 @@ def redact_clip(path: str, say=lambda m: None) -> int:
         sensitive = classify([l["text"] for s in samples for l in s["lines"]])
         steps = plan(samples, sensitive, 1.0 / SAMPLE_FPS)
         say(f"Elmosás: {len(sensitive)} különböző név/e-mail/szám…")
-        out = os.path.join(d, "out.webm")
+        # A kész fájl a végleges mellé készül (ugyanarra a kötetre): a /tmp és a
+        # /data külön lemez, a kettő között az átnevezés nem megy — élesben egy
+        # kész elmosás ezen hasalt el ("Invalid cross-device link").
+        out = path + ".redacting.webm"
         dec = subprocess.Popen([_ffmpeg(), "-hide_banner", "-loglevel", "error", "-i", path,
                                 "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
         enc = subprocess.Popen([_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", "-f", "rawvideo",
@@ -379,6 +382,10 @@ def redact_clip(path: str, say=lambda m: None) -> int:
             dec.wait(timeout=60)
             enc.wait(timeout=900)
         if enc.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0 or k == 0:
+            try:
+                os.remove(out)
+            except OSError:
+                pass
             raise RedactError("az elmosott felvételt nem sikerült elkészíteni")
         os.replace(out, path)
     return len(sensitive)
