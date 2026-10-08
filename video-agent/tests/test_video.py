@@ -1304,3 +1304,23 @@ def test_chunked_upload_is_reassembled_and_retries_overwrite(tmp_path, monkeypat
             media.save_chunk(bad, 0, 1, b"a")
     with pytest.raises(media.MediaError):
         media.save_chunk(uid, 3, 3, b"a")
+
+
+def test_hungarian_text_in_an_english_video_is_sent_back_for_translation():
+    sc = lambda **k: {"headline": "", "sub": "", "voice": "", "kicker": "", "lines": [], "lines2": [], **k}
+    script = {"scenes": [sc(headline="Mennyi időt veszít el a csapatod?", voice="How much time does your team lose?"),
+                         sc(lines=["Felesleges adminisztráció", "Slow replies"]),
+                         sc(headline="Try it live", sub="No sign-up, a demo in a minute")],
+              "post": "Try the live demos."}
+    bad = videomaker.wrong_language(script, "en")
+    assert bad == ["Mennyi időt veszít el a csapatod?", "Felesleges adminisztráció"]
+    assert videomaker.wrong_language(script, "hu") == []
+
+
+def test_english_video_films_the_english_site():
+    e = videomaker.english_site
+    assert e("https://aximbra.hu") == "https://aximbra.hu/en"
+    assert e("https://aximbra.hu/#agentek") == "https://aximbra.hu/en#agentek"
+    assert e("https://aximbra.hu/demo/email-agent") == "https://aximbra.hu/en/demo/email-agent"
+    assert e("https://aximbra.hu/en#eset") == "https://aximbra.hu/en#eset"
+    assert e("https://epistemebudapest.up.railway.app") == "https://epistemebudapest.up.railway.app"
