@@ -31,7 +31,12 @@ SAMPLE_FPS = 3
 PAD = 8               # px: a felismert sor köré ennyivel nagyobb takarás
 PIXEL = 14            # px: ekkora „kockákra" esik szét a takart rész
 MATCH_RATIO = 0.82    # ennyire hasonló szöveg ugyanaz a sor a következő mintán
-KEEP_NAMES = ("aximbra", "episteme")  # a saját márkát nem takarjuk
+# Ami ezeket tartalmazza, az látszik (a saját fiók és márka); minden más
+# tartalom elmosódik. Pl. a Google fiókválasztóban csak az aximbra-s fiók.
+KEEP_TERMS = tuple(t.strip().lower() for t in os.environ.get("REDACT_KEEP", "aximbra,episteme").split(",") if t.strip())
+# Az elmosási szabály változata: ha szigorodik, a korábban feldolgozott
+# felvételeket újra átnézzük (media.resume_pending).
+POLICY_VERSION = 2
 
 EMAIL_RE = re.compile(r"[\w.+-]+\s?@\s?[\w-]+(?:\.[\w-]+)+", re.I)
 PHONE_RE = re.compile(r"(?:\+|00)?\d[\d\s/().-]{7,}\d")
@@ -134,47 +139,67 @@ def rule_sensitive(text: str) -> bool:
     return bool(EMAIL_RE.search(text) or PHONE_RE.search(text) or AT_RE.search(text))
 
 
-CLASSIFY_PROMPT = """Below are text lines read from a screen recording that will be posted publicly. Mark every
-line that contains personal or identifying data: a person's name (full or first name), an email address or a part
-of one, a phone number, a street address, an account or order number, or the name of a real company or
-organisation (a sender, a client, a supplier). Do NOT mark the names AXIMBRA or EPISTEME, nor generic interface
-words (Inbox, Beérkezett, Kategória, Sürgős, Ma, Tegnap, Válasz, buttons, menu items, category labels).
-When unsure, mark it — an extra blur costs nothing, a missed name is a privacy breach.
+CLASSIFY_PROMPT = """Below are text lines read from a screen recording of an app (for example a Google sign-in or
+account chooser, Gmail, or an email-sorting agent showing its results). The recording will be posted publicly.
+Decide for every line whether it is INTERFACE text or CONTENT.
+INTERFACE — keep it readable: app and product names, page headings, buttons, menu items, field labels, category
+tags, status words, counters, dates and times on their own, and generic system messages or warnings (Google's
+sign-in, consent and "unverified app" screens are interface).
+CONTENT — blur it: anything that comes from a mailbox or an account: account names and addresses in an account
+chooser, senders, recipients, names of people or companies, email addresses, subjects, message previews, email
+text, summaries and suggested next steps written about an email, suggested replies, phone numbers, street
+addresses, order, invoice or account numbers.
+Lines that mention AXIMBRA or EPISTEME are kept, the rest of the content is blurred. When unsure, blur.
 
 LINES (id: text):
 {lines}
 
-Answer ONLY with JSON: {{"ids": [list of ids to blur]}}"""
+Answer ONLY with JSON: {{"blur": [ids of the lines to blur]}}"""
+
+
+def _kept(n: str) -> bool:
+    return any(k in n for k in KEEP_TERMS)
+
+
+def _looks_like_content(text: str) -> bool:
+    """Modell nélküli tartalék: a felület feliratai rövidek (gomb, címke,
+    fejléc); ami hosszabb, számot vagy @-ot tartalmaz, vagy névnek látszik,
+    az tartalom."""
+    words = text.split()
+    return (len(words) > 3 or bool(re.search(r"\d|@", text))
+            or bool(re.search(r"\b[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű]+\s+[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű]+", text)))
 
 
 def classify(texts: list[str]) -> set[str]:
-    """A takarandó sorok normalizált szövege. Szabály + modell; ha a modell nem
-    érhető el, a nagybetűvel kezdődő kétszavas sorokat is takarjuk (név-gyanú)."""
-    uniq = []
+    """A takarandó sorok normalizált szövege. Szigorú szabály: a felület
+    feliratai maradnak, minden tartalom (küldő, tárgy, levélszöveg, fiók)
+    elmosódik; ami a saját fiókot/márkát (KEEP_TERMS) tartalmazza, az látszik.
+    E-mail-cím és telefonszám szabállyal megy; a többit a modell dönti el, és
+    ha nem érhető el, minden hosszabb vagy névszerű sort elmosunk."""
+    originals: dict = {}
     for t in texts:
         n = _norm(t)
-        if n and n not in uniq:
-            uniq.append(n)
-    hit = {n for n in uniq if rule_sensitive(n)}
-    rest = [n for n in uniq if n not in hit and len(n) >= 2]
-    if not rest:
-        return hit
-    try:
-        import llm
-        listing = "\n".join(f"{i}: {t[:90]}" for i, t in enumerate(rest[:600]))
-        data = llm.extract_json(llm._ask(CLASSIFY_PROMPT.format(lines=listing)))
-        ids = data.get("ids") if isinstance(data, dict) else data
-        for i in ids or []:
-            try:
-                hit.add(rest[int(i)])
-            except (ValueError, TypeError, IndexError):
-                continue
-    except Exception as e:  # noqa: BLE001 — modell nélkül óvatosabban takarunk
-        logger.warning("névfelismerés modell nélkül: %s", e)
-        for orig in texts:
-            if re.search(r"\b[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű]+\s+[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű]+", orig):
-                hit.add(_norm(orig))
-    return {n for n in hit if not any(n == k or n.startswith(k + " ") and len(n) <= len(k) + 3 for k in KEEP_NAMES)}
+        if n and n not in originals:
+            originals[n] = t
+    hit = {n for n in originals if rule_sensitive(n)}
+    rest = [n for n in originals if n not in hit and len(n) >= 2 and not _kept(n)]
+    if rest:
+        try:
+            import llm
+            listing = "\n".join(f"{i}: {t[:90]}" for i, t in enumerate(rest[:800]))
+            data = llm.extract_json(llm._ask(CLASSIFY_PROMPT.format(lines=listing)))
+            ids = (data.get("blur") or data.get("ids")) if isinstance(data, dict) else data
+            for i in ids or []:
+                try:
+                    hit.add(rest[int(i)])
+                except (ValueError, TypeError, IndexError):
+                    continue
+            # Ami a modell válaszlistáján túl volt (800 sor fölött), azt a tartalék szabály dönti el.
+            hit |= {n for n in rest[800:] if _looks_like_content(originals[n])}
+        except Exception as e:  # noqa: BLE001 — modell nélkül óvatosabban takarunk
+            logger.warning("tartalom-felismerés modell nélkül: %s", e)
+            hit |= {n for n in rest if _looks_like_content(originals[n])}
+    return {n for n in hit if not _kept(n)}
 
 
 # ---- 3. követés két minta között ---------------------------------------------

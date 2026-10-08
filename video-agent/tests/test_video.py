@@ -1059,3 +1059,84 @@ def test_a_screenshot_loses_its_names_and_emails(tmp_path, monkeypatch):
     assert redact.redact_image(p) >= 2
     text = " ".join(l["text"] for l in redact.ocr_lines(p))
     assert "Kovács" not in text and "@" not in text and "Beérkezett" in text
+
+
+def test_only_the_own_account_stays_readable_and_email_content_is_blurred(monkeypatch):
+    """A fiókválasztóban csak az aximbra-s fiók látszik; az agent futásakor a
+    küldő, a tárgy és az összefoglaló is elmosódik, a felület felirata nem."""
+    import llm as video_llm
+    import redact
+    seen = {}
+
+    def ask(prompt):
+        seen["prompt"] = prompt
+        lines = dict(l.split(": ", 1) for l in prompt.split("LINES (id: text):\n")[1].split("\n\nAnswer")[0].splitlines())
+        return '{"blur": [%s]}' % ",".join(i for i, t in lines.items()
+                                          if t in ("kovács anna", "elmaradt szállítás – 3. nap", "a feladó panaszkodik a késésre"))
+    monkeypatch.setattr(video_llm, "_ask", ask)
+    hit = redact.classify(["Válasszon fiókot", "aximbra@gmail.com", "AXIMBRA", "kovacs.anna@gmail.com", "Kovács Anna",
+                           "Elmaradt szállítás – 3. nap", "A feladó panaszkodik a késésre", "Ügyfél – panasz", "Sürgős"])
+    assert "aximbra@gmail.com" not in hit and "aximbra" not in hit                  # a saját fiók látszik
+    assert {"kovacs.anna@gmail.com", "kovács anna", "elmaradt szállítás – 3. nap", "a feladó panaszkodik a késésre"} <= hit
+    assert not {"válasszon fiókot", "ügyfél – panasz", "sürgős"} & hit             # a felület olvasható
+    assert "aximbra" not in seen["prompt"].split("LINES (id: text):")[1]          # a sajátot meg sem kérdezzük
+
+
+def test_without_the_model_long_lines_count_as_content(monkeypatch):
+    import llm as video_llm
+    import redact
+    monkeypatch.setattr(video_llm, "_ask", lambda p: (_ for _ in ()).throw(video_llm.LLMError("x")))
+    hit = redact.classify(["Beérkezett levelek", "Árajánlatkérés 250 db éves keretszerződésre", "Válasz szükséges",
+                           "A szállítás három napja késik, kérem segítsenek"])
+    assert hit == {"árajánlatkérés 250 db éves keretszerződésre", "a szállítás három napja késik, kérem segítsenek"}
+
+
+def test_uploads_from_before_the_redaction_are_reprocessed(tmp_path, monkeypatch):
+    import json
+    import media
+    import redact
+    monkeypatch.setattr(media, "MEDIA_DIR", str(tmp_path))
+    started = []
+    monkeypatch.setattr(media, "_start_processing", lambda mid: started.append(mid))
+    monkeypatch.setattr(media.threading, "Thread", lambda target, args, daemon: type("T", (), {"start": lambda self: started.append(args[0])})())
+    def put(mid, **meta):
+        open(tmp_path / f"{mid}.webm", "wb").write(b"x")
+        json.dump({"id": mid, "file": f"{mid}.webm", "created_at": "2026-10-08", **meta}, open(tmp_path / f"{mid}.json", "w"))
+    put("a" * 12, kind="clip", source="upload")                                           # elmosás előtti feltöltés
+    put("b" * 12, kind="clip", source="upload", redact=True, redact_v=1, status="ready")  # enyhébb szabály
+    put("c" * 12, kind="clip", source="upload", redact=True, redact_v=redact.POLICY_VERSION, status="ready")
+    put("d" * 12, kind="clip", source="upload", redact=False, status="ready")             # a feltöltő kikapcsolta
+    put("e" * 12, kind="image", source="generated")                                       # AI-kép
+    assert media.resume_pending() == 2
+    assert sorted(started) == ["a" * 12, "b" * 12]
+    assert not media.ready(media.get("a" * 12)) and media.ready(media.get("c" * 12))
+
+
+def test_the_director_gets_the_on_screen_text_to_translate(monkeypatch):
+    clip = {"id": "f" * 12, "kind": "clip", "seconds": 60.0, "width": 720, "height": 1560, "name": "en-felvetel",
+            "segments": [{"from": 5, "to": 12, "what": "Google figyelmeztetés", "pace": "action",
+                          "screen_text": "A Google nem ellenőrizte ezt az alkalmazást", "screen_lang": "hu"}]}
+    p = videomaker.director_prompt("English summary", {"urls": [], "pages": [], "web": [], "library": [clip]},
+                                   60, "en", "9:16", True)
+    assert 'on screen (hu): "A Google nem ellenőrizte ezt az alkalmazást"' in p and "SUBTITLES" in p
+
+
+@pytest.mark.skipif(not __import__("redact").available(), reason="nincs tesseract")
+def test_account_chooser_shows_only_the_aximbra_account(tmp_path, monkeypatch):
+    import llm as video_llm
+    import redact
+    from PIL import Image, ImageDraw, ImageFont
+    monkeypatch.setattr(video_llm, "_ask", lambda p: (_ for _ in ()).throw(video_llm.LLMError("x")))
+    f = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 26)
+    img = Image.new("RGB", (720, 520), (255, 255, 255))
+    d = ImageDraw.Draw(img)
+    d.text((30, 30), "Válasszon fiókot", font=f, fill=(30, 30, 30))
+    d.text((30, 140), "aximbra@gmail.com", font=f, fill=(60, 60, 60))
+    d.text((30, 260), "Kovács Anna", font=f, fill=(30, 30, 30))
+    d.text((30, 310), "kovacs.anna@gmail.com", font=f, fill=(60, 60, 60))
+    p = str(tmp_path / "chooser.jpg")
+    img.save(p, quality=95)
+    redact.redact_image(p)
+    text = " ".join(l["text"] for l in redact.ocr_lines(p))
+    assert "aximbra@gmail.com" in text and "Válasszon" in text
+    assert "Kovács" not in text and "kovacs" not in text

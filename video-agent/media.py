@@ -159,11 +159,12 @@ def add_image(data: bytes, name: str, note: str = "", source: str = "upload", re
                   "-q:v", "3", out])
         if r.returncode != 0 or not os.path.exists(out):
             raise MediaError("ezt a képet nem sikerült beolvasni")
-    redacted = None
+    redacted, redact_v = None, None
     if redact_pii:
         import redact
         try:
             redacted = redact.redact_image(out)
+            redact_v = redact.POLICY_VERSION
         except Exception as e:  # noqa: BLE001 — elmosás nélkül nem kerülhet a tárba
             os.remove(out)
             logger.warning("képelmosás hiba: %s", e)
@@ -171,7 +172,8 @@ def add_image(data: bytes, name: str, note: str = "", source: str = "upload", re
     info = _probe(out)
     return _save(mid, {"id": mid, "kind": "image", "file": f"{mid}.jpg", "name": (name or "kép")[:80],
                        "note": note[:200], "source": source, "width": info.get("width"),
-                       "height": info.get("height"), "redacted": redacted,
+                       "height": info.get("height"), "redacted": redacted, "redact": bool(redact_pii),
+                       "redact_v": redact_v,
                        "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds")})
 
 
@@ -237,6 +239,7 @@ def _process_clip(mid: str) -> None:
             import redact
             try:
                 m["redacted"] = redact.redact_clip(path)
+                m["redact_v"] = redact.POLICY_VERSION
             except Exception as e:  # noqa: BLE001 — elmosás nélkül nem használható
                 logger.warning("klipelmosás hiba (%s): %s", mid, e)
                 _save(mid, {**m, "status": "failed", "error": "A személyes adatok elmosása nem sikerült."})
@@ -248,12 +251,54 @@ def _process_clip(mid: str) -> None:
             _busy.discard(mid)
 
 
+def _needs_redaction(m: dict) -> bool:
+    """Feltöltött anyag, ami nincs a mostani szabállyal elmosva: az elmosás
+    előtt feltöltött (nincs "redact" mezője), vagy egy enyhébb szabállyal
+    elmosott. Akinél a feltöltő kikapcsolta az elmosást, azt nem bántjuk."""
+    import redact
+    if m.get("source") != "upload":
+        return False
+    if "redact" not in m:
+        return True
+    return bool(m.get("redact")) and (m.get("redact_v") or 0) < redact.POLICY_VERSION
+
+
+def _process_image(mid: str) -> None:
+    try:
+        m, path = get(mid), path_of(mid)
+        if not m or not path:
+            return
+        import redact
+        try:
+            m["redacted"] = redact.redact_image(path)
+            _save(mid, {**m, "redact": True, "redact_v": redact.POLICY_VERSION, "status": "ready"})
+        except Exception as e:  # noqa: BLE001
+            logger.warning("képelmosás hiba (%s): %s", mid, e)
+            _save(mid, {**m, "redact": True, "status": "failed", "error": "A személyes adatok elmosása nem sikerült."})
+    finally:
+        with _busy_lock:
+            _busy.discard(mid)
+
+
 def resume_pending() -> int:
-    """Újraindulás után a félbemaradt feldolgozások folytatása."""
-    pending = [m["id"] for m in listing() if m.get("status") == "processing"]
-    for mid in pending:
-        _start_processing(mid)
-    return len(pending)
+    """Újraindulás után: a félbemaradt feldolgozások folytatása, és a még nem
+    (vagy enyhébb szabállyal) elmosott feltöltések újra átnézése. Addig ezek
+    sem kerülhetnek videóba ("processing")."""
+    todo = []
+    for m in listing():
+        if m.get("status") == "processing" or _needs_redaction(m):
+            _save(m["id"], {**m, "status": "processing", "redact": True})
+            todo.append(m)
+    for m in todo:
+        if m.get("kind") == "clip":
+            _start_processing(m["id"])
+        else:
+            with _busy_lock:
+                if m["id"] in _busy:
+                    continue
+                _busy.add(m["id"])
+            threading.Thread(target=_process_image, args=(m["id"],), daemon=True).start()
+    return len(todo)
 
 
 ANALYSIS_PROMPT = """This is a screen recording ({seconds:.0f} s) that will be edited into a short social video.
@@ -263,9 +308,13 @@ and its pace:
 - "action": typing, scrolling, tapping, moving between screens — something happens but nothing to read yet;
 - "result": the moment something worth reading appears or changes (a sorted list, a label, an answer, a
   confirmation) — the viewer must be able to read it.
+A Google sign-in, account-chooser or "unverified app" warning screen is "action" (it shows the demo is real), not "wait".
 Segments are 1–15 s long; "from" and "to" are seconds from the start. Describe in Hungarian, max 12 words each.
-Never write down personal data you see (names, email addresses, phone numbers): describe them generically.
-Answer ONLY with JSON: {{"segments": [{{"from": 0, "to": 6, "what": "...", "pace": "wait|action|result"}}]}}"""
+"screen_text": the main interface text the viewer would need to read in that segment (a warning, a button, a
+heading), copied in its original language, max 15 words, or "" if none; "screen_lang": its language code (hu, en…).
+Some parts are already blurred; never write down personal data (names, email addresses, phone numbers).
+Answer ONLY with JSON: {{"segments": [{{"from": 0, "to": 6, "what": "...", "pace": "wait|action|result",
+"screen_text": "", "screen_lang": ""}}]}}"""
 
 
 def _clean_segments(raw, total: float) -> list[dict]:
@@ -281,7 +330,9 @@ def _clean_segments(raw, total: float) -> list[dict]:
         if b - a < 0.5:
             continue
         pace = x.get("pace") if x.get("pace") in PACES else "action"
-        segs.append({"from": round(a, 1), "to": round(b, 1), "what": str(x.get("what") or "")[:90], "pace": pace})
+        lang = str(x.get("screen_lang") or "").strip().lower()[:5]
+        segs.append({"from": round(a, 1), "to": round(b, 1), "what": str(x.get("what") or "")[:90], "pace": pace,
+                     "screen_text": str(x.get("screen_text") or "")[:140], "screen_lang": lang})
     segs.sort(key=lambda s: s["from"])
     return segs[:40]
 

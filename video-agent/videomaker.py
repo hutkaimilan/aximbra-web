@@ -144,6 +144,8 @@ def _shelf_line(m: dict) -> str:
         line += f"  [{float(m.get('seconds') or 0):.0f} s, {shape}]"
         for g in m.get("segments") or []:
             line += f"\n      {g['from']:.0f}–{g['to']:.0f} s  {g['pace']}: {g['what']}"
+            if g.get("screen_text"):
+                line += '  | on screen (%s): "%s"' % (g.get("screen_lang") or "?", g["screen_text"])
     return line
 
 
@@ -216,6 +218,11 @@ problem, benefit, agents or cta — "site", "call" and "inbox" animate, so they 
     on screen, and the narration names what the viewer sees right then.
   * Keep the recording's order; never speed through text the narration talks about; a stretch of 1× after
     a fast one is what makes the result land.
+  * Sign-in, account-chooser and consent screens prove the demo is real: keep them at 2–3×, do not cut them.
+  * SUBTITLES: when the on-screen text of a stretch (listed as "on screen (xx)") is in another language than
+    this video, put a short translation of it into that scene's "sub", in the video's language — e.g. Google's
+    Hungarian "unverified app" warning gets an English sub in an English video. The viewer must understand
+    every screen.
 - "number": headline = a number FROM THE BRIEF OR SOURCES ONLY, sub = what it means.
 - "quote": headline = a quote FROM THE BRIEF OR SOURCES ONLY, sub = its source.
 - "cta": headline + "url" + sub + "button". Always last.
