@@ -237,9 +237,13 @@ def _process_clip(mid: str) -> None:
             return
         if m.get("redact"):
             import redact
+            import time as _t
+            t0 = _t.time()
+            logger.info("klip elmosása indul: %s (%s mp)", mid, m.get("seconds"))
             try:
                 m["redacted"] = redact.redact_clip(path)
                 m["redact_v"] = redact.POLICY_VERSION
+                logger.info("klip elmosva: %s — %s szöveg, %.0f mp alatt", mid, m["redacted"], _t.time() - t0)
             except Exception as e:  # noqa: BLE001 — elmosás nélkül nem használható
                 logger.warning("klipelmosás hiba (%s): %s", mid, e)
                 _save(mid, {**m, "status": "failed", "error": "A személyes adatok elmosása nem sikerült."})
