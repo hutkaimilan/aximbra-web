@@ -1140,3 +1140,20 @@ def test_account_chooser_shows_only_the_aximbra_account(tmp_path, monkeypatch):
     text = " ".join(l["text"] for l in redact.ocr_lines(p))
     assert "aximbra@gmail.com" in text and "Válasszon" in text
     assert "Kovács" not in text and "kovacs" not in text
+
+
+@pytest.mark.skipif(not __import__("redact").available(), reason="nincs tesseract")
+def test_dim_secondary_text_is_found_and_blurred(tmp_path, monkeypatch):
+    """Élesben a halványszürke összefoglaló sor („Zoltán Fábián sent a message
+    on LinkedIn.") kimaradt: a sima és a megfordított kép nem elég hozzá."""
+    import llm as video_llm
+    import redact
+    from PIL import Image, ImageDraw, ImageFont
+    monkeypatch.setattr(video_llm, "_ask", lambda p: (_ for _ in ()).throw(video_llm.LLMError("x")))
+    f = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 30)
+    img = Image.new("RGB", (900, 260), (11, 15, 26))
+    ImageDraw.Draw(img).text((40, 100), "Zoltán Fábián sent a message on", font=f, fill=(74, 85, 120))
+    p = str(tmp_path / "dim.png")
+    img.save(p)
+    assert redact.redact_image(p) >= 1
+    assert "Fábián" not in " ".join(l["text"] for l in redact.ocr_lines(p))
