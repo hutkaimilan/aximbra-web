@@ -1210,3 +1210,16 @@ def test_an_unknown_or_expired_attachment_is_refused():
     with pytest.raises(sales_app.HTTPException) as e:
         sales_app._advisor_file_list(["nincs-ilyen"])
     assert e.value.status_code == 410
+
+
+def test_a_long_brief_request_is_accepted(store, monkeypatch):
+    """A videós brief-kérés kb. 4300 karakter; a 4000-es korlát elutasította."""
+    import app as sales_app
+    calls = []
+    monkeypatch.setattr(llm, "_ask", lambda prompt, **kw: calls.append(prompt) or ('{"queries": []}' if len(calls) == 1 else "Brief."))
+    monkeypatch.setattr(websearch, "search", lambda q, n=4: [])
+    q = "Összefoglaló videót akarok az AXIMBRA-ról. " * 110
+    assert len(q) > 4300
+    sales_app.AskIn(question=q)
+    assert advisor.ask(store, q)["answer"] == "Brief."
+    assert q.strip()[-40:] in calls[1]                       # a vége sem vágódik le

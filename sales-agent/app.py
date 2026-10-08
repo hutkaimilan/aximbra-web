@@ -399,7 +399,7 @@ _advisor_lock = threading.Lock()
 
 
 class AskIn(BaseModel):
-    question: str = Field(min_length=1, max_length=4000)
+    question: str = Field(min_length=1, max_length=12000)
     lead_id: int | None = None
     # A tanácsadóhoz csatolt fájlok azonosítói (/api/advisor/files).
     files: list[str] = Field(default_factory=list, max_length=6)
