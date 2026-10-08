@@ -510,6 +510,9 @@ def craft_issues(script: dict, form: str = "video") -> list[str]:
     out = []
     scenes = script["scenes"]
     for i, s in enumerate(scenes):
+        if s["kind"] == "sms" and not s["lines"]:
+            out.append(f"Scene {i + 1} (sms) shows an empty phone: put the 1–2 text messages, word for word as the "
+                       f"recipient gets them, into its \"lines\".")
         if len(s["headline"].replace("*", "").split()) > 8:
             out.append(f"{i + 1}. jelenet: a címsor 8 szónál hosszabb, rövidítsd")
         if s["voice"] and not (s["headline"] or s["sub"] or s["lines"]) and s["kind"] not in VISUAL_KINDS:
@@ -1214,6 +1217,7 @@ def _produce(script: dict, opts: dict, ctx: dict, say, parent: str | None, form:
         done = f"{len(files)} kép"
     else:
         _attach_cues(script, opts["lang"], say)
+        script["lang"] = opts["lang"]   # a sablon állandó feliratai (SMS, hívás) ezen a nyelven
         if opts["voice"]:
             say("Hangalámondás…")
             audio, engine = narrate(script, opts["lang"], opts.get("male", False), say)

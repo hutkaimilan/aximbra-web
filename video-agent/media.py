@@ -271,6 +271,7 @@ def _process_clip(mid: str) -> None:
                 _save(mid, {**m, "status": "failed", "error": "A személyes adatok elmosása nem sikerült."})
                 return
         m["segments"] = analyse_clip(path, m.get("seconds") or 0)
+        m.pop("cues", None)   # az új részekhez a feliratot is újra kérjük
         _save(mid, {**m, "status": "ready"})
     finally:
         with _busy_lock:
