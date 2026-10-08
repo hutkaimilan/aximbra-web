@@ -1255,3 +1255,30 @@ def test_edge_female_voice_gets_a_spelling_it_can_say(monkeypatch):
     videomaker._tts_edge(text, "hu", male=True)
     assert "écsent" in said["hu-HU-NoemiNeural"] and "dzs" not in said["hu-HU-NoemiNeural"]
     assert "édzsent" in said["hu-HU-TamasNeural"]
+
+
+def test_foreign_screens_get_timed_subtitles_once(tmp_path, monkeypatch):
+    import json as _json
+    monkeypatch.setattr(media, "MEDIA_DIR", str(tmp_path))
+    segs = [{"from": 0, "to": 4, "what": "fiókválasztó", "pace": "action", "screen_text": "Válasszon fiókot", "screen_lang": "hu"},
+            {"from": 4, "to": 8, "what": "levelek", "pace": "result", "screen_text": "Számla március", "screen_lang": "hu"},
+            {"from": 8, "to": 20, "what": "agent fut", "pace": "result", "screen_text": "Sorting your inbox", "screen_lang": "en"}]
+    media._save("c0ffee000001", {"id": "c0ffee000001", "kind": "clip", "file": "x.webm", "seconds": 20, "segments": segs})
+    calls = []
+
+    def fake(prompt, **k):
+        calls.append(prompt)
+        return _json.dumps({"subs": [{"i": 0, "text": "Google sign-in: choose account"}, {"i": 1, "text": ""}]})
+
+    monkeypatch.setattr(llm, "_ask", fake)
+    cues = videomaker.clip_cues("c0ffee000001", "en")
+    assert cues == [{"from": 0, "to": 4, "text": "Google sign-in: choose account"}]
+    assert "Sorting your inbox" not in calls[0]          # az angol képernyő nem kap feliratot
+    assert videomaker.clip_cues("c0ffee000001", "en") == cues and len(calls) == 1   # tárolva
+    script = {"scenes": [{"kind": "clip", "media": "c0ffee000001", "from": 0, "speed": 2, "seconds": 3},
+                         {"kind": "clip", "media": "c0ffee000001", "from": 10, "speed": 1, "seconds": 4}]}
+    videomaker._attach_cues(script, "en", lambda m: None)
+    assert script["scenes"][0]["cues"] == cues and "cues" not in script["scenes"][1]
+    # magyar videóban a magyar képernyőhöz nem kell felirat
+    monkeypatch.setattr(llm, "_ask", lambda p, **k: _json.dumps({"subs": []}))
+    assert videomaker.clip_cues("c0ffee000001", "hu") == []

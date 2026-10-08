@@ -45,6 +45,11 @@ html,body{width:var(--W);height:var(--H);overflow:hidden;background:var(--bg);co
 .progress i{display:block;height:100%;background:var(--grad);transform-origin:left;animation:prog var(--total) linear both}
 @keyframes prog{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 .caption{position:absolute;left:var(--pad);right:var(--pad);bottom:40px;z-index:6;text-align:center}
+/* Időzített felirat a felvétel más nyelvű képernyőihez (pl. magyar Google-képernyő angol videóban). */
+.cues{position:absolute;left:var(--pad);right:var(--pad);bottom:40px;z-index:7;text-align:center;pointer-events:none}
+body.vid .cues{bottom:236px;right:80px}
+.cue{display:inline-block;max-width:100%;padding:8px 14px;border-radius:12px;background:rgba(255,214,10,.96);color:#111;
+  font:700 18px/1.3 var(--sans);box-shadow:0 6px 24px rgba(0,0,0,.35)}
 .cap{display:inline-block;padding:7px 12px;border-radius:10px;background:rgba(0,0,0,.62);color:#fff;font:500 16px/1.35 var(--sans);opacity:0}
 
 .scene{position:absolute;inset:0;padding:96px var(--pad) 84px;display:flex;flex-direction:column;justify-content:safe center;gap:20px;opacity:0}
@@ -162,6 +167,7 @@ body.land .shot{max-width:400px}
   <div class="brand"><div><i class="core"></i><b id="brandname">AXIMBRA</b></div><span id="tagline"></span></div>
   <div id="scenes"></div>
   <div class="caption" id="captions"></div>
+  <div class="cues" id="cues"></div>
   <div class="progress"><i></i></div>
 </div>
 <script>
@@ -239,7 +245,8 @@ function scene(s, t0, shots, dims, lib) {
       const m = lib[s.media];
       if (!m) return {txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
       // A felvétel egy szakasza: "from"-tól, "speed" sebességgel (a seek számolja).
-      const v = `<video src="${esc(m.src)}" data-start="${t0 - .1}" data-from="${+s.from || 0}" data-speed="${+s.speed || 1}" muted playsinline preload="auto" style="animation:none"></video>`;
+      const cue = s.cues && s.cues.length ? ` data-cue="${s._i}" data-end="${t0 - .1 + d}"` : "";
+      const v = `<video src="${esc(m.src)}"${cue} data-start="${t0 - .1}" data-from="${+s.from || 0}" data-speed="${+s.speed || 1}" muted playsinline preload="auto" style="animation:none"></video>`;
       if (s.layout === "phone")
         return {txt: head(s, t0) + rise("sub", s.sub, t0 + .6), vis: phone(`<div class="rec">${v}</div>`, t0)};
       return {bleed: `<div class="bleed">${v}</div>`, onbleed: true, txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
@@ -281,9 +288,15 @@ window.build = (cfg) => {
   document.body.className = [shape, cfg.stills ? "stills" : "", vid ? "vid" : ""].filter(Boolean).join(" ");
   const visH = cfg.aspect === "1:1" ? 354 : cfg.aspect === "16:9" ? 398
     : cfg.aspect === "4:5" ? 382 : vid ? 374 : 518;
-  let t = 0, caps = "";
+  let t = 0, caps = "", cueHtml = "";
+  CUES = {};
   const html = cfg.scenes.map((s, i) => {
     const t0 = t, last = i === cfg.scenes.length - 1;
+    s._i = i;
+    if (s.kind === "clip" && s.cues && s.cues.length) {
+      CUES[i] = s.cues;
+      cueHtml += `<span class="cue" id="cue${i}" style="display:none"></span>`;
+    }
     t += s.seconds;
     const outs = (last || cfg.stills) ? "" : `,sOut .45s ease-in ${t - .45}s forwards`;
     const r = scene(s, t0 + .1, cfg.shots || [], {visH}, cfg.lib || {});
@@ -296,6 +309,7 @@ window.build = (cfg) => {
   document.getElementById("brandname").textContent = cfg.brand || "AXIMBRA";
   document.getElementById("scenes").innerHTML = html;
   document.getElementById("captions").innerHTML = caps;
+  document.getElementById("cues").innerHTML = cueHtml;
   fitText();
   ENDS = cfg.scenes.reduce((acc, s) => (acc.push((acc[acc.length - 1] || 0) + s.seconds), acc), []);
   return t;
@@ -314,7 +328,7 @@ function fitText() {
 }
 // Álló dia: mivel nincs kimenő halványítás, a korábbi jelenetek ott maradnának
 // egymáson. Ezért egyszerre csak a kért diát mutatjuk, a végállapotában.
-let ENDS = [];
+let ENDS = [], CUES = {};
 window.slide = (i) => {
   const secs = [...document.querySelectorAll("#scenes .scene")];
   secs.forEach((el, k) => { el.style.display = k === i ? "" : "none"; });
@@ -330,6 +344,13 @@ window.seek = (ms) => {
     const len = isFinite(v.duration) ? v.duration : 0;
     const local = Math.max(0, ms / 1000 - (+v.dataset.start || 0));
     const want = Math.max(0, Math.min(Math.max(0, len - 0.05), (+v.dataset.from || 0) + local * (+v.dataset.speed || 1)));
+    if (v.dataset.cue) {
+      // A felirat csak a jelenet alatt, és csak a felvétel adott szakaszán látszik.
+      const box = document.getElementById("cue" + v.dataset.cue), now = ms / 1000;
+      const on = now >= (+v.dataset.start || 0) && now < (+v.dataset.end || 0);
+      const c = on && (CUES[v.dataset.cue] || []).find((x) => want >= x.from && want < x.to);
+      if (box) { box.textContent = c ? c.text : ""; box.style.display = c ? "" : "none"; }
+    }
     if (!len || Math.abs(v.currentTime - want) < 0.005) return done();
     const fin = () => { v.removeEventListener("seeked", fin); clearTimeout(t); done(); };
     const t = setTimeout(fin, 250);
