@@ -1324,3 +1324,15 @@ def test_english_video_films_the_english_site():
     assert e("https://aximbra.hu/demo/email-agent") == "https://aximbra.hu/en/demo/email-agent"
     assert e("https://aximbra.hu/en#eset") == "https://aximbra.hu/en#eset"
     assert e("https://epistemebudapest.up.railway.app") == "https://epistemebudapest.up.railway.app"
+
+
+def test_google_account_chooser_blurs_every_account_but_ours():
+    import redact
+    L = lambda t, y: {"text": t, "box": [10, y, 200, y + 20]}
+    lines = [L("accounts.google.com", 5), L("Válasszon fiókot", 100), L("Tovább ide: AXIMBRA", 130),
+             L("PaPPa Hutkai", 200), L("Kiss Péter", 260), L("aximbra@gmail.com", 320),
+             L("epistemebudape il.com", 380), L("Másik fiók használata", 440)]
+    got = redact.chooser_sensitive(lines)
+    assert got == {"pappa hutkai", "kiss péter", "epistemebudape il.com"}
+    assert "aximbra@gmail.com" not in got and "tovább ide: aximbra" not in got and "másik fiók használata" not in got
+    assert redact.chooser_sensitive([L("Inbox", 10), L("PaPPa Hutkai", 50)]) == set()

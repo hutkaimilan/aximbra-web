@@ -36,7 +36,7 @@ MATCH_RATIO = 0.82    # ennyire hasonló szöveg ugyanaz a sor a következő min
 KEEP_TERMS = tuple(t.strip().lower() for t in os.environ.get("REDACT_KEEP", "aximbra,episteme").split(",") if t.strip())
 # Az elmosási szabály változata: ha szigorodik, a korábban feldolgozott
 # felvételeket újra átnézzük (media.resume_pending).
-POLICY_VERSION = 3  # 3: a halványszürke szöveget is olvassuk (négy OCR-változat)
+POLICY_VERSION = 4  # 3: halványszürke szöveg is; 4: a Google-fiókválasztón minden fiók elmosva (az aximbra kivételével)
 
 EMAIL_RE = re.compile(r"[\w.+-]+\s?@\s?[\w-]+(?:\.[\w-]+)+", re.I)
 PHONE_RE = re.compile(r"(?:\+|00)?\d[\d\s/().-]{7,}\d")
@@ -217,6 +217,32 @@ def classify(texts: list[str]) -> set[str]:
     return {n for n in hit if not _kept(n)}
 
 
+# A Google-fiókválasztón a modell egy furcsán írt nevet („PaPPa Hutkai”)
+# felületnek nézett, és kint maradt. Ezért ott nem mérlegelünk: a fejléc
+# alatti minden sor fiók, és elmosódik — kivéve a saját fiókot (KEEP_TERMS)
+# és a választó állandó feliratait.
+CHOOSER_RE = re.compile(r"v[áa]lasszon fi[óo]kot|choose an account|select an account|fi[óo]k kiv[áa]laszt", re.I)
+CHOOSER_UI_RE = re.compile(r"v[áa]lasszon fi[óo]kot|choose an account|select an account|tov[áa]bb ide|continue to|"
+                           r"m[áa]sik fi[óo]k|use another account|fi[óo]k elt[áa]vol[ií]t|remove an account|"
+                           r"accounts\.google|^google$|s[úu]g[óo]|^help$|adatv[ée]delem|privacy|felt[ée]telek|terms|"
+                           r"^magyar|^english", re.I)
+
+
+def chooser_sensitive(lines: list[dict]) -> set[str]:
+    """Egy képkocka sorai közül a fiókválasztó fiókjai (normalizált szöveg)."""
+    heads = [l for l in lines if CHOOSER_RE.search(l["text"])]
+    if not heads:
+        return set()
+    top = min(l["box"][1] for l in heads)
+    out = set()
+    for l in lines:
+        n = _norm(l["text"])
+        # Itt csak az aximbra-fiók maradhat látható (az EPISTEME-fiók is elmosódik).
+        if l["box"][1] > top and len(n) >= 2 and "aximbra" not in n and not CHOOSER_UI_RE.search(n):
+            out.add(n)
+    return out
+
+
 # ---- 3. követés két minta között ---------------------------------------------
 
 def _similar(a: str, b: str) -> bool:
@@ -307,7 +333,7 @@ def redact_image(path: str) -> int:
     from PIL import Image
 
     lines = ocr_lines(path)
-    sens = classify([l["text"] for l in lines])
+    sens = classify([l["text"] for l in lines]) | chooser_sensitive(lines)
     boxes = [l["box"] for l in lines if _norm(l["text"]) in sens]
     if boxes:
         img = Image.open(path).convert("RGB")
@@ -352,6 +378,8 @@ def redact_clip(path: str, say=lambda m: None) -> int:
         # Az fps szűrő az i-edik kockát az i/SAMPLE_FPS időpont köré teszi.
         samples = [{"t": (i + 0.5) / SAMPLE_FPS, "lines": lines} for i, lines in enumerate(found)]
         sensitive = classify([l["text"] for s in samples for l in s["lines"]])
+        for s_ in samples:
+            sensitive |= chooser_sensitive(s_["lines"])
         steps = plan(samples, sensitive, 1.0 / SAMPLE_FPS)
         say(f"Elmosás: {len(sensitive)} különböző név/e-mail/szám…")
         # A kész fájl a végleges mellé készül (ugyanarra a kötetre): a /tmp és a

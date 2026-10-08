@@ -217,16 +217,16 @@ function scene(s, t0, shots, dims, lib) {
     case "call":
       return {txt: head(s, t0) + rise("sub", s.sub, t0 + .6),
         vis: phone(`<div class="call"><div class="avatar"><b>AI</b></div><div class="cname">${esc(s.caller || "AXIMBRA AI")}</div>
-          <div class="cstate">● ${esc(s.status || "HÍVÁS FOLYAMATBAN")}</div>
+          <div class="cstate">● ${esc(s.status || T().call)}</div>
           ${L.map((l, i) => `<div class="bub ${i % 2 ? "me" : "ai"}" style="animation:${anim("rise", .45, t0 + 1.1 + i * per(L.length) * 1.4)}">${esc(l)}</div>`).join("")}</div>`, t0)};
     case "sms":
       return {txt: head(s, t0) + rise("sub", s.sub, t0 + .6),
-        vis: phone(`<div class="sms"><div class="top"><b>${esc(s.caller || "SMS")}</b><small>ÜZENET · MOST</small></div>
+        vis: phone(`<div class="sms"><div class="top"><b>${esc(s.caller || "SMS")}</b><small>${T().msg}</small></div>
           ${L.map((l, i) => `<div class="smsb" style="animation:${anim("rise", .45, t0 + 1.1 + i * per(L.length) * 1.2)}">${esc(l)}</div>`).join("")}
-          <div class="smsok" style="animation:${anim("rise", .45, t0 + 1.5 + L.length * per(L.length) * 1.2)}">✓ KÉZBESÍTVE</div></div>`, t0)};
+          <div class="smsok" style="animation:${anim("rise", .45, t0 + 1.5 + L.length * per(L.length) * 1.2)}">✓ ${T().ok}</div></div>`, t0)};
     case "inbox":
       return {txt: head(s, t0) + rise("sub", s.sub, t0 + .6),
-        vis: phone(`<div class="inbox"><div class="top">${esc(s.app || "Beérkezett levelek")}</div>${L.map((l, i) => {
+        vis: phone(`<div class="inbox"><div class="top">${esc(s.app || T().inbox)}</div>${L.map((l, i) => {
           const [subj, tagtxt] = String(l).split("|");
           const t = t0 + .9 + i * .35;
           return `<div class="mail" style="animation:${anim("rise", .4, t)}">${esc(subj)}${tagtxt ? `<br><em style="animation:${anim("tag", .35, t + 1.2 + i * .25)}">${esc(tagtxt.trim())}</em>` : ""}</div>`;
@@ -281,6 +281,7 @@ function scene(s, t0, shots, dims, lib) {
 // cfg: {scenes, tagline, brand, theme, aspect, shots: [{src,height}], captions: bool,
 //       stills: bool (állókép/körhinta: se csík, se felirat)}; visszaadja a hosszt (s).
 window.build = (cfg) => {
+  LANG = cfg.lang === "en" ? "en" : "hu";
   document.body.dataset.theme = cfg.theme || "neon";
   const shape = cfg.aspect === "1:1" ? "square" : cfg.aspect === "16:9" ? "land"
     : cfg.aspect === "4:5" ? "tall" : "";
@@ -328,7 +329,11 @@ function fitText() {
 }
 // Álló dia: mivel nincs kimenő halványítás, a korábbi jelenetek ott maradnának
 // egymáson. Ezért egyszerre csak a kért diát mutatjuk, a végállapotában.
-let ENDS = [], CUES = {};
+let ENDS = [], CUES = {}, LANG = "hu";
+// A telefonos jelenetek állandó feliratai a videó nyelvén.
+const LABELS = {hu: {call: "HÍVÁS FOLYAMATBAN", msg: "ÜZENET · MOST", ok: "KÉZBESÍTVE", inbox: "Beérkezett levelek"},
+                en: {call: "CALL IN PROGRESS", msg: "MESSAGE · NOW", ok: "DELIVERED", inbox: "Inbox"}};
+const T = () => LABELS[LANG] || LABELS.hu;
 window.slide = (i) => {
   const secs = [...document.querySelectorAll("#scenes .scene")];
   secs.forEach((el, k) => { el.style.display = k === i ? "" : "none"; });
