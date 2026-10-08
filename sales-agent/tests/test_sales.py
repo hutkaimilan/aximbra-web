@@ -1007,7 +1007,10 @@ def test_content_sends_two_briefs_once_and_never_leaks_names(store, monkeypatch)
     content.run(store, later)                                              # ugyanazt a témát küldi újra
     assert [s["id"] for s in sent] == ["sales-2026-10-05-hu", "sales-2026-10-05-en"]
     assert sent[0]["targets"] == ["linkedin"] and sent[1]["targets"] == ["instagram"]
-    assert sent[0]["form"] == "carousel" and company.lower() not in sent[0]["brief"].lower()
+    # A formát a kód adja, nem a modell (az itt mást írt vissza).
+    assert sent[0]["form"] == content.pick_form("hu", now.date())
+    assert sent[1]["form"] == content.pick_form("en", now.date())
+    assert company.lower() not in sent[0]["brief"].lower()
     assert not content.due(later + timedelta(hours=2), store)             # ma kész
     assert content.due(later + timedelta(days=1), store)
 
@@ -1028,23 +1031,90 @@ def test_content_covers_every_agent_before_repeating_any(store, monkeypatch):
     sent = []
     monkeypatch.setattr(content, "_send", lambda item: sent.append(item))
 
+    ROT = content.ROTATION
     start = datetime(2026, 10, 5, 7, 45)
-    for d in range(len(AGENTS)):
+    for d in range(len(ROT)):
         content.run(store, start + timedelta(days=d))
 
     order = _json.loads(store.get_setting("content_agents"))
-    assert order == [a["key"] for a in AGENTS]            # mind sorra kerül, pont egyszer
-    assert len(set(order)) == len(AGENTS) >= 15
+    assert order == [a["key"] for a in ROT]               # mind sorra kerül, pont egyszer
+    assert len(set(order)) == len(ROT) >= 16
+    assert "voice" in order                               # a telefonos agent is, pedig nem kártya
+    assert {a["key"] for a in AGENTS} <= set(order)
 
     # Egy nap = egy agent, és az a LinkedInre is, az Instagramra is kimegy.
     day = (start + timedelta(days=3)).date().isoformat()
     pair = [s for s in sent if s["id"].startswith(f"sales-{day}-")]
     assert [s["targets"] for s in pair] == [["linkedin"], ["instagram"]]
-    assert {s["source"] for s in pair} == {f"sales agent · {AGENTS[3]['key']}"}
+    assert {s["source"] for s in pair} == {f"sales agent · {ROT[3]['key']}"}
 
-    # A tizenhatodik nap a legrégebbit hozza vissza, nem a modell kedvencét.
-    content.run(store, start + timedelta(days=len(AGENTS)))
-    assert _json.loads(store.get_setting("content_agents"))[-1] == AGENTS[0]["key"]
+    # A tizenhetedik nap a legrégebbit hozza vissza, nem a modell kedvencét.
+    content.run(store, start + timedelta(days=len(ROT)))
+    assert _json.loads(store.get_setting("content_agents"))[-1] == ROT[0]["key"]
+
+
+def test_after_the_first_day_s_email_post_the_phone_agent_comes_next(store, monkeypatch):
+    """Élesben az első napon az e-mail rendező ment ki; a következő a telefonos."""
+    import json as _json
+    import content
+    store.set_setting("content_agents", _json.dumps(["email"]))
+    assert content.pick_agent(store)["key"] == "voice"
+
+
+def test_the_sector_rotates_too_instead_of_always_manufacturing(store, monkeypatch):
+    """Magára hagyva a modell minden nap gyártó cégről írt. Az iparágat is a
+    kód forgatja: mind a tíz sorra kerül, és a prompt meg is kapja."""
+    import json as _json
+    import content
+    from playbook import SECTORS
+    monkeypatch.setenv("CONTENT_DAILY", "1")
+    monkeypatch.setenv("AGENT_TOKEN", "x" * 32)
+    prompts = []
+
+    def ask(prompt):
+        prompts.append(prompt)
+        return _json.dumps({"hu": {"brief": "AXIMBRA: egy reggel a közös postafiókkal, kkv-vezetőknek."},
+                            "en": {"brief": "AXIMBRA: one morning with a shared inbox, for owners."}})
+    monkeypatch.setattr(content.llm, "_ask", ask)
+    monkeypatch.setattr(content, "_send", lambda item: None)
+    start = datetime(2026, 10, 5, 7, 45)
+    for d in range(len(SECTORS)):
+        content.run(store, start + timedelta(days=d))
+    order = _json.loads(store.get_setting("content_sectors"))
+    assert sorted(order) == sorted(SECTORS)
+    for p, key in zip(prompts, order):
+        assert f"({key})" in p and SECTORS[key]["hu"] in p
+
+
+def test_forms_alternate_so_both_platforms_get_videos_and_images():
+    """LinkedInre csak kép, Instagramra csak videó ment, mert a modell így
+    választott. A kód most platformonként fele-fele arányban váltogat, és egy
+    napon az egyik platform videót, a másik állóképet kap."""
+    import content
+    from datetime import date
+    days = [date(2026, 10, 8) + timedelta(days=i) for i in range(28)]
+    for lang in ("hu", "en"):
+        forms = [content.pick_form(lang, d) for d in days]
+        assert forms.count("video") == len(days) // 2
+        assert forms.count("image") + forms.count("carousel") == len(days) // 2
+        assert all(a != b or a != "video" for a, b in zip(forms, forms[1:]))  # két videó nem jön egymás után
+    for d in days:
+        assert (content.pick_form("hu", d) == "video") != (content.pick_form("en", d) == "video")
+
+
+def test_the_prompt_names_today_s_weekday():
+    """2026-10-08 csütörtök volt, a poszt mégis „szerda reggelt" írt."""
+    import content
+    from datetime import date
+    m = {"groups": {"hu": {"sectors": __import__("collections").Counter(), "pains": [], "signals": []},
+                    "en": {"sectors": __import__("collections").Counter(), "pains": [], "signals": []}},
+         "names": set(), "best": []}
+    d = date(2026, 10, 8)
+    p = content._prompt(m, [], d.isoformat(), content.ROTATION[1], "logistics",
+                        (content.HU_DAYS[d.weekday()], content.EN_DAYS[d.weekday()]),
+                        {"hu": "video", "en": "image"})
+    assert "csütörtök" in p and "Thursday" in p and "szerda" not in p
+    assert "rövid videó" in p and "egyetlen kép" in p
 
 
 def test_rotation_lists_exactly_the_agents_the_website_sells():
