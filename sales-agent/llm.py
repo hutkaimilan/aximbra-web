@@ -36,11 +36,13 @@ def provider() -> str:
     return "gemini" if os.environ.get("GEMINI_API_KEY") else "openai"
 
 
-def _gemini(prompt: str, search: bool) -> str:
+def _gemini(prompt: str, search: bool, files: list | None = None) -> str:
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not key:
         raise LLMError("nincs beállítva a GEMINI_API_KEY")
-    body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}]}
+    # A csatolt fájlok (kép, videó, PDF) a Gemini fájltárában vannak; itt csak hivatkozunk rájuk.
+    parts = [{"file_data": {"mime_type": f["mime"], "file_uri": f["uri"]}} for f in (files or [])]
+    body = {"contents": [{"role": "user", "parts": [*parts, {"text": prompt}]}]}
     if search:
         body["tools"] = [{"google_search": {}}]
     # Az ingyenes szint percenkénti korlátja gyorsan betelik: ilyenkor várunk
@@ -70,9 +72,12 @@ def _gemini(prompt: str, search: bool) -> str:
     raise LLMError("a Gemini percenkénti kerete többszöri várakozás után is tele volt")
 
 
-def _ask(prompt: str, search: bool = False, country: str | None = None, model: str | None = None) -> str:
+def _ask(prompt: str, search: bool = False, country: str | None = None, model: str | None = None,
+         files: list | None = None) -> str:
     if provider() == "gemini":
-        return _gemini(prompt, search)
+        return _gemini(prompt, search, files)
+    if files:
+        raise LLMError("csatolt fájlt csak a Gemini lát (LLM_PROVIDER=gemini)")
     kwargs = {"model": model or WRITE_MODEL, "input": prompt}
     if search:
         kwargs["tools"] = [{"type": "web_search", "user_location": {"type": "approximate", "country": country}}]
@@ -205,3 +210,39 @@ def draft_reply(original: str, reply: str, slots: list[str], lang: str) -> str:
     if not body.strip():
         raise LLMError("a válaszíró nem adott szöveget")
     return paragraphs(body)
+
+
+# ---- csatolt fájlok (Gemini fájltár) -----------------------------------------
+
+UPLOAD_URL = "https://generativelanguage.googleapis.com/upload/v1beta/files"
+FILE_URL = "https://generativelanguage.googleapis.com/v1beta/{name}"
+
+
+def upload_file(data: bytes, mime: str, name: str, wait_seconds: int = 300) -> dict:
+    """Feltöltés a Gemini fájltárába (két lépésben, ahogy a nagy fájlokhoz kell),
+    és várakozás, amíg a videót feldolgozza. A fájl kb. 48 óráig él ott."""
+    key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not key:
+        raise LLMError("nincs beállítva a GEMINI_API_KEY")
+    try:
+        start = httpx.post(UPLOAD_URL, headers={
+            "x-goog-api-key": key, "X-Goog-Upload-Protocol": "resumable", "X-Goog-Upload-Command": "start",
+            "X-Goog-Upload-Header-Content-Length": str(len(data)), "X-Goog-Upload-Header-Content-Type": mime,
+            "Content-Type": "application/json"}, json={"file": {"display_name": (name or "fajl")[:100]}}, timeout=60)
+        url = start.headers.get("x-goog-upload-url")
+        if start.status_code >= 400 or not url:
+            raise LLMError(f"a feltöltés nem indult el ({start.status_code}): {start.text[:160]}")
+        r = httpx.post(url, headers={"Content-Length": str(len(data)), "X-Goog-Upload-Offset": "0",
+                                     "X-Goog-Upload-Command": "upload, finalize"}, content=data, timeout=900)
+        if r.status_code >= 400:
+            raise LLMError(f"a feltöltés elhasalt ({r.status_code}): {r.text[:160]}")
+        f = (r.json() or {}).get("file") or {}
+        deadline = time.time() + wait_seconds
+        while f.get("state") == "PROCESSING" and time.time() < deadline:
+            time.sleep(3)
+            f = httpx.get(FILE_URL.format(name=f["name"]), headers={"x-goog-api-key": key}, timeout=60).json()
+    except httpx.HTTPError as e:
+        raise LLMError(f"a Gemini fájltára nem érhető el ({type(e).__name__})") from e
+    if f.get("state") != "ACTIVE" or not f.get("uri"):
+        raise LLMError(f"a fájlt a Gemini nem tudta feldolgozni ({f.get('state') or 'ismeretlen állapot'})")
+    return {"uri": f["uri"], "mime": f.get("mimeType") or mime, "gemini_name": f["name"]}

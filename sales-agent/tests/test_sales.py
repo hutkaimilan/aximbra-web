@@ -1171,3 +1171,42 @@ def test_content_retry_keeps_the_same_agent_and_never_burns_one(store, monkeypat
     assert _json.loads(store.get_setting("content_agents")) == [AGENTS[0]["key"]]
     assert {s["source"] for s in sent} == {f"sales agent · {AGENTS[0]['key']}"}
 
+
+
+def test_advisor_sees_attached_files(store, monkeypatch):
+    """Csatolt videó/kép: a válaszkérés megkapja, a planner nem, és a
+    beszélgetésben látszik, mi volt csatolva."""
+    calls = []
+
+    def fake_ask(prompt, **kw):
+        calls.append(kw.get("files"))
+        return '{"queries": []}' if len(calls) == 1 else "Gyorsítsd a 0–12. mp-et."
+    monkeypatch.setattr(llm, "_ask", fake_ask)
+    monkeypatch.setattr(websearch, "search", lambda q, n=4: [])
+    f = {"uri": "https://generativelanguage.googleapis.com/v1beta/files/abc", "mime": "video/mp4", "name": "felvetel.mp4"}
+    out = advisor.ask(store, "Hol gyorsítsak a felvételen?", None, [f])
+    assert out["answer"].startswith("Gyorsítsd")
+    assert calls[0] is None and calls[1] == [f]
+    assert "📎 felvetel.mp4" in store.advisor_history()[0]["content"]
+
+
+def test_gemini_request_carries_the_attached_files(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    sent = {}
+
+    class R:
+        status_code = 200
+        text = ""
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]}
+    monkeypatch.setattr(llm.httpx, "post", lambda url, headers, json, timeout: sent.update(body=json) or R())
+    assert llm._gemini("kérdés", False, [{"uri": "u1", "mime": "image/png"}]) == "ok"
+    parts = sent["body"]["contents"][0]["parts"]
+    assert parts[0] == {"file_data": {"mime_type": "image/png", "file_uri": "u1"}} and parts[-1] == {"text": "kérdés"}
+
+
+def test_an_unknown_or_expired_attachment_is_refused():
+    import app as sales_app
+    with pytest.raises(sales_app.HTTPException) as e:
+        sales_app._advisor_file_list(["nincs-ilyen"])
+    assert e.value.status_code == 410

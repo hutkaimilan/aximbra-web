@@ -222,6 +222,13 @@ details summary{cursor:pointer}
     <label>Mit akarsz? Írd le szabadon</label>
     <textarea id="vBrief" style="min-height:160px" placeholder="Pl.: 30 mp-es álló videó logisztikai cégvezetőknek arról, hogy a közös ügyfélszolgálati postafiókot az AXIMBRA e-mail agentje reggelre rendezi. Komoly, de modern hangulat. Link: https://aximbra.hu&#10;&#10;Vagy: körhinta 5 képben arról, mit csinál egy AI agent egy webshopnál."></textarea>
     <div class="chips" id="vChips" style="margin-top:8px"></div>
+    <label>Kép vagy videó, amivel dolgoznia kell (nem kötelező)</label>
+    <div class="row" style="gap:8px;align-items:center">
+      <label class="pri" style="display:inline-flex;align-items:center;gap:8px;margin:0;padding:10px 14px;border-radius:12px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:14px">
+        ＋ Kép / videó csatolása<input type="file" id="vAttach" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" multiple style="display:none"></label>
+      <span class="mute" id="vAttachInfo"></span>
+    </div>
+    <div class="chips" id="vAttached" style="margin-top:6px"></div>
     <div class="plan" style="grid-template-columns:1fr 1fr;margin-top:4px">
       <div><label>Mit készítsek</label><select id="vForm"><option value="auto">Amit a leírás kér (magától dönt)</option><option value="video">Videó</option><option value="image">Egy kép</option><option value="carousel">Körhinta (3–6 kép)</option><option value="logo">Logó / profilkép (3 változat)</option></select></div>
       <div id="vAspectBox"><label>Képarány</label><select id="vAspect"><option value="9:16">Álló 9:16 (Reels, TikTok, Story)</option><option value="4:5">Álló 4:5 (feed, a legtöbb helyet foglalja)</option><option value="1:1">Négyzet 1:1 (feed)</option><option value="16:9">Fekvő 16:9 (YouTube, web)</option></select></div>
@@ -480,6 +487,33 @@ $("#jobStop").onclick = async () => {
   $("#jobStop").disabled = true;
   try { await api("/api/job/stop", {}); refresh(); } catch (e) { flash(e.message); $("#jobStop").disabled = false; }
 };
+// Az ehhez a videóhoz csatolt média: feltöltjük a médiatárba (a klipet ott
+// meg is nézi és részekre bontja), és az azonosítókat a kéréssel küldjük —
+// a rendezőnek mindet fel kell használnia.
+let attached = [];
+function drawAttached() {
+  $("#vAttached").innerHTML = attached.map((m, i) =>
+    `<button type="button" data-ai="${i}" title="Eltávolítás">${m.kind === "clip" ? "🎬" : "🖼"} ${esc(m.name)}${m.kind === "clip" && m.seconds ? ` · ${Math.round(m.seconds)} mp` : ""}${m.kind === "clip" ? (m.segments && m.segments.length ? ` · ${m.segments.length} rész` : " · elemzés nélkül") : ""} ✕</button>`).join("");
+}
+$("#vAttached").onclick = (e) => {
+  const b = e.target.closest("[data-ai]"); if (!b) return;
+  attached.splice(+b.dataset.ai, 1); drawAttached();
+};
+$("#vAttach").onchange = async (e) => {
+  const files = [...(e.target.files || [])]; e.target.value = "";
+  for (const [i, f] of files.entries()) {
+    $("#vAttachInfo").textContent = `${i + 1}/${files.length}: ${f.name} feltöltése${f.type.startsWith("video") ? " és elemzése (egy hosszabb felvételnél pár perc)" : ""}…`;
+    const fd = new FormData(); fd.append("file", f); fd.append("note", "ehhez a videóhoz csatolva");
+    try {
+      const r = await fetch("/api/media", {method: "POST", body: fd});
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error((d && d.detail) || ("Hiba " + r.status));
+      attached.push(d); drawAttached();
+    } catch (err) { flash(`${f.name}: ${err.message}`); }
+  }
+  $("#vAttachInfo").textContent = attached.length ? "A rendező ezeket mind felhasználja." : "";
+  mSeen = ""; refresh();
+};
 vFormChanged();
 $("#vGo").onclick = async () => {
   const brief = $("#vBrief").value.trim();
@@ -487,8 +521,9 @@ $("#vGo").onclick = async () => {
   const voice = $("#vVoice").value;
   try {
     await api("/api/videos", {brief, seconds: +$("#vSec").value, lang: $("#vLang").value, aspect: $("#vAspect").value,
-      form: $("#vForm").value, voice: !!voice, male: voice === "m", research: $("#vResearch").checked});
-    flash("Készül, a folyamat fent látszik."); refresh();
+      form: $("#vForm").value, voice: !!voice, male: voice === "m", research: $("#vResearch").checked,
+      media: attached.map((m) => m.id)});
+    flash("Készül, a folyamat fent látszik."); attached = []; drawAttached(); $("#vAttachInfo").textContent = ""; refresh();
   } catch (e) { flash(e.message); }
 };
 $("#videos").onclick = async (e) => {

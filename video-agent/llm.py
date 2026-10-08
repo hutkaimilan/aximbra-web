@@ -89,11 +89,11 @@ def _anthropic(prompt: str) -> str:
     raise _Fallback("a Claude többszöri várakozás után is túlterhelt")
 
 
-def _gemini(prompt: str) -> str:
+def _gemini(prompt: str, media_parts: list | None = None) -> str:
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not key:
         raise LLMError("nincs beállítva a GEMINI_API_KEY")
-    body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}]}
+    body = {"contents": [{"role": "user", "parts": [*(media_parts or []), {"text": prompt}]}]}
     for attempt in range(5):
         try:
             # Fejlécben küldjük, így a kulcs nem kerül bele az URL-be (naplókba).
@@ -161,3 +161,14 @@ def extract_json(text: str):
             except json.JSONDecodeError:
                 continue
     raise LLMError("a modell nem adott értelmezhető JSON-t")
+
+
+def ask_about_media(prompt: str, data: bytes, mime: str) -> str:
+    """Egy kép vagy rövid videó megnézése (Gemini, a fájl a kérésben utazik).
+    Más szolgáltatónál nincs ilyen út: ott a hívó üres választ kap, és a
+    média leírás nélkül marad."""
+    if provider() != "gemini":
+        raise LLMError("a média megnézése csak Geminivel megy")
+    import base64
+    part = {"inline_data": {"mime_type": mime, "data": base64.b64encode(data).decode()}}
+    return _gemini(prompt, [part])

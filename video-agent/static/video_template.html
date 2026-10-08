@@ -143,6 +143,9 @@ body.tall .cname,body.square .cname{font-size:15px}
 .scene>.txt,.scene>.vis{position:relative;z-index:1}
 .onbleed{color:#fff;text-shadow:0 2px 18px rgba(0,0,0,.55)}
 .onbleed .sub{color:rgba(255,255,255,.88)}
+/* képernyőfelvétel a telefonban: kitölti a kijelzőt, a teteje látszik */
+.rec{position:absolute;inset:0;background:#000}
+.rec video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top}
 .shot{border-radius:20px;overflow:hidden;border:1px solid var(--cline);background:var(--card);
   box-shadow:0 20px 60px rgba(0,0,0,.4);max-width:100%}
 .shot img,.shot video{display:block;width:100%;height:auto}
@@ -235,8 +238,11 @@ function scene(s, t0, shots, dims, lib) {
     case "clip": {
       const m = lib[s.media];
       if (!m) return {txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
-      return {bleed: `<div class="bleed"><video src="${esc(m.src)}" data-start="${t0 - .1}" muted playsinline preload="auto" style="animation:none"></video></div>`,
-        onbleed: true, txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
+      // A felvétel egy szakasza: "from"-tól, "speed" sebességgel (a seek számolja).
+      const v = `<video src="${esc(m.src)}" data-start="${t0 - .1}" data-from="${+s.from || 0}" data-speed="${+s.speed || 1}" muted playsinline preload="auto" style="animation:none"></video>`;
+      if (s.layout === "phone")
+        return {txt: head(s, t0) + rise("sub", s.sub, t0 + .6), vis: phone(`<div class="rec">${v}</div>`, t0)};
+      return {bleed: `<div class="bleed">${v}</div>`, onbleed: true, txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
     }
     case "gallery": {
       const ids = (s.medias || []).filter((x) => lib[x]).slice(0, 4);
@@ -322,7 +328,8 @@ window.seek = (ms) => {
   if (!vids.length) return;
   return Promise.all(vids.map((v) => new Promise((done) => {
     const len = isFinite(v.duration) ? v.duration : 0;
-    const want = Math.max(0, Math.min(Math.max(0, len - 0.05), ms / 1000 - (+v.dataset.start || 0)));
+    const local = Math.max(0, ms / 1000 - (+v.dataset.start || 0));
+    const want = Math.max(0, Math.min(Math.max(0, len - 0.05), (+v.dataset.from || 0) + local * (+v.dataset.speed || 1)));
     if (!len || Math.abs(v.currentTime - want) < 0.005) return done();
     const fin = () => { v.removeEventListener("seeked", fin); clearTimeout(t); done(); };
     const t = setTimeout(fin, 250);

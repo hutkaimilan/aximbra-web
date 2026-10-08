@@ -24,11 +24,18 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 MEDIA_DIR = os.environ.get("MEDIA_DIR", "/data/media")
-MAX_BYTES = 60 * 1024 * 1024
+# Egy telefonos képernyőfelvétel egy-két perc alatt is 100 MB fölé megy.
+MAX_BYTES = 250 * 1024 * 1024
 IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 CLIP_TYPES = {"video/mp4": ".mp4", "video/quicktime": ".mov", "video/webm": ".webm"}
 MAX_IMAGE_W = 1600
-MAX_CLIP_SECONDS = 20
+# Hosszabb felvétel is mehet (pl. egy agent végigkattintva): a rendező darabolja
+# és gyorsítja, lásd a jelenetek "from" és "speed" mezőjét.
+MAX_CLIP_SECONDS = 180
+# Az elemzéshez kis másolat kell: a modell úgyis kb. másodpercenként egy
+# képkockát néz, és a kérésben utazó fájl legfeljebb ~20 MB lehet.
+ANALYSIS_MAX_BYTES = 18 * 1024 * 1024
+PACES = ("wait", "action", "result")
 KEEP = 60
 
 
@@ -169,17 +176,73 @@ def add_clip(data: bytes, name: str, note: str = "") -> dict:
         src = os.path.join(d, "in")
         with open(src, "wb") as f:
             f.write(data)
+        # 720 px elég: a videóban egy telefon képernyőjén vagy 540 px szélesen
+        # jelenik meg. A gyors beállítás egy kétperces felvételt is perceken
+        # belül feldolgoz, így a feltöltés nem fut ki az időből.
         r = _run(["-i", src, "-t", str(MAX_CLIP_SECONDS), "-an",
-                  "-vf", "scale='min(1080,iw)':-2:flags=lanczos,fps=30",
-                  "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "34", "-deadline", "good",
-                  "-cpu-used", "5", "-row-mt", "1", out], timeout=900)
+                  "-vf", "scale='min(720,iw)':-2:flags=lanczos,fps=30",
+                  "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "36", "-deadline", "realtime",
+                  "-cpu-used", "8", "-row-mt", "1", out], timeout=900)
         if r.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
             raise MediaError("ezt a videót nem sikerült beolvasni")
     info = _probe(out)
-    return _save(mid, {"id": mid, "kind": "clip", "file": f"{mid}.webm", "name": (name or "klip")[:80],
-                       "note": note[:200], "source": "upload", "width": info.get("width"),
-                       "height": info.get("height"), "seconds": info.get("seconds"),
-                       "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+    meta = {"id": mid, "kind": "clip", "file": f"{mid}.webm", "name": (name or "klip")[:80],
+            "note": note[:200], "source": "upload", "width": info.get("width"),
+            "height": info.get("height"), "seconds": info.get("seconds"),
+            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    meta["segments"] = analyse_clip(out, meta.get("seconds") or 0)
+    return _save(mid, meta)
+
+
+ANALYSIS_PROMPT = """This is a screen recording ({seconds:.0f} s) that will be edited into a short social video.
+Split it into consecutive segments covering the whole recording, in order, and for each say what is on screen
+and its pace:
+- "wait": loading, a spinner, an empty or unchanged screen, a consent or login screen, the user hesitating;
+- "action": typing, scrolling, tapping, moving between screens — something happens but nothing to read yet;
+- "result": the moment something worth reading appears or changes (a sorted list, a label, an answer, a
+  confirmation) — the viewer must be able to read it.
+Segments are 1–15 s long; "from" and "to" are seconds from the start. Describe in Hungarian, max 12 words each.
+Never write down personal data you see (names, email addresses, phone numbers): describe them generically.
+Answer ONLY with JSON: {{"segments": [{{"from": 0, "to": 6, "what": "...", "pace": "wait|action|result"}}]}}"""
+
+
+def _clean_segments(raw, total: float) -> list[dict]:
+    segs = []
+    for x in raw if isinstance(raw, list) else []:
+        if not isinstance(x, dict):
+            continue
+        try:
+            a, b = float(x.get("from")), float(x.get("to"))
+        except (TypeError, ValueError):
+            continue
+        a, b = max(0.0, a), min(total or b, b)
+        if b - a < 0.5:
+            continue
+        pace = x.get("pace") if x.get("pace") in PACES else "action"
+        segs.append({"from": round(a, 1), "to": round(b, 1), "what": str(x.get("what") or "")[:90], "pace": pace})
+    segs.sort(key=lambda s: s["from"])
+    return segs[:40]
+
+
+def analyse_clip(path: str, seconds: float) -> list[dict]:
+    """A felvétel részei időbélyeggel: mi látszik, és várakozás, mozgás vagy
+    eredmény-e. Ebből tudja a rendező, hol gyorsítson és hol ne. Ha az
+    elemzés nem sikerül, üres lista: a klip attól még használható."""
+    import llm
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            small = os.path.join(d, "a.webm")
+            r = _run(["-i", path, "-an", "-vf", "scale=360:-2,fps=2", "-c:v", "libvpx-vp9", "-b:v", "0",
+                      "-crf", "45", "-deadline", "realtime", "-cpu-used", "8", small], timeout=300)
+            if r.returncode != 0 or not os.path.exists(small) or os.path.getsize(small) > ANALYSIS_MAX_BYTES:
+                return []
+            with open(small, "rb") as f:
+                data = f.read()
+        raw = llm.extract_json(llm.ask_about_media(ANALYSIS_PROMPT.format(seconds=seconds or 0), data, "video/webm"))
+        return _clean_segments((raw or {}).get("segments") if isinstance(raw, dict) else raw, seconds or 0)
+    except Exception as e:  # noqa: BLE001 — az elemzés nélkül is megmarad a klip
+        logger.warning("klipelemzés kimaradt: %s", e)
+        return []
 
 
 def store(data: bytes, content_type: str, name: str, note: str = "") -> dict:
