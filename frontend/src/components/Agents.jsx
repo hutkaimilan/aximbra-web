@@ -9,7 +9,7 @@ import { AgentSim } from "./AgentSim";
 import { simFor } from "./agentSims";
 import { mailto } from "../contact";
 import { useLang, pathFor } from "../i18n";
-import { formatPrice } from "../money";
+import { formatPrice, byPrice } from "../money";
 
 export const SLUGS = ["email-rendezo", "erdeklodo-minosito", "belso-admin", "kutatasi-monitor", "ugyfelszolgalat", "tartalom", "webshop", "dokumentum-elemzo", "penzugyi", "toborzas", "it-uzemelteto", "multi-agent", "nis2", "ertekesito", "egyedi"];
 
@@ -89,9 +89,10 @@ export const Agents = () => {
   const [simOpen, setSimOpen] = useState(null);
   const [showAll, setShowAll] = useState(false);
   const { slug } = useParams();
-  // Az élőben kipróbálható agentek kerülnek előre; a `kind` (index) marad az eredeti,
-  // mert ahhoz tartozik a slug, a rajz és a szimuláció.
-  const ordered = t.agents.map((a, i) => ({ a, i })).sort((x, y) => (y.a.live ? 1 : 0) - (x.a.live ? 1 : 0));
+  // Ár szerint növekvő sorrend (a sáv alja, egyenlőnél a teteje); az ár nélküli
+  // „Egyedi agent” a végére. A `kind` (index) marad az eredeti, mert ahhoz
+  // tartozik a slug, a rajz és a szimuláció.
+  const ordered = t.agents.map((a, i) => ({ a, i })).sort((x, y) => byPrice(x.a, y.a));
   useEffect(() => {
     if (!slug) return;
     const idx = SLUGS.indexOf(slug);
