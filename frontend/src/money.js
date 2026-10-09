@@ -44,6 +44,13 @@ export function parseToken(token) {
   return Number.isFinite(to) ? { from, to, open: false } : null;
 }
 
+/** Ket agent ar szerinti sorrendje: kezdoar, aztan a sav felso vege; ar nelkul a vegere. */
+export function byPrice(a, b) {
+  const pa = parseToken(a?.price), pb = parseToken(b?.price);
+  if (!pa || !pb) return (pa ? 0 : 1) - (pb ? 0 : 1);
+  return pa.from - pb.from || (pa.to ?? pa.from) - (pb.to ?? pb.from);
+}
+
 /** Kerekites, hogy az atvaltas ne hazudjon pontossagot. A 150 000 Ft-bol nem
  *  "374,63 euro" lesz, hanem "375 euro" - es a lapon ott all, hogy kozelito. */
 function roundNice(v) {

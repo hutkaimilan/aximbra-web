@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Reveal } from "./Reveal";
 import { useLang } from "../i18n";
-import { formatPrice, parseToken } from "../money";
+import { formatPrice, parseToken, byPrice } from "../money";
 
 /** Mikor olcsobb az agent, mint ugyanazt a munkaidot berkent fizetni.
  *
@@ -81,7 +81,7 @@ export const Payback = () => {
   const { t, lang } = useLang();
   const p = t.payback;
   const agents = useMemo(
-    () => (t.agents || []).filter((a) => parseToken(a.price)?.to),
+    () => (t.agents || []).filter((a) => parseToken(a.price)?.to).sort(byPrice),
     [t.agents]
   );
   const [pick, setPick] = useState(0);
