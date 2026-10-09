@@ -15,8 +15,24 @@ const HORIZON = 24;
 // ember heti 40 órájával mérve sosem térülne meg, és ez nem is igaz rá.
 // A 6 millió fölötti ár csak a multi-agentnél fordul elő.
 const TEAM_PRICE = 5000000;
-const MAX_SOLO = 40, MAX_TEAM = 200, TEAM_DEFAULT = 80;
+const MAX_SOLO = 40, MAX_BIG = 80, MAX_TEAM = 200, TEAM_DEFAULT = 80;
 const isTeam = (a) => (parseToken(a?.price)?.to || 0) > TEAM_PRICE;
+
+/** Az alapbeállítás az, amennyi munkát egy ilyen méretű agent jellemzően
+ *  kivált. Korábban mindegyik heti 10 órával indult: egy 4 milliós
+ *  ügyfélszolgálati agent így 266 hónapot mutatott — mintha nem térülne meg,
+ *  pedig nem napi két órára építjük, hanem egy teljes állás munkájára.
+ *  A csúszkát le lehet húzni; ha akkor nem térül meg, azt is kiírja. */
+export function defaultHours(build, team) {
+  if (team) return TEAM_DEFAULT;
+  if (build <= 400000) return 10;
+  if (build <= 1500000) return 20;
+  if (build <= 2000000) return 25;
+  return 40;
+}
+// 2 millió fölött az agent egy egész folyamatot visz (ügyfélszolgálat, könyvelés
+// előkészítése): ott két ember munkaidejéig engedjük a csúszkát.
+export const maxHours = (build, team) => (team ? MAX_TEAM : build > 2000000 ? MAX_BIG : MAX_SOLO);
 const HOURS_PER_MONTH = 174; // havi munkaido-alap (HU: 174; DE: ~173, ugyanigy szamolunk)
 const WEEKS_PER_MONTH = 52 / 12;
 const SZOCHO = 1.13;
@@ -69,7 +85,7 @@ export const Payback = () => {
     [t.agents]
   );
   const [pick, setPick] = useState(0);
-  const [hours, setHours] = useState(10);
+  const [hours, setHours] = useState(null);   // null: az agent alapórája
   const [wage, setWage] = useState("min");
   const [hover, setHover] = useState(null);
   const svgRef = useRef(null);
@@ -89,8 +105,8 @@ export const Payback = () => {
   const build = parseToken(agent.price).to;
   const fee = monthlyFee(build);
   const team = isTeam(agent);
-  const maxHours = team ? MAX_TEAM : MAX_SOLO;
-  const h = Math.min(hours, maxHours);
+  const maxH = maxHours(build, team);
+  const h = Math.min(hours ?? defaultHours(build, team), maxH);
   const market = marketFor(lang);
   const { staffPerMonth, month } = payback({ build, fee, hours: h, gross: market.wages[wage], load: market.load });
 
@@ -139,14 +155,14 @@ export const Payback = () => {
               <select value={pick} onChange={(e) => {
                 const i = Number(e.target.value);
                 setPick(i);
-                setHours((cur) => (isTeam(agents[i]) ? TEAM_DEFAULT : cur > MAX_SOLO ? 10 : cur));
+                setHours(null);   // új agentnél az ő jellemző munkamennyiségével indulunk
               }} data-testid="payback-agent">
                 {agents.map((a, i) => <option key={a.title} value={i}>{a.title}</option>)}
               </select>
             </label>
             <label className="pb-field">
               <span>{p.hoursLabel}: <b>{h} {p.hoursUnit}</b></span>
-              <input type="range" min={team ? 5 : 1} max={maxHours} step={team ? 5 : 1} value={h}
+              <input type="range" min={team ? 5 : 1} max={maxH} step={team ? 5 : 1} value={h}
                 onChange={(e) => setHours(Number(e.target.value))} data-testid="payback-hours" />
             </label>
             <label className="pb-field">
