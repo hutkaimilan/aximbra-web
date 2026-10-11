@@ -1041,6 +1041,93 @@ def test_linkedin_rejects_an_unknown_verdict(monkeypatch):
         o.draft(LI_PROFILE)
 
 
+def _hit(slug, title="Kiss Andrea - ügyfélszolgálati vezető - Dunamenti Zrt. | LinkedIn"):
+    return {"title": title, "url": f"https://www.linkedin.com/in/{slug}", "text": "Közös postafiók, sok megkeresés."}
+
+
+def _search_env(monkeypatch, hits, judged):
+    import json as _json
+    import outreach
+    monkeypatch.setenv("TAVILY_API_KEY", "t" * 20)
+    calls = {"search": [], "ask": 0}
+
+    def fake_search(q, n=4, include_domains=None):
+        calls["search"].append({"q": q, "domains": include_domains})
+        return hits.pop(0) if hits else []
+
+    def fake_ask(prompt):
+        calls["ask"] += 1
+        return _json.dumps(judged)
+    monkeypatch.setattr(outreach.websearch, "search", fake_search)
+    monkeypatch.setattr(outreach.websearch, "tavily_on", lambda: True)
+    monkeypatch.setattr(outreach.llm, "_ask", fake_ask)
+    return outreach, calls
+
+
+def test_linkedin_search_keeps_only_profiles_and_judges_them_in_one_call(store, monkeypatch):
+    hits = [[_hit("kiss-andrea"),
+             {"title": "Dunamenti Zrt.", "url": "https://www.linkedin.com/company/dunamenti", "text": "cég"},
+             {"title": "Blog", "url": "https://pelda.hu/blog", "text": "nem profil"},
+             _hit("kiss-andrea")],                                   # ugyanaz másodszor
+            [_hit("nagy-peter", "Nagy Péter - fejlesztő - AI Studio | LinkedIn")]]
+    o, calls = _search_env(monkeypatch, hits, [
+        {"i": 0, "verdict": "ir", "name": "Kiss Andrea", "headline": "ügyfélszolgálati vezető",
+         "summary": "A találat szerint szállítmányozó cég, közös postafiókkal.", "agent": "E-mail rendező", "score": 80},
+        {"i": 1, "verdict": "ne_irj", "name": "Nagy Péter", "headline": "fejlesztő",
+         "summary": "", "agent": "", "score": 0, "reason": "Maga is agenteket épít."},
+    ])
+    d = o.search(store, sector="logistics", country="HU", role="ügyfélszolgálati vezető")
+
+    assert [p["name"] for p in d["profiles"]] == ["Kiss Andrea"]      # a versenytárs kiesett
+    assert d["looked_at"] == 2                                       # cég-oldal, blog és duplikátum nélkül
+    assert calls["ask"] == 1                                         # egy hívás az egész listára
+    assert all(c["domains"] == ["linkedin.com"] for c in calls["search"])
+
+
+def test_linkedin_search_never_shows_the_same_person_twice(store, monkeypatch):
+    judged = [{"i": 0, "verdict": "ir", "name": "Kiss Andrea", "headline": "vezető",
+               "summary": "Szállítmányozó cég.", "agent": "E-mail rendező", "score": 70}]
+    o, _ = _search_env(monkeypatch, [[_hit("kiss-andrea")]], judged)
+    assert len(o.search(store, sector="logistics", country="HU")["profiles"]) == 1
+
+    # Második kör: ugyanaz az ember jön vissza, nyelvi aldomainnel és paraméterrel.
+    o2, calls2 = _search_env(monkeypatch, [[dict(_hit("kiss-andrea"),
+                                                 url="https://hu.linkedin.com/in/kiss-andrea?trk=abc")]], judged)
+    d = o2.search(store, sector="logistics", country="HU")
+    assert d["profiles"] == [] and d["looked_at"] == 0
+    assert calls2["ask"] == 0                                        # nem is kérdezzük meg újra
+
+
+def test_linkedin_search_sorts_by_score_and_drops_a_summary_less_hit(store, monkeypatch):
+    o, _ = _search_env(monkeypatch, [[_hit("a"), _hit("b"), _hit("c")]], [
+        {"i": 0, "verdict": "ir", "name": "A", "headline": "h", "summary": "Van összefoglaló.", "score": 40},
+        {"i": 1, "verdict": "ir", "name": "B", "headline": "h", "summary": "Ez is jó.", "score": 90},
+        {"i": 2, "verdict": "ir", "name": "C", "headline": "h", "summary": "   ", "score": 99},
+    ])
+    assert [p["name"] for p in o.search(store, sector="logistics", country="HU")["profiles"]] == ["B", "A"]
+
+
+def test_linkedin_search_needs_a_search_key_and_a_known_sector(store, monkeypatch):
+    import outreach
+    monkeypatch.setattr(outreach.websearch, "tavily_on", lambda: False)
+    with pytest.raises(ValueError, match="TAVILY"):
+        outreach.search(store, sector="logistics", country="HU")
+    monkeypatch.setattr(outreach.websearch, "tavily_on", lambda: True)
+    with pytest.raises(ValueError):
+        outreach.search(store, sector="nincs-ilyen", country="HU")
+    with pytest.raises(ValueError):
+        outreach.search(store, sector="logistics", country="XX")
+
+
+def test_profile_key_accepts_only_real_profile_urls():
+    import outreach
+    assert outreach._profile_key("https://www.linkedin.com/in/kiss-andrea") == "kiss-andrea"
+    assert outreach._profile_key("https://hu.linkedin.com/in/Kiss-Andrea/?trk=x") == "kiss-andrea"
+    for bad in ("https://www.linkedin.com/company/x", "https://pelda.hu/in/x",
+                "https://linkedin.com.rossz.hu/in/x", "", "nem-url"):
+        assert outreach._profile_key(bad) == "", bad
+
+
 def test_linkedin_endpoint_needs_the_password_and_returns_the_draft(tmp_path, monkeypatch):
     import importlib
     import json as _json

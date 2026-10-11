@@ -254,6 +254,23 @@ details summary{cursor:pointer}
 
   <section id="tab-linkedin" class="hide">
     <div class="card">
+      <h2>Profilkeresés</h2>
+      <p class="mute" style="margin-top:0">Iparág és ország szerint keres nyilvános profilokat, és
+        mindegyikről ír pár sort: mit csinál a cég, milyen teher járhat a szerepkörrel, melyik agent illik rá.
+        Akit már egyszer kidobott, azt legközelebb kihagyja.</p>
+      <p class="mute" style="margin-top:0" id="liSearchWarn"></p>
+      <div class="row">
+        <select id="liSector"></select>
+        <select id="liCountry"></select>
+        <input id="liRole" placeholder="Szerepkör (nem kötelező) — pl. ügyfélszolgálati vezető"
+               style="flex:1 1 260px" />
+        <button class="pri" id="liSearch">Keresés</button>
+        <span id="liSearchBusy"></span>
+      </div>
+    </div>
+    <div id="liHits"></div>
+
+    <div class="card">
       <h2>LinkedIn-megkeresés</h2>
       <p class="mute" style="margin-top:0">Nyisd meg a profilját, jelöld ki az oldal szövegét, és másold be ide.
         Az agent előbb megmondja, érdemes-e egyáltalán írni neki, és csak utána ír szöveget.
@@ -313,6 +330,7 @@ document.querySelectorAll("[data-go]").forEach((b) => b.onclick = () => go(b.dat
 document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   tab = b.dataset.tab; window.scrollTo({top: 0});
   if (tab === "advisor") advLoad();
+  if (tab === "linkedin") liFillSelects();
   document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x === b));
   document.querySelectorAll("main section").forEach((s) => s.classList.toggle("hide", s.id !== "tab-" + tab));
 });
@@ -456,7 +474,7 @@ function planUI() {
 }
 
 async function refresh() {
-  try { S = await api("/api/state"); if (!$("#plan").children.length) planUI(); render(); }
+  try { S = await api("/api/state"); if (!$("#plan").children.length) planUI(); liFillSelects(); render(); }
   catch (e) { flash(e.message); }
 }
 
@@ -666,6 +684,50 @@ $("#liGo").onclick = async () => {
   finally { b.disabled = false; $("#liBusy").innerHTML = ""; }
 };
 $("#liClear").onclick = () => { $("#liProfile").value = ""; $("#liNote").value = ""; $("#liOut").innerHTML = ""; };
+
+// A kereső a keresőmotor indexéből dolgozik, nem a LinkedInről. Ezért a kártya
+// a találat korát is kiírja gondolatban: a „Megnyitom" után a profil szövegét
+// kell bemásolni, mert a megkeresést csak az ellenőrzött szövegre írjuk meg.
+function liFillSelects() {
+  if (!S || $("#liSector").options.length) return;
+  const fill = (sel, obj) => { $(sel).innerHTML = Object.entries(obj || {})
+    .map(([k, v]) => `<option value="${esc(k)}">${esc(v)}</option>`).join(""); };
+  fill("#liSector", S.sectors); fill("#liCountry", S.countries);
+  if (!S.config.web_search) {
+    $("#liSearchWarn").textContent = "A kereséshez TAVILY_API_KEY kell — enélkül nincs honnan találatot venni.";
+    $("#liSearch").disabled = true;
+  }
+}
+function liHits(d) {
+  const box = $("#liHits");
+  if (!d.profiles.length) {
+    box.innerHTML = `<div class="card"><p class="mute" style="margin:0">${esc(d.note ||
+      "Nem jött találat.")}</p></div>`;
+    return;
+  }
+  box.innerHTML = `<div class="card"><p class="mute" style="margin:0 0 4px">
+      ${d.profiles.length} profil ${d.looked_at} átnézettből. A szöveg abból készült, amit a kereső
+      indexelt — lehet hónapokkal ezelőtti. Nyisd meg, és ha stimmel, másold be alulra.</p></div>` +
+    d.profiles.map((p) => `<div class="card">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div style="min-width:0">
+          <b>${esc(p.name || "Név a profilon")}</b>
+          <div class="mute">${esc(p.headline)}</div></div>
+        <span class="tag ${p.score >= 70 ? "i" : "w"}">${p.score}</span></div>
+      <p style="margin:10px 0 6px">${esc(p.summary)}</p>
+      ${p.agent ? `<span class="tag">${esc(p.agent)}</span>` : ""}
+      <div class="row" style="margin-top:10px">
+        <a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer"><button>Profil megnyitása</button></a>
+      </div></div>`).join("");
+}
+$("#liSearch").onclick = async () => {
+  const b = $("#liSearch"); b.disabled = true;
+  $("#liSearchBusy").innerHTML = `<span class="think"><i></i><i></i><i></i> keresek és átnézem a találatokat…</span>`;
+  try { liHits(await api("/api/linkedin/search",
+    {sector: $("#liSector").value, country: $("#liCountry").value, role: $("#liRole").value.trim()})); }
+  catch (e) { flash(e.message); }
+  finally { b.disabled = false; $("#liSearchBusy").innerHTML = ""; }
+};
 
 // ---- irányítópult ----
 function budapestNow() {

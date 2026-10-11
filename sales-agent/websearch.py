@@ -30,12 +30,14 @@ def tavily_on() -> bool:
     return bool(os.environ.get("TAVILY_API_KEY", "").strip())
 
 
-def _tavily(query: str, n: int) -> list[dict]:
+def _tavily(query: str, n: int, include_domains: list[str] | None = None) -> list[dict]:
     key = os.environ.get("TAVILY_API_KEY", "").strip()
+    body = {"api_key": key, "query": query, "max_results": n, "search_depth": "basic",
+            "include_raw_content": False}
+    if include_domains:
+        body["include_domains"] = include_domains
     try:
-        r = httpx.post(TAVILY_URL, timeout=30, headers={"Authorization": f"Bearer {key}"},
-                       json={"api_key": key, "query": query, "max_results": n, "search_depth": "basic",
-                             "include_raw_content": False})
+        r = httpx.post(TAVILY_URL, timeout=30, headers={"Authorization": f"Bearer {key}"}, json=body)
     except httpx.HTTPError as e:
         logger.warning("tavily nem érhető el: %s", type(e).__name__)
         return []
@@ -78,15 +80,18 @@ def _gemini_grounded(query: str) -> list[dict]:
              "links": [{"title": l.get("title", ""), "url": l.get("uri", "")} for l in links if l.get("uri")][:5]}]
 
 
-def search(query: str, n: int = 4) -> list[dict]:
+def search(query: str, n: int = 4, include_domains: list[str] | None = None) -> list[dict]:
+    """`include_domains` esetén csak Tavily jön szóba: a Gemini-ág összefoglal,
+    nem találatlistát ad, tehát domainre nem szűrhető. Üres lista jobb, mint egy
+    máshonnan származó találat, amit a hívó linkedines profilnak hinne."""
     query = (query or "").strip()[:300]
     if not query:
         return []
     if tavily_on():
-        hits = _tavily(query, n)
+        hits = _tavily(query, n, include_domains)
         if hits:
             return hits
-    return _gemini_grounded(query)
+    return [] if include_domains else _gemini_grounded(query)
 
 
 def urls_in(text: str) -> list[str]:

@@ -276,6 +276,47 @@ Answer ONLY with JSON: {{"subject": "...", "body": "..."}}"""
 LINKEDIN_MAX_CHARS = 900
 
 
+def linkedin_judge_prompt(hits: list[dict], sector: str, country: str, role: str) -> str:
+    """Egy hívás az egész találati listára. Profilonként külön kérdezni
+    ugyanaz a hiba lenne, mint az e-mail agentnél volt: ötven kérés a
+    percdíjba ütközik, és a fele sosem kap választ."""
+    sec = SECTORS.get(sector, {})
+    listing = "\n\n".join(
+        f"[{i}] {h['title']}\nURL: {h['url']}\nAmit a kereső indexelt: {h['text']}"
+        for i, h in enumerate(hits))
+    return f"""You screen public LinkedIn profiles found through a search engine, for AXIMBRA.
+
+AXIMBRA builds custom AI agents into a company's own systems: email triage for shared inboxes, lead
+qualification, customer support answered from the company's own documents, document extraction, NIS2
+evidence collection, webshop assistance, financial and IT-operations agents.
+
+The search looked for: {role or "decision makers"} in {sec.get('hu', sector)} in {COUNTRIES.get(country, {}).get('name', country)}.
+That sector's real pain: {sec.get('pain', 'n/a')}
+What we could offer there: {sec.get('value', 'n/a')}
+
+Judge EACH entry below. You only see what a search engine indexed — a headline and a snippet, possibly
+months old and possibly cut off. Judge what is there; never invent a company size, a tool they use, a
+number, or a responsibility the text does not state.
+
+"ne_irj" when the person is {NOT_A_PROSPECT}, or is a student, jobseeker, freelancer, coach, trainer,
+investor or recruiter, or works at a micro business, a public institution, a school or a hospital.
+"keves_adat" when the snippet is too thin to tell — a bare name, or a headline with no company or role.
+"ir" only when the text itself shows a person at a real company where one of our agents would have work.
+
+For "ir", the summary is 2–3 sentences in Hungarian: what the company appears to do, what workload that
+role likely carries, and which ONE of our agents fits. Say "a találat szerint" when you lean on the
+snippet. No flattery, no sales language, no invented facts.
+
+Entries:
+{listing}
+
+Answer ONLY with a JSON array, one object per entry, same order, every entry included:
+[{{"i": 0, "verdict": "ir|ne_irj|keves_adat", "name": "the person's name as the title shows it, or empty",
+  "headline": "their role and company, from the text, max 120 chars",
+  "summary": "... (empty unless ir)", "agent": "which agent fits, 1–4 words (empty unless ir)",
+  "score": 0-100, "reason": "one short Hungarian sentence, why this verdict"}}]"""
+
+
 def linkedin_prompt(profile: str, note: str, lang: str) -> str:
     """A bemásolt profilból előbb ítélet, aztán szöveg — ebben a sorrendben.
 

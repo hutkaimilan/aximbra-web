@@ -28,7 +28,7 @@ import mailer
 import pipeline
 import verify
 from mailer import AuthError, MailError
-from playbook import COUNTRIES
+from playbook import COUNTRIES, SECTORS
 from store import Store
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -147,6 +147,7 @@ def state():
         "auto_send": {"on": store.get_setting("auto_send") == "on", "sent_today": store.auto_sent_today(),
                       **pipeline.readiness(store)},
         "countries": {k: v["name"] for k, v in COUNTRIES.items()},
+        "sectors": {k: v["hu"] for k, v in SECTORS.items()},
         "config": {
             "gmail": bool(os.environ.get("GMAIL_USER") and os.environ.get("GMAIL_APP_PASSWORD")),
             "openai": bool(os.environ.get("OPENAI_API_KEY") or os.environ.get("GEMINI_API_KEY")),
@@ -471,6 +472,31 @@ def advisor_ask(body: AskIn):
 def advisor_clear():
     store.advisor_clear()
     return {"ok": True}
+
+
+class LinkedInSearchIn(BaseModel):
+    sector: str = Field(max_length=40)
+    country: str = Field(max_length=4)
+    role: str = Field(default="", max_length=80)
+
+
+@app.post("/api/linkedin/search", dependencies=[Depends(auth)])
+def linkedin_search(body: LinkedInSearchIn):
+    """Nyilvános profilok keresése keresőmotoron át. A linkedin.com-ot nem
+    töltjük le, leadet nem ment, és nem küld semmit."""
+    if not _advisor_lock.acquire(blocking=False):
+        raise HTTPException(409, "Még az előző kérésen dolgozom, várd meg.")
+    try:
+        return outreach.search(store, sector=body.sector, country=body.country, role=body.role)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except llm.LLMError as e:
+        if "insufficient_quota" in str(e):
+            raise HTTPException(429, "Elfogyott a mai ingyenes AI-keret, holnap újra megy.")
+        logger.warning("linkedin keresés hiba: %s", e)
+        raise HTTPException(502, f"Nem sikerült átnézni a találatokat: {e}")
+    finally:
+        _advisor_lock.release()
 
 
 class LinkedInIn(BaseModel):
