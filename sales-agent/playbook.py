@@ -275,6 +275,12 @@ Answer ONLY with JSON: {{"subject": "...", "body": "..."}}"""
 
 LINKEDIN_MAX_CHARS = 900
 
+# Ponthatár a keresőtalálatokra. A modell a saját pontszámát adja, ami nem
+# kalibrált mérés — de arra jó, hogy a „van egy beosztása egy cégnél" szintű
+# találatok ne kerüljenek a listára. Amit nem a szöveg támaszt alá, az itt
+# akad fenn.
+MIN_SEARCH_SCORE = 65
+
 
 def linkedin_judge_prompt(hits: list[dict], sectors: list[str], countries: list[str],
                           roles: list[str]) -> str:
@@ -290,11 +296,16 @@ def linkedin_judge_prompt(hits: list[dict], sectors: list[str], countries: list[
     wanted = "\n".join(f"- {SECTORS[s]['hu']}: {SECTORS[s]['pain']} Erre kínálunk: {SECTORS[s]['value']}"
                        for s in sectors if s in SECTORS)
     places = ", ".join(COUNTRIES.get(c, {}).get("name", c) for c in countries)
+    # A tizenöt valódi agent, kulcsostul. Enélkül a modell iparághoz talált ki
+    # agentet („biztosítási és pénzügyi ügynök”), a szövegíró pedig — aki a
+    # valódi kínálatot ismeri — visszautasította ugyanazt a profilt. A két
+    # lépés így mondott egymásnak ellent; a névsor ezt zárja ki.
+    catalogue = "\n".join(f"- {a['key']}: {a['hu']} — {a['hu_what']}" for a in AGENTS)
     return f"""You screen public LinkedIn profiles found through a search engine, for AXIMBRA.
 
-AXIMBRA builds custom AI agents into a company's own systems: email triage for shared inboxes, lead
-qualification, customer support answered from the company's own documents, document extraction, NIS2
-evidence collection, webshop assistance, financial and IT-operations agents.
+AXIMBRA builds custom AI agents into a company's own systems. This is the COMPLETE catalogue. We sell
+nothing else, and you may not name anything else:
+{catalogue}
 
 The search looked for {", ".join(roles) if roles else "decision makers"} in {places}, in these sectors:
 {wanted}
@@ -303,14 +314,39 @@ Judge EACH entry below. You only see what a search engine indexed — a headline
 months old and possibly cut off. Judge what is there; never invent a company size, a tool they use, a
 number, or a responsibility the text does not state.
 
-"ne_irj" when the person is {NOT_A_PROSPECT}, or is a student, jobseeker, freelancer, coach, trainer,
-investor or recruiter, or works at a micro business, a public institution, a school or a hospital.
-"keves_adat" when the snippet is too thin to tell — a bare name, or a headline with no company or role.
-"ir" only when the text itself shows a person at a real company where one of our agents would have work.
+Three gates, in this order. Fail any one and it is not "ir".
+
+GATE 1 — are they there NOW? The role must be their CURRENT one. If the text puts the job in the past —
+past tense ("dolgozott", "worked", "led"), "ex-", "korábban", "volt", "former", or a date range that has
+already ended — answer "ne_irj" with reason "már nincs ott". A person who has left takes no decision about
+that company's inbox, so a past role is worth nothing to us however well it would otherwise fit. When the
+tense is genuinely unclear and no end date is given, treat it as "keves_adat", not as current.
+
+GATE 2 — is the company nameable and a plausible buyer? The text must NAME the company. A headline like
+"Ügyfélszolgálati vezető" with no employer is "keves_adat". Answer "ne_irj" when the person is
+{NOT_A_PROSPECT}, is a student, jobseeker, freelancer, coach, trainer, investor or recruiter, or when the
+company is a micro business, a public institution, a school or a hospital.
+
+GATE 3 — is there evidence of actual workload? A job title is NOT evidence. The text must state something
+concrete that implies volume: number of sites, shops or countries, team size, the channels they run, the
+documents they handle, a quantity, or a company clearly large enough that the volume follows. If all you
+have is "<role> at <company>" and nothing else, that is "keves_adat" — say so rather than reasoning from
+the title to a workload you cannot see. Inventing the volume is the one failure that makes the whole list
+worthless, because every title then looks like a lead.
+
+GATE 4 — does one of OUR agents actually fit? Name its key from the catalogue above, exactly as written
+there. If no catalogue agent clearly fits the work this company does, answer "ne_irj" with reason "nincs rá
+illő agentünk". Never invent an agent for the sector you see: there is no insurance agent, no legal agent,
+no marketing agent, no HR-screening-for-brokers agent. Inventing one produces a lead we cannot serve, and
+the person writing the message afterwards will refuse it — which is worse than not finding them at all.
 
 For "ir", the summary is 2–3 sentences in Hungarian: what the company appears to do, what workload that
-role likely carries, and which ONE of our agents fits. Say "a találat szerint" when you lean on the
-snippet. No flattery, no sales language, no invented facts.
+role likely carries, and which ONE of our agents fits — the one whose key you return. Say "a találat
+szerint" when you lean on the snippet. No flattery, no sales language, no invented facts.
+
+Scoring, and be harsh — most entries deserve under 50. Give 70+ only when the text names a current role, a
+real company AND a concrete fact that one specific agent obviously answers. Without that concrete fact,
+stay under {MIN_SEARCH_SCORE}, which keeps it off the list.
 
 Entries:
 {listing}
@@ -318,7 +354,8 @@ Entries:
 Answer ONLY with a JSON array, one object per entry, same order, every entry included:
 [{{"i": 0, "verdict": "ir|ne_irj|keves_adat", "name": "the person's name as the title shows it, or empty",
   "headline": "their role and company, from the text, max 120 chars",
-  "summary": "... (empty unless ir)", "agent": "which agent fits, 1–4 words (empty unless ir)",
+  "summary": "... (empty unless ir)",
+  "agent": "the KEY of one catalogue agent, exactly as listed above (empty unless ir)",
   "score": 0-100, "reason": "one short Hungarian sentence, why this verdict"}}]"""
 
 
@@ -330,9 +367,10 @@ def linkedin_prompt(profile: str, note: str, lang: str, from_search: bool = Fals
     érdemes-e írni, és csak utána ír."""
     return f"""You decide whether a person on LinkedIn is worth a message from AXIMBRA, and only then write it.
 
-AXIMBRA: a one-person AI agent studio (aximbra.hu), founder Milán Hutkai. It builds custom AI agents into a
-company's own systems: email triage for shared inboxes, lead qualification, customer support answered from the
-company's own documents, document extraction, NIS2 evidence collection. Live demos on the site, no signup.
+AXIMBRA: a one-person AI agent studio (aximbra.hu), founder Milán Hutkai. Live demos on the site, no signup.
+This is the COMPLETE catalogue of what it builds. Nothing outside this list exists, so never offer
+something else, and never invent an agent to match the sector you see:
+{chr(10).join(f"- {a['hu']} — {a['hu_what']}" for a in AGENTS)}
 
 {"What a search engine indexed about this person (a snippet: short, possibly cut off, possibly months old). Work ONLY from these words. Because it is thin, keep the message shorter than usual and lean on the one thing it actually states; if it states nothing concrete about their work, answer ne_irj with reason 'kevés adat a részletben'." if from_search else "What Milán copied from their LinkedIn profile:"}
 ---

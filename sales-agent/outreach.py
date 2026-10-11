@@ -51,6 +51,7 @@ MIN_SNIPPET = 40
 # adatlap — a valódi szöveget a profil bemásolása után a draft() ellenőrzi.
 PROFILE_RE = re.compile(r"^https?://([a-z0-9-]+\.)*linkedin\.com/in/[^/?#]+", re.I)
 JUDGEMENTS = ("ir", "ne_irj", "keves_adat")
+AGENT_BY_KEY = {a["key"]: a for a in playbook.AGENTS}
 MAX_HITS = 24
 SEEN_KEY = "linkedin_seen"
 SEEN_KEEP = 600
@@ -191,13 +192,24 @@ def search(store, *, sectors: list[str], countries: list[str], roles: list[str] 
         summary = str(item.get("summary") or "").strip()
         if not summary:
             continue
+        # Agent a valódi névsorból, vagy sehogy. A modell korábban iparághoz
+        # talált ki agentet, a szövegíró pedig ugyanazt a profilt elutasította;
+        # a két lépés így mondott egymásnak ellent a felhasználó szeme előtt.
+        agent = AGENT_BY_KEY.get(str(item.get("agent") or "").strip().lower())
+        if not agent:
+            continue
+        # A pontszám a modell saját becslése, nem mérés — de a „van egy
+        # beosztása egy cégnél" szintű találatokat ez tartja ki a listáról.
+        score = _score(item.get("score"))
+        if score < playbook.MIN_SEARCH_SCORE:
+            continue
         out.append({
             "url": hits[i]["url"],
             "name": str(item.get("name") or "").strip()[:120],
             "headline": str(item.get("headline") or "").strip()[:120],
             "summary": summary[:700],
-            "agent": str(item.get("agent") or "").strip()[:60],
-            "score": _score(item.get("score")),
+            "agent": agent["hu"],
+            "score": score,
             # A kereső nyers részlete megy vissza a panelnek, hogy a „Szöveget
             # ír" gomb ebből dolgozhasson, külön keresés nélkül. A szövegírás
             # kérésre fut profilonként: huszonnégy megkeresést előre legyártani

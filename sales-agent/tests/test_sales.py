@@ -1076,7 +1076,7 @@ def test_linkedin_search_keeps_only_profiles_and_judges_them_in_one_call(store, 
             [_hit("nagy-peter", "Nagy Péter - fejlesztő - AI Studio | LinkedIn")]]
     o, calls = _search_env(monkeypatch, hits, [
         {"i": 0, "verdict": "ir", "name": "Kiss Andrea", "headline": "ügyfélszolgálati vezető",
-         "summary": "A találat szerint szállítmányozó cég, közös postafiókkal.", "agent": "E-mail rendező", "score": 80},
+         "summary": "A találat szerint szállítmányozó cég, közös postafiókkal.", "agent": "email", "score": 80},
         {"i": 1, "verdict": "ne_irj", "name": "Nagy Péter", "headline": "fejlesztő",
          "summary": "", "agent": "", "score": 0, "reason": "Maga is agenteket épít."},
     ])
@@ -1090,7 +1090,7 @@ def test_linkedin_search_keeps_only_profiles_and_judges_them_in_one_call(store, 
 
 def test_linkedin_search_never_shows_the_same_person_twice(store, monkeypatch):
     judged = [{"i": 0, "verdict": "ir", "name": "Kiss Andrea", "headline": "vezető",
-               "summary": "Szállítmányozó cég.", "agent": "E-mail rendező", "score": 70}]
+               "summary": "Szállítmányozó cég.", "agent": "email", "score": 70}]
     o, _ = _search_env(monkeypatch, [[_hit("kiss-andrea")]], judged)
     assert len(o.search(store, sectors=["logistics"], countries=["HU"])["profiles"]) == 1
 
@@ -1104,9 +1104,9 @@ def test_linkedin_search_never_shows_the_same_person_twice(store, monkeypatch):
 
 def test_linkedin_search_sorts_by_score_and_drops_a_summary_less_hit(store, monkeypatch):
     o, _ = _search_env(monkeypatch, [[_hit("a"), _hit("b"), _hit("c")]], [
-        {"i": 0, "verdict": "ir", "name": "A", "headline": "h", "summary": "Van összefoglaló.", "score": 40},
-        {"i": 1, "verdict": "ir", "name": "B", "headline": "h", "summary": "Ez is jó.", "score": 90},
-        {"i": 2, "verdict": "ir", "name": "C", "headline": "h", "summary": "   ", "score": 99},
+        {"i": 0, "verdict": "ir", "name": "A", "headline": "h", "summary": "Van összefoglaló.", "agent": "email", "score": 70},
+        {"i": 1, "verdict": "ir", "name": "B", "headline": "h", "summary": "Ez is jó.", "agent": "leads", "score": 90},
+        {"i": 2, "verdict": "ir", "name": "C", "headline": "h", "summary": "   ", "agent": "email", "score": 99},
     ])
     assert [p["name"] for p in o.search(store, sectors=["logistics"], countries=["HU"])["profiles"]] == ["B", "A"]
 
@@ -1123,10 +1123,52 @@ def test_linkedin_search_needs_a_search_key_and_a_known_sector(store, monkeypatc
         outreach.search(store, sectors=["logistics"], countries=["XX"])
 
 
+def test_search_drops_a_hit_whose_agent_we_do_not_actually_sell(store, monkeypatch):
+    """Ez a valódi eset: a szűrő 85 pontot adott egy pénzügyi közvetítőre és
+    'biztosítási és pénzügyi ügynököt' nevezett meg — ilyen agentünk nincs. A
+    szövegíró aztán ugyanazt a profilt visszautasította, vagyis a két lépés a
+    felhasználó szeme előtt mondott egymásnak ellent."""
+    o, _ = _search_env(monkeypatch, [[_hit("klinger-jozsef")]], [
+        {"i": 0, "verdict": "ir", "name": "Klinger József", "headline": "ügyvezető",
+         "summary": "Biztosítási és pénzügyi közvetítés.",
+         "agent": "biztosítási és pénzügyi ügynök", "score": 85}])
+    d = o.search(store, sectors=["finance"], countries=["HU"])
+    assert d["profiles"] == []
+
+
+def test_search_drops_a_hit_the_model_itself_scored_low(store, monkeypatch):
+    o, _ = _search_env(monkeypatch, [[_hit("a"), _hit("b")]], [
+        {"i": 0, "verdict": "ir", "name": "A", "headline": "h", "summary": "Van beosztása egy cégnél.",
+         "agent": "email", "score": 50},
+        {"i": 1, "verdict": "ir", "name": "B", "headline": "h", "summary": "Tizenhárom telephely.",
+         "agent": "email", "score": 75}])
+    assert [p["name"] for p in o.search(store, sectors=["logistics"], countries=["HU"])["profiles"]] == ["B"]
+
+
+def test_search_shows_the_catalogue_name_not_whatever_the_model_typed(store, monkeypatch):
+    o, _ = _search_env(monkeypatch, [[_hit("kiss-andrea")]], [
+        {"i": 0, "verdict": "ir", "name": "Kiss Andrea", "headline": "vezető",
+         "summary": "Szállítmányozó cég.", "agent": "MULTI", "score": 80}])
+    assert o.search(store, sectors=["logistics"],
+                    countries=["HU"])["profiles"][0]["agent"] == "Multi-agent rendszer"
+
+
+def test_both_linkedin_prompts_carry_the_same_real_catalogue():
+    """A szűrő és a szövegíró ugyanabból a tizenötből dolgozzon: amíg a
+    kínálat két helyen, szabad szövegben élt, a kettő elcsúszott egymástól."""
+    import playbook
+    judge = playbook.linkedin_judge_prompt([{"title": "t", "url": "u", "text": "x"}],
+                                           ["finance"], ["HU"], [])
+    writer = playbook.linkedin_prompt("x" * 100, "", "hu")
+    for a in playbook.AGENTS:
+        assert a["hu"] in judge and a["key"] in judge, a["key"]
+        assert a["hu"] in writer, a["key"]
+
+
 def test_search_hands_back_the_snippet_so_a_draft_can_be_written_from_it(store, monkeypatch):
     o, _ = _search_env(monkeypatch, [[_hit("kiss-andrea")]], [
         {"i": 0, "verdict": "ir", "name": "Kiss Andrea", "headline": "vezető",
-         "summary": "Szállítmányozó cég.", "agent": "E-mail rendező", "score": 70}])
+         "summary": "Szállítmányozó cég.", "agent": "email", "score": 70}])
     p = o.search(store, sectors=["logistics"], countries=["HU"])["profiles"][0]
     assert "Kiss Andrea" in p["snippet"] and "Közös postafiók" in p["snippet"]
 
