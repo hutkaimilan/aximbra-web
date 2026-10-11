@@ -284,6 +284,10 @@ def test_api_requires_password(tmp_path, monkeypatch):
     assert c.get("/api/state", auth=("x", "rossz")).status_code == 401
     r = c.get("/api/state", auth=("x", "helyes-jelszo-123"))
     assert r.status_code == 200 and r.json()["cap"] == pipeline.DAILY_CAP
+    # A panelnek minden betöltéskor rá kell kérdeznie, hogy változott-e:
+    # enélkül egy friss deploy után a böngésző a régi felületet mutatja.
+    panel = c.get("/", auth=("x", "helyes-jelszo-123"))
+    assert panel.status_code == 200 and "no-cache" in panel.headers.get("cache-control", "")
     assert c.post("/api/research", json={"plan": {"AT": 3}}, auth=("x", "helyes-jelszo-123")).status_code == 400
     # Hobby csomagon nincs SMTP: a szerver nem küld, csak ha külön bekapcsolják.
     monkeypatch.delenv("SMTP_ENABLED", raising=False)

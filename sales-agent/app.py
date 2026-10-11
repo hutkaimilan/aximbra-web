@@ -129,7 +129,14 @@ def health():
 
 @app.get("/", dependencies=[Depends(auth)])
 def index():
-    return FileResponse(os.path.join(HERE, "static", "index.html"))
+    # A panel egyetlen fájl, és minden deploy új változatot ad. Cache-Control
+    # nélkül a böngésző a saját heurisztikája szerint tartja meg, így a friss
+    # deploy után is a régit mutatja, amíg valaki erős frissítést nem nyom —
+    # ez többször is úgy nézett ki, mintha ki sem ment volna a változás.
+    # A "no-cache" nem tiltja a tárolást, csak használat előtt újra megkérdezi:
+    # ha nem változott, 304 jön vissza, tehát nem kerül többe.
+    return FileResponse(os.path.join(HERE, "static", "index.html"),
+                        headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/api/state", dependencies=[Depends(auth)])
