@@ -722,6 +722,7 @@ $("#liClear").onclick = () => { $("#liProfile").value = ""; $("#liNote").value =
 // a találat korát is kiírja gondolatban: a „Megnyitom" után a profil szövegét
 // kell bemásolni, mert a megkeresést csak az ellenőrzött szövegre írjuk meg.
 const liTicked = (id) => [...document.querySelectorAll(`#${id} input:checked`)].map((i) => i.value);
+let liFound = [];   // a legutóbbi keresés találatai, a „Szöveget ír" gombhoz
 
 function liBudget() {
   const s = liTicked("liSectors").length, c = liTicked("liCountries").length;
@@ -765,11 +766,20 @@ function liHits(d) {
       "Nem jött találat.")}</p></div>`;
     return;
   }
-  box.innerHTML = `<div class="card"><p class="mute" style="margin:0 0 4px">
-      ${d.profiles.length} profil ${d.looked_at} átnézettből${d.searched ? `, ${d.searched} szűrő-kombinációból` : ""}.
-      A szöveg abból készült, amit a kereső indexelt — lehet hónapokkal ezelőtti.
-      Nyisd meg, és ha stimmel, másold be alulra.</p></div>` +
-    d.profiles.map((p) => `<div class="card">
+  liFound = d.profiles;
+  box.innerHTML = `<div class="card">
+      <div class="row" style="justify-content:space-between">
+        <p class="mute" style="margin:0">
+          ${d.profiles.length} profil ${d.looked_at} átnézettből${d.searched ? `, ${d.searched} szűrő-kombinációból` : ""}.
+          A szöveg abból készült, amit a kereső indexelt — lehet hónapokkal ezelőtti. Küldés előtt nyisd meg
+          a profilt, és nézd meg, hogy stimmel-e.</p>
+        <select id="liDraftLang" title="Milyen nyelven írja a megkeresést" style="flex:0 0 auto;width:auto">
+          <option value="hu">Magyar</option><option value="en">Angol</option>
+          <option value="sk">Szlovák</option><option value="ro">Román</option>
+          <option value="hr">Horvát</option><option value="sl">Szlovén</option>
+          <option value="fr">Francia</option>
+        </select></div></div>` +
+    d.profiles.map((p, i) => `<div class="card" id="liCard${i}">
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div style="min-width:0">
           <b>${esc(p.name || "Név a profilon")}</b>
@@ -779,7 +789,35 @@ function liHits(d) {
       ${p.agent ? `<span class="tag">${esc(p.agent)}</span>` : ""}
       <div class="row" style="margin-top:10px">
         <a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer"><button>Profil megnyitása</button></a>
-      </div></div>`).join("");
+        <button class="pri" data-draft="${i}">Szöveget ír</button>
+        <span data-busy="${i}"></span>
+      </div>
+      <div data-msg="${i}"></div></div>`).join("");
+  box.querySelectorAll("[data-draft]").forEach((b) => b.onclick = () => liDraftFor(+b.dataset.draft, b));
+}
+
+// Szövegírás kérésre, profilonként. Egy körben huszonnégy találat is jöhet;
+// mindegyikhez előre megírni egy megkeresést olyan modellhívás, amiből
+// huszonhármat eldobnánk.
+async function liDraftFor(i, btn) {
+  const p = liFound[i]; if (!p) return;
+  const busy = document.querySelector(`[data-busy="${i}"]`);
+  const slot = document.querySelector(`[data-msg="${i}"]`);
+  btn.disabled = true;
+  busy.innerHTML = `<span class="think"><i></i><i></i><i></i> írom…</span>`;
+  try {
+    const d = await api("/api/linkedin/draft",
+      {profile: p.snippet, lang: $("#liDraftLang").value, from_search: true});
+    if (d.verdict !== "ir") {
+      slot.innerHTML = `<p class="mute" style="margin:12px 0 0">
+        <span class="tag n">nem írt szöveget</span> ${esc(d.reason)}</p>`;
+      return;
+    }
+    const probs = (d.problems || []).map((x) => `<span class="tag w">${esc(x)}</span>`).join("");
+    slot.innerHTML = `${probs ? `<div class="row" style="margin:10px 0 0">${probs}</div>` : ""}
+      <textarea style="min-height:170px;margin-top:10px">${esc(d.message)}</textarea>`;
+  } catch (e) { flash(e.message); }
+  finally { btn.disabled = false; busy.innerHTML = ""; }
 }
 $("#liSearch").onclick = async () => {
   const sectors = liTicked("liSectors"), countries = liTicked("liCountries");

@@ -1119,6 +1119,49 @@ def test_linkedin_search_needs_a_search_key_and_a_known_sector(store, monkeypatc
         outreach.search(store, sectors=["logistics"], countries=["XX"])
 
 
+def test_search_hands_back_the_snippet_so_a_draft_can_be_written_from_it(store, monkeypatch):
+    o, _ = _search_env(monkeypatch, [[_hit("kiss-andrea")]], [
+        {"i": 0, "verdict": "ir", "name": "Kiss Andrea", "headline": "vezető",
+         "summary": "Szállítmányozó cég.", "agent": "E-mail rendező", "score": 70}])
+    p = o.search(store, sectors=["logistics"], countries=["HU"])["profiles"][0]
+    assert "Kiss Andrea" in p["snippet"] and "Közös postafiók" in p["snippet"]
+
+
+def test_draft_from_a_search_snippet_is_allowed_to_be_shorter_than_a_pasted_profile(monkeypatch):
+    """A keresőmotor részlete rövidebb, mint egy bemásolt profil; a bemásolásra
+    szabott alsó korlát itt indok nélkül dobná el."""
+    import json as _json
+    import outreach
+    snippet = "Kiss Andrea - ügyfélszolgálati vezető\nKözös postafiók, sok megkeresés naponta."
+    assert len(snippet) < outreach.MIN_PROFILE
+    seen = {}
+
+    def ask(prompt):
+        seen["prompt"] = prompt
+        return _json.dumps(
+            {"verdict": "ir", "reason": "ok", "quote": "Közös postafiók, sok megkeresés naponta.",
+             "message": "Kedves Andrea!\n\nLáttam, hogy közös postafiókra fut be a sok megkeresés. "
+                        "Kézzel osztják szét? Építettem rá egy agentet. Érdekelné?\n\nMilán"})
+    monkeypatch.setattr(outreach.llm, "_ask", ask)
+    with pytest.raises(ValueError):                      # bemásolt profilként még kevés
+        outreach.draft(snippet)
+    d = outreach.draft(snippet, from_search=True)        # keresési részletként viszont megy
+    assert d["verdict"] == "ir" and d["problems"] == []
+    assert "search engine indexed" in seen["prompt"]          # a modell tudja, miből dolgozik
+
+
+def test_draft_from_a_snippet_still_checks_the_quote(monkeypatch):
+    import json as _json
+    import outreach
+    monkeypatch.setattr(outreach.llm, "_ask", lambda prompt: _json.dumps(
+        {"verdict": "ir", "reason": "ok", "quote": "évi ötvenezer küldeményt kezelnek",
+         "message": "Kedves Andrea!\n\nLáttam, hogy évi ötvenezer küldeményt kezelnek. Kézzel követik? "
+                    "Építettem rá egy agentet. Érdekelné?\n\nMilán"}))
+    d = outreach.draft("Kiss Andrea - ügyfélszolgálati vezető\nKözös postafiók, sok megkeresés.",
+                       from_search=True)
+    assert any("nincs benne" in p for p in d["problems"])
+
+
 def test_search_plan_caps_the_spend_and_samples_every_ticked_sector():
     """A pipálás a mintavétel szélességét állítja, nem a számlát: a Tavily
     ingyenes szintje havi 1000 lekérdezés, és tíz iparág kilenc országgal

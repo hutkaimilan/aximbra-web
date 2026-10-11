@@ -37,6 +37,9 @@ VERDICTS = ("ir", "ne_irj")
 MIN_PROFILE = 80
 MAX_PROFILE = 12000
 MIN_MESSAGE = 80
+# A keresőmotor részlete rövidebb, mint egy bemásolt profil; ennél kevesebből
+# viszont már nem írunk, mert abból csak találgatás lenne.
+MIN_SNIPPET = 40
 
 # ---- kereső ------------------------------------------------------------------
 # A keresést NEM a LinkedInen futtatjuk: egy keresőmotor indexét kérdezzük
@@ -195,6 +198,11 @@ def search(store, *, sectors: list[str], countries: list[str], roles: list[str] 
             "summary": summary[:700],
             "agent": str(item.get("agent") or "").strip()[:60],
             "score": _score(item.get("score")),
+            # A kereső nyers részlete megy vissza a panelnek, hogy a „Szöveget
+            # ír" gomb ebből dolgozhasson, külön keresés nélkül. A szövegírás
+            # kérésre fut profilonként: huszonnégy megkeresést előre legyártani
+            # abból, amiből egyet fog elküldeni, kidobott pénz.
+            "snippet": f"{hits[i]['title']}\n{hits[i]['text']}".strip()[:1200],
         })
     out.sort(key=lambda x: -x["score"])
     # A megnézetteket akkor is elkönyveljük, ha elbuktak: a következő kör ne
@@ -204,16 +212,25 @@ def search(store, *, sectors: list[str], countries: list[str], roles: list[str] 
             "note": "" if out else "A találatok egyike sem tűnt célcsoportnak."}
 
 
-def draft(profile: str, note: str = "", lang: str = "hu") -> dict:
-    """Ítélet és szöveg a bemásolt profilra. ValueError, ha a bemenet kevés."""
+def draft(profile: str, note: str = "", lang: str = "hu", from_search: bool = False) -> dict:
+    """Ítélet és szöveg egy profilról. ValueError, ha a bemenet kevés.
+
+    `from_search` esetén nem bemásolt profil a forrás, hanem a keresőmotor
+    részlete: rövidebb, hiányosabb, és lehet hónapokkal ezelőtti. A modell ezt
+    megkapja, mert másképp kell írni abból, amiben öt sor van, mint abból, amit
+    a felhasználó a saját szemével olvasott. A hivatkozott mondatot ilyenkor is
+    ellenőrizzük — csak épp a részlethez mérjük, nem az élő profilhoz, és ezt a
+    panel ki is írja."""
     profile = (profile or "").strip()
-    if not MIN_PROFILE <= len(profile) <= MAX_PROFILE:
-        raise ValueError(f"A bemásolt profil {MIN_PROFILE} és {MAX_PROFILE} karakter között legyen "
+    floor = MIN_SNIPPET if from_search else MIN_PROFILE
+    if not floor <= len(profile) <= MAX_PROFILE:
+        raise ValueError(f"A szöveg {floor} és {MAX_PROFILE} karakter között legyen "
                          f"(most {len(profile)}).")
     if lang not in playbook.LANG_NAMES:
         raise ValueError(f"Ismeretlen nyelv: {lang}")
 
-    data = llm.extract_json(llm._ask(playbook.linkedin_prompt(profile, (note or "").strip(), lang)))
+    data = llm.extract_json(llm._ask(
+        playbook.linkedin_prompt(profile, (note or "").strip(), lang, from_search=from_search)))
     if not isinstance(data, dict):
         raise llm.LLMError("a megkeresés-író nem objektumot adott")
 

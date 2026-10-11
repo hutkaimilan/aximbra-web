@@ -506,6 +506,8 @@ class LinkedInIn(BaseModel):
     profile: str = Field(max_length=outreach.MAX_PROFILE)
     note: str = Field(default="", max_length=500)
     lang: str = Field(default="hu", max_length=5)
+    # Igaz, ha a szöveg a keresőmotor részletéből készül, nem bemásolt profilból.
+    from_search: bool = False
 
 
 @app.post("/api/linkedin/draft", dependencies=[Depends(auth)])
@@ -517,7 +519,7 @@ def linkedin_draft(body: LinkedInIn):
     if not _advisor_lock.acquire(blocking=False):
         raise HTTPException(409, "Még az előző kérésen dolgozom, várd meg.")
     try:
-        return outreach.draft(body.profile, body.note, body.lang)
+        return outreach.draft(body.profile, body.note, body.lang, from_search=body.from_search)
     except ValueError as e:
         raise HTTPException(400, str(e))
     except llm.LLMError as e:

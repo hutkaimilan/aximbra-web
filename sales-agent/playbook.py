@@ -322,7 +322,7 @@ Answer ONLY with a JSON array, one object per entry, same order, every entry inc
   "score": 0-100, "reason": "one short Hungarian sentence, why this verdict"}}]"""
 
 
-def linkedin_prompt(profile: str, note: str, lang: str) -> str:
+def linkedin_prompt(profile: str, note: str, lang: str, from_search: bool = False) -> str:
     """A bemásolt profilból előbb ítélet, aztán szöveg — ebben a sorrendben.
 
     A levélírónál a célzás már eldőlt, mire ide ér; itt nem, mert a profilt
@@ -334,7 +334,7 @@ AXIMBRA: a one-person AI agent studio (aximbra.hu), founder Milán Hutkai. It bu
 company's own systems: email triage for shared inboxes, lead qualification, customer support answered from the
 company's own documents, document extraction, NIS2 evidence collection. Live demos on the site, no signup.
 
-What Milán copied from their LinkedIn profile:
+{"What a search engine indexed about this person (a snippet: short, possibly cut off, possibly months old). Work ONLY from these words. Because it is thin, keep the message shorter than usual and lean on the one thing it actually states; if it states nothing concrete about their work, answer ne_irj with reason 'kevés adat a részletben'." if from_search else "What Milán copied from their LinkedIn profile:"}
 ---
 {profile}
 ---
@@ -351,7 +351,7 @@ Answer "ne_irj" (do not write) when ANY of these holds:
 Otherwise "ir" (write).
 
 STEP 2 — only if "ir": write the message in {LANG_NAMES.get(lang, "Hungarian")}.
-- "quote": one fact COPIED WORD FOR WORD from the pasted text above (8–40 words, original wording, no
+- "quote": one fact COPIED WORD FOR WORD from the text above (8–40 words, original wording, no
   paraphrase), which shows which agent fits. A job title alone is not enough; a slogan is not enough.
 - "message": address them by first name in the formal register. Then, in this order and nothing else:
   one sentence naming that fact; one question that turns it into a likely workload for THEM, phrased as a
