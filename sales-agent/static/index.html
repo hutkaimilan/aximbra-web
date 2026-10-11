@@ -149,6 +149,7 @@ details summary{cursor:pointer}
   <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18M8 17V9M13 17V5M18 17v-6"/></symbol>
   <symbol id="i-video" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="13" height="14" rx="2"/><path d="m16 10 5-3v10l-5-3"/></symbol>
   <symbol id="i-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></symbol>
+  <symbol id="i-person" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></symbol>
 </defs></svg>
 <header>
   <div class="brand">
@@ -163,6 +164,7 @@ details summary{cursor:pointer}
     <button data-tab="sent"><svg><use href="#i-send"/></svg>Elküldve</button>
     <button data-tab="replies"><svg><use href="#i-reply"/></svg>Válaszok <span class="n hide" id="nReplies"></span></button>
     <button data-tab="follow"><svg><use href="#i-loop"/></svg>Utánkövetés</button>
+    <button data-tab="linkedin"><svg><use href="#i-person"/></svg>LinkedIn</button>
     <button data-tab="new"><svg><use href="#i-scan"/></svg>Új keresés</button>
     <button data-tab="stats"><svg><use href="#i-chart"/></svg>Statisztika</button>
     <button data-tab="block"><svg><use href="#i-block"/></svg>Tiltólista</button>
@@ -240,6 +242,34 @@ details summary{cursor:pointer}
       <div class="plan" id="plan"></div>
       <div class="row" style="margin-top:12px"><button class="pri" id="go">Keresés indítása</button></div>
     </div>
+  </section>
+
+  <section id="tab-linkedin" class="hide">
+    <div class="card">
+      <h2>LinkedIn-megkeresés</h2>
+      <p class="mute" style="margin-top:0">Nyisd meg a profilját, jelöld ki az oldal szövegét, és másold be ide.
+        Az agent előbb megmondja, érdemes-e egyáltalán írni neki, és csak utána ír szöveget.
+        Elküldeni te küldöd el, a LinkedInen — innen semmi nem megy ki.</p>
+      <p class="mute" style="margin-top:0">A LinkedIn nem ad hozzáférést mások profiljának gépi olvasásához,
+        a lekaparás pedig fiókzárolással és adatvédelmi kötelezettséggel jár. Amit a böngésződben
+        elolvasol, azt viszont bemásolhatod.</p>
+      <label>A profil bemásolt szövege</label>
+      <textarea id="liProfile" style="min-height:170px" placeholder="Név, pozíció, cég, a Névjegy és a Tapasztalat szövege…"></textarea>
+      <label style="margin-top:10px">Amit te tudsz róla (nem kötelező)</label>
+      <input id="liNote" placeholder="Pl.: egy konferencián találkoztunk, vagy közös ismerős ajánlotta." />
+      <div class="row" style="margin-top:12px">
+        <select id="liLang">
+          <option value="hu">Magyar</option><option value="en">Angol</option>
+          <option value="sk">Szlovák</option><option value="ro">Román</option>
+          <option value="hr">Horvát</option><option value="sl">Szlovén</option>
+          <option value="fr">Francia</option>
+        </select>
+        <button class="pri" id="liGo">Megírja</button>
+        <button id="liClear">Új profil</button>
+        <span id="liBusy"></span>
+      </div>
+    </div>
+    <div id="liOut"></div>
   </section>
 
   <section id="tab-stats" class="hide"><div id="stats"></div></section>
@@ -593,6 +623,47 @@ $("#advClear").onclick = async () => {
   if (!confirm("Törlöm az eddigi beszélgetést?")) return;
   try { await api("/api/advisor/clear", {}); advRender([]); } catch (e) { flash(e.message); }
 };
+
+// ---- LinkedIn-megkeresés ----
+// A szöveget innen te másolod át a LinkedInre: ez a panel nem küld sehova.
+function liRender(d) {
+  const out = $("#liOut");
+  if (d.verdict === "ne_irj") {
+    out.innerHTML = `<div class="card"><div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">Ne írj neki</h2><span class="tag n">nem célcsoport</span></div>
+      <p class="mute" style="margin-bottom:0">${esc(d.reason)}</p></div>`;
+    return;
+  }
+  const probs = (d.problems || []).map((p) => `<span class="tag w">${esc(p)}</span>`).join("");
+  out.innerHTML = `<div class="card">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">Megkeresés</h2><span class="tag i">írhatsz neki</span></div>
+    <p class="mute">${esc(d.reason)}</p>
+    ${d.quote ? `<div class="obs">${esc(d.quote)}</div>` : ""}
+    ${probs ? `<div class="row" style="margin:8px 0">${probs}</div>` : ""}
+    <textarea id="liMsg" style="min-height:190px">${esc(d.message)}</textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="pri" id="liCopy">Szöveg másolása</button>
+      <span class="mute" id="liCount"></span></div></div>`;
+  const count = () => { $("#liCount").textContent = $("#liMsg").value.length + " karakter"; };
+  $("#liMsg").oninput = count; count();
+  $("#liCopy").onclick = async () => {
+    try { await navigator.clipboard.writeText($("#liMsg").value); $("#liCopy").textContent = "Kimásolva"; }
+    catch { $("#liMsg").select(); flash("A másolás nem ment, jelöld ki és másold kézzel."); }
+    setTimeout(() => { if ($("#liCopy")) $("#liCopy").textContent = "Szöveg másolása"; }, 2500);
+  };
+}
+$("#liGo").onclick = async () => {
+  const profile = $("#liProfile").value.trim();
+  if (profile.length < 80) { flash("Másolj be többet a profilból — ennyiből nem lehet megítélni."); return; }
+  const b = $("#liGo"); b.disabled = true;
+  $("#liBusy").innerHTML = `<span class="think"><i></i><i></i><i></i> elolvasom a profilt…</span>`;
+  try { liRender(await api("/api/linkedin/draft",
+    {profile, note: $("#liNote").value.trim(), lang: $("#liLang").value})); }
+  catch (e) { flash(e.message); $("#liOut").innerHTML = ""; }
+  finally { b.disabled = false; $("#liBusy").innerHTML = ""; }
+};
+$("#liClear").onclick = () => { $("#liProfile").value = ""; $("#liNote").value = ""; $("#liOut").innerHTML = ""; };
 
 // ---- irányítópult ----
 function budapestNow() {

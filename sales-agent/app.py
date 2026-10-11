@@ -22,6 +22,7 @@ import advisor
 import content
 import gmail_api
 import llm
+import outreach
 import websearch
 import mailer
 import pipeline
@@ -470,6 +471,33 @@ def advisor_ask(body: AskIn):
 def advisor_clear():
     store.advisor_clear()
     return {"ok": True}
+
+
+class LinkedInIn(BaseModel):
+    profile: str = Field(max_length=outreach.MAX_PROFILE)
+    note: str = Field(default="", max_length=500)
+    lang: str = Field(default="hu", max_length=5)
+
+
+@app.post("/api/linkedin/draft", dependencies=[Depends(auth)])
+def linkedin_draft(body: LinkedInIn):
+    """Bemásolt LinkedIn-profilból ítélet és megkeresés. Nem küld el semmit:
+    a szöveget a panelről te másolod át, és te nyomsz küldést a LinkedInen."""
+    # Ugyanaz a zár, mint a tanácsadónál: egyszerre egy modellhívás fusson,
+    # különben két megnyitott fül elviszi a napi keretet.
+    if not _advisor_lock.acquire(blocking=False):
+        raise HTTPException(409, "Még az előző kérésen dolgozom, várd meg.")
+    try:
+        return outreach.draft(body.profile, body.note, body.lang)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except llm.LLMError as e:
+        if "insufficient_quota" in str(e):
+            raise HTTPException(429, "Elfogyott a mai ingyenes AI-keret, holnap újra megy.")
+        logger.warning("linkedin megkeresés hiba: %s", e)
+        raise HTTPException(502, f"Nem sikerült szöveget kapni: {e}")
+    finally:
+        _advisor_lock.release()
 
 
 class BlockIn(BaseModel):

@@ -968,6 +968,112 @@ def test_rules_hold_in_english_and_french(bad, why):
     assert any(why in x for x in v), v
 
 
+# ---- LinkedIn-megkeresés bemásolt profilból ----------------------------------
+
+LI_PROFILE = (
+    "Kiss Andrea · Ügyfélszolgálati vezető a Dunamenti Logisztika Zrt.-nél. "
+    "Névjegy: Tizenhárom telephelyen futó szállítmányozási csapat ügyfélszolgálatát vezetem, "
+    "ahol naponta több száz megkeresés érkezik a közös postafiókba. "
+    "Tapasztalat: 2019 óta a cégnél, előtte diszpécser."
+)
+
+
+def _li(monkeypatch, reply):
+    import json as _json
+    import outreach
+    monkeypatch.setattr(outreach.llm, "_ask", lambda prompt: _json.dumps(reply))
+    return outreach
+
+
+def test_linkedin_draft_quotes_the_pasted_profile(monkeypatch):
+    quote = "naponta több száz megkeresés érkezik a közös postafiókba"
+    o = _li(monkeypatch, {"verdict": "ir", "reason": "Közös postafiók, sok megkeresés.",
+                          "quote": quote,
+                          "message": "Kedves Andrea!\n\nLáttam, hogy tizenhárom telephelyük van, és sok "
+                                     "megkeresés fut be a közös postafiókba. Ezeket most kézzel osztják "
+                                     "szét? Építettem egy agentet, ami reggelre besorolja a leveleket és "
+                                     "megmondja, kihez tartoznak. Érdekelné?\n\nMilán"})
+    d = o.draft(LI_PROFILE)
+    assert d["verdict"] == "ir" and d["problems"] == [] and d["quote"] == quote
+
+
+def test_linkedin_draft_flags_a_quote_that_is_not_in_the_profile(monkeypatch):
+    """A kitalált hivatkozás a legveszélyesebb hiba: a szöveget ember küldi el,
+    tehát látnia kell, ha a modell nem a bemásolt profilból dolgozott."""
+    o = _li(monkeypatch, {"verdict": "ir", "reason": "ok",
+                          "quote": "évi ötvenezer küldeményt kezelnek három országban",
+                          "message": "Kedves Andrea!\n\nLáttam, hogy évi ötvenezer küldeményt kezelnek. "
+                                     "Ezt most kézzel követik? Építettem rá egy agentet. Érdekelné?\n\nMilán"})
+    assert any("nincs benne a bemásolt" in p for p in o.draft(LI_PROFILE)["problems"])
+
+
+def test_linkedin_draft_flags_a_price(monkeypatch):
+    o = _li(monkeypatch, {"verdict": "ir", "reason": "ok",
+                          "quote": "naponta több száz megkeresés érkezik a közös postafiókba",
+                          "message": "Kedves Andrea!\n\nLáttam, hogy sok megkeresés fut be a közös "
+                                     "postafiókba. Kézzel osztják szét? Építettem rá egy agentet, "
+                                     "ára 400 ezer Ft. Érdekelné?\n\nMilán"})
+    assert any("Árat említ" in p for p in o.draft(LI_PROFILE)["problems"])
+
+
+def test_linkedin_refuses_a_competitor_and_hands_back_no_text(monkeypatch):
+    """Ez a Batki-eset: aki maga épít agent-keretrendszert, annak nem írunk.
+    Szöveget ilyenkor akkor sem adunk vissza, ha a modell írt egyet — ami ott
+    van a mezőben, azt előbb-utóbb valaki kimásolja."""
+    o = _li(monkeypatch, {"verdict": "ne_irj", "reason": "Saját AI-ügynök keretrendszert fejlesztenek.",
+                          "quote": "AI ügynök keretrendszert fejlesztünk",
+                          "message": "Kedves Gábor! Építettem egy agentet…"})
+    d = o.draft(LI_PROFILE)
+    assert d["verdict"] == "ne_irj" and d["message"] == "" and d["quote"] == ""
+    assert "keretrendszert" in d["reason"]
+
+
+def test_linkedin_rejects_a_too_short_paste_without_spending_a_model_call(monkeypatch):
+    import outreach
+    monkeypatch.setattr(outreach.llm, "_ask", lambda prompt: pytest.fail("nem lett volna szabad hívni"))
+    with pytest.raises(ValueError):
+        outreach.draft("Kiss Andrea, ügyfélszolgálati vezető.")
+
+
+def test_linkedin_rejects_an_unknown_verdict(monkeypatch):
+    o = _li(monkeypatch, {"verdict": "talan", "reason": "ok", "quote": "", "message": ""})
+    with pytest.raises(o.llm.LLMError):
+        o.draft(LI_PROFILE)
+
+
+def test_linkedin_endpoint_needs_the_password_and_returns_the_draft(tmp_path, monkeypatch):
+    import importlib
+    import json as _json
+    monkeypatch.setenv("SALES_DB_PATH", str(tmp_path / "li.db"))
+    monkeypatch.setenv("ADMIN_PASSWORD", "helyes-jelszo-123")
+    import store as store_mod
+    importlib.reload(store_mod)
+    import app as app_mod
+    importlib.reload(app_mod)
+    from fastapi.testclient import TestClient
+    monkeypatch.setattr(app_mod.outreach.llm, "_ask", lambda prompt: _json.dumps(
+        {"verdict": "ir", "reason": "Közös postafiók.",
+         "quote": "naponta több száz megkeresés érkezik a közös postafiókba",
+         "message": "Kedves Andrea!\n\nLáttam, hogy sok megkeresés fut be a közös postafiókba. "
+                    "Kézzel osztják szét? Építettem rá egy agentet. Érdekelné?\n\nMilán"}))
+    c = TestClient(app_mod.app)
+    assert c.post("/api/linkedin/draft", json={"profile": LI_PROFILE}).status_code == 401
+    r = c.post("/api/linkedin/draft", json={"profile": LI_PROFILE}, auth=("x", "helyes-jelszo-123"))
+    assert r.status_code == 200 and r.json()["verdict"] == "ir" and r.json()["problems"] == []
+    short = c.post("/api/linkedin/draft", json={"profile": "túl rövid"}, auth=("x", "helyes-jelszo-123"))
+    assert short.status_code == 400
+
+
+def test_research_prompt_excludes_the_companies_that_build_what_we_sell():
+    """A versenytárs-kizárásnak a keresési promptban is benne kell lennie,
+    nem csak a LinkedIn-ágon: a hideg levelek onnan indulnak."""
+    import playbook
+    p = playbook.research_prompt("HU", 3, [], "")
+    assert playbook.NOT_A_PROSPECT in p
+    for word in ("system integrators", "RPA", "NIS2 consultancies"):
+        assert word in p
+
+
 # ---- napi tartalomtéma a videós agentnek ------------------------------------
 
 def test_content_sends_two_briefs_once_and_never_leaks_names(store, monkeypatch):

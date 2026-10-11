@@ -190,6 +190,7 @@ Method, like an expert SDR:
 4. Score fit 0–100: how clearly one specific agent maps to that fact, company size (50–1000 ideal), local decision-making (a local HQ, not a foreign group's branch), and a buying signal (a verified, recent one is worth about 10–15 points).
 
 Exclude: micro businesses under 20 staff, restaurants, cafés, beauty salons, small repair shops, public institutions, state-owned companies, hospitals run by the state, schools, military, multinationals whose decisions are made abroad, and these domains: {excl}.
+Exclude above all {NOT_A_PROSPECT}. They either build it themselves or sell against us, and a letter to them reads as if we never looked at who we were writing to. If their site talks about their own AI, agents, automation or integration services, drop them however well they would otherwise fit.
 The email address must be printed on the company's own website (contact page, footer or imprint) and must be a company role address (info@, office@, ugyfelszolgalat@, sales@, kapcsolat@, iroda@ …). Never a private person's address, never a guessed one.
 
 Answer ONLY with a JSON array, no prose, each item:
@@ -270,6 +271,55 @@ Rules: parts 1–5 together under 75 words. You-focused, not we-focused. No pric
 Subject: 2–4 words about THEIR situation (a short question is fine), lowercase except the first word, no punctuation tricks.
 
 Answer ONLY with JSON: {{"subject": "...", "body": "..."}}"""
+
+
+LINKEDIN_MAX_CHARS = 900
+
+
+def linkedin_prompt(profile: str, note: str, lang: str) -> str:
+    """A bemásolt profilból előbb ítélet, aztán szöveg — ebben a sorrendben.
+
+    A levélírónál a célzás már eldőlt, mire ide ér; itt nem, mert a profilt
+    kézzel hozzuk be. Ezért a modell első dolga megmondani, hogy egyáltalán
+    érdemes-e írni, és csak utána ír."""
+    return f"""You decide whether a person on LinkedIn is worth a message from AXIMBRA, and only then write it.
+
+AXIMBRA: a one-person AI agent studio (aximbra.hu), founder Milán Hutkai. It builds custom AI agents into a
+company's own systems: email triage for shared inboxes, lead qualification, customer support answered from the
+company's own documents, document extraction, NIS2 evidence collection. Live demos on the site, no signup.
+
+What Milán copied from their LinkedIn profile:
+---
+{profile}
+---
+Milán's own note (may be empty): {note or "-"}
+
+STEP 1 — decide, and be strict. A message to the wrong person costs more than the one it might win.
+Answer "ne_irj" (do not write) when ANY of these holds:
+- They are {NOT_A_PROSPECT}. This is the most common mistake: read the profile for their OWN products and
+  services first. If they build agents, automation or integrations themselves, it is "ne_irj" however well
+  the rest fits.
+- They are a student, jobseeker, freelancer, coach, trainer, investor or recruiter.
+- Their company is a micro business (roughly under 20 staff), a public institution, a school or a hospital.
+- The profile says too little to name one concrete situation in their work.
+Otherwise "ir" (write).
+
+STEP 2 — only if "ir": write the message in {LANG_NAMES.get(lang, "Hungarian")}.
+- "quote": one fact COPIED WORD FOR WORD from the pasted text above (8–40 words, original wording, no
+  paraphrase), which shows which agent fits. A job title alone is not enough; a slogan is not enough.
+- "message": address them by first name in the formal register. Then, in this order and nothing else:
+  one sentence naming that fact; one question that turns it into a likely workload for THEM, phrased as a
+  guess, never as an accusation; one sentence about what Milán built for exactly that situation; one closing
+  question they can answer with a single word. Sign off with "Milán" on its own line.
+
+Writing rules: short sentences, max 20 words each. Everyday words. Under 120 words in total.
+No price, no link, no emoji, no flattery, no hype, no urgency, no claim about clients or results, and NEVER a
+number that is not in the pasted text. Write about their company and its processes, not about their person
+beyond the greeting. Do not mention that this was written by an AI, and do not mention their profile as
+"interesting" or "impressive".
+
+Answer ONLY with JSON:
+{{"verdict": "ir|ne_irj", "reason": "one short sentence in Hungarian, why", "quote": "... or empty", "message": "... or empty"}}"""
 
 
 def critique_prompt(lead: dict, subject: str, body: str) -> str:
@@ -356,6 +406,18 @@ Answer ONLY with JSON:
 
 WEBSITE TEXT:
 {pages}"""
+
+
+# ---- akinek nincs értelme írni ------------------------------------------------
+
+# Aki maga építi meg, vagy épp ugyanezt árulja, annak a levél nemcsak kidobott
+# idő: egy ilyen megkeresés azt üzeni, hogy rá sem néztünk, kire írunk. Ez a
+# szabály a hideg levélre és a LinkedIn-megkeresésre is áll, ezért egy helyen
+# van, és mindkét prompt innen veszi.
+NOT_A_PROSPECT = ("companies that sell or build what we sell: AI, LLM or agent developers, "
+                  "automation and RPA vendors, system integrators, software houses and dev shops, "
+                  "IT service providers and MSPs, data or AI consultancies, digital agencies that "
+                  "offer automation, and IT-security or NIS2 consultancies")
 
 
 # ---- a tartalomtémák névsora -------------------------------------------------
