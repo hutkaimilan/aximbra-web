@@ -1076,7 +1076,7 @@ def test_linkedin_search_keeps_only_profiles_and_judges_them_in_one_call(store, 
         {"i": 1, "verdict": "ne_irj", "name": "Nagy Péter", "headline": "fejlesztő",
          "summary": "", "agent": "", "score": 0, "reason": "Maga is agenteket épít."},
     ])
-    d = o.search(store, sector="logistics", country="HU", role="ügyfélszolgálati vezető")
+    d = o.search(store, sectors=["logistics"], countries=["HU"], roles=["ügyfélszolgálati vezető"])
 
     assert [p["name"] for p in d["profiles"]] == ["Kiss Andrea"]      # a versenytárs kiesett
     assert d["looked_at"] == 2                                       # cég-oldal, blog és duplikátum nélkül
@@ -1088,12 +1088,12 @@ def test_linkedin_search_never_shows_the_same_person_twice(store, monkeypatch):
     judged = [{"i": 0, "verdict": "ir", "name": "Kiss Andrea", "headline": "vezető",
                "summary": "Szállítmányozó cég.", "agent": "E-mail rendező", "score": 70}]
     o, _ = _search_env(monkeypatch, [[_hit("kiss-andrea")]], judged)
-    assert len(o.search(store, sector="logistics", country="HU")["profiles"]) == 1
+    assert len(o.search(store, sectors=["logistics"], countries=["HU"])["profiles"]) == 1
 
     # Második kör: ugyanaz az ember jön vissza, nyelvi aldomainnel és paraméterrel.
     o2, calls2 = _search_env(monkeypatch, [[dict(_hit("kiss-andrea"),
                                                  url="https://hu.linkedin.com/in/kiss-andrea?trk=abc")]], judged)
-    d = o2.search(store, sector="logistics", country="HU")
+    d = o2.search(store, sectors=["logistics"], countries=["HU"])
     assert d["profiles"] == [] and d["looked_at"] == 0
     assert calls2["ask"] == 0                                        # nem is kérdezzük meg újra
 
@@ -1104,19 +1104,45 @@ def test_linkedin_search_sorts_by_score_and_drops_a_summary_less_hit(store, monk
         {"i": 1, "verdict": "ir", "name": "B", "headline": "h", "summary": "Ez is jó.", "score": 90},
         {"i": 2, "verdict": "ir", "name": "C", "headline": "h", "summary": "   ", "score": 99},
     ])
-    assert [p["name"] for p in o.search(store, sector="logistics", country="HU")["profiles"]] == ["B", "A"]
+    assert [p["name"] for p in o.search(store, sectors=["logistics"], countries=["HU"])["profiles"]] == ["B", "A"]
 
 
 def test_linkedin_search_needs_a_search_key_and_a_known_sector(store, monkeypatch):
     import outreach
     monkeypatch.setattr(outreach.websearch, "tavily_on", lambda: False)
     with pytest.raises(ValueError, match="TAVILY"):
-        outreach.search(store, sector="logistics", country="HU")
+        outreach.search(store, sectors=["logistics"], countries=["HU"])
     monkeypatch.setattr(outreach.websearch, "tavily_on", lambda: True)
     with pytest.raises(ValueError):
-        outreach.search(store, sector="nincs-ilyen", country="HU")
+        outreach.search(store, sectors=["nincs-ilyen"], countries=["HU"])
     with pytest.raises(ValueError):
-        outreach.search(store, sector="logistics", country="XX")
+        outreach.search(store, sectors=["logistics"], countries=["XX"])
+
+
+def test_search_plan_caps_the_spend_and_samples_every_ticked_sector():
+    """A pipálás a mintavétel szélességét állítja, nem a számlát: a Tavily
+    ingyenes szintje havi 1000 lekérdezés, és tíz iparág kilenc országgal
+    egyetlen gombnyomásra elvinné."""
+    import outreach
+    many = outreach.plan(["logistics", "manufacturing", "healthcare", "finance", "energy"],
+                         ["HU", "SK", "RO"], ["ügyvezető", "IT-vezető"])
+    assert len(many) == outreach.MAX_COMBOS
+    # Körbeforgatva: az első öt elem öt KÜLÖNBÖZŐ iparág, nem az első kimerítése.
+    assert len({s for s, _, _ in many[:5]}) == 5
+
+    one = outreach.plan(["logistics"], ["HU"], [])
+    assert one == [("logistics", "HU", "")]          # szerepkör nélkül is fut egy kör
+
+
+def test_search_spends_no_more_than_the_budget_however_much_is_ticked(store, monkeypatch):
+    import outreach
+    import playbook
+    o, calls = _search_env(monkeypatch, [], [])
+    d = o.search(store, sectors=list(playbook.SECTORS), countries=list(playbook.COUNTRIES),
+                 roles=list(outreach.ROLES))
+    assert len(calls["search"]) <= outreach.MAX_COMBOS * outreach.QUERIES_PER_COMBO
+    assert calls["ask"] == 0                          # találat nélkül modellt sem hívunk
+    assert d["profiles"] == [] and d["searched"] == outreach.MAX_COMBOS
 
 
 def test_profile_key_accepts_only_real_profile_urls():

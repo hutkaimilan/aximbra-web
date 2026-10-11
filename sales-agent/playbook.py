@@ -276,23 +276,28 @@ Answer ONLY with JSON: {{"subject": "...", "body": "..."}}"""
 LINKEDIN_MAX_CHARS = 900
 
 
-def linkedin_judge_prompt(hits: list[dict], sector: str, country: str, role: str) -> str:
+def linkedin_judge_prompt(hits: list[dict], sectors: list[str], countries: list[str],
+                          roles: list[str]) -> str:
     """Egy hívás az egész találati listára. Profilonként külön kérdezni
     ugyanaz a hiba lenne, mint az e-mail agentnél volt: ötven kérés a
     percdíjba ütközik, és a fele sosem kap választ."""
-    sec = SECTORS.get(sector, {})
     listing = "\n\n".join(
         f"[{i}] {h['title']}\nURL: {h['url']}\nAmit a kereső indexelt: {h['text']}"
         for i, h in enumerate(hits))
+    # A találatok több bepipált iparágból jönnek vegyesen, ezért mindegyik
+    # fájdalma ott van a promptban: a modellnek kell eldöntenie, melyik
+    # illik az adott profilra, nem nekünk előre.
+    wanted = "\n".join(f"- {SECTORS[s]['hu']}: {SECTORS[s]['pain']} Erre kínálunk: {SECTORS[s]['value']}"
+                       for s in sectors if s in SECTORS)
+    places = ", ".join(COUNTRIES.get(c, {}).get("name", c) for c in countries)
     return f"""You screen public LinkedIn profiles found through a search engine, for AXIMBRA.
 
 AXIMBRA builds custom AI agents into a company's own systems: email triage for shared inboxes, lead
 qualification, customer support answered from the company's own documents, document extraction, NIS2
 evidence collection, webshop assistance, financial and IT-operations agents.
 
-The search looked for: {role or "decision makers"} in {sec.get('hu', sector)} in {COUNTRIES.get(country, {}).get('name', country)}.
-That sector's real pain: {sec.get('pain', 'n/a')}
-What we could offer there: {sec.get('value', 'n/a')}
+The search looked for {", ".join(roles) if roles else "decision makers"} in {places}, in these sectors:
+{wanted}
 
 Judge EACH entry below. You only see what a search engine indexed — a headline and a snippet, possibly
 months old and possibly cut off. Judge what is there; never invent a company size, a tool they use, a

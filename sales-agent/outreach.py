@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from itertools import zip_longest
 
 import llm
 import playbook
@@ -50,6 +51,21 @@ JUDGEMENTS = ("ir", "ne_irj", "keves_adat")
 MAX_HITS = 24
 SEEN_KEY = "linkedin_seen"
 SEEN_KEEP = 600
+# A keresés pénzbe kerül: a Tavily ingyenes szintje havi 1000 lekérdezés. Egy
+# kör ezért legfeljebb MAX_COMBOS × QUERIES_PER_COMBO keresést költ, akárhány
+# szűrőt pipálnak ki — a szűrők a mintavétel szélességét állítják, nem a
+# számlát. A panel előre kiírja, hány keresés lesz belőle.
+MAX_COMBOS = 6
+QUERIES_PER_COMBO = 2
+MAX_ROLES = 6
+
+# Szerepkörök, akikhez a legtöbb agentünknek van köze. A panelen ezek a
+# pipálható sorok; a lista szándékosan rövid, mert minden bepipált szerepkör
+# szorozza a kombinációkat.
+ROLES = (
+    "ügyfélszolgálati vezető", "üzemeltetési vezető", "logisztikai vezető",
+    "pénzügyi vezető", "IT-vezető", "HR-vezető", "ügyvezető",
+)
 
 
 def _profile_key(url: str) -> str:
@@ -97,35 +113,66 @@ def queries(sector: str, country: str, role: str) -> list[str]:
     return out
 
 
-def search(store, *, sector: str, country: str, role: str = "", say=logger.info) -> dict:
+def plan(sectors: list[str], countries: list[str], roles: list[str]) -> list[tuple[str, str, str]]:
+    """A bepipált szűrők szorzata, körbeforgatva, MAX_COMBOS-ig vágva.
+
+    Tíz iparág, kilenc ország és néhány szerepkör szorzata több száz
+    kombináció; mindet lefuttatni egyetlen gombnyomásra elvinné a havi
+    keresési keretet. A sorrend ezért kör-körben megy: előbb minden bepipált
+    iparágból egy, aztán a másodikok. Így egy széles pipálás mintát vesz
+    mindenből, nem pedig az első iparágat meríti ki."""
+    rows: dict[str, list[tuple[str, str, str]]] = {}
+    for s in sectors:
+        for c in countries:
+            for r in (roles or [""]):
+                rows.setdefault(s, []).append((s, c, r))
+    out: list[tuple[str, str, str]] = []
+    for group in zip_longest(*rows.values()):
+        out.extend(x for x in group if x)
+    return out[:MAX_COMBOS]
+
+
+def _clean(values, allowed, what: str) -> list[str]:
+    out = [v for v in dict.fromkeys(values or []) if v in allowed]
+    if not out:
+        raise ValueError(f"Pipálj ki legalább egy {what}.")
+    return out
+
+
+def search(store, *, sectors: list[str], countries: list[str], roles: list[str] | None = None,
+           say=logger.info) -> dict:
     """Nyilvános profilok keresése és szűrése. Nem küld és nem ment leadet."""
-    if sector not in playbook.SECTORS:
-        raise ValueError(f"Ismeretlen iparág: {sector}")
-    if country not in playbook.COUNTRIES:
-        raise ValueError(f"Ismeretlen ország: {country}")
+    sectors = _clean(sectors, playbook.SECTORS, "iparágat")
+    countries = _clean(countries, playbook.COUNTRIES, "országot")
+    roles = [r.strip()[:80] for r in (roles or []) if r and r.strip()][:MAX_ROLES]
     if not websearch.tavily_on():
         raise ValueError("Ehhez TAVILY_API_KEY kell: a keresőmotor indexét kérdezzük, "
                          "és enélkül nincs honnan találatot venni.")
 
+    combos = plan(sectors, countries, roles)
     seen, hits, keys = set(_seen_list(store)), [], set()
-    for q in queries(sector, country, (role or "").strip()[:80]):
-        say(f"Keresés: {q}")
-        for h in websearch.search(q, n=10, include_domains=["linkedin.com"]):
-            key = _profile_key(h.get("url", ""))
-            if not key or key in keys or key in seen:
-                continue
-            keys.add(key)
-            hits.append({"title": h["title"][:200], "url": h["url"], "text": (h.get("text") or "")[:900]})
+    for sector, country, role in combos:
         if len(hits) >= MAX_HITS:
             break
+        for q in queries(sector, country, role)[:QUERIES_PER_COMBO]:
+            say(f"Keresés: {q}")
+            for h in websearch.search(q, n=10, include_domains=["linkedin.com"]):
+                key = _profile_key(h.get("url", ""))
+                if not key or key in keys or key in seen:
+                    continue
+                keys.add(key)
+                hits.append({"title": h["title"][:200], "url": h["url"],
+                             "text": (h.get("text") or "")[:900]})
+            if len(hits) >= MAX_HITS:
+                break
     hits = hits[:MAX_HITS]
     if not hits:
-        return {"profiles": [], "looked_at": 0,
-                "note": "Nem jött új nyilvános profil erre a keresésre. Próbálj más szerepkört, "
-                        "vagy nézd meg később — a már látottakat kihagyjuk."}
+        return {"profiles": [], "looked_at": 0, "searched": len(combos),
+                "note": "Nem jött új nyilvános profil erre a szűrésre. Pipálj ki több iparágat vagy "
+                        "országot, vagy nézd meg később — a már látottakat kihagyjuk."}
 
     say(f"{len(hits)} új profil, egy hívásban átnézem őket.")
-    data = llm.extract_json(llm._ask(playbook.linkedin_judge_prompt(hits, sector, country, role)))
+    data = llm.extract_json(llm._ask(playbook.linkedin_judge_prompt(hits, sectors, countries, roles)))
     if not isinstance(data, list):
         raise llm.LLMError("a profilszűrő nem listát adott")
 
@@ -153,7 +200,7 @@ def search(store, *, sector: str, country: str, role: str = "", say=logger.info)
     # A megnézetteket akkor is elkönyveljük, ha elbuktak: a következő kör ne
     # ugyanazon a huszonnégy emberen pazarolja el a keresést és a modellhívást.
     _remember(store, sorted(keys))
-    return {"profiles": out, "looked_at": len(hits),
+    return {"profiles": out, "looked_at": len(hits), "searched": len(combos),
             "note": "" if out else "A találatok egyike sem tűnt célcsoportnak."}
 
 

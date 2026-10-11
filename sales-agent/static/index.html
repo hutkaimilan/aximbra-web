@@ -125,6 +125,19 @@ th{color:var(--mute);font:500 11px var(--mono);letter-spacing:.08em;text-transfo
 .acts button{display:flex;align-items:center;gap:8px;justify-content:flex-start;text-align:left}
 .acts svg{width:18px;height:18px;flex:none;color:var(--c)}
 /* tanácsadó */
+/* Pipálható szűrők. A sor egésze kattintható, nem csak a kis négyzet — egérrel
+   és telefonon is ez a különbség a használható és a bosszantó között. */
+.picker{margin-top:14px}
+.allnone{display:flex;gap:6px}
+.allnone button{font:500 11px var(--mono);padding:3px 9px;border-radius:999px;letter-spacing:.04em}
+.checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px;margin-top:8px}
+.checks label{display:flex;align-items:center;gap:9px;margin:0;padding:8px 11px;border:1px solid var(--line);
+  border-radius:11px;background:rgba(10,14,26,.5);cursor:pointer;font:400 13.5px var(--sans);
+  color:var(--ink);text-transform:none;letter-spacing:0;transition:border-color .15s,background .15s}
+.checks label:hover{border-color:var(--line2)}
+.checks label.on{border-color:rgba(0,229,255,.5);background:rgba(0,229,255,.08)}
+.checks input{width:16px;height:16px;flex:none;accent-color:var(--c);margin:0;cursor:pointer}
+
 /* A buborék a teljes szélességű panelen sem nyúlhat el: egy sorban kb. 80-90
    karakternél tovább a szem nem találja vissza a következő sor elejét. */
 .msg{white-space:pre-wrap;max-width:min(92%,86ch)}
@@ -259,12 +272,32 @@ details summary{cursor:pointer}
         mindegyikről ír pár sort: mit csinál a cég, milyen teher járhat a szerepkörrel, melyik agent illik rá.
         Akit már egyszer kidobott, azt legközelebb kihagyja.</p>
       <p class="mute" style="margin-top:0" id="liSearchWarn"></p>
-      <div class="row">
-        <select id="liSector"></select>
-        <select id="liCountry"></select>
-        <input id="liRole" placeholder="Szerepkör (nem kötelező) — pl. ügyfélszolgálati vezető"
-               style="flex:1 1 260px" />
-        <button class="pri" id="liSearch">Keresés</button>
+
+      <div class="picker">
+        <div class="row" style="justify-content:space-between">
+          <label style="margin:0">Iparág</label>
+          <span class="allnone"><button data-all="liSectors">mind</button><button data-none="liSectors">egyik se</button></span>
+        </div>
+        <div class="checks" id="liSectors"></div>
+      </div>
+      <div class="picker">
+        <div class="row" style="justify-content:space-between">
+          <label style="margin:0">Ország</label>
+          <span class="allnone"><button data-all="liCountries">mind</button><button data-none="liCountries">egyik se</button></span>
+        </div>
+        <div class="checks" id="liCountries"></div>
+      </div>
+      <div class="picker">
+        <div class="row" style="justify-content:space-between">
+          <label style="margin:0">Szerepkör <span class="mute">— üresen hagyva az iparág szerint keres</span></label>
+          <span class="allnone"><button data-none="liRoles">egyik se</button></span>
+        </div>
+        <div class="checks" id="liRoles"></div>
+      </div>
+
+      <div class="row" style="margin-top:14px">
+        <button class="pri" id="liSearch">Keresés indítása</button>
+        <span class="mute" id="liBudget"></span>
         <span id="liSearchBusy"></span>
       </div>
     </div>
@@ -688,15 +721,42 @@ $("#liClear").onclick = () => { $("#liProfile").value = ""; $("#liNote").value =
 // A kereső a keresőmotor indexéből dolgozik, nem a LinkedInről. Ezért a kártya
 // a találat korát is kiírja gondolatban: a „Megnyitom" után a profil szövegét
 // kell bemásolni, mert a megkeresést csak az ellenőrzött szövegre írjuk meg.
+const liTicked = (id) => [...document.querySelectorAll(`#${id} input:checked`)].map((i) => i.value);
+
+function liBudget() {
+  const s = liTicked("liSectors").length, c = liTicked("liCountries").length;
+  const r = Math.max(1, liTicked("liRoles").length);
+  const b = (S && S.search_budget) || {combos: 6, per_combo: 2};
+  const el = $("#liBudget");
+  if (!s || !c) { el.textContent = "Pipálj ki legalább egy iparágat és egy országot."; return; }
+  const combos = Math.min(s * c * r, b.combos);
+  el.textContent = `${combos * b.per_combo} keresést használ el` +
+    (s * c * r > b.combos ? ` — a ${s * c * r} kombinációból ennyit mintáz, körbeforgatva.` : ".");
+}
 function liFillSelects() {
-  if (!S || $("#liSector").options.length) return;
-  const fill = (sel, obj) => { $(sel).innerHTML = Object.entries(obj || {})
-    .map(([k, v]) => `<option value="${esc(k)}">${esc(v)}</option>`).join(""); };
-  fill("#liSector", S.sectors); fill("#liCountry", S.countries);
+  if (!S || $("#liSectors").children.length) return;
+  const box = (id, entries, on) => { $("#" + id).innerHTML = entries.map(([k, v]) =>
+    `<label class="${on(k) ? "on" : ""}"><input type="checkbox" value="${esc(k)}"${on(k) ? " checked" : ""}>
+     <span>${esc(v)}</span></label>`).join(""); };
+  box("liSectors", Object.entries(S.sectors || {}), () => false);
+  // Alapból a hazai piac van kipipálva: a levélterv is innen indul.
+  box("liCountries", Object.entries(S.countries || {}), (k) => k === "HU");
+  box("liRoles", (S.roles || []).map((r) => [r, r]), () => false);
+  document.querySelectorAll(".checks input").forEach((i) => i.onchange = () => {
+    i.closest("label").classList.toggle("on", i.checked); liBudget();
+  });
+  document.querySelectorAll(".allnone button").forEach((b) => b.onclick = () => {
+    const id = b.dataset.all || b.dataset.none, want = !!b.dataset.all;
+    document.querySelectorAll(`#${id} input`).forEach((i) => {
+      i.checked = want; i.closest("label").classList.toggle("on", want);
+    });
+    liBudget();
+  });
   if (!S.config.web_search) {
     $("#liSearchWarn").textContent = "A kereséshez TAVILY_API_KEY kell — enélkül nincs honnan találatot venni.";
     $("#liSearch").disabled = true;
   }
+  liBudget();
 }
 function liHits(d) {
   const box = $("#liHits");
@@ -706,8 +766,9 @@ function liHits(d) {
     return;
   }
   box.innerHTML = `<div class="card"><p class="mute" style="margin:0 0 4px">
-      ${d.profiles.length} profil ${d.looked_at} átnézettből. A szöveg abból készült, amit a kereső
-      indexelt — lehet hónapokkal ezelőtti. Nyisd meg, és ha stimmel, másold be alulra.</p></div>` +
+      ${d.profiles.length} profil ${d.looked_at} átnézettből${d.searched ? `, ${d.searched} szűrő-kombinációból` : ""}.
+      A szöveg abból készült, amit a kereső indexelt — lehet hónapokkal ezelőtti.
+      Nyisd meg, és ha stimmel, másold be alulra.</p></div>` +
     d.profiles.map((p) => `<div class="card">
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div style="min-width:0">
@@ -721,10 +782,11 @@ function liHits(d) {
       </div></div>`).join("");
 }
 $("#liSearch").onclick = async () => {
+  const sectors = liTicked("liSectors"), countries = liTicked("liCountries");
+  if (!sectors.length || !countries.length) { flash("Pipálj ki legalább egy iparágat és egy országot."); return; }
   const b = $("#liSearch"); b.disabled = true;
   $("#liSearchBusy").innerHTML = `<span class="think"><i></i><i></i><i></i> keresek és átnézem a találatokat…</span>`;
-  try { liHits(await api("/api/linkedin/search",
-    {sector: $("#liSector").value, country: $("#liCountry").value, role: $("#liRole").value.trim()})); }
+  try { liHits(await api("/api/linkedin/search", {sectors, countries, roles: liTicked("liRoles")})); }
   catch (e) { flash(e.message); }
   finally { b.disabled = false; $("#liSearchBusy").innerHTML = ""; }
 };

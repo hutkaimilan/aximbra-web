@@ -148,6 +148,8 @@ def state():
                       **pipeline.readiness(store)},
         "countries": {k: v["name"] for k, v in COUNTRIES.items()},
         "sectors": {k: v["hu"] for k, v in SECTORS.items()},
+        "roles": list(outreach.ROLES),
+        "search_budget": {"combos": outreach.MAX_COMBOS, "per_combo": outreach.QUERIES_PER_COMBO},
         "config": {
             "gmail": bool(os.environ.get("GMAIL_USER") and os.environ.get("GMAIL_APP_PASSWORD")),
             "openai": bool(os.environ.get("OPENAI_API_KEY") or os.environ.get("GEMINI_API_KEY")),
@@ -475,9 +477,9 @@ def advisor_clear():
 
 
 class LinkedInSearchIn(BaseModel):
-    sector: str = Field(max_length=40)
-    country: str = Field(max_length=4)
-    role: str = Field(default="", max_length=80)
+    sectors: list[str] = Field(default_factory=list, max_length=20)
+    countries: list[str] = Field(default_factory=list, max_length=20)
+    roles: list[str] = Field(default_factory=list, max_length=20)
 
 
 @app.post("/api/linkedin/search", dependencies=[Depends(auth)])
@@ -487,7 +489,8 @@ def linkedin_search(body: LinkedInSearchIn):
     if not _advisor_lock.acquire(blocking=False):
         raise HTTPException(409, "Még az előző kérésen dolgozom, várd meg.")
     try:
-        return outreach.search(store, sector=body.sector, country=body.country, role=body.role)
+        return outreach.search(store, sectors=body.sectors, countries=body.countries,
+                               roles=body.roles)
     except ValueError as e:
         raise HTTPException(400, str(e))
     except llm.LLMError as e:
