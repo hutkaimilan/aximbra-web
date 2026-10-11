@@ -16,6 +16,12 @@
   --grad:linear-gradient(135deg,#00e5ff 0%,#8b5cff 55%,#ff3df2 100%);
   --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
   --sans:"Space Grotesk",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  /* A panel a teljes ablakot használja. Egy knob: a fejléc, a lámpasor, a
+     menü és a tartalom ugyanerre igazodik, tehát nem csúszhatnak el egymáshoz
+     képest. A hézag a széleken a kijelzővel nő, hogy nagy monitoron se
+     tapadjon a tartalom a keretre. */
+  --shell:100%;
+  --gut:clamp(16px,2vw,44px);
 }
 *{box-sizing:border-box}
 html{background:var(--bg)}
@@ -33,9 +39,9 @@ body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
 @keyframes drift{to{filter:hue-rotate(25deg);transform:scale(1.06)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
-header{position:sticky;top:0;z-index:10;padding:12px 16px 10px;background:linear-gradient(180deg,rgba(3,4,10,.92),rgba(3,4,10,.72));
+header{position:sticky;top:0;z-index:10;padding:12px var(--gut) 10px;background:linear-gradient(180deg,rgba(3,4,10,.92),rgba(3,4,10,.72));
   backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:center;justify-content:space-between;gap:10px;max-width:980px;margin:0 auto 10px}
+.brand{display:flex;align-items:center;justify-content:space-between;gap:10px;max-width:var(--shell);margin:0 auto 10px}
 .logo{display:flex;align-items:center;gap:10px;min-width:0}
 .core{width:30px;height:30px;flex:none;border-radius:50%;background:conic-gradient(from 0deg,#00e5ff,#8b5cff,#ff3df2,#00e5ff);
   animation:spin 6s linear infinite;box-shadow:0 0 18px rgba(0,229,255,.55);position:relative}
@@ -47,7 +53,7 @@ h1 small{display:block;font:500 10px/1.4 var(--mono);letter-spacing:.2em;color:v
 h1 b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .cap{font:600 12px var(--mono);color:var(--mute);white-space:nowrap}
 .cap b{color:var(--c)}
-.leds{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;max-width:980px;margin:0 auto 10px}
+.leds{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;max-width:var(--shell);margin:0 auto 10px}
 .leds::-webkit-scrollbar{display:none}
 .led{flex:none}
 .led{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--mute);border:1px solid var(--line);border-radius:999px;padding:3px 9px 3px 8px;display:inline-flex;align-items:center;gap:6px;background:rgba(10,14,26,.6)}
@@ -55,14 +61,14 @@ h1 b{background:var(--grad);-webkit-background-clip:text;background-clip:text;co
 .led.on i{background:var(--ok);box-shadow:0 0 8px var(--ok);animation:pulse 2.4s ease-in-out infinite}
 .led.off i{background:var(--bad);box-shadow:0 0 8px var(--bad)}
 @keyframes pulse{50%{opacity:.35}}
-nav{display:flex;gap:6px;overflow-x:auto;max-width:980px;margin:0 auto;scrollbar-width:none}
+nav{display:flex;gap:6px;overflow-x:auto;max-width:var(--shell);margin:0 auto;scrollbar-width:none}
 nav::-webkit-scrollbar{display:none}
 nav button{flex:none;display:inline-flex;align-items:center;gap:7px;font:500 13px var(--sans);letter-spacing:.02em;border-radius:12px;padding:8px 12px;background:rgba(14,19,34,.7)}
 nav button svg{width:15px;height:15px;opacity:.8}
 nav button.on{color:#fff;border-color:transparent;background:linear-gradient(rgba(10,14,26,.9),rgba(10,14,26,.9)) padding-box,var(--grad) border-box;box-shadow:0 0 18px rgba(0,229,255,.25)}
 nav button .n{font:600 11px var(--mono);color:var(--bg);background:var(--c);border-radius:999px;padding:0 6px}
 
-main{max-width:980px;margin:0 auto;padding:18px 16px 60px}
+main{max-width:var(--shell);margin:0 auto;padding:18px var(--gut) 60px}
 button{font:500 14px var(--sans);border:1px solid var(--line);background:var(--glass);color:var(--ink);border-radius:12px;padding:9px 14px;cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .1s}
 button:hover{border-color:var(--line2);box-shadow:0 0 14px rgba(0,229,255,.15)}
 button:active{transform:translateY(1px)}
@@ -119,7 +125,9 @@ th{color:var(--mute);font:500 11px var(--mono);letter-spacing:.08em;text-transfo
 .acts button{display:flex;align-items:center;gap:8px;justify-content:flex-start;text-align:left}
 .acts svg{width:18px;height:18px;flex:none;color:var(--c)}
 /* tanácsadó */
-.msg{white-space:pre-wrap;max-width:92%}
+/* A buborék a teljes szélességű panelen sem nyúlhat el: egy sorban kb. 80-90
+   karakternél tovább a szem nem találja vissza a következő sor elejét. */
+.msg{white-space:pre-wrap;max-width:min(92%,86ch)}
 .msg.me{margin-left:auto;background:linear-gradient(135deg,rgba(0,229,255,.12),rgba(139,92,255,.14));border-color:rgba(0,229,255,.3)}
 .msg.me::before{display:none}
 .who{display:flex;align-items:center;gap:8px;font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin-bottom:8px}
@@ -642,16 +650,10 @@ function liRender(d) {
     ${d.quote ? `<div class="obs">${esc(d.quote)}</div>` : ""}
     ${probs ? `<div class="row" style="margin:8px 0">${probs}</div>` : ""}
     <textarea id="liMsg" style="min-height:190px">${esc(d.message)}</textarea>
-    <div class="row" style="margin-top:10px">
-      <button class="pri" id="liCopy">Szöveg másolása</button>
-      <span class="mute" id="liCount"></span></div></div>`;
+    <div class="row" style="margin-top:6px"><span class="mute" id="liCount"></span></div></div>`;
+  // Másoló gombot nem teszünk ide: a panel minden szövegdoboz alá tesz egyet.
   const count = () => { $("#liCount").textContent = $("#liMsg").value.length + " karakter"; };
   $("#liMsg").oninput = count; count();
-  $("#liCopy").onclick = async () => {
-    try { await navigator.clipboard.writeText($("#liMsg").value); $("#liCopy").textContent = "Kimásolva"; }
-    catch { $("#liMsg").select(); flash("A másolás nem ment, jelöld ki és másold kézzel."); }
-    setTimeout(() => { if ($("#liCopy")) $("#liCopy").textContent = "Szöveg másolása"; }, 2500);
-  };
 }
 $("#liGo").onclick = async () => {
   const profile = $("#liProfile").value.trim();
