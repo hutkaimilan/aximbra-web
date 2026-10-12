@@ -125,7 +125,7 @@ export default function PrivacyDe({ lang }) {
           <h2>4. Demo „Anfragen-Qualifizierer“</h2>
           <p>
             Was Sie in das Feld eingeben (bis zu 4 000 Zeichen), wird in einem einzigen Aufruf an
-            die Gemini-API von Google gesendet, das Ergebnis geht an die Seite zurück.{" "}
+            die OpenAI-API (über das Gateway von Emergent) gesendet, das Ergebnis geht an die Seite zurück.{" "}
             <b>Weder der Text noch das Ergebnis werden gespeichert</b> — dahinter steht keine
             Datenbank. Rechtsgrundlage: Einwilligung (Art. 6 Abs. 1 lit. a DSGVO), die Sie mit dem
             Start der Demo erteilen.
@@ -159,7 +159,7 @@ export default function PrivacyDe({ lang }) {
               Videos und andere Formate öffnen wir nicht, und <b>wir führen keine
               Texterkennung (OCR) durch</b>: Aus einem gescannten Dokument wird kein Text gewonnen.
               Die Datei selbst geht nirgendwohin; der extrahierte Text erreicht zusammen mit dem
-              Text der E-Mail die Gemini-API von Google und ist nach dem Durchlauf weg.
+              Text der E-Mail die OpenAI-API (über das Gateway von Emergent) und ist nach dem Durchlauf weg.
             </li>
             <li>
               <b>Welchen Zugriff wir anfragen:</b> standardmäßig nur Lesen
@@ -186,7 +186,7 @@ export default function PrivacyDe({ lang }) {
               <code>batchDelete</code>). Wir vergeben keine Labels und keine Sterne.
             </li>
             <li>
-              <b>Wohin es geht:</b> Der Text der E-Mails wird an die Gemini-API von Google gesendet, ein
+              <b>Wohin es geht:</b> Der Text der E-Mails wird an die OpenAI-API (über das Gateway von Emergent) gesendet, ein
               Aufruf pro Einstufung. Nichts wird in eine Datenbank geschrieben.
             </li>
             <li>
@@ -230,10 +230,10 @@ export default function PrivacyDe({ lang }) {
             Wir <b>verwenden diese Daten nicht</b> für Werbung, verkaufen sie nicht, geben sie
             nicht über das für die genannten Funktionen Nötige hinaus an Dritte weiter und{" "}
             <b>trainieren damit kein KI-Modell</b>. Der einzige Dritte, der E-Mail-Inhalte erhält,
-            ist Google über die Gemini-API (kostenlose Stufe), um die Ihnen angezeigte Einordnung und die
-            Entwürfe zu erzeugen. In der kostenlosen Stufe kann Google die eingereichten Inhalte zur
-            Verbesserung seiner Produkte nutzen — verbinden Sie Ihr eigenes Konto nur, wenn Sie das
-            akzeptieren; das Beispielpostfach enthält keine personenbezogenen Daten. Kein Mensch liest die Daten, es sei denn, Sie
+            ist OpenAI über seine API, erreicht über das API-Gateway von Emergent (das die Aufrufe
+            weiterleitet und die Nutzung abrechnet), um die Ihnen angezeigte Einordnung und die Entwürfe
+            zu erzeugen; über die API gesendete Daten verwendet OpenAI standardmäßig nicht zum Training
+            seiner Modelle. Kein Mensch liest die Daten, es sei denn, Sie
             stimmen dem gesondert zu, oder es ist aus Sicherheitsgründen oder gesetzlich
             erforderlich.
           </p>

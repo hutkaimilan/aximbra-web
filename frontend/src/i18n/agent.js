@@ -129,8 +129,8 @@ const agent = {
       writeDraft: "Vázlatírással, levelenként és mindig a te külön megerősítésed után: egy válaszvázlatot a Gmail Vázlatok közé, és ha azt is megerősíted, ennek a vázlatnak az elküldését. Meglévő levelet nem módosítunk: nem címkézünk, nem csillagozunk, nem törlünk.",
       whereTitle: "Hová kerül",
       whereLlm:
-        "A levél szövegét egyetlen osztályozó hívásban elküldjük a Google Gemini API-jának (ingyenes szint). " +
-        "Ezen a szinten a Google a beküldött tartalmat a termékei fejlesztésére is felhasználhatja.",
+        "A levél szövegét egyetlen osztályozó hívásban elküldjük az OpenAI API-jának, az Emergent " +
+        "átjáróján keresztül. Az OpenAI az API-n beküldött adatot alapbeállítás szerint nem használja modelltanításra.",
       whereNoDb: "Adatbázisba semmi nem kerül. A futás a szerver memóriájában él.",
       lifeTitle: "Meddig él, és hogyan törlöd",
       life30: "A munkamenet 30 perc után magától lejár.",
@@ -369,8 +369,8 @@ const agent = {
       writeDraft: "With draft writing, per email and always after your separate confirmation: a reply draft in Gmail Drafts, and — if you confirm that too — sending that draft. We do not modify existing mail: no labelling, no starring, no deleting.",
       whereTitle: "Where it goes",
       whereLlm:
-        "The message text is sent to Google's Gemini API (free tier) in a single classification call. " +
-        "On the free tier Google may use submitted content to improve its products.",
+        "The message text is sent to OpenAI's API in a single classification call, through Emergent's " +
+        "gateway. By default OpenAI does not use data submitted through its API for model training.",
       whereNoDb: "Nothing goes into a database. The run lives in the server's memory.",
       lifeTitle: "How long it lives, and how you delete it",
       life30: "The session expires by itself after 30 minutes.",
@@ -609,8 +609,8 @@ const agent = {
       writeDraft: "Mit Entwurfsschreiben, pro E-Mail und immer nach Ihrer gesonderten Bestätigung: einen Antwortentwurf in den Gmail-Entwürfen und — wenn Sie auch das bestätigen — das Senden dieses Entwurfs. Vorhandene Mails ändern wir nicht: kein Labeln, kein Markieren, kein Löschen.",
       whereTitle: "Wohin es geht",
       whereLlm:
-        "Den Text der Nachricht senden wir in einem einzigen Klassifizierungsaufruf an die Gemini-API " +
-        "von Google (kostenlose Stufe). Dort kann Google eingereichte Inhalte zur Verbesserung seiner Produkte nutzen.",
+        "Den Text der Nachricht senden wir in einem einzigen Klassifizierungsaufruf an die API von " +
+        "OpenAI, über das Gateway von Emergent. Über die API eingereichte Daten nutzt OpenAI standardmäßig nicht zum Training.",
       whereNoDb: "In eine Datenbank kommt nichts. Der Lauf lebt im Arbeitsspeicher des Servers.",
       lifeTitle: "Wie lange es lebt und wie Sie es löschen",
       life30: "Die Sitzung verfällt nach 30 Minuten von selbst.",
@@ -851,8 +851,8 @@ const agent = {
       writeDraft: "Con escritura de borradores, correo a correo y siempre tras tu confirmación aparte: un borrador de respuesta en Borradores de Gmail y, si también lo confirmas, el envío de ese borrador. No modificamos correos existentes: no etiquetamos, no destacamos, no borramos.",
       whereTitle: "Adónde va",
       whereLlm:
-        "El texto del mensaje se envía a la API Gemini de Google (nivel gratuito) en una única llamada " +
-        "de clasificación. En el nivel gratuito, Google puede usar el contenido enviado para mejorar sus productos.",
+        "El texto del mensaje se envía a la API de OpenAI en una única llamada de clasificación, a través " +
+        "de la pasarela de Emergent. Por defecto, OpenAI no usa los datos enviados por la API para entrenar modelos.",
       whereNoDb: "No va nada a ninguna base de datos. La ejecución vive en la memoria del servidor.",
       lifeTitle: "Cuánto dura y cómo lo borras",
       life30: "La sesión caduca sola a los 30 minutos.",
@@ -1091,8 +1091,8 @@ const agent = {
       writeDraft: "Avec l'écriture de brouillons, message par message et toujours après votre confirmation distincte : un brouillon de réponse dans les Brouillons Gmail et, si vous le confirmez aussi, l'envoi de ce brouillon. Nous ne modifions pas les messages existants : pas de libellé, pas d'étoile, pas de suppression.",
       whereTitle: "Où cela va",
       whereLlm:
-        "Le texte du message est envoyé à l'API Gemini de Google (offre gratuite) en un seul appel de " +
-        "classement. Avec l'offre gratuite, Google peut utiliser le contenu soumis pour améliorer ses produits.",
+        "Le texte du message est envoyé à l'API d'OpenAI en un seul appel de classement, via la " +
+        "passerelle d'Emergent. Par défaut, OpenAI n'utilise pas les données soumises via l'API pour entraîner ses modèles.",
       whereNoDb: "Rien ne va en base de données. L'exécution vit dans la mémoire du serveur.",
       lifeTitle: "Combien de temps cela vit, et comment l'effacer",
       life30: "La session expire d'elle-même au bout de 30 minutes.",
@@ -1331,9 +1331,9 @@ const agent = {
       writeDraft: "Con la scrittura delle bozze, messaggio per messaggio e sempre dopo la tua conferma separata: una bozza di risposta nelle Bozze di Gmail e, se confermi anche questo, l'invio di quella bozza. Non modifichiamo la posta esistente: niente etichette, niente stelle, niente cancellazioni.",
       whereTitle: "Dove finisce",
       whereLlm:
-        "Il testo del messaggio viene inviato all'API Gemini di Google (livello gratuito) in una " +
-        "sola chiamata di classificazione. Nel livello gratuito Google può usare i contenuti inviati " +
-        "per migliorare i propri prodotti.",
+        "Il testo del messaggio viene inviato all'API di OpenAI in una sola chiamata di " +
+        "classificazione, tramite il gateway di Emergent. Per impostazione predefinita OpenAI non usa i dati inviati " +
+        "tramite API per addestrare i modelli.",
       whereNoDb: "Nulla finisce in un database. L'esecuzione vive nella memoria del server.",
       lifeTitle: "Quanto dura e come si cancella",
       life30: "La sessione scade da sola dopo 30 minuti.",
@@ -1573,8 +1573,8 @@ const agent = {
       writeDraft: "Cu scrierea de ciorne, mesaj cu mesaj și mereu după confirmarea ta separată: o ciornă de răspuns în Ciornele Gmail și, dacă confirmi și asta, trimiterea acelei ciorne. Nu modificăm mesajele existente: fără etichete, fără stele, fără ștergeri.",
       whereTitle: "Unde ajunge",
       whereLlm:
-        "Textul mesajului este trimis către API-ul Gemini al Google (nivel gratuit) într-un singur apel " +
-        "de clasificare. Pe nivelul gratuit, Google poate folosi conținutul trimis pentru a-și îmbunătăți produsele.",
+        "Textul mesajului este trimis către API-ul OpenAI într-un singur apel de clasificare, prin " +
+        "gateway-ul Emergent. Implicit, OpenAI nu folosește datele trimise prin API pentru antrenarea modelelor.",
       whereNoDb: "Nimic nu ajunge într-o bază de date. Rularea trăiește în memoria serverului.",
       lifeTitle: "Cât trăiește și cum o ștergi",
       life30: "Sesiunea expiră singură după 30 de minute.",
@@ -1812,8 +1812,8 @@ const agent = {
       writeDraft: "S písaním konceptov, pri každej správe a vždy po vašom samostatnom potvrdení: koncept odpovede medzi koncepty Gmailu a — ak potvrdíte aj to — odoslanie tohto konceptu. Existujúcu poštu neupravujeme: žiadne štítky, hviezdičky ani mazanie.",
       whereTitle: "Kam to ide",
       whereLlm:
-        "Text správy pošleme v jedinom klasifikačnom volaní do Gemini API od Googlu (bezplatná úroveň). " +
-        "Na bezplatnej úrovni môže Google odoslaný obsah použiť na zlepšovanie svojich produktov.",
+        "Text správy pošleme v jedinom klasifikačnom volaní do API OpenAI, cez bránu Emergent. Údaje " +
+        "odoslané cez API OpenAI predvolene nepoužíva na trénovanie modelov.",
       whereNoDb: "Do databázy sa nedostane nič. Beh žije v pamäti servera.",
       lifeTitle: "Ako dlho to žije a ako to zmažete",
       life30: "Relácia sama vyprší po 30 minútach.",
@@ -2049,8 +2049,8 @@ const agent = {
       writeDraft: "勾选撰写草稿后，针对每封邮件、并且始终在您单独确认之后：在 Gmail 草稿箱中写入回复草稿，以及——如果您也确认了——发送这份草稿。我们不会修改现有邮件：不加标签、不加星标、不删除。",
       whereTitle: "数据去向",
       whereLlm:
-        "邮件文字会通过一次分类调用发送到 Google 的 Gemini API（免费层级）。" +
-        "在免费层级，Google 可能会使用提交的内容来改进其产品。",
+        "邮件文字会通过一次分类调用、经由 Emergent 网关发送到 OpenAI 的 API。默认情况下，" +
+        "OpenAI 不会将通过 API 提交的数据用于模型训练。",
       whereNoDb: "不写入任何数据库。分析结果只存在于服务器内存中。",
       lifeTitle: "保留多久，以及如何删除",
       life30: "会话在 30 分钟后自动过期。",

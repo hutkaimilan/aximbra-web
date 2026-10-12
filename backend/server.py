@@ -126,6 +126,11 @@ LEAD_SYS = (
 
 
 GEMINI_OPENAI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/"
+# LLM_PROVIDER=emergent: az Emergent „Universal Key” OpenAI-kompatibilis
+# átjárója. OpenAI-modellt hív (alapból gpt-4o-mini), a díjat az Emergent-
+# kreditből vonja le — így nem kell saját OpenAI-egyenleg, és nem az ingyenes
+# Gemini-szint dolgozza fel a leveleket.
+EMERGENT_OPENAI_BASE = "https://integrations.emergentagent.com/llm/v1"
 
 
 def _llm_client() -> tuple[AsyncOpenAI, str]:
@@ -140,6 +145,12 @@ def _llm_client() -> tuple[AsyncOpenAI, str]:
             raise not_configured
         return (AsyncOpenAI(api_key=key, base_url=GEMINI_OPENAI_BASE, timeout=30.0, max_retries=0),
                 os.environ.get("DEMO_GEMINI_MODEL", "gemini-3.5-flash-lite"))
+    if _llm_provider() == "emergent":
+        key = os.environ.get("EMERGENT_LLM_KEY")
+        if not key:
+            raise not_configured
+        return (AsyncOpenAI(api_key=key, base_url=EMERGENT_OPENAI_BASE, timeout=30.0, max_retries=0),
+                os.environ.get("DEMO_EMERGENT_MODEL", "gpt-4o-mini"))
     key = os.environ.get("OPENAI_API_KEY")
     if not key:
         raise not_configured

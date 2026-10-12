@@ -96,3 +96,19 @@ def test_daily_quota_is_not_retried(monkeypatch):
     with pytest.raises(openai.RateLimitError):
         asyncio.run(server._call_llm("S", "x"))
     assert fake.calls == 1
+
+
+def test_emergent_uses_its_openai_compatible_gateway(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "emergent")
+    monkeypatch.setenv("EMERGENT_LLM_KEY", "sk-emergent-test")
+    client, model = server._llm_client()
+    assert "integrations.emergentagent.com" in str(client.base_url)
+    assert model == "gpt-4o-mini"
+
+
+def test_emergent_without_key_is_a_clean_503(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "emergent")
+    monkeypatch.delenv("EMERGENT_LLM_KEY", raising=False)
+    with pytest.raises(HTTPException) as e:
+        server._llm_client()
+    assert e.value.status_code == 503
