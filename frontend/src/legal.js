@@ -32,9 +32,9 @@ export const CONTROLLER_ADDRESS_DE =
   `${CONTROLLER.addressLine}, ${CONTROLLER.postcode} ${CONTROLLER.city}, Ungarn`;
 
 /** A tájékoztató hatálybalépése. Frissítsd, ha érdemi változás történik. */
-export const LEGAL_UPDATED = "2026. szeptember 17.";
-export const LEGAL_UPDATED_EN = "17 September 2026";
-export const LEGAL_UPDATED_DE = "17. September 2026";
+export const LEGAL_UPDATED = "2026. október 12.";
+export const LEGAL_UPDATED_EN = "12 October 2026";
+export const LEGAL_UPDATED_DE = "12. Oktober 2026";
 
 /** Adatfeldolgozók — mind a kódból, nem emlékezetből. Az angol oszlopok az
  *  angol fordításhoz kellenek; a két nyelv egy sorban áll, hogy ne csússzon el. */
