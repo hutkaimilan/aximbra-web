@@ -49,12 +49,12 @@ export const PROCESSORS = [
     whereDe: "Amsterdam, Niederlande (EU)",
   },
   {
-    name: "Google LLC (Gemini API, fizetős szint)",
+    name: "Google LLC (Gemini API, ingyenes szint)",
     role: "Nyelvi modell — a demókban beküldött szövegek és a csatlakoztatott levelek feldolgozása",
     where: "Egyesült Államok",
-    roleEn: "Language model (Gemini API, paid tier) — processing the text submitted to the demos and the connected emails",
+    roleEn: "Language model (Gemini API, free tier) — processing the text submitted to the demos and the connected emails",
     whereEn: "United States",
-    roleDe: "Sprachmodell (Gemini-API, kostenpflichtige Stufe) — Verarbeitung der in den Demos eingegebenen Texte und der verbundenen E-Mails",
+    roleDe: "Sprachmodell (Gemini-API, kostenlose Stufe) — Verarbeitung der in den Demos eingegebenen Texte und der verbundenen E-Mails",
     whereDe: "Vereinigte Staaten",
   },
   {

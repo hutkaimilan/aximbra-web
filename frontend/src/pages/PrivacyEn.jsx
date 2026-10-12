@@ -240,9 +240,10 @@ export default function PrivacyEn({ lang }) {
             We <b>do not use</b> this data for advertising, do not sell it, do not transfer it
             to third parties beyond what providing the features above requires, and{" "}
             <b>do not use it to train any artificial intelligence model</b>. The only third
-            party that receives email content is Google, through its Gemini API on the paid tier, to
-            produce the categorisation and the drafts shown to you; under the Gemini API terms for
-            paid services, Google does not use the prompts or responses to improve its products. No human reads the data unless
+            party that receives email content is Google, through its Gemini API (free tier), to produce
+            the categorisation and the drafts shown to you. On the free tier, Google may use the
+            submitted content to improve its products — connect your own account only if you accept
+            this; the sample inbox involves no personal data. No human reads the data unless
             you separately agree to it, or it is required for security reasons or by law.
           </p>
                   <h3 id="data-protection">Data protection mechanisms for Google user data</h3>

@@ -230,9 +230,10 @@ export default function PrivacyDe({ lang }) {
             Wir <b>verwenden diese Daten nicht</b> für Werbung, verkaufen sie nicht, geben sie
             nicht über das für die genannten Funktionen Nötige hinaus an Dritte weiter und{" "}
             <b>trainieren damit kein KI-Modell</b>. Der einzige Dritte, der E-Mail-Inhalte erhält,
-            ist Google über die Gemini-API (kostenpflichtige Stufe), um die Ihnen angezeigte Einordnung
-            und die Entwürfe zu erzeugen; nach den Gemini-API-Bedingungen für kostenpflichtige Dienste
-            verwendet Google die Anfragen und Antworten nicht zur Verbesserung seiner Produkte. Kein Mensch liest die Daten, es sei denn, Sie
+            ist Google über die Gemini-API (kostenlose Stufe), um die Ihnen angezeigte Einordnung und die
+            Entwürfe zu erzeugen. In der kostenlosen Stufe kann Google die eingereichten Inhalte zur
+            Verbesserung seiner Produkte nutzen — verbinden Sie Ihr eigenes Konto nur, wenn Sie das
+            akzeptieren; das Beispielpostfach enthält keine personenbezogenen Daten. Kein Mensch liest die Daten, es sei denn, Sie
             stimmen dem gesondert zu, oder es ist aus Sicherheitsgründen oder gesetzlich
             erforderlich.
           </p>

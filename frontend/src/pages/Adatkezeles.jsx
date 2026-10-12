@@ -259,9 +259,10 @@ function AdatkezelesHu({ lang }) {
             át harmadik félnek a fenti funkciók biztosításán kívül, és{" "}
             <b>nem használjuk fel semmilyen mesterséges intelligencia modell
             tanítására</b>. A levelek tartalmát egyetlen harmadik fél kapja meg: a Google, a Gemini API
-            fizetős szintjén keresztül, hogy elkészüljön a neked megjelenő besorolás és vázlat; a
-            Gemini API fizetős szolgáltatásokra vonatkozó feltételei szerint a Google a beküldött
-            kéréseket és válaszokat nem használja a termékei fejlesztésére.
+            ingyenes szintjén keresztül, hogy elkészüljön a neked megjelenő besorolás és vázlat. Az
+            ingyenes szinten a Google a beküldött tartalmat a termékei fejlesztésére is
+            felhasználhatja — a saját fiókodat csak akkor csatlakoztasd, ha ezt elfogadod; a
+            példa-postafiók nem tartalmaz személyes adatot.
             Ember nem olvassa őket, kivéve ha ahhoz külön hozzájárulsz, az biztonsági okból
             vagy jogszabály miatt szükséges.
           </p>
