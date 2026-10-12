@@ -133,7 +133,7 @@ export default function PrivacyEn({ lang }) {
         <section>
           <h2>4. Lead qualifier demo</h2>
           <p>
-            What you type into the field (up to 4,000 characters) is sent to the OpenAI API
+            What you type into the field (up to 4,000 characters) is sent to Google's Gemini API
             in a single call, and the result is returned to the page.{" "}
             <b>Neither the text nor the result is stored</b> — there is no database behind
             it. Legal basis: consent (GDPR Art. 6(1)(a)), which you give by starting the demo.
@@ -168,7 +168,7 @@ export default function PrivacyEn({ lang }) {
               per email, up to <b>5 MB</b> per file (Word, Excel, PowerPoint, PDF, plain text
               and CSV). We do not open images, videos or other formats, and{" "}
               <b>we do not run OCR</b>: no text is extracted from a scanned document. The file
-              itself goes nowhere; the extracted text reaches the OpenAI API together with the
+              itself goes nowhere; the extracted text reaches Google's Gemini API together with the
               text of the email, and is gone when the run ends.
             </li>
             <li>
@@ -196,7 +196,7 @@ export default function PrivacyEn({ lang }) {
               (<code>delete</code>, <code>batchDelete</code>). We do not label or star.
             </li>
             <li>
-              <b>Where it goes:</b> the text of the emails is sent to the OpenAI API, one call
+              <b>Where it goes:</b> the text of the emails is sent to Google's Gemini API, one call
               per classification. Nothing is written to a database.
             </li>
             <li>
@@ -240,9 +240,9 @@ export default function PrivacyEn({ lang }) {
             We <b>do not use</b> this data for advertising, do not sell it, do not transfer it
             to third parties beyond what providing the features above requires, and{" "}
             <b>do not use it to train any artificial intelligence model</b>. The only third
-            party that receives email content is OpenAI, through its API, to produce the
-            categorisation and the drafts shown to you; under OpenAI's API terms, data sent
-            through the API is not used to train its models. No human reads the data unless
+            party that receives email content is Google, through its Gemini API on the paid tier, to
+            produce the categorisation and the drafts shown to you; under the Gemini API terms for
+            paid services, Google does not use the prompts or responses to improve its products. No human reads the data unless
             you separately agree to it, or it is required for security reasons or by law.
           </p>
                   <h3 id="data-protection">Data protection mechanisms for Google user data</h3>

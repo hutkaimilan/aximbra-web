@@ -49,12 +49,12 @@ export const PROCESSORS = [
     whereDe: "Amsterdam, Niederlande (EU)",
   },
   {
-    name: "OpenAI, L.L.C.",
-    role: "Nyelvi modell — a demókban beküldött szövegek feldolgozása",
+    name: "Google LLC (Gemini API, fizetős szint)",
+    role: "Nyelvi modell — a demókban beküldött szövegek és a csatlakoztatott levelek feldolgozása",
     where: "Egyesült Államok",
-    roleEn: "Language model — processing the text submitted to the demos",
+    roleEn: "Language model (Gemini API, paid tier) — processing the text submitted to the demos and the connected emails",
     whereEn: "United States",
-    roleDe: "Sprachmodell — Verarbeitung der in den Demos eingegebenen Texte",
+    roleDe: "Sprachmodell (Gemini-API, kostenpflichtige Stufe) — Verarbeitung der in den Demos eingegebenen Texte und der verbundenen E-Mails",
     whereDe: "Vereinigte Staaten",
   },
   {
