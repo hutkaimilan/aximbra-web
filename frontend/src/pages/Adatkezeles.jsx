@@ -264,6 +264,55 @@ function AdatkezelesHu({ lang }) {
             Ember nem olvassa őket, kivéve ha ahhoz külön hozzájárulsz, az biztonsági okból
             vagy jogszabály miatt szükséges.
           </p>
+                  <h3 id="adatvedelmi-intezkedesek">A Google-adatok védelme: technikai és szervezési intézkedések</h3>
+          <p>Így védjük a Gmail-adatokat és a nekünk adott Google-hozzáférést:</p>
+          <ul>
+            <li>
+              <b>Titkosítás átvitel közben:</b> minden kapcsolat — a böngésződ és a szerverünk,
+              a szerverünk és a Google API-k, valamint a szerverünk és a modellszolgáltató
+              között — HTTPS-en (TLS) megy. Titkosítatlanul semmi nem utazik.
+            </li>
+            <li>
+              <b>Nincs tartós tárolás:</b> a Google-hozzáférési token és a beolvasott levelek
+              csak a szerver munkamemóriájában (RAM) vannak, adatbázisba, fájlba vagy mentésbe
+              soha nem kerülnek. Törlődnek kilépéskor, a lap bezárásakor, legkésőbb{" "}
+              <b>30 perc</b> után, és a szerver minden újraindulásakor is.
+            </li>
+            <li>
+              <b>A hozzáférési token nem hagyja el a szervert:</b> a böngésződ csak egy
+              titkosított és aláírt munkamenet-hivatkozást kap (Fernet: AES-128 titkosítás
+              HMAC-SHA256 aláírással), ami 30 perc után lejár, és másnak használhatatlan. A
+              bejelentkezés PKCE-vel és titkosított, aláírt, 15 perc után lejáró
+              állapotparaméterrel megy, így nem hamisítható és nem játszható vissza.
+            </li>
+            <li>
+              <b>Legkisebb jogosultság:</b> alapból csak olvasási jogot kérünk. Írási jogot
+              (vázlat, Kukába helyezés) csak akkor, ha bepipálod, és csak a külön
+              megerősítésed után használjuk. A küldést a kód mindenhol tiltja, kivéve azt az
+              egy lépést, ahol egy konkrét vázlat elküldését megerősíted.
+            </li>
+            <li>
+              <b>Adattakarékosság:</b> legfeljebb 50 levél az elmúlt 30 napból; levelenként
+              legfeljebb két csatolmány, csak szövegként, OCR nélkül. Profilt nem készítünk
+              rólad.
+            </li>
+            <li>
+              <b>Napló tartalom nélkül:</b> a szervernapló csak technikai eseményeket és
+              hibatípusokat rögzít — levélszöveget, tárgyat, feladót, címet vagy tokent soha.
+            </li>
+            <li>
+              <b>Hozzáférés-kezelés:</b> a szolgáltatás felügyelt felhőplatformon fut; a
+              tárhelyfiókhoz és a titkokhoz (API-kulcsok, a munkamenet titkosítókulcsa) csak az
+              adatkezelő fér hozzá. Ezek titkosított környezeti változóként vannak tárolva, nem
+              a forráskódban. Alkalmazott vagy alvállalkozó nem fér hozzá a felhasználói
+              adatokhoz.
+            </li>
+            <li>
+              <b>Incidens esetén:</b> adatvédelmi incidensről 72 órán belül értesítjük a
+              felügyeleti hatóságot (NAIH), az érintetteket pedig indokolatlan késedelem
+              nélkül, ahogy a GDPR előírja.
+            </li>
+          </ul>
         </section>
 
         <section>

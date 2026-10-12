@@ -245,6 +245,53 @@ export default function PrivacyEn({ lang }) {
             through the API is not used to train its models. No human reads the data unless
             you separately agree to it, or it is required for security reasons or by law.
           </p>
+                  <h3 id="data-protection">Data protection mechanisms for Google user data</h3>
+          <p>How we protect the Gmail data and the Google access you grant us:</p>
+          <ul>
+            <li>
+              <b>Encryption in transit:</b> every connection — between your browser and our
+              server, between our server and Google's APIs, and between our server and the
+              model provider — uses HTTPS (TLS). Nothing is sent unencrypted.
+            </li>
+            <li>
+              <b>No storage at rest:</b> the Google access token and the emails we read are
+              kept only in the server's working memory (RAM), never written to a database,
+              file or backup. They are deleted when you log out, when you close the page, or
+              at the latest after <b>30 minutes</b>, and also whenever the server restarts.
+            </li>
+            <li>
+              <b>The access token never leaves our server:</b> your browser only receives an
+              encrypted and signed session reference (Fernet: AES-128 encryption with an
+              HMAC-SHA256 signature) that expires after 30 minutes and is useless to anyone
+              else. The sign-in flow uses PKCE and an encrypted, signed state parameter that
+              expires after 15 minutes, so a sign-in cannot be forged or replayed.
+            </li>
+            <li>
+              <b>Least privilege:</b> by default we ask only for read access. Write access
+              (drafts, moving to Trash) is requested only if you tick it, and is used only
+              after your separate confirmation. Sending is blocked in the code everywhere
+              except the one step where you confirm sending a specific draft.
+            </li>
+            <li>
+              <b>Data minimisation:</b> at most 50 emails from the last 30 days; at most two
+              attachments per email, text only, no OCR. We do not create a profile of you.
+            </li>
+            <li>
+              <b>Logs without content:</b> our server logs record technical events and error
+              types only — never email text, subjects, senders, addresses or tokens.
+            </li>
+            <li>
+              <b>Access control:</b> the service runs on a managed cloud platform; only the
+              controller has access to the hosting account and its secrets (API keys, the
+              session encryption key), which are stored as encrypted environment variables,
+              not in the source code. No employee or contractor has access to user data.
+            </li>
+            <li>
+              <b>Incidents:</b> if a personal data breach occurs, we notify the supervisory
+              authority within 72 hours and inform affected users without undue delay, as the
+              GDPR requires.
+            </li>
+          </ul>
         </section>
 
         <section>

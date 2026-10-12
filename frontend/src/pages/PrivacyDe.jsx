@@ -236,6 +236,58 @@ export default function PrivacyDe({ lang }) {
             stimmen dem gesondert zu, oder es ist aus Sicherheitsgründen oder gesetzlich
             erforderlich.
           </p>
+                  <h3 id="datenschutzmassnahmen">Technische und organisatorische Schutzmaßnahmen für Google-Nutzerdaten</h3>
+          <p>So schützen wir die Gmail-Daten und den Google-Zugriff, den Sie uns gewähren:</p>
+          <ul>
+            <li>
+              <b>Verschlüsselung bei der Übertragung:</b> jede Verbindung — zwischen Ihrem Browser
+              und unserem Server, zwischen unserem Server und den Google-APIs sowie zwischen
+              unserem Server und dem Modellanbieter — läuft über HTTPS (TLS). Nichts wird
+              unverschlüsselt übertragen.
+            </li>
+            <li>
+              <b>Keine dauerhafte Speicherung:</b> das Google-Zugriffstoken und die gelesenen
+              E-Mails liegen nur im Arbeitsspeicher (RAM) des Servers, nie in einer Datenbank,
+              Datei oder Sicherung. Sie werden beim Abmelden, beim Schließen der Seite,
+              spätestens nach <b>30 Minuten</b> sowie bei jedem Neustart des Servers gelöscht.
+            </li>
+            <li>
+              <b>Das Zugriffstoken verlässt unseren Server nicht:</b> Ihr Browser erhält nur eine
+              verschlüsselte und signierte Sitzungsreferenz (Fernet: AES-128-Verschlüsselung mit
+              HMAC-SHA256-Signatur), die nach 30 Minuten abläuft und für Dritte wertlos ist. Die
+              Anmeldung nutzt PKCE und einen verschlüsselten, signierten Statusparameter, der
+              nach 15 Minuten abläuft — sie kann weder gefälscht noch wiederholt werden.
+            </li>
+            <li>
+              <b>Minimale Berechtigungen:</b> standardmäßig fragen wir nur Lesezugriff an.
+              Schreibzugriff (Entwürfe, Verschieben in den Papierkorb) nur, wenn Sie ihn
+              ankreuzen, und genutzt nur nach Ihrer gesonderten Bestätigung. Das Senden ist im
+              Code überall gesperrt, außer in dem einen Schritt, in dem Sie das Senden eines
+              bestimmten Entwurfs bestätigen.
+            </li>
+            <li>
+              <b>Datenminimierung:</b> höchstens 50 E-Mails der letzten 30 Tage; pro E-Mail
+              höchstens zwei Anhänge, nur als Text, ohne OCR. Wir erstellen kein Profil von
+              Ihnen.
+            </li>
+            <li>
+              <b>Protokolle ohne Inhalte:</b> unsere Serverprotokolle erfassen nur technische
+              Ereignisse und Fehlertypen — nie E-Mail-Text, Betreff, Absender, Adressen oder
+              Tokens.
+            </li>
+            <li>
+              <b>Zugriffskontrolle:</b> der Dienst läuft auf einer verwalteten Cloud-Plattform;
+              nur der Verantwortliche hat Zugriff auf das Hosting-Konto und die Geheimnisse
+              (API-Schlüssel, Sitzungsschlüssel), die als verschlüsselte Umgebungsvariablen
+              gespeichert sind, nicht im Quellcode. Kein Mitarbeiter oder Auftragnehmer hat
+              Zugriff auf Nutzerdaten.
+            </li>
+            <li>
+              <b>Vorfälle:</b> bei einer Verletzung des Schutzes personenbezogener Daten
+              benachrichtigen wir die Aufsichtsbehörde innerhalb von 72 Stunden und die
+              Betroffenen unverzüglich, wie es die DSGVO verlangt.
+            </li>
+          </ul>
         </section>
 
         <section>
