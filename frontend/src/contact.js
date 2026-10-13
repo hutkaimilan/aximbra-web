@@ -13,6 +13,9 @@ export const CONTACT = {
   phone: "+1 802 424 9852",
   phoneHref: "tel:+18024249852",
   domain: "aximbra.hu",
+  // Közösségi profilok. Üresen hagyva a link nem jelenik meg.
+  linkedin: "",
+  instagram: "",
 };
 
 /** mailto: link to AXIMBRA with a prefilled subject. */

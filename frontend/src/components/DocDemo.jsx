@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { LiquidButton } from "./LiquidButton";
 import { useLang } from "../i18n";
 import docdemo from "../i18n/docdemo";
+import { CONTACT, mailto } from "../contact";
 
 /** A dokumentum-elemző élő demója. Minta vagy feltöltött fájl → mezők a
  *  forrásmondattal; amit a dokumentum nem tartalmaz, az „nem található”. */
@@ -113,10 +114,14 @@ export const DocDemo = () => {
           <List k="risks_or_unusual_terms" />
           <div className="doc-actions">
             <button type="button" className="sample-btn" onClick={copy} data-testid="doc-copy">{copied ? `✓ ${d.copied}` : d.copy}</button>
-            <a className="doc-cta" href="mailto:aximbra@gmail.com?subject=Dokumentum-elemző">{d.cta} →</a>
           </div>
         </div>
       )}
+      <div className="doc-contact" data-testid="doc-contact">
+        <a href={mailto("Dokumentum-elemző")}>✉ {CONTACT.email}</a>
+        {CONTACT.linkedin && <a href={CONTACT.linkedin} target="_blank" rel="noopener noreferrer">in LinkedIn</a>}
+        {CONTACT.instagram && <a href={CONTACT.instagram} target="_blank" rel="noopener noreferrer">◎ Instagram</a>}
+      </div>
     </div>
   );
 };
