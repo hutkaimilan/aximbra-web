@@ -119,8 +119,6 @@ export const DocDemo = () => {
       )}
       <div className="doc-contact" data-testid="doc-contact">
         <a href={mailto("Dokumentum-elemző")}>✉ {CONTACT.email}</a>
-        {CONTACT.linkedin && <a href={CONTACT.linkedin} target="_blank" rel="noopener noreferrer">in LinkedIn</a>}
-        {CONTACT.instagram && <a href={CONTACT.instagram} target="_blank" rel="noopener noreferrer">◎ Instagram</a>}
       </div>
     </div>
   );
