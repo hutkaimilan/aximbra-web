@@ -397,10 +397,13 @@ from doc_samples import SAMPLES as DOC_SAMPLES
 import attachments as _att
 
 DOC_MAX_BYTES = 5 * 1024 * 1024
-DOC_MAX_CHARS = 12000
+DOC_MAX_CHARS = 30000
 DOC_TYPES = {"contract", "invoice", "quote", "other"}
-DOC_FIELDS = ("parties", "date", "amount", "due_date_or_deadline")
+DOC_FIELDS = ("parties", "subject", "date", "duration", "amount", "payment_terms",
+              "due_date_or_deadline", "termination")
 DOC_LISTS = ("key_obligations", "risks_or_unusual_terms")
+DOC_LIST_MAX = 6
+DOC_SEVERITY = {"high", "medium", "low"}
 
 
 class DocRequest(BaseModel):
@@ -414,17 +417,32 @@ class DocRequest(BaseModel):
 def doc_sys(lang: str) -> str:
     in_lang = AGENT_LANG_NAMES.get(lang, AGENT_LANG_NAMES["hu"])
     return (
-        "You extract key fields from ONE business document. Reply with a VALID JSON object ONLY, with keys: "
-        "document_type (EXACTLY one of: contract|invoice|quote|other), "
-        "parties, date, amount, due_date_or_deadline — each an object {\"value\": string, \"source\": string}, "
-        "key_obligations and risks_or_unusual_terms — each a list of at most 3 objects {\"value\": string, \"source\": string}. "
-        f"Write every value {in_lang}, short (max 160 characters). "
-        "parties: the companies or people who are parties, with their role. amount: the main total with currency. "
-        "risks_or_unusual_terms: clauses that are unfavourable, one-sided or unusual for the reader (auto price rises, "
-        "lock-in periods, penalties, retention of title, conditions on warranty). "
+        "You analyse ONE business document (usually a contract) for a small-business owner who will sign or pay it. "
+        "Reply with a VALID JSON object ONLY, with keys:\n"
+        "document_type: EXACTLY one of contract|invoice|quote|other.\n"
+        "summary: 2-4 plain sentences: what this document is, who owes what to whom, and the one thing the reader "
+        "must not miss. Only facts stated in the document.\n"
+        "parties, subject, date, duration, amount, payment_terms, due_date_or_deadline, termination: each an object "
+        "{\"value\": string, \"source\": string}. parties = the parties with their role; subject = what is being "
+        "delivered or done; date = date of signing/issue; duration = term, start and end, renewal; amount = the main "
+        "fee or total with currency, and whether it is net/gross, monthly/one-off; payment_terms = how and when to pay, "
+        "advance, late-payment interest; due_date_or_deadline = the most important deadline; termination = how and "
+        "when the document can be ended, notice period, exit costs.\n"
+        f"key_obligations: list of at most {DOC_LIST_MAX} objects {{\"party\": string, \"value\": string, \"source\": string}} "
+        "— the concrete duties, party = who has to do it.\n"
+        f"risks_or_unusual_terms: list of at most {DOC_LIST_MAX} objects {{\"value\": string, \"why\": string, "
+        "\"severity\": \"high\"|\"medium\"|\"low\", \"source\": string}} — clauses that are unfavourable, one-sided or "
+        "unusual for the reader (automatic price rises, lock-in, penalties, exit fees, retention of title, warranty "
+        "conditions, unlimited liability, short complaint windows); why = in one sentence, what it can cost the reader. "
+        "Most severe first.\n"
+        "recommendations: list of at most 4 short strings: what the reader should ask, negotiate or check before "
+        "signing, each tied to a clause above.\n"
+        f"Write every value, why, summary and recommendation {in_lang}; values max 300 characters. "
         "\"source\" MUST be copied word for word from the document — the exact sentence or line the value comes from; "
         "when the value comes from two places (e.g. the two parties), join the two exact quotes with \" … \". "
-        "If the document does not contain the information, use value \"\" and source \"\". NEVER guess or infer."
+        "If the document does not contain the information, use value \"\" and source \"\". NEVER guess or infer facts."
+        + (" Address the reader informally (tegezés: \"kérdezd meg\", \"tárgyald újra\"), never with \"Ön\"."
+           if lang == "hu" else "")
     )
 
 
@@ -436,7 +454,7 @@ def _grounded(item, text_n: str) -> dict:
     """Egy mező, csak ha a forrása tényleg a dokumentumból származik."""
     if not isinstance(item, dict):
         return {"value": "", "source": ""}
-    value = _re.sub(r"\s*…\s*", ", ", str(item.get("value") or "")).strip()[:200]
+    value = _re.sub(r"\s*…\s*", ", ", str(item.get("value") or "")).strip()[:320]
     source = str(item.get("source") or "").strip()[:400]
     # A forrás állhat több rövid idézetből is („ … ” jellel elválasztva), pl. a
     # felek két külön sorból: mindegyik darabnak szó szerint benne kell lennie.
@@ -445,6 +463,25 @@ def _grounded(item, text_n: str) -> dict:
     if not value or not parts or any(len(x) < 4 or x not in text_n for x in parts):
         return {"value": "", "source": ""}
     return {"value": value, "source": source}
+
+
+def _clean_list(items, text_n: str) -> list:
+    """Kötelezettség- vagy kockázatlista: csak a forrással igazolt elemek, a
+    kiegészítő mezőkkel (ki a kötelezett, miért kockázat, mennyire súlyos)."""
+    out = []
+    for x in (items if isinstance(items, list) else [])[:DOC_LIST_MAX]:
+        g = _grounded(x, text_n)
+        if not g["value"]:
+            continue
+        if x.get("party"):
+            g["party"] = str(x["party"]).strip()[:80]
+        if x.get("why"):
+            g["why"] = str(x["why"]).strip()[:300]
+        sev = str(x.get("severity") or "").strip().lower()
+        if sev in DOC_SEVERITY:
+            g["severity"] = sev
+        out.append(g)
+    return out
 
 
 def _doc_text(body: DocRequest) -> str:
@@ -485,14 +522,19 @@ async def demo_document(request: Request, body: DocRequest):
     last_err = None
     for _ in range(2):
         try:
-            data = _parse_json(await _call_llm(doc_sys(lang), text, 1400))
+            data = _parse_json(await _call_llm(doc_sys(lang), text, 3000))
             dtype = str(data.get("document_type") or "other").strip().lower()
-            out = {"document_type": dtype if dtype in DOC_TYPES else "other"}
+            out = {"document_type": dtype if dtype in DOC_TYPES else "other",
+                   "summary": str(data.get("summary") or "").strip()[:900]}
             for k in DOC_FIELDS:
                 out[k] = _grounded(data.get(k), text_n)
             for k in DOC_LISTS:
-                items = data.get(k) if isinstance(data.get(k), list) else []
-                out[k] = [g for g in (_grounded(x, text_n) for x in items[:3]) if g["value"]]
+                out[k] = _clean_list(data.get(k), text_n)
+            rank = {"high": 0, "medium": 1, "low": 2}
+            out["risks_or_unusual_terms"].sort(key=lambda r: rank.get(r.get("severity"), 3))
+            recs = data.get("recommendations") if isinstance(data.get("recommendations"), list) else []
+            out["recommendations"] = [str(r).strip()[:300] for r in recs[:4] if isinstance(r, str) and r.strip()]
+            out["truncated"] = len(text) >= DOC_MAX_CHARS
             _record_run(session_id)
             return out
         except (json.JSONDecodeError, ValueError, AttributeError) as e:

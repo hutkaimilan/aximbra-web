@@ -56,3 +56,30 @@ def test_uploaded_text_file_is_analysed(monkeypatch):
     d = client.post("/api/demo/document", json={"filename": "c.txt", "mime": "text/plain", "data_b64": txt},
                     headers={"X-Session-Id": "t3"}).json()
     assert d["document_type"] == "contract" and d["amount"]["value"] == "100 EUR"
+
+
+def test_detailed_contract_analysis(monkeypatch):
+    monkeypatch.setattr(server, "_call_llm", _fake({
+        "document_type": "contract",
+        "summary": "IT-üzemeltetési szerződés havi díjjal.",
+        "duration": {"value": "határozatlan idő", "source": "határozatlan időre szól"},
+        "termination": {"value": "90 nap", "source": "90 napos felmondási idővel mondhatja fel"},
+        "key_obligations": [{"party": "Szolgáltató", "value": "4 órás reakcióidő",
+                             "source": "a hibabejelentésekre munkanapokon 4 órán belül reagál"}],
+        "risks_or_unusual_terms": [
+            {"value": "díjemelés", "why": "évente drágulhat", "severity": "medium",
+             "source": "legfeljebb 15%-kal emelni"},
+            {"value": "24 hónapos kötöttség", "why": "kilépéskor a teljes hátralévő díj jár", "severity": "high",
+             "source": "a hátralévő időszak teljes díját egy összegben köteles megfizetni"},
+            {"value": "kitalált", "why": "x", "severity": "high", "source": "ilyen mondat nincs a szerződésben"}],
+        "recommendations": ["Kérd a 24 hónapos kötöttség rövidítését.", 5],
+    }))
+    d = client.post("/api/demo/document", json={"sample": "contract_hu"}, headers={"X-Session-Id": "t4"}).json()
+    assert d["summary"].startswith("IT-üzemeltetési")
+    assert d["duration"]["value"] == "határozatlan idő" and d["termination"]["value"] == "90 nap"
+    assert d["subject"] == {"value": "", "source": ""}
+    assert d["key_obligations"][0]["party"] == "Szolgáltató"
+    assert [r["severity"] for r in d["risks_or_unusual_terms"]] == ["high", "medium"]
+    assert d["risks_or_unusual_terms"][0]["why"].startswith("kilépéskor")
+    assert d["recommendations"] == ["Kérd a 24 hónapos kötöttség rövidítését."]
+    assert d["truncated"] is False

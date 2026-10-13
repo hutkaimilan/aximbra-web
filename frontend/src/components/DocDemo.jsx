@@ -8,6 +8,7 @@ import { CONTACT, mailto } from "../contact";
  *  forrásmondattal; amit a dokumentum nem tartalmaz, az „nem található”. */
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const SAMPLES = ["contract_hu", "invoice_en", "quote_hu"];
+const FIELDS = ["parties", "subject", "date", "duration", "amount", "payment_terms", "due_date_or_deadline", "termination"];
 const ACCEPT = ".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain";
 const MAX_BYTES = 5 * 1024 * 1024;
 const sessionId = Math.random().toString(36).slice(2);
@@ -28,6 +29,7 @@ export const DocDemo = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [drag, setDrag] = useState(false);
   const inputRef = useRef(null);
 
   const pickFile = (f) => {
@@ -64,7 +66,7 @@ export const DocDemo = () => {
   };
 
   const Field = ({ k, item }) => (
-    <div className="result-field full doc-field">
+    <div className="result-field doc-field">
       <div className="k">{d.fields[k]}</div>
       {item && item.value
         ? <><div className="v">{item.value}</div><div className="doc-src">{d.source}: „{item.source}”</div></>
@@ -72,20 +74,57 @@ export const DocDemo = () => {
     </div>
   );
 
-  const List = ({ k }) => (
+  const Src = ({ it }) => <div className="doc-src">{d.source}: „{it.source}”</div>;
+
+  const Obligations = () => (
     <div className="result-field full doc-field">
-      <div className="k">{d.fields[k]}</div>
-      {result[k] && result[k].length
-        ? <ul className="doc-list">{result[k].map((it, i) => (
-            <li key={i}><div className="v">{it.value}</div><div className="doc-src">{d.source}: „{it.source}”</div></li>))}</ul>
+      <div className="k">{d.fields.key_obligations}</div>
+      {result.key_obligations && result.key_obligations.length
+        ? <ul className="doc-list">{result.key_obligations.map((it, i) => (
+            <li key={i}>
+              <div className="v">{it.party && <b className="doc-party">{it.party}: </b>}{it.value}</div>
+              <Src it={it} />
+            </li>))}</ul>
         : <div className="v doc-missing">{d.none}</div>}
     </div>
   );
+
+  const Risks = () => (
+    <div className="result-field full doc-field">
+      <div className="k">{d.fields.risks_or_unusual_terms}</div>
+      {result.risks_or_unusual_terms && result.risks_or_unusual_terms.length
+        ? <ul className="doc-list doc-risks">{result.risks_or_unusual_terms.map((it, i) => (
+            <li key={i} className={`doc-risk ${it.severity || ""}`}>
+              <div className="v">
+                {it.severity && <span className={`doc-sev ${it.severity}`}>{d.severity[it.severity]}</span>}
+                {it.value}
+              </div>
+              {it.why && <div className="doc-why">{it.why}</div>}
+              <Src it={it} />
+            </li>))}</ul>
+        : <div className="v doc-missing">{d.none}</div>}
+    </div>
+  );
+
+  const onDrop = (e) => {
+    e.preventDefault(); setDrag(false);
+    pickFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
+  };
 
   return (
     <div className="demo-panel" data-testid="demo-panel-doc" onClick={(e) => e.stopPropagation()}>
       <p className="doc-intro">{d.intro}</p>
       <p className="doc-privacy">{d.privacy}</p>
+      <button type="button" className={`doc-drop ${drag ? "drag" : ""} ${file ? "has" : ""}`} data-testid="doc-upload"
+        onClick={() => inputRef.current && inputRef.current.click()}
+        onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}>
+        <span className="doc-drop-icon">⬆</span>
+        <span className="doc-drop-title">{file ? `${d.picked} ${file.name}` : d.upload}</span>
+        <span className="doc-drop-hint">{file ? d.change : d.uploadHint}</span>
+      </button>
+      <input ref={inputRef} type="file" accept={ACCEPT} hidden
+        onChange={(e) => { pickFile(e.target.files && e.target.files[0]); e.target.value = ""; }} />
+      <p className="doc-or">{d.orSample}</p>
       <div className="samples">
         {SAMPLES.map((s) => (
           <button key={s} type="button" className={`sample-btn ${sample === s && !file ? "on" : ""}`}
@@ -93,12 +132,7 @@ export const DocDemo = () => {
             {d.samples[s]}
           </button>
         ))}
-        <button type="button" className={`sample-btn ${file ? "on" : ""}`} data-testid="doc-upload"
-          onClick={() => inputRef.current && inputRef.current.click()}>⬆ {d.upload}</button>
-        <input ref={inputRef} type="file" accept={ACCEPT} hidden
-          onChange={(e) => { pickFile(e.target.files && e.target.files[0]); e.target.value = ""; }} />
       </div>
-      {file && <p className="doc-picked">{d.picked} {file.name}</p>}
       <LiquidButton data-testid="doc-run" onClick={run} disabled={loading || (!file && !sample)}>
         {loading ? <><span className="spin" /> {d.loading}</> : d.run}
       </LiquidButton>
@@ -109,9 +143,23 @@ export const DocDemo = () => {
             <div className="k">{d.fields.document_type}</div>
             <div className="v">{d.types[result.document_type] || result.document_type}</div>
           </div>
-          {["parties", "date", "amount", "due_date_or_deadline"].map((k) => <Field key={k} k={k} item={result[k]} />)}
-          <List k="key_obligations" />
-          <List k="risks_or_unusual_terms" />
+          {result.summary && (
+            <div className="result-field full doc-field doc-summary">
+              <div className="k">{d.fields.summary}</div>
+              <div className="v">{result.summary}</div>
+            </div>
+          )}
+          {FIELDS.map((k) => <Field key={k} k={k} item={result[k]} />)}
+          <Risks />
+          <Obligations />
+          {result.recommendations && result.recommendations.length > 0 && (
+            <div className="result-field full doc-field doc-recs">
+              <div className="k">{d.fields.recommendations}</div>
+              <ul className="doc-list">{result.recommendations.map((r, i) => <li key={i}><div className="v">{r}</div></li>)}</ul>
+              <div className="doc-src">{d.recsNote}</div>
+            </div>
+          )}
+          {result.truncated && <div className="result-field full doc-missing">{d.truncated}</div>}
           <div className="doc-actions">
             <button type="button" className="sample-btn" onClick={copy} data-testid="doc-copy">{copied ? `✓ ${d.copied}` : d.copy}</button>
           </div>

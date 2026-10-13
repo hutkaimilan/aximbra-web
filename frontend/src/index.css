@@ -1051,6 +1051,22 @@ section { padding: clamp(160px, 20vw, 320px) 0; }
 .doc-missing{opacity:.5;font-style:italic}
 .doc-list{margin:4px 0 0;padding-left:18px;display:grid;gap:8px}
 .doc-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:6px}
+.doc-drop{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;margin:4px 0 10px;padding:22px 14px;border:2px dashed rgba(0,229,255,.45);border-radius:14px;background:rgba(0,229,255,.05);color:var(--text);cursor:pointer;font:inherit;text-align:center;transition:background .2s,border-color .2s}
+.doc-drop:hover,.doc-drop.drag{background:rgba(0,229,255,.12);border-color:#00e5ff}
+.doc-drop.has{border-style:solid;border-color:#00e5ff}
+.doc-drop-icon{font-size:22px;color:#00e5ff}
+.doc-drop-title{font-size:15px;font-weight:600;word-break:break-all}
+.doc-drop-hint{font-size:12.5px;opacity:.7}
+.doc-or{margin:4px 0 8px;font-size:12.5px;opacity:.7}
+.doc-summary{background:rgba(0,229,255,.07)}
+.doc-summary .v{line-height:1.55}
+.doc-party{color:#00e5ff;font-weight:600}
+.doc-why{margin-top:3px;font-size:13.5px;line-height:1.45;opacity:.85}
+.doc-sev{display:inline-block;margin-right:8px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;vertical-align:2px}
+.doc-sev.high{background:rgba(255,77,94,.18);color:#ff6b78;border:1px solid rgba(255,77,94,.5)}
+.doc-sev.medium{background:rgba(255,184,0,.15);color:#ffc233;border:1px solid rgba(255,184,0,.45)}
+.doc-sev.low{background:rgba(120,140,170,.15);color:var(--dim);border:1px solid var(--border)}
+.doc-recs{border-color:rgba(0,229,255,.4)}
 .doc-contact{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
 .doc-contact a{font-size:13px;color:#00e5ff;text-decoration:none}
 .doc-contact a:hover{text-decoration:underline}
