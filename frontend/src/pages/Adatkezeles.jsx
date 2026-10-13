@@ -41,7 +41,12 @@ function AdatkezelesHu({ lang }) {
     // A magyar szöveg az irányadó; angolul csak fordítás van (PrivacyEn.jsx).
     translated: false,
   });
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  // A Google-ellenőrzés közvetlen linket kap a védelmi részre (#…): akkor oda
+  // görgetünk, különben a lap tetejére.
+  useEffect(() => {
+    const el = window.location.hash && document.getElementById(decodeURIComponent(window.location.hash.slice(1)));
+    if (el) el.scrollIntoView(); else window.scrollTo(0, 0);
+  }, []);
 
   return (
     <div className="legal-page">
@@ -55,6 +60,7 @@ function AdatkezelesHu({ lang }) {
           Ez a tájékoztató azt írja le, mit csinál a rendszer <i>ténylegesen</i> — nem
           általánosságban. Ahol szám szerepel benne, az a kódban is ugyanaz a szám.
         </p>
+        <p className="legal-note"><a href="#adatvedelmi-intezkedesek">→ Az érzékeny adatok védelme</a></p>
 
         <section>
           <h2>1. Ki kezeli az adataidat</h2>
@@ -265,7 +271,11 @@ function AdatkezelesHu({ lang }) {
             Ember nem olvassa őket, kivéve ha ahhoz külön hozzájárulsz, az biztonsági okból
             vagy jogszabály miatt szükséges.
           </p>
-                  <h3 id="adatvedelmi-intezkedesek">A Google-adatok védelme: technikai és szervezési intézkedések</h3>
+        </section>
+
+        <section>
+          <h2 id="adatvedelmi-intezkedesek">7. Az érzékeny adatok védelme: technikai és szervezési intézkedések</h2>
+          <p>Ez a rész minden érzékeny adatra vonatkozik, amelyet a szolgáltatás kezel: a Gmail-levelek és mellékletek tartalmára, a Google-hozzáférési (OAuth) tokenekre és a bennük lévő személyes adatokra.</p>
           <p>Így védjük a Gmail-adatokat és a nekünk adott Google-hozzáférést:</p>
           <ul>
             <li>
@@ -317,7 +327,7 @@ function AdatkezelesHu({ lang }) {
         </section>
 
         <section>
-          <h2>7. Telefonhívás</h2>
+          <h2>8. Telefonhívás</h2>
           <p>
             Az oldalon szereplő telefonszámon a hívószámod dönti el, ki veszi fel:
           </p>
@@ -348,7 +358,7 @@ function AdatkezelesHu({ lang }) {
         </section>
 
         <section>
-          <h2>8. Kinek adjuk tovább</h2>
+          <h2>9. Kinek adjuk tovább</h2>
           <p>Adatfeldolgozóink, és hogy mihez:</p>
           <div className="legal-table-wrap">
             <table className="legal-table">
@@ -374,7 +384,7 @@ function AdatkezelesHu({ lang }) {
         </section>
 
         <section>
-          <h2>9. A te jogaid</h2>
+          <h2>10. A te jogaid</h2>
           <p>A GDPR alapján kérheted:</p>
           <ul>
             <li>a rólad kezelt adatok másolatát (hozzáférés),</li>
@@ -393,7 +403,7 @@ function AdatkezelesHu({ lang }) {
         </section>
 
         <section>
-          <h2>10. Panasz</h2>
+          <h2>11. Panasz</h2>
           <p>
             Ha úgy érzed, hogy az adataidat jogszerűtlenül kezeljük, fordulhatsz a
             felügyeleti hatósághoz:
@@ -409,7 +419,7 @@ function AdatkezelesHu({ lang }) {
         </section>
 
         <section>
-          <h2>11. Változtatás</h2>
+          <h2>12. Változtatás</h2>
           <p>
             Ha a rendszer változik, ez a tájékoztató is változik. A lap alján mindig
             látszik, mikor frissült utoljára.

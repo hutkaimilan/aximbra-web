@@ -24,7 +24,12 @@ export default function PrivacyDe({ lang }) {
     lang,
     translated: false,
   });
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  // A Google-ellenőrzés közvetlen linket kap a védelmi részre (#…): akkor oda
+  // görgetünk, különben a lap tetejére.
+  useEffect(() => {
+    const el = window.location.hash && document.getElementById(decodeURIComponent(window.location.hash.slice(1)));
+    if (el) el.scrollIntoView(); else window.scrollTo(0, 0);
+  }, []);
 
   return (
     <div className="legal-page">
@@ -42,6 +47,7 @@ export default function PrivacyDe({ lang }) {
           Dies ist eine deutsche Übersetzung. Maßgeblich ist die{" "}
           <Link to="/adatkezeles">ungarische Fassung</Link>.
         </p>
+        <p className="legal-note"><a href="#datenschutzmassnahmen">→ Schutzmaßnahmen für sensible Daten</a></p>
 
         <section>
           <h2>1. Wer Ihre Daten verarbeitet</h2>
@@ -237,7 +243,11 @@ export default function PrivacyDe({ lang }) {
             stimmen dem gesondert zu, oder es ist aus Sicherheitsgründen oder gesetzlich
             erforderlich.
           </p>
-                  <h3 id="datenschutzmassnahmen">Technische und organisatorische Schutzmaßnahmen für Google-Nutzerdaten</h3>
+        </section>
+
+        <section>
+          <h2 id="datenschutzmassnahmen">7. Schutzmaßnahmen für sensible Daten</h2>
+          <p>Dieser Abschnitt gilt für alle sensiblen Daten, die der Dienst verarbeitet: den Inhalt Ihrer Gmail-Nachrichten und Anhänge, die Google-Zugriffstoken (OAuth) und die darin enthaltenen personenbezogenen Daten.</p>
           <p>So schützen wir die Gmail-Daten und den Google-Zugriff, den Sie uns gewähren:</p>
           <ul>
             <li>
@@ -292,7 +302,7 @@ export default function PrivacyDe({ lang }) {
         </section>
 
         <section>
-          <h2>7. Telefonanrufe</h2>
+          <h2>8. Telefonanrufe</h2>
           <p>Bei der auf der Website angegebenen Nummer entscheidet Ihre Rufnummer, wer abnimmt:</p>
           <ul>
             <li>
@@ -321,7 +331,7 @@ export default function PrivacyDe({ lang }) {
         </section>
 
         <section>
-          <h2>8. Wer die Daten erhält</h2>
+          <h2>9. Wer die Daten erhält</h2>
           <p>Unsere Auftragsverarbeiter und wofür:</p>
           <div className="legal-table-wrap">
             <table className="legal-table">
@@ -347,7 +357,7 @@ export default function PrivacyDe({ lang }) {
         </section>
 
         <section>
-          <h2>9. Ihre Rechte</h2>
+          <h2>10. Ihre Rechte</h2>
           <p>Nach der DSGVO können Sie verlangen:</p>
           <ul>
             <li>eine Kopie der Daten, die wir über Sie haben (Auskunft),</li>
@@ -366,7 +376,7 @@ export default function PrivacyDe({ lang }) {
         </section>
 
         <section>
-          <h2>10. Beschwerde</h2>
+          <h2>11. Beschwerde</h2>
           <p>
             Wenn Sie meinen, dass Ihre Daten rechtswidrig verarbeitet werden, können Sie sich an
             die zuständige Aufsichtsbehörde wenden:
@@ -386,7 +396,7 @@ export default function PrivacyDe({ lang }) {
         </section>
 
         <section>
-          <h2>11. Änderungen</h2>
+          <h2>12. Änderungen</h2>
           <p>
             Ändert sich das System, ändert sich auch diese Erklärung. Unten auf der Seite steht
             immer, wann sie zuletzt aktualisiert wurde.

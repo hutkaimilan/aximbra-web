@@ -27,7 +27,12 @@ export default function PrivacyEn({ lang }) {
     // stays on the Hungarian URL.
     translated: false,
   });
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  // A Google-ellenőrzés közvetlen linket kap a védelmi részre (#…): akkor oda
+  // görgetünk, különben a lap tetejére.
+  useEffect(() => {
+    const el = window.location.hash && document.getElementById(decodeURIComponent(window.location.hash.slice(1)));
+    if (el) el.scrollIntoView(); else window.scrollTo(0, 0);
+  }, []);
 
   return (
     <div className="legal-page">
@@ -45,6 +50,7 @@ export default function PrivacyEn({ lang }) {
           This is an English translation. The <Link to="/adatkezeles">Hungarian version</Link>{" "}
           is the authoritative one.
         </p>
+        <p className="legal-note"><a href="#data-protection">→ Data protection mechanisms for sensitive data</a></p>
 
         <section>
           <h2>1. Who processes your data</h2>
@@ -246,7 +252,11 @@ export default function PrivacyEn({ lang }) {
             train its models. No human reads the data unless
             you separately agree to it, or it is required for security reasons or by law.
           </p>
-                  <h3 id="data-protection">Data protection mechanisms for Google user data</h3>
+        </section>
+
+        <section>
+          <h2 id="data-protection">7. Data protection mechanisms for sensitive data</h2>
+          <p>This section covers all sensitive data the service handles: the content of your Gmail messages and attachments, the Google access (OAuth) tokens, and the personal data in them.</p>
           <p>How we protect the Gmail data and the Google access you grant us:</p>
           <ul>
             <li>
@@ -296,7 +306,7 @@ export default function PrivacyEn({ lang }) {
         </section>
 
         <section>
-          <h2>7. Phone calls</h2>
+          <h2>8. Phone calls</h2>
           <p>
             On the phone number shown on the site, your caller ID decides who answers:
           </p>
@@ -326,7 +336,7 @@ export default function PrivacyEn({ lang }) {
         </section>
 
         <section>
-          <h2>8. Who receives the data</h2>
+          <h2>9. Who receives the data</h2>
           <p>Our processors, and what for:</p>
           <div className="legal-table-wrap">
             <table className="legal-table">
@@ -351,7 +361,7 @@ export default function PrivacyEn({ lang }) {
         </section>
 
         <section>
-          <h2>9. Your rights</h2>
+          <h2>10. Your rights</h2>
           <p>Under the GDPR you can ask for:</p>
           <ul>
             <li>a copy of the data we hold about you (access),</li>
@@ -370,7 +380,7 @@ export default function PrivacyEn({ lang }) {
         </section>
 
         <section>
-          <h2>10. Complaints</h2>
+          <h2>11. Complaints</h2>
           <p>
             If you think your data is being processed unlawfully, you can turn to the
             supervisory authority:
@@ -386,7 +396,7 @@ export default function PrivacyEn({ lang }) {
         </section>
 
         <section>
-          <h2>11. Changes</h2>
+          <h2>12. Changes</h2>
           <p>
             When the system changes, this notice changes too. The bottom of the page always
             shows when it was last updated.
