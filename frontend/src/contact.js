@@ -14,8 +14,8 @@ export const CONTACT = {
   phoneHref: "tel:+18024249852",
   domain: "aximbra.hu",
   // Közösségi profilok. Üresen hagyva a link nem jelenik meg.
-  linkedin: "",
-  instagram: "",
+  linkedin: "https://www.linkedin.com/in/mil%C3%A1n-hutkai-6b4b4443b/",
+  instagram: "https://www.instagram.com/aximbra/",
 };
 
 /** mailto: link to AXIMBRA with a prefilled subject. */
