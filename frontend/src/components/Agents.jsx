@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Reveal } from "./Reveal";
 import { LiveDemo } from "./LiveDemo";
+import { DocDemo } from "./DocDemo";
 import EmailAgent from "@/demos/EmailAgent";
 import { LiquidButton } from "./LiquidButton";
 import { AgentViz } from "./AgentViz";
@@ -61,7 +62,8 @@ const TiltCard = ({ agent, open, onToggle, labels, kind, simOn, onSim, quote, si
           <LiquidButton ghost data-testid={`agent-try-${agent.demo}`} onClick={onToggle}>
             {open ? labels.tryClose : labels.tryOpen}
           </LiquidButton>
-          {open && (agent.demo === "email" ? <EmailAgent embedded /> : <LiveDemo type={agent.demo} />)}
+          {open && (agent.demo === "email" ? <EmailAgent embedded />
+            : agent.demo === "doc" ? <DocDemo /> : <LiveDemo type={agent.demo} />)}
         </div>
       )}
       {simData && agent.demo !== "email" && !agent.demoLink && (

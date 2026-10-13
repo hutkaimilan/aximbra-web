@@ -385,6 +385,132 @@ async def demo_lead(request: Request, body: DemoRequest):
     return await _run_demo(request, body, LEAD_SYS, LeadResult)
 
 
+# ---------- Dokumentum-elemző demó ----------
+# A látogató egy mintadokumentumot választ, vagy feltölt egyet (PDF, DOCX, TXT,
+# max 5 MB, base64-ben a JSON-ban — így nem kell multipart-függőség). A fájl csak
+# a memóriában él, a válasz után eldobjuk. A modell minden mezőhöz megadja a
+# forrásmondatot is; ha az a dokumentumban nincs meg, a mezőt "nem található"-ra
+# állítjuk: a demó semmit nem állíthat, ami nincs a papíron.
+import base64
+import re as _re
+from doc_samples import SAMPLES as DOC_SAMPLES
+import attachments as _att
+
+DOC_MAX_BYTES = 5 * 1024 * 1024
+DOC_MAX_CHARS = 12000
+DOC_TYPES = {"contract", "invoice", "quote", "other"}
+DOC_FIELDS = ("parties", "date", "amount", "due_date_or_deadline")
+DOC_LISTS = ("key_obligations", "risks_or_unusual_terms")
+
+
+class DocRequest(BaseModel):
+    sample: str = ""
+    filename: str = ""
+    mime: str = ""
+    data_b64: str = ""
+    lang: str = "hu"
+
+
+def doc_sys(lang: str) -> str:
+    in_lang = AGENT_LANG_NAMES.get(lang, AGENT_LANG_NAMES["hu"])
+    return (
+        "You extract key fields from ONE business document. Reply with a VALID JSON object ONLY, with keys: "
+        "document_type (EXACTLY one of: contract|invoice|quote|other), "
+        "parties, date, amount, due_date_or_deadline — each an object {\"value\": string, \"source\": string}, "
+        "key_obligations and risks_or_unusual_terms — each a list of at most 3 objects {\"value\": string, \"source\": string}. "
+        f"Write every value {in_lang}, short (max 160 characters). "
+        "parties: the companies or people who are parties, with their role. amount: the main total with currency. "
+        "risks_or_unusual_terms: clauses that are unfavourable, one-sided or unusual for the reader (auto price rises, "
+        "lock-in periods, penalties, retention of title, conditions on warranty). "
+        "\"source\" MUST be copied word for word from the document — the exact sentence or line the value comes from; "
+        "when the value comes from two places (e.g. the two parties), join the two exact quotes with \" … \". "
+        "If the document does not contain the information, use value \"\" and source \"\". NEVER guess or infer."
+    )
+
+
+def _norm(s: str) -> str:
+    return _re.sub(r"\s+", " ", (s or "")).strip().lower()
+
+
+def _grounded(item, text_n: str) -> dict:
+    """Egy mező, csak ha a forrása tényleg a dokumentumból származik."""
+    if not isinstance(item, dict):
+        return {"value": "", "source": ""}
+    value = _re.sub(r"\s*…\s*", ", ", str(item.get("value") or "")).strip()[:200]
+    source = str(item.get("source") or "").strip()[:400]
+    # A forrás állhat több rövid idézetből is („ … ” jellel elválasztva), pl. a
+    # felek két külön sorból: mindegyik darabnak szó szerint benne kell lennie.
+    parts = [_norm(x).strip(" .;:,…\"'") for x in _re.split(r"\s*(?:…|\.\.\.)\s*", source)]
+    parts = [x for x in parts if x]
+    if not value or not parts or any(len(x) < 4 or x not in text_n for x in parts):
+        return {"value": "", "source": ""}
+    return {"value": value, "source": source}
+
+
+def _doc_text(body: DocRequest) -> str:
+    if body.sample:
+        doc = DOC_SAMPLES.get(body.sample)
+        if not doc:
+            raise HTTPException(status_code=400, detail="unknown_sample")
+        return doc["text"]
+    if not body.data_b64:
+        raise HTTPException(status_code=400, detail="no_document")
+    try:
+        data = base64.b64decode(body.data_b64, validate=False)
+    except Exception:
+        raise HTTPException(status_code=400, detail="bad_file")
+    if len(data) > DOC_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="too_large")
+    kind = _att.kind_of(body.filename[:200], body.mime[:100])
+    if kind not in {_att._WORD, _att._PDF, "text/plain"}:
+        raise HTTPException(status_code=415, detail="unsupported")
+    try:
+        text = _att._READERS[kind](data)
+    except Exception as e:  # noqa - sérült vagy jelszavas fájl
+        logger.info("doc demo unreadable: %s", type(e).__name__)
+        text = ""
+    text = _re.sub(r"[ \t]+", " ", text or "").strip()
+    if len(text) < 20:
+        raise HTTPException(status_code=422, detail="no_text")
+    return text[:DOC_MAX_CHARS]
+
+
+@api_router.post("/demo/document")
+async def demo_document(request: Request, body: DocRequest):
+    lang = body.lang if body.lang in AGENT_LANG_NAMES else "hu"
+    text = _doc_text(body)
+    session_id = request.headers.get("X-Session-Id", "anon")
+    _check_limits(request, session_id)
+    text_n = _norm(text)
+    last_err = None
+    for _ in range(2):
+        try:
+            data = _parse_json(await _call_llm(doc_sys(lang), text, 1400))
+            dtype = str(data.get("document_type") or "other").strip().lower()
+            out = {"document_type": dtype if dtype in DOC_TYPES else "other"}
+            for k in DOC_FIELDS:
+                out[k] = _grounded(data.get(k), text_n)
+            for k in DOC_LISTS:
+                items = data.get(k) if isinstance(data.get(k), list) else []
+                out[k] = [g for g in (_grounded(x, text_n) for x in items[:3]) if g["value"]]
+            _record_run(session_id)
+            return out
+        except (json.JSONDecodeError, ValueError, AttributeError) as e:
+            last_err = e
+            continue
+        except HTTPException:
+            raise
+        except Exception as e:
+            if _quota_exhausted(e):
+                logger.error("doc demo paused: model quota exhausted")
+                raise HTTPException(status_code=503, detail="demo_paused")
+            last_err = e
+            logger.error(f"doc demo llm error: {type(e).__name__}")
+            continue
+    logger.warning("doc demo failed: %s", type(last_err).__name__ if last_err else "?")
+    raise HTTPException(status_code=502, detail="model_error")
+
+
 # Kilenc nyelven fut az oldal, tehát kilenc nyelven kell a kimenet is. A
 # kategória viszont NEM fordítás kérdése: kulcsot kérünk a modelltől, és a
 # feliratot a felület adja hozzá. Így egy új nyelv nem érinti a kiszolgálót,

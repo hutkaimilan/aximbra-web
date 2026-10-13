@@ -66,7 +66,7 @@ const sk = {
     { title: "Agent zákazníckej podpory", badge: "Demo", desc: "Odpovedá z tvojich vlastných dokumentov, so zdrojmi. Čo nevie, odovzdá človeku — nevymýšľa si.", lead: "6–10 týždňov" },
     { title: "Obsahový agent", badge: "Demo", desc: "Natrénovaný na jeden tón: newsletter, popis produktu, príspevok na sociálne siete. Schválenie ostáva u teba.", lead: "2–3 týždne" },
     { title: "Asistent e-shopu", badge: "Demo", desc: "Odporúča produkty, kontroluje sklad, sleduje objednávky. Pracuje proti opusteniu košíka, nie proti návštevníkovi.", lead: "3–5 týždňov" },
-    { title: "Analyzátor dokumentov", badge: "Demo", desc: "Číta zmluvy, faktúry a ponuky a vytiahne z nich tých sedem polí, kvôli ktorým to niekto doteraz čítal celé.", lead: "6–8 týždňov" },
+    { title: "Analyzátor dokumentov", badge: "Naživo", desc: "Číta zmluvy, faktúry a ponuky a vytiahne z nich tých sedem polí, kvôli ktorým to niekto doteraz čítal celé.", lead: "6–8 týždňov" },
     { title: "Finančný asistent", badge: "Demo", desc: "Kategorizuje náklady, hlási odchýlky, zostavuje reporty. Za každým tvrdením je zdrojový riadok.", lead: "6–8 týždňov" },
     { title: "Náborový agent", badge: "Demo", desc: "Predfiltruje životopisy podľa štruktúrovaných kritérií. Pre AI Act EÚ obsahuje audit log a ľudské prehodnotenie.", lead: "3–4 týždne + právne" },
     { title: "Agent IT prevádzky", badge: "Demo", desc: "Sleduje logy, klasifikuje výstrahy, pri známych chybách spustí opravu. Na to, čo nepozná, ťa zobudí.", lead: "3–6 týždňov" },

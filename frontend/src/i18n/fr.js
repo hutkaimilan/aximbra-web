@@ -66,7 +66,7 @@ const fr = {
     { title: "Agent de support client", badge: "Démo", desc: "Répond à partir de vos propres documents, avec les sources. Ce qu'il ne sait pas, il le transmet à un humain — il n'invente pas.", lead: "6–10 semaines" },
     { title: "Agent de contenu", badge: "Démo", desc: "Entraîné sur un ton : newsletter, fiche produit, publication sociale. La validation reste chez vous.", lead: "2–3 semaines" },
     { title: "Assistant e-commerce", badge: "Démo", desc: "Recommande des produits, vérifie les stocks, suit les commandes. Il agit contre l'abandon de panier, pas contre le visiteur.", lead: "3–5 semaines" },
-    { title: "Analyseur de documents", badge: "Démo", desc: "Lit contrats, factures et devis, et en extrait les sept champs pour lesquels quelqu'un lisait tout jusqu'ici.", lead: "6–8 semaines" },
+    { title: "Analyseur de documents", badge: "En direct", desc: "Lit contrats, factures et devis, et en extrait les sept champs pour lesquels quelqu'un lisait tout jusqu'ici.", lead: "6–8 semaines" },
     { title: "Assistant financier", badge: "Démo", desc: "Catégorise les coûts, signale les écarts, compile des rapports. Derrière chaque affirmation, une ligne de source.", lead: "6–8 semaines" },
     { title: "Agent de recrutement", badge: "Démo", desc: "Présélectionne les CV selon des critères structurés. En raison de l'AI Act de l'UE, avec journal d'audit et contrôle humain.", lead: "3–4 semaines + juridique" },
     { title: "Agent d'exploitation IT", badge: "Démo", desc: "Surveille les logs, classe les alertes, exécute le correctif pour les incidents connus. Ce qu'il ne connaît pas, il vous réveille pour.", lead: "3–6 semaines" },

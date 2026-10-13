@@ -66,7 +66,7 @@ const ro = {
     { title: "Agent de relații cu clienții", badge: "Demo", desc: "Răspunde din propriile tale documente, cu surse. Ce nu știe, predă unui om — nu inventează.", lead: "6–10 săptămâni" },
     { title: "Agent de conținut", badge: "Demo", desc: "Antrenat pe un singur ton: newsletter, descriere de produs, postare pe social. Aprobarea rămâne la tine.", lead: "2–3 săptămâni" },
     { title: "Asistent pentru magazin online", badge: "Demo", desc: "Recomandă produse, verifică stocul, urmărește comenzile. Lucrează împotriva abandonului coșului, nu împotriva vizitatorului.", lead: "3–5 săptămâni" },
-    { title: "Analizator de documente", badge: "Demo", desc: "Citește contracte, facturi și oferte și extrage cele șapte câmpuri pentru care cineva citea tot până acum.", lead: "6–8 săptămâni" },
+    { title: "Analizator de documente", badge: "Live", desc: "Citește contracte, facturi și oferte și extrage cele șapte câmpuri pentru care cineva citea tot până acum.", lead: "6–8 săptămâni" },
     { title: "Asistent financiar", badge: "Demo", desc: "Clasifică costurile, semnalează abaterile, întocmește rapoarte. În spatele fiecărei afirmații stă o linie-sursă.", lead: "6–8 săptămâni" },
     { title: "Agent de recrutare", badge: "Demo", desc: "Prefiltrează CV-urile după criterii structurate. Din cauza AI Act al UE, include jurnal de audit și control uman.", lead: "3–4 săptămâni + juridic" },
     { title: "Agent de operațiuni IT", badge: "Demo", desc: "Se uită la loguri, clasifică alertele, rulează remedierea pentru erori cunoscute. Ce nu recunoaște, te trezește pentru asta.", lead: "3–6 săptămâni" },
