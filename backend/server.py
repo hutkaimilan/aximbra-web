@@ -403,6 +403,7 @@ DOC_FIELDS = ("parties", "subject", "date", "duration", "amount", "payment_terms
               "due_date_or_deadline", "termination")
 DOC_LISTS = ("key_obligations", "risks_or_unusual_terms")
 DOC_LIST_MAX = 6
+DOC_RISK_MAX = 10
 DOC_SEVERITY = {"high", "medium", "low"}
 
 
@@ -427,7 +428,7 @@ def doc_sys(lang: str) -> str:
         "delivered or done; date = date of signing/issue; duration = term, start and end, renewal; amount = the main "
         "fee or total with currency, and whether it is net/gross, monthly/one-off; payment_terms = how and when to pay, "
         "advance, late-payment interest; due_date_or_deadline = the most important deadline; termination = how and "
-        "when the document can be ended, notice period, exit costs.\n"
+        "when EACH party can end it (state both sides separately), notice periods, exit costs.\n"
         f"key_obligations: list of at most {DOC_LIST_MAX} objects {{\"party\": string, \"value\": string, \"source\": string}} "
         "— the concrete duties, party = who has to do it.\n"
         f"risks_or_unusual_terms: list of at most {DOC_LIST_MAX} objects {{\"value\": string, \"why\": string, "
@@ -443,6 +444,34 @@ def doc_sys(lang: str) -> str:
         "If the document does not contain the information, use value \"\" and source \"\". NEVER guess or infer facts."
         + (" Address the reader informally (tegezés: \"kérdezd meg\", \"tárgyald újra\"), never with \"Ön\"."
            if lang == "hu" else "")
+    )
+
+
+def doc_risk_sys(lang: str) -> str:
+    """Külön kör csak a kockázatokra: egy hívásban a modell a mezők mellett a
+    csapdák harmadát találta meg; pontról pontra, ellenőrzőlistával mindet."""
+    in_lang = AGENT_LANG_NAMES.get(lang, AGENT_LANG_NAMES["hu"])
+    return (
+        "You review ONE business document to protect the party who receives it and pays or signs (tenant, customer, "
+        "buyer, client, subscriber). Go through the document CLAUSE BY CLAUSE and flag EVERY clause that is "
+        "unfavourable, one-sided, unusual or costly for that party. Check in particular: the other party's right to "
+        "terminate unilaterally or at short notice, and any asymmetry between the two parties' rights; immediate "
+        "termination for small or short delays; lock-in periods and automatic renewal with long notice; price "
+        "increases or indexation, especially with a minimum; penalties, liquidated damages, exit fees; late-payment "
+        "interest (convert daily or monthly rates to a yearly figure in 'why'); deposits, their size and slow or "
+        "conditional refund; costs normally borne by the other party (structural repairs, roof, walls, utilities "
+        "lines, insurance); losing investments or improvements without compensation; accepting the subject 'as is' "
+        "or waiving later complaints; waiving court proceedings or an arbitrator chosen by one side; restrictions on "
+        "assignment, subletting or change of ownership; unlimited liability; short warranty or complaint windows; "
+        "obligations to operate or stay open.\n"
+        "Reply with a VALID JSON object ONLY: {\"risks\": [{\"value\": string, \"why\": string, "
+        "\"severity\": \"high\"|\"medium\"|\"low\", \"source\": string}], \"recommendations\": [string]}. "
+        f"At most {DOC_RISK_MAX} risks, most severe first; at most 5 recommendations: what to ask, delete or "
+        "renegotiate before signing, each naming the clause. value = the clause in a few words; why = one concrete "
+        "sentence on what it can cost or how it can hurt. "
+        f"Write value, why and recommendations {in_lang}. "
+        "\"source\" MUST be copied word for word from the document. Only clauses that are really in the document."
+        + (" Address the reader informally (tegezés), never with \"Ön\"." if lang == "hu" else "")
     )
 
 
@@ -465,11 +494,11 @@ def _grounded(item, text_n: str) -> dict:
     return {"value": value, "source": source}
 
 
-def _clean_list(items, text_n: str) -> list:
+def _clean_list(items, text_n: str, limit: int = DOC_LIST_MAX) -> list:
     """Kötelezettség- vagy kockázatlista: csak a forrással igazolt elemek, a
     kiegészítő mezőkkel (ki a kötelezett, miért kockázat, mennyire súlyos)."""
     out = []
-    for x in (items if isinstance(items, list) else [])[:DOC_LIST_MAX]:
+    for x in (items if isinstance(items, list) else [])[:limit]:
         g = _grounded(x, text_n)
         if not g["value"]:
             continue
@@ -519,36 +548,54 @@ async def demo_document(request: Request, body: DocRequest):
     session_id = request.headers.get("X-Session-Id", "anon")
     _check_limits(request, session_id)
     text_n = _norm(text)
-    last_err = None
-    for _ in range(2):
-        try:
-            data = _parse_json(await _call_llm(doc_sys(lang), text, 3000))
-            dtype = str(data.get("document_type") or "other").strip().lower()
-            out = {"document_type": dtype if dtype in DOC_TYPES else "other",
-                   "summary": str(data.get("summary") or "").strip()[:900]}
-            for k in DOC_FIELDS:
-                out[k] = _grounded(data.get(k), text_n)
-            for k in DOC_LISTS:
-                out[k] = _clean_list(data.get(k), text_n)
-            rank = {"high": 0, "medium": 1, "low": 2}
-            out["risks_or_unusual_terms"].sort(key=lambda r: rank.get(r.get("severity"), 3))
+
+    async def ask(system: str, tokens: int):
+        last = None
+        for _ in range(2):
+            try:
+                data = _parse_json(await _call_llm(system, text, tokens))
+                if isinstance(data, dict):
+                    return data
+                last = ValueError("not an object")
+            except (json.JSONDecodeError, ValueError, AttributeError) as e:
+                last = e
+            except HTTPException:
+                raise
+            except Exception as e:
+                if _quota_exhausted(e):
+                    logger.error("doc demo paused: model quota exhausted")
+                    raise HTTPException(status_code=503, detail="demo_paused")
+                last = e
+                logger.error(f"doc demo llm error: {type(e).__name__}")
+        raise last or ValueError("no answer")
+
+    # A mezők és a kockázatok két párhuzamos hívás: így nem lassabb, és a
+    # kockázati kör a teljes figyelmét a feltételekre fordíthatja.
+    main, risk = await asyncio.gather(ask(doc_sys(lang), 3000), ask(doc_risk_sys(lang), 2500),
+                                      return_exceptions=True)
+    if isinstance(main, HTTPException):
+        raise main
+    if isinstance(main, Exception):
+        last_err = main
+    else:
+        data = main
+        dtype = str(data.get("document_type") or "other").strip().lower()
+        out = {"document_type": dtype if dtype in DOC_TYPES else "other",
+               "summary": str(data.get("summary") or "").strip()[:900]}
+        for k in DOC_FIELDS:
+            out[k] = _grounded(data.get(k), text_n)
+        out["key_obligations"] = _clean_list(data.get("key_obligations"), text_n)
+        risks = _clean_list(risk.get("risks"), text_n, DOC_RISK_MAX) if isinstance(risk, dict) else []
+        out["risks_or_unusual_terms"] = risks or _clean_list(data.get("risks_or_unusual_terms"), text_n)
+        rank = {"high": 0, "medium": 1, "low": 2}
+        out["risks_or_unusual_terms"].sort(key=lambda r: rank.get(r.get("severity"), 3))
+        recs = risk.get("recommendations") if isinstance(risk, dict) and isinstance(risk.get("recommendations"), list) else []
+        if not recs:
             recs = data.get("recommendations") if isinstance(data.get("recommendations"), list) else []
-            out["recommendations"] = [str(r).strip()[:300] for r in recs[:4] if isinstance(r, str) and r.strip()]
-            out["truncated"] = len(text) >= DOC_MAX_CHARS
-            _record_run(session_id)
-            return out
-        except (json.JSONDecodeError, ValueError, AttributeError) as e:
-            last_err = e
-            continue
-        except HTTPException:
-            raise
-        except Exception as e:
-            if _quota_exhausted(e):
-                logger.error("doc demo paused: model quota exhausted")
-                raise HTTPException(status_code=503, detail="demo_paused")
-            last_err = e
-            logger.error(f"doc demo llm error: {type(e).__name__}")
-            continue
+        out["recommendations"] = [str(r).strip()[:300] for r in recs[:5] if isinstance(r, str) and r.strip()]
+        out["truncated"] = len(text) >= DOC_MAX_CHARS
+        _record_run(session_id)
+        return out
     logger.warning("doc demo failed: %s", type(last_err).__name__ if last_err else "?")
     raise HTTPException(status_code=502, detail="model_error")
 
