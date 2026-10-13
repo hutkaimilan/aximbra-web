@@ -188,7 +188,7 @@ Format: {aspect}{"" if still else f", about {seconds} seconds"}.
 On-screen language: {_lang_name(lang)}. EVERY text in the script — headline, kicker, sub, lines, narration, call and
 SMS messages, post — must be in {_lang_name(lang)}, even when the brief is written in another language: then
 translate the brief's wording, never copy it.
-{'Write a spoken narration line ("voice") for every scene: natural, conversational, max ~2.3 words per second of the scene.' if voice and not still else 'No narration: every message must be readable on screen. Leave "voice" empty.'}
+{'Write a spoken narration line ("voice") for every scene: natural, conversational, max ~2.3 words per second of the scene. The narration is also shown as the subtitle: write web addresses as written (aximbra.hu), never spelled out. Production notes in the brief ("Show screen recording of…", "Demo:", "Hook:", timings) tell you what to show; they are never narration or on-screen text.' if voice and not still else 'No narration: every message must be readable on screen. Leave "voice" empty.'}
 
 Scene kinds (pick what fits the brief; a still slide reads best as statement, number, quote, photo, compare, steps,
 problem, benefit, agents or cta — "site", "call" and "inbox" animate, so they belong in a video):
@@ -324,11 +324,25 @@ _SLIDENO_RE = re.compile(r"^\s*(?:\d+\s*[.)]?\s*(?:slide|dia|kép|oldal|jelenet|
 # Ha a brief címekkel jelöli a jeleneteket („2. jelenet: https://aximbra.hu/#agentek"),
 # a rendező ezt egyszer szó szerint a képernyőre tette, levágva. Képernyőre URL
 # csak a záróképen kerülhet (az a "url" mező), máshol kiszedjük.
-_URL_RE = re.compile(r"\bhttps?://\S+|\bwww\.\S+|\b[a-z0-9-]+\.(?:hu|com|app|io|eu)(?:/\S*)?", re.I)
+# Több tagú domaint (valami.up.railway.app) egészben viszünk, különben a
+# „valami.up.” eleje a képernyőn marad.
+_URL_RE = re.compile(r"\bhttps?://\S+|\bwww\.\S+|\b(?:[a-z0-9-]+\.)+(?:hu|com|app|io|eu|net|org)\b(?:/\S*)?", re.I)
+
+# A rendező néha kiejtés szerint írja a címet („aximbra dot h-u slash e-n”). A
+# narráció a felirat is, ezért visszaírjuk írott alakra; a felolvasó úgyis
+# kimondja, magyarnál a spoken() írja át.
+_SPELLED_URL_RE = re.compile(r"\b([a-z0-9-]+)\s+(?:dot|pont)\s+(h-?u|com|app|io|eu)\b(?:\s+(?:slash|per)\s+(e-?n|de))?", re.I)
+
+
+def _written_url(text: str) -> str:
+    return _SPELLED_URL_RE.sub(lambda m: f"{m.group(1)}.{m.group(2).replace('-', '').lower()}"
+                               + (f"/{m.group(3).replace('-', '').lower()}" if m.group(3) else ""), text)
 
 
 def _no_url(text) -> str:
-    return re.sub(r"\s{2,}", " ", _URL_RE.sub("", str(text or ""))).strip(" -–—:|·")
+    out = re.sub(r"\s+([.,!?])", r"\1", re.sub(r"\s{2,}", " ", _URL_RE.sub("", str(text or ""))))
+    # „Live demo on .” → „Live demo.”: a cím helyén maradt elöljárót is levesszük.
+    return re.sub(r"\s+(?:on|at|to|via|from)([.!]?)$", r"\1", out.strip(" -–—:|·")).strip(" -–—:|·")
 
 
 SPEEDS = (1.0, 1.5, 2.0, 3.0, 4.0)
@@ -405,7 +419,7 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -
             "tile_label": _clip(s.get("tile_label"), 12), "center": bool(s.get("center")),
             "url": _clip(re.sub(r"^https?://(www\.)?|/+$", "", str(s.get("url") or "").strip()), 40), "button": _clip(s.get("button"), 40),
             # Felolvasva a „https://" sem jó; a domain marad.
-            "voice": _clip(re.sub(r"https?://(www\.)?", "", str(s.get("voice") or "")), 260),
+            "voice": _clip(_written_url(re.sub(r"https?://(www\.)?", "", str(s.get("voice") or ""))), 260),
             "seconds": max(2.0, min(12.0, sec)),
         })
     # A hívásbuborékba nem kell, ki beszél: az elején és a végén is levágjuk.

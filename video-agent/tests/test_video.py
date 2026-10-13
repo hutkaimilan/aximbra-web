@@ -1345,3 +1345,12 @@ def test_a_broken_model_answer_is_asked_again(monkeypatch):
     monkeypatch.setattr(llm, "_ask", lambda p, **k: "nem json")
     with pytest.raises(llm.LLMError):
         videomaker._ask_json("x")
+
+
+def test_multi_label_domain_removed_whole():
+    assert videomaker._no_url("Live demo on epistemebudapest.up.railway.app.") == "Live demo."
+
+
+def test_spelled_out_url_written_back_for_captions():
+    assert videomaker._written_url("Try it free at aximbra dot h-u slash e-n.") == "Try it free at aximbra.hu/en."
+    assert videomaker._written_url("Visit aximbra dot hu today") == "Visit aximbra.hu today"
