@@ -1401,13 +1401,15 @@ def test_forms_alternate_so_both_platforms_get_videos_and_images():
     import content
     from datetime import date
     days = [date(2026, 10, 8) + timedelta(days=i) for i in range(28)]
-    for lang in ("hu", "en"):
-        forms = [content.pick_form(lang, d) for d in days]
-        assert forms.count("video") == len(days) // 2
-        assert forms.count("image") + forms.count("carousel") == len(days) // 2
-        assert all(a != b or a != "video" for a, b in zip(forms, forms[1:]))  # két videó nem jön egymás után
-    for d in days:
-        assert (content.pick_form("hu", d) == "video") != (content.pick_form("en", d) == "video")
+    # LinkedIn (magyar): fele videó, fele állókép, két videó nem jön egymás után.
+    forms = [content.pick_form("hu", d) for d in days]
+    assert forms.count("video") == len(days) // 2
+    assert forms.count("image") + forms.count("carousel") == len(days) // 2
+    assert all(a != b or a != "video" for a, b in zip(forms, forms[1:]))
+    # Instagram (angol): új fiók, Reels-re építünk — négy napból három videó, egy körhinta.
+    forms = [content.pick_form("en", d) for d in days]
+    assert forms.count("video") == len(days) * 3 // 4
+    assert forms.count("carousel") == len(days) // 4
 
 
 def test_the_prompt_names_today_s_weekday():

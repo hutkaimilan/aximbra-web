@@ -124,6 +124,8 @@ SECTOR_KEYS = tuple(SECTORS)
 # az egyik platform videót, a másik állóképet kap.
 FORM_CYCLE = ("video", "image", "video", "carousel")
 FORM_OFFSET = {"hu": 0, "en": 1}
+# Az Instagram (angol) új fióknál a Reels-en nő: négy napból három videó, egy körhinta.
+FORM_CYCLES = {"en": ("video", "video", "carousel", "video")}
 
 HU_DAYS = ("hétfő", "kedd", "szerda", "csütörtök", "péntek", "szombat", "vasárnap")
 EN_DAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
@@ -157,7 +159,8 @@ def pick_sector(store) -> str:
 def pick_form(lang: str, day) -> str:
     """A dátumból, nem tárolt számlálóból: egy újrafutás vagy egy kimaradt nap
     nem csúsztatja el, és bármelyik napra visszanézhető."""
-    return FORM_CYCLE[(day.toordinal() + FORM_OFFSET.get(lang, 0)) % len(FORM_CYCLE)]
+    cycle = FORM_CYCLES.get(lang, FORM_CYCLE)
+    return cycle[(day.toordinal() + FORM_OFFSET.get(lang, 0)) % len(cycle)]
 
 
 FORM_HU = {"video": "rövid videó", "image": "egyetlen kép", "carousel": "képes körhinta (több kép egymás után)"}
