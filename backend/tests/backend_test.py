@@ -50,7 +50,7 @@ def clean_limits(monkeypatch):
 def llm(monkeypatch):
     """Replaces the single OpenAI call with a scripted reply."""
     def _set(reply, record=None):
-        async def fake(system_msg, user_text, max_tokens=600):
+        async def fake(system_msg, user_text, max_tokens=600, **kw):
             if record is not None:
                 record.append(user_text)
             return reply(user_text) if callable(reply) else reply

@@ -12,7 +12,7 @@ def _email(n):
 
 
 def _fake_llm(calls, drop=()):
-    async def fake(system_msg, user_text, max_tokens=600):
+    async def fake(system_msg, user_text, max_tokens=600, **kw):
         ids = [int(i) for i in re.findall(r"### EMAIL id=(\d+)", user_text)]
         calls.append({"batch": "BATCH MODE" in system_msg, "ids": ids, "text": user_text})
         if not ids:  # egyes hívás

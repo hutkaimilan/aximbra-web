@@ -182,7 +182,8 @@ def _llm_provider() -> str:
     return os.environ.get("LLM_PROVIDER", "openai").strip().lower()
 
 
-async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600) -> str:
+async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600,
+                    model: str | None = None, timeout: float | None = None) -> str:
     """
     Egyetlen OpenAI chat-completion hivas, JSON kimenetre kenyszeritve.
 
@@ -193,11 +194,14 @@ async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600) -> s
     Ilyenkor a hivast egyszer megismeteljuk igazitott parameterekkel, hogy egy
     modellvaltas ne torje el a demot.
     """
-    client, model = _llm_client()
+    client, default_model = _llm_client()
     if _llm_provider() == "gemini":
         system_msg = system_msg + GEMINI_JSON_RULES
+        model = None  # az OpenAI-modellnevek ott nem léteznek
+    if timeout:
+        client = client.with_options(timeout=timeout)
     kwargs = {
-        "model": model,
+        "model": model or default_model,
         "messages": [
             {"role": "system", "content": system_msg},
             {"role": "user", "content": user_text},
@@ -404,6 +408,9 @@ DOC_FIELDS = ("parties", "subject", "date", "duration", "amount", "payment_terms
 DOC_LISTS = ("key_obligations", "risks_or_unusual_terms")
 DOC_LIST_MAX = 6
 DOC_RISK_MAX = 10
+# A kockázati kör erősebb modellen fut: a mini a csapdák egy részét kihagyta
+# (kötbér, elvesző beruházás) és összekevert pontokat. Üres = az alapmodell.
+DOC_RISK_MODEL = os.environ.get("DOC_RISK_MODEL", "gpt-4o").strip()
 DOC_SEVERITY = {"high", "medium", "low"}
 
 
@@ -421,8 +428,9 @@ def doc_sys(lang: str) -> str:
         "You analyse ONE business document (usually a contract) for a small-business owner who will sign or pay it. "
         "Reply with a VALID JSON object ONLY, with keys:\n"
         "document_type: EXACTLY one of contract|invoice|quote|other.\n"
-        "summary: 2-4 plain sentences: what this document is, who owes what to whom, and the one thing the reader "
-        "must not miss. Only facts stated in the document.\n"
+        "summary: 2-4 plain sentences: what this document is, who owes what to whom, and then the 2-3 clauses "
+        "that are most dangerous or costly for the reader (e.g. one-sided termination, penalties, lock-in, "
+        "extreme interest), named concretely. Only facts stated in the document.\n"
         "parties, subject, date, duration, amount, payment_terms, due_date_or_deadline, termination: each an object "
         "{\"value\": string, \"source\": string}. parties = the parties with their role; subject = what is being "
         "delivered or done; date = date of signing/issue; duration = term, start and end, renewal; amount = the main "
@@ -467,8 +475,9 @@ def doc_risk_sys(lang: str) -> str:
         "Reply with a VALID JSON object ONLY: {\"risks\": [{\"value\": string, \"why\": string, "
         "\"severity\": \"high\"|\"medium\"|\"low\", \"source\": string}], \"recommendations\": [string]}. "
         f"At most {DOC_RISK_MAX} risks, most severe first; at most 5 recommendations: what to ask, delete or "
-        "renegotiate before signing, each naming the clause. value = the clause in a few words; why = one concrete "
-        "sentence on what it can cost or how it can hurt. "
+        "renegotiate before signing, each naming the clause by the number printed in the document. value = the clause "
+        "in a few words; why = one concrete sentence on what THAT clause can cost or how it can hurt — never mix two "
+        "clauses in one risk: each risk is exactly one clause, and its source is that clause. "
         f"Write value, why and recommendations {in_lang}. "
         "\"source\" MUST be copied word for word from the document. Only clauses that are really in the document."
         + (" Address the reader informally (tegezés), never with \"Ön\"." if lang == "hu" else "")
@@ -549,11 +558,11 @@ async def demo_document(request: Request, body: DocRequest):
     _check_limits(request, session_id)
     text_n = _norm(text)
 
-    async def ask(system: str, tokens: int):
+    async def ask(system: str, tokens: int, model: str | None = None, timeout: float | None = None):
         last = None
         for _ in range(2):
             try:
-                data = _parse_json(await _call_llm(system, text, tokens))
+                data = _parse_json(await _call_llm(system, text, tokens, model=model, timeout=timeout))
                 if isinstance(data, dict):
                     return data
                 last = ValueError("not an object")
@@ -571,7 +580,7 @@ async def demo_document(request: Request, body: DocRequest):
 
     # A mezők és a kockázatok két párhuzamos hívás: így nem lassabb, és a
     # kockázati kör a teljes figyelmét a feltételekre fordíthatja.
-    main, risk = await asyncio.gather(ask(doc_sys(lang), 3000), ask(doc_risk_sys(lang), 2500),
+    main, risk = await asyncio.gather(ask(doc_sys(lang), 3000), ask(doc_risk_sys(lang), 2500, DOC_RISK_MODEL or None, 75.0),
                                       return_exceptions=True)
     if isinstance(main, HTTPException):
         raise main

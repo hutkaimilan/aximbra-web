@@ -15,7 +15,7 @@ client = TestClient(server.app)
 
 
 def _fake(answer):
-    async def call(system, text, max_tokens=600):
+    async def call(system, text, max_tokens=600, **kw):
         return json.dumps(answer)
     return call
 
