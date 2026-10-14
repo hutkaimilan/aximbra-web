@@ -1400,5 +1400,9 @@ def test_phone_uploads_are_recognised(monkeypatch):
     assert got["img"] == b"\xff\xd8\xff"            # JPEG
     media.store(b"x" * 10, "", "VID_0001.MOV")
     assert got["clip"] == "VID_0001.MOV"
-    with pytest.raises(media.MediaError):
-        media.store(b"x", "application/pdf", "a.pdf")
+    media.store(b"x" * 10, "application/octet-stream", "valami")   # ismeretlen: videóként próbálja
+    assert got["clip"] == "VID_0001.MOV"
+    gif = _io.BytesIO(); Image.new("RGB", (4, 4)).save(gif, "GIF")
+    got.pop("img")
+    media.store(gif.getvalue(), "", "anim.gif")
+    assert got["img"] == b"\xff\xd8\xff"

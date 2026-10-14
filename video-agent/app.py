@@ -205,7 +205,7 @@ def state():
 async def media_add(file: UploadFile = File(...), note: str = Form(""), redact: bool = Form(True)):
     data = await file.read(media.MAX_BYTES + 1)
     if len(data) > media.MAX_BYTES:
-        raise HTTPException(413, "Túl nagy fájl (legfeljebb 250 MB).")
+        raise HTTPException(413, "Túl nagy fájl (legfeljebb 600 MB).")
     try:
         # A normalizálás és a képelmosás ffmpeg/Tesseract: ne fogja a többi kérést.
         return await asyncio.to_thread(media.store, data, file.content_type or "", file.filename or "",

@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 MEDIA_DIR = os.environ.get("MEDIA_DIR", "/data/media")
 # Egy telefonos képernyőfelvétel egy-két perc alatt is 100 MB fölé megy.
-MAX_BYTES = 250 * 1024 * 1024
+MAX_BYTES = 600 * 1024 * 1024   # egy 4K-s iPhone-felvétel 2–3 perce is belefér
 IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 CLIP_TYPES = {"video/mp4": ".mp4", "video/quicktime": ".mov", "video/webm": ".webm"}
 MAX_IMAGE_W = 1600
@@ -397,6 +397,7 @@ EXT_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", "
 
 
 def _heic_to_jpeg(data: bytes) -> bytes:
+    """Bármilyen, a Pillow által ismert képformátum (HEIC/AVIF is) → JPEG."""
     try:
         import pillow_heif
         from PIL import Image
@@ -405,21 +406,43 @@ def _heic_to_jpeg(data: bytes) -> bytes:
         Image.open(io.BytesIO(data)).convert("RGB").save(out, "JPEG", quality=92)
         return out.getvalue()
     except Exception as e:  # noqa: BLE001 — sérült vagy ismeretlen HEIC
-        raise MediaError(f"ezt az iPhone-fotót (HEIC) nem tudtam átalakítani ({type(e).__name__})")
+        raise MediaError(f"ezt a képet nem tudtam beolvasni ({type(e).__name__})")
+
+
+def _sniff_image(data: bytes) -> bool:
+    """Kép-e: a Pillow (HEIC-kel együtt) felismeri-e a tartalmát."""
+    try:
+        import pillow_heif
+        from PIL import Image
+        pillow_heif.register_heif_opener()
+        Image.open(io.BytesIO(data)).verify()
+        return True
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def store(data: bytes, content_type: str, name: str, note: str = "", redact_pii: bool = True) -> dict:
+    """Bármilyen kép vagy videó. Amit a böngésző típusa és a kiterjesztés nem
+    árul el, azt a tartalomból döntjük el: ami képként megnyílik, az kép, a
+    többit videóként próbálja az ffmpeg (ha az sem, a tárban hibaként látszik)."""
     ct = (content_type or "").split(";")[0].strip().lower()
-    if ct not in IMAGE_TYPES and ct not in CLIP_TYPES and ct not in HEIC_TYPES and ct not in CLIP_ALIASES:
-        ct = EXT_TYPES.get(os.path.splitext(name or "")[1].lower(), ct)
+    ext = os.path.splitext(name or "")[1].lower()
     ct = CLIP_ALIASES.get(ct, ct)
-    if ct in HEIC_TYPES:
+    # Ami biztosan nem kép vagy videó (program, dokumentum, szöveg), azt rögtön
+    # visszadobjuk; a típus nélküli fájlt (octet-stream) viszont megpróbáljuk.
+    if ct.split("/")[0] in ("application", "text", "font", "model") and ct != "application/octet-stream" \
+            and ext not in EXT_TYPES:
+        raise MediaError("ez nem kép vagy videó")
+    if not (ct.startswith("image/") or ct.startswith("video/")):
+        ct = EXT_TYPES.get(ext, "")
+    if not ct:
+        ct = "image/unknown" if _sniff_image(data) else "video/unknown"
+    # Ami nem JPEG/PNG/WebP (HEIC, AVIF, GIF, TIFF, BMP…), azt a Pillow alakítja JPEG-re.
+    if ct.startswith("image/") and ct not in IMAGE_TYPES:
         data, ct = _heic_to_jpeg(data), "image/jpeg"
-    if ct in IMAGE_TYPES:
+    if ct.startswith("image/"):
         return add_image(data, name, note, redact_pii=redact_pii)
-    if ct in CLIP_TYPES:
-        return add_clip(data, name, note, redact_pii=redact_pii)
-    raise MediaError("csak kép (JPG, PNG, WebP) vagy videó (MP4, MOV, WebM) tölthető fel")
+    return add_clip(data, name, note, redact_pii=redact_pii)
 
 
 # ---- darabolt feltöltés -----------------------------------------------------
