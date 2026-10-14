@@ -252,6 +252,11 @@ pre.txt{white-space:pre-wrap;font:14px/1.55 var(--sans);margin:0;background:rgba
       <button type="button" class="pri" id="vUp">＋ Feltöltés a gépről / telefonról</button>
       <button type="button" id="vLibBtn">▦ Választás a médiatárból</button>
     </div>
+    <div id="vCrios" class="hide" style="margin:10px 0;padding:12px;border:1px solid #ffb020;border-radius:12px;background:rgba(255,176,32,.08)">
+      <b>iPhone-on a Chrome egyszerre csak pár fájlt tud átadni</b> — sok fotónál és videónál a pipa után elakad. Ez a Chrome hibája; Safariban egyszerre mindet fel tudod tölteni.
+      <div class="acts" style="margin-top:8px"><button type="button" class="pri" id="vSafari">Megnyitás Safariban</button></div>
+      <small class="mute">Ha a gomb nem nyitja meg: a link kimásolva — nyisd meg a Safarit és illeszd be. Tipp: Safariban Megosztás → „Főképernyőhöz adás”, és onnantól ikonról indul.</small>
+    </div>
     <input type="file" id="vAttach" multiple hidden>
     <label class="ck"><input type="checkbox" id="vRedact"> Képernyőfelvételnél: nevek, e-mail-címek, telefonszámok elmosása <small class="mute">(saját fotónál, kamerás videónál hagyd üresen — csak lassít)</small></label>
     <div class="mute" id="vAttachInfo" style="margin-top:6px"></div>
@@ -489,6 +494,14 @@ $("#vAttached").oninput = (e) => { const id = e.target.dataset && e.target.datas
 $("#vAttached").onclick = (e) => {
   const b = e.target.closest("[data-ai]"); if (!b) return;
   attached.splice(+b.dataset.ai, 1); drawAttached(); libKey = ""; renderLib();
+};
+// iPhone-os Chrome (CriOS): sok fájl egyszerre a választóból nem jut át. Safariba küldjük.
+if (/CriOS/.test(navigator.userAgent)) $("#vCrios").classList.remove("hide");
+$("#vSafari").onclick = () => {
+  const url = location.origin + "/#new";
+  try { navigator.clipboard && navigator.clipboard.writeText(url); } catch {}
+  clientLog("Chrome iOS: Safariba küldés");
+  location.href = "x-safari-" + url;   // iOS: a Safari nyílik meg ezzel a címmel
 };
 $("#vUp").onclick = () => {
   // A telefon a pipa után még előkészíti (átalakítja) a videókat: addig ne tűnjön lefagyottnak.
