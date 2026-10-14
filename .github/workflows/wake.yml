@@ -1,0 +1,64 @@
+# Az agentek ébresztése a beállított munkaidőpontokban.
+#
+# A Railway-szolgáltatások tétlenül alszanak (App Sleeping), így csak akkor
+# fizetünk értük, amikor dolgoznak. Bejövő kérésre maguktól felébrednek — ha
+# valaki megnyitja a panelt vagy a weboldal demóját, azonnal indulnak. Az
+# időzített munkát (sales körök, napi tartalomtéma, válaszfigyelés) viszont
+# alvás közben semmi nem indítaná el: ez a workflow kelti fel őket.
+#
+# A GitHub ütemezője UTC-ben fut és késhet, ezért félóránként fut, és csak a
+# budapesti idő szerinti ablakokban ébreszt; ablakonként kétszer, hogy egy
+# kimaradt futás se okozzon gondot. A sales agent egy kört naponta egyszer
+# futtat (az adatbázisban tartja, mi futott már le), így a dupla ébresztés
+# nem küld dupla levelet.
+name: Wake agents
+
+on:
+  schedule:
+    - cron: '0,30 4-19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wake-agents
+  cancel-in-progress: false
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Ébresztés, ha munkaidő van
+        env:
+          # Budapesti idő, ÓÓ:PP. Igazodjon a sales agent AUTO_TIMES és
+          # CONTENT_TIME beállításához; a köztes időpontok a válaszfigyelésért vannak.
+          WAKE_AT: '07:30 10:00 13:00 16:00 19:00'
+          # Egy ébresztés ennyi percig érvényes a megadott időpont után.
+          WINDOW_MIN: '60'
+          FORCE: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -u
+          now=$(TZ=Europe/Budapest date +%H:%M)
+          now_min=$((10#${now%%:*} * 60 + 10#${now##*:}))
+          due=no
+          for t in $WAKE_AT; do
+            t_min=$((10#${t%%:*} * 60 + 10#${t##*:}))
+            if [ "$now_min" -ge "$t_min" ] && [ "$now_min" -lt $((t_min + WINDOW_MIN)) ]; then due=yes; fi
+          done
+          echo "Budapest: $now, esedékes: $due"
+          if [ "$due" != yes ] && [ "$FORCE" != true ]; then exit 0; fi
+          fail=0
+          for url in \
+            https://aximbra-sales-production.up.railway.app/health \
+            https://aximbra-video-production.up.railway.app/health; do
+            # Egy alvó szolgáltatás ébredése eltarthat egy ideig: türelmesen várunk.
+            if curl -fsS --retry 4 --retry-delay 15 --retry-all-errors --max-time 90 "$url" >/dev/null; then
+              echo "felébresztve: $url"
+            else
+              echo "::warning::nem sikerült felébreszteni: $url"
+              fail=1
+            fi
+          done
+          exit $fail

@@ -16,6 +16,8 @@
  */
 
 import http from 'node:http';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import crypto from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
 import twilio from 'twilio';
@@ -1130,6 +1132,22 @@ function scheduleSmokeTest(): void {
   setTimeout(() => {
     void (async () => {
       try {
+        // A szolgaltatas talen alszik, es minden ebredes ujrainditas: a
+        // "deploy-onkent egyszer" igeretet a koteten tartott jelzo tartja be,
+        // kulonben minden ebresztes egy valodi, fizetos teszthivas lenne.
+        const deploy = process.env['RAILWAY_DEPLOYMENT_ID']?.trim() || 'local';
+        const dir = process.env['TEST_RUNS_DIR']?.trim() || '/data/test-runs';
+        const mark = path.join(dir, `smoke-${deploy.replace(/[^A-Za-z0-9_-]/g, '')}.done`);
+        try {
+          await fs.writeFile(mark, new Date().toISOString(), { flag: 'wx' });
+        } catch (e) {
+          if ((e as NodeJS.ErrnoException).code === 'EEXIST') {
+            console.log('[smoke] ennel a deploynal mar lefutott, kihagyom');
+            return;
+          }
+          await fs.mkdir(dir, { recursive: true });
+          await fs.writeFile(mark, new Date().toISOString(), { flag: 'wx' });
+        }
         console.log(`[smoke] fustteszt indul forgatokonyv=${scenario}`);
         const res = await startTestCall(scenario);
         if (!res.ok) console.error(`[smoke] nem indult el: ${res.error}`);

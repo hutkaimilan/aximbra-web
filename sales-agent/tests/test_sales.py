@@ -495,7 +495,8 @@ def test_due_slot_twice_a_day(monkeypatch, tmp_path):
     assert k == "2026-09-29 10:00"
     done.add(k)
     assert app_mod.due_slot(datetime(2026, 9, 29, 10, 10, tzinfo=tz), ts, done) is None
-    assert app_mod.due_slot(datetime(2026, 9, 29, 10, 45, tzinfo=tz), ts, set()) is None  # 30 perc után kihagyja
+    assert app_mod.due_slot(datetime(2026, 9, 29, 11, 15, tzinfo=tz), ts, set()) == "2026-09-29 10:00"  # késő ébresztés
+    assert app_mod.due_slot(datetime(2026, 9, 29, 11, 35, tzinfo=tz), ts, set()) is None  # 90 perc után kihagyja
     assert app_mod.due_slot(datetime(2026, 9, 29, 19, 0, tzinfo=tz), ts, done) == "2026-09-29 19:00"
     monkeypatch.setenv("AUTO_TIMES", "19:00, 7:5, rossz")
     assert app_mod.auto_times() == ["07:05", "19:00"]
@@ -1533,3 +1534,12 @@ def test_a_long_brief_request_is_accepted(store, monkeypatch):
     sales_app.AskIn(question=q)
     assert advisor.ask(store, q)["answer"] == "Brief."
     assert q.strip()[-40:] in calls[1]                       # a vége sem vágódik le
+
+
+def test_done_rounds_survive_a_restart(monkeypatch, tmp_path):
+    """Az alvó szolgáltatás minden ébredéskor újraindul: a lefutott kört nem felejtheti el."""
+    import app as app_mod
+    app_mod.store.set_setting("auto_done", '["2026-09-29 10:00"]')
+    assert "2026-09-29 10:00" in app_mod._load_done()
+    app_mod.store.set_setting("auto_done", "nem json")
+    assert app_mod._load_done() == set()

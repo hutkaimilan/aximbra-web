@@ -5,6 +5,7 @@ háttérmunka futhat: keresés, küldés vagy válaszfigyelés. Magától csak
 keres és vázlatot ír (ha AUTO_RESEARCH be van kapcsolva); elküldeni mindig
 ember küldi, egy gombbal.
 """
+import json
 import logging
 import os
 import secrets
@@ -661,14 +662,20 @@ def auto_times() -> list[str]:
     return sorted(set(out))
 
 
+# Meddig pótolja a kört az időpont után. A szolgáltatás tétlenül alszik, és
+# kívülről (GitHub Actions, .github/workflows/wake.yml) ébresztjük; az ütemezett
+# futás ott akár fél órát is késhet, ezért nem elég a régi 30 perc.
+SLOT_GRACE_MIN = 90
+
+
 def due_slot(now: datetime, times: list[str], done: set) -> str | None:
-    """Az esedékes időpont, ha még nem futott le ma. 30 percig pótolja,
-    ha épp egy másik munka foglalta a gépet; utána kihagyja."""
+    """Az esedékes időpont, ha még nem futott le ma. SLOT_GRACE_MIN percig
+    pótolja (késő ébresztés, foglalt gép); utána kihagyja."""
     for t in times:
         h, m = (int(x) for x in t.split(":"))
         start = now.replace(hour=h, minute=m, second=0, microsecond=0)
         key = f"{now.date()} {t}"
-        if key not in done and start <= now < start + timedelta(minutes=30):
+        if key not in done and start <= now < start + timedelta(minutes=SLOT_GRACE_MIN):
             return key
     return None
 
@@ -686,8 +693,18 @@ def _reply_watch() -> int:
     return len(new)
 
 
+def _load_done() -> set:
+    """A már lefutott körök. Az adatbázisban tartjuk, nem a memóriában: a
+    szolgáltatás alszik, és minden ébredés újraindítás — memóriában tartva egy
+    második ébresztés ugyanabban az ablakban újra kiküldené a kört."""
+    try:
+        return set(json.loads(store.get_setting("auto_done") or "[]"))
+    except ValueError:
+        return set()
+
+
 def _scheduler():
-    done: set = set()
+    done: set = _load_done()
     last_watch = None
     while True:
         try:
@@ -696,6 +713,7 @@ def _scheduler():
             if key and job.start(f"automatikus kör ({key[-5:]})", _morning):
                 done.add(key)
                 done = {k for k in done if k[:10] >= (now.date() - timedelta(days=2)).isoformat()}
+                store.set_setting("auto_done", json.dumps(sorted(done)))
             elif _auto_on() and not job.running and pipeline.reply_watch_due(now, last_watch):
                 last_watch = now
                 try:
