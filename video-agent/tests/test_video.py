@@ -1384,3 +1384,21 @@ def test_cta_without_url_is_not_aximbra_on_other_topics():
     assert s["scenes"][-1]["kind"] == "statement"
     s2 = videomaker.normalize({"title": "T", "scenes": [{"kind": "hook", "headline": "A"}, {"kind": "statement", "headline": "B"}]}, 20)
     assert s2["scenes"][-1]["kind"] == "cta" and s2["scenes"][-1]["url"] == "aximbra.hu"
+
+
+def test_phone_uploads_are_recognised(monkeypatch):
+    """iPhone: HEIC-fotó JPEG-re alakul; típus nélküli fájl a kiterjesztéséből derül ki."""
+    import io as _io
+    import pillow_heif
+    from PIL import Image
+    got = {}
+    monkeypatch.setattr(media, "add_image", lambda data, name, note, redact_pii=False: got.setdefault("img", data[:3]))
+    monkeypatch.setattr(media, "add_clip", lambda data, name, note, redact_pii=False: got.setdefault("clip", name))
+    buf = _io.BytesIO()
+    pillow_heif.from_pillow(Image.new("RGB", (8, 8), "red")).save(buf, format="HEIF")
+    media.store(buf.getvalue(), "image/heic", "IMG_0001.HEIC")
+    assert got["img"] == b"\xff\xd8\xff"            # JPEG
+    media.store(b"x" * 10, "", "VID_0001.MOV")
+    assert got["clip"] == "VID_0001.MOV"
+    with pytest.raises(media.MediaError):
+        media.store(b"x", "application/pdf", "a.pdf")

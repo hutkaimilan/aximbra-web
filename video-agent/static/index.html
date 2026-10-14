@@ -252,8 +252,8 @@ pre.txt{white-space:pre-wrap;font:14px/1.55 var(--sans);margin:0;background:rgba
       <button type="button" class="pri" id="vUp">＋ Feltöltés a gépről / telefonról</button>
       <button type="button" id="vLibBtn">▦ Választás a médiatárból</button>
     </div>
-    <input type="file" id="vAttach" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" multiple hidden>
-    <label class="ck"><input type="checkbox" id="vRedact" checked> Feltöltéskor nevek, e-mail-címek, telefonszámok elmosása</label>
+    <input type="file" id="vAttach" accept="image/*,video/*" multiple hidden>
+    <label class="ck"><input type="checkbox" id="vRedact"> Képernyőfelvételnél: nevek, e-mail-címek, telefonszámok elmosása <small class="mute">(saját fotónál, kamerás videónál hagyd üresen — csak lassít)</small></label>
     <div class="mute" id="vAttachInfo" style="margin-top:6px"></div>
     <div class="picked" id="vAttached"></div>
     <div id="vLib" class="hide">
@@ -312,12 +312,12 @@ pre.txt{white-space:pre-wrap;font:14px/1.55 var(--sans);margin:0;background:rgba
 <section id="v-media" class="hide">
   <div class="card">
     <div class="step"><span class="no">↑</span><h2>Feltöltés</h2></div>
-    <input type="file" id="mFile" multiple hidden accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm">
-    <label class="drop" id="mDrop" for="mFile"><b>Húzd ide a fájlokat</b><span>vagy koppints a tallózáshoz — JPG, PNG, WebP, MP4, MOV, WebM, max. 250 MB, 3 perc</span></label>
+    <input type="file" id="mFile" multiple hidden accept="image/*,video/*">
+    <label class="drop" id="mDrop" for="mFile"><b>Húzd ide a fájlokat</b><span>vagy koppints a tallózáshoz — bármilyen telefonos kép vagy videó (iPhone HEIC is), max. 250 MB, 3 perc</span></label>
     <div class="picked" id="mPicked"></div>
     <label>Mi ez? (nem kötelező)</label>
     <input id="mNote" maxlength="200" placeholder="Pl.: e-mail rendező felvétel, magyar">
-    <label class="ck"><input type="checkbox" id="mRedact" checked> Nevek, e-mail-címek, telefonszámok elmosása</label>
+    <label class="ck"><input type="checkbox" id="mRedact"> Képernyőfelvételnél: nevek, e-mail-címek, telefonszámok elmosása <small class="mute">(saját fotónál, kamerás videónál hagyd üresen)</small></label>
     <p class="mute" style="margin:6px 0 0">Logónál, saját grafikánál kapcsold ki, különben a rajta lévő szöveget is elmoshatja.</p>
     <div class="row" style="margin-top:12px"><button class="pri" id="mGo" type="button">Feltöltés</button><span class="mute" id="mInfo"></span></div>
   </div>

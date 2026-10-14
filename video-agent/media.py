@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import io
 import os
 import re
 import secrets
@@ -385,8 +386,35 @@ def analyse_clip(path: str, seconds: float) -> list[dict]:
         return []
 
 
+# Amit a telefon küld, de mi máshogy hívunk: az iPhone HEIC-fotója (JPEG-re
+# alakítjuk), a ritkább videótípusok, és a típus nélküli fájl a kiterjesztés alapján.
+HEIC_TYPES = {"image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"}
+CLIP_ALIASES = {"video/x-m4v": "video/mp4", "video/3gpp": "video/mp4", "video/3gpp2": "video/mp4",
+                "video/mpeg": "video/mp4", "video/x-matroska": "video/webm"}
+EXT_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp",
+             ".heic": "image/heic", ".heif": "image/heif", ".mp4": "video/mp4", ".m4v": "video/mp4",
+             ".mov": "video/quicktime", ".webm": "video/webm", ".3gp": "video/mp4", ".mkv": "video/webm"}
+
+
+def _heic_to_jpeg(data: bytes) -> bytes:
+    try:
+        import pillow_heif
+        from PIL import Image
+        pillow_heif.register_heif_opener()
+        out = io.BytesIO()
+        Image.open(io.BytesIO(data)).convert("RGB").save(out, "JPEG", quality=92)
+        return out.getvalue()
+    except Exception as e:  # noqa: BLE001 — sérült vagy ismeretlen HEIC
+        raise MediaError(f"ezt az iPhone-fotót (HEIC) nem tudtam átalakítani ({type(e).__name__})")
+
+
 def store(data: bytes, content_type: str, name: str, note: str = "", redact_pii: bool = True) -> dict:
     ct = (content_type or "").split(";")[0].strip().lower()
+    if ct not in IMAGE_TYPES and ct not in CLIP_TYPES and ct not in HEIC_TYPES and ct not in CLIP_ALIASES:
+        ct = EXT_TYPES.get(os.path.splitext(name or "")[1].lower(), ct)
+    ct = CLIP_ALIASES.get(ct, ct)
+    if ct in HEIC_TYPES:
+        data, ct = _heic_to_jpeg(data), "image/jpeg"
     if ct in IMAGE_TYPES:
         return add_image(data, name, note, redact_pii=redact_pii)
     if ct in CLIP_TYPES:
