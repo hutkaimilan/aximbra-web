@@ -169,6 +169,17 @@ def public_slide(vid: str, ticket: str, n: int):
     return FileResponse(path, media_type="image/jpeg")
 
 
+class ClientLog(BaseModel):
+    msg: str = Field(default="", max_length=1000)
+
+
+@app.post("/api/clientlog", dependencies=[Depends(auth)])
+def client_log(body: ClientLog):
+    """A felület (telefon) üzenetei a naplóba: feltöltési lépések és JS-hibák."""
+    logger.info("felület: %s", body.msg.replace("\n", " ")[:1000])
+    return {"ok": True}
+
+
 @app.get("/health")
 def health():
     return {"ok": True}

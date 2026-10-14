@@ -362,6 +362,12 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let S = null;
+// A telefonon történő hibák és lépések a szerver naplójába, hogy látszódjon, hol akad el.
+function clientLog(msg) {
+  try { navigator.sendBeacon("/api/clientlog", new Blob([JSON.stringify({msg: String(msg).slice(0, 1000)})], {type: "application/json"})); } catch {}
+}
+window.addEventListener("error", (e) => clientLog("JS hiba: " + (e.message || e) + " @" + (e.lineno || "")));
+window.addEventListener("unhandledrejection", (e) => clientLog("ígéret hiba: " + ((e.reason && e.reason.message) || e.reason)));
 async function api(path, body) {
   // Ha 30 mp alatt nem jön válasz, mondjuk meg, ne pörögjön némán.
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 30000);
@@ -472,9 +478,16 @@ $("#vAttached").onclick = (e) => {
   const b = e.target.closest("[data-ai]"); if (!b) return;
   attached.splice(+b.dataset.ai, 1); drawAttached(); libKey = ""; renderLib();
 };
-$("#vUp").onclick = () => $("#vAttach").click();
+$("#vUp").onclick = () => {
+  // A telefon a pipa után még előkészíti (átalakítja) a videókat: addig ne tűnjön lefagyottnak.
+  $("#vAttachInfo").textContent = "Válaszd ki a fájlokat, majd a jobb felső pipa. A telefon a videókat feltöltés előtt előkészíti — ez sok videónál 1–2 perc is lehet.";
+  clientLog("csatolás: választó megnyitva");
+  $("#vAttach").click();
+};
 $("#vAttach").onchange = async (e) => {
   const files = [...(e.target.files || [])]; e.target.value = "";
+  clientLog(`csatolás: ${files.length} fájl (${files.map((f) => (f.type || "?") + " " + kb(f.size)).join(", ").slice(0, 600)})`);
+  if (!files.length) { flash("A telefon nem adott át fájlt. Próbáld a Fájlok menüből, vagy kevesebbet egyszerre."); return; }
   for (const [i, f] of files.entries()) {
     const tag = `${i + 1}/${files.length}: ${f.name} (${kb(f.size)}) feltöltése`;
     $("#vAttachInfo").textContent = tag + "…";
@@ -691,7 +704,9 @@ $("#editOne").addEventListener("click", async (e) => {
 
 /* ================= médiatár ================= */
 let mKey = "", picked = [];
-const OK_TYPE = /^(image\/(jpeg|png|webp)|video\/(mp4|quicktime|webm))$/;
+// Bármilyen kép vagy videó (iPhone HEIC, MOV is); a típus nélküli fájlt a szerver
+// a tartalmából ismeri fel. Csak a biztosan nem médiát (dokumentum, program) dobjuk el.
+const NOT_MEDIA = /^(application\/(?!octet-stream)|text\/|font\/|model\/)/;
 const kb = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
 const thumb = (m) => m.kind === "clip"
   ? (m.status === "processing" ? `<div class="th"></div>` : `<video class="th" src="/api/media/${esc(m.id)}#t=1" muted playsinline preload="metadata"></video>`)
@@ -773,11 +788,14 @@ function drawPicked() {
 function addFiles(list) {
   const bad = [];
   for (const f of list) {
-    if (!OK_TYPE.test(f.type)) { bad.push(f.name); continue; }
+    if (NOT_MEDIA.test(f.type || "")) { bad.push(f.name); continue; }
     if (!picked.some((p) => p.name === f.name && p.size === f.size)) picked.push(f);
   }
-  if (bad.length) flash("Ezt nem tudom feldolgozni: " + bad.join(", "));
+  if (bad.length) flash("Ez nem kép vagy videó: " + bad.join(", "));
   drawPicked();
+  clientLog(`médiatár: ${list.length} fájl kiválasztva, ${bad.length} elutasítva`);
+  // Kiválasztás után magától indul, ne kelljen még egy gombot keresni.
+  if (picked.length && !$("#mGo").disabled) $("#mGo").click();
 }
 $("#mFile").onchange = (e) => { addFiles(e.target.files || []); e.target.value = ""; };
 $("#mPicked").onclick = (e) => { const b = e.target.closest("button[data-i]"); if (b) { picked.splice(+b.dataset.i, 1); drawPicked(); } };
