@@ -1253,7 +1253,7 @@ def _produce(script: dict, opts: dict, ctx: dict, say, parent: str | None, form:
             if engine:
                 say(f"Hang kész ({ {'elevenlabs': 'ElevenLabs', 'gemini': 'Gemini'}.get(engine, 'Edge')} felolvasó).")
         total = render(script, ctx["urls"], os.path.join(VIDEO_DIR, f"{vid}.mp4"), opts["aspect"], audio,
-                       captions=opts.get("captions", True) and any(sc["voice"] for sc in script["scenes"]), say=say)
+                       captions=opts.get("captions", False) and any(sc["voice"] for sc in script["scenes"]), say=say)
         files = [f"{vid}.mp4"]
         done = f"{total:.0f} mp"
     meta = {"id": vid, "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "parent": parent,
@@ -1301,7 +1301,7 @@ FORM_NAMES = {"video": "videó", "image": "kép", "carousel": "körhinta", "logo
 
 def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", voice: bool = True,
          male: bool = False, research: bool = False, form: str = "auto", say=lambda m: None,
-         attach: list | None = None, captions: bool = True) -> dict:
+         attach: list | None = None, captions: bool = False) -> dict:
     brief = (brief or "").strip()[:12000]
     if len(brief) < 8:
         raise VideoError("írd le, mit készítsek")

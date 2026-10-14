@@ -442,7 +442,7 @@ class VideoIn(BaseModel):
     research: bool = False
     form: str = Field(default="auto", pattern="^(auto|video|image|carousel|logo)$")
     # A narráció felirata a kép alján.
-    captions: bool = True
+    captions: bool = False
 
 
 class ReviseIn(BaseModel):

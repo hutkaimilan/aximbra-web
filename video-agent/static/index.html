@@ -268,7 +268,7 @@ pre.txt{white-space:pre-wrap;font:14px/1.55 var(--sans);margin:0;background:rgba
       <div id="oVoice"><label>Hang</label><div class="seg" data-k="voice">
         <button type="button" data-v="f">Női narráció</button><button type="button" data-v="m">Férfi narráció</button>
         <button type="button" data-v="">Nincs hang</button></div>
-        <label class="ck" id="oCap"><input type="checkbox" id="vCaptions" checked> Felirat: a narráció szövege a kép alján</label></div>
+        <label class="ck" id="oCap"><input type="checkbox" id="vCaptions"> Felirat: a narráció szövege a kép alján</label></div>
       <div><label>Nyelv</label><div class="seg" data-k="lang">
         <button type="button" data-v="hu">Magyar</button><button type="button" data-v="en">Angol</button></div></div>
     </div>
@@ -651,7 +651,7 @@ $("#editOne").addEventListener("click", async (e) => {
       Object.assign(F, {form: kindOf(v), aspect: o.aspect || "9:16", seconds: String(o.seconds || 30),
         voice: o.voice === false ? "" : (o.male ? "m" : "f"), lang: t.id === "eReuseEn" ? "en" : (o.lang || "hu")});
       $("#vResearch").checked = !!o.research;
-      $("#vCaptions").checked = o.captions !== false;
+      $("#vCaptions").checked = o.captions === true;
       attached = (o.attach || []).map((id) => S.media.find((m) => m.id === id)).filter(Boolean);
       paintSeg(); formChanged(); drawAttached(); go("#new");
       flash(t.id === "eReuseEn" ? "Betöltve angolra állítva. Csatold az angol felvételt, ha van, és nyomd meg a gombot." : "Betöltve. Módosíts, amit akarsz, és nyomd meg a gombot.");

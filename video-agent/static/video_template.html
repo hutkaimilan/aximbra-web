@@ -47,7 +47,7 @@ html,body{width:var(--W);height:var(--H);overflow:hidden;background:var(--bg);co
 .caption{position:absolute;left:var(--pad);right:var(--pad);bottom:40px;z-index:6;text-align:center}
 /* Időzített felirat a felvétel más nyelvű képernyőihez (pl. magyar Google-képernyő angol videóban). */
 .cues{position:absolute;left:var(--pad);right:var(--pad);bottom:40px;z-index:7;text-align:center;pointer-events:none}
-body.vid .cues{bottom:236px;right:80px}
+body.vid .cues{bottom:236px;right:100px}
 .cue{display:inline-block;max-width:100%;padding:8px 14px;border-radius:12px;background:rgba(255,214,10,.96);color:#111;
   font:700 18px/1.3 var(--sans);box-shadow:0 6px 24px rgba(0,0,0,.35)}
 .cap{display:inline-block;padding:7px 12px;border-radius:10px;background:rgba(0,0,0,.62);color:#fff;font:500 16px/1.35 var(--sans);opacity:0}
@@ -56,8 +56,14 @@ body.vid .cues{bottom:236px;right:80px}
 /* Álló videó: a LinkedIn, az Instagram és a TikTok az alsó negyedbe teszi a
    nevet és a poszt szövegét, jobbra pedig az ikonoszlopot. Ami oda esik, azt a
    néző nem látja — a felirat és a jelenet szövege ezért e fölött marad. */
-body.vid .scene{padding:92px 80px 300px var(--pad);gap:16px}
-body.vid .caption{bottom:236px;right:80px}
+/* Ráadásul a telefon a 9:16-os videót kitöltésre nagyítja: egy mai, nyúlánk
+   kijelzőn mindkét oldalból kb. 48 px leesik, felül pedig az óra és az
+   alkalmazás vissza-gombja takar. Ezért a szöveg 64 px-re marad a bal
+   széltől, 100 px-re a jobbtól (ikonoszlop), a logó sor 100 px-rel lejjebb. */
+body.vid{--pad:64px}
+body.vid .brand{top:100px;right:100px}
+body.vid .scene{padding:150px 100px 300px var(--pad);gap:16px}
+body.vid .caption{bottom:236px;right:100px}
 body.vid .phone{width:212px;height:392px;border-radius:34px;padding:9px}
 body.vid .screen{border-radius:28px}
 /* Egy hosszú szó se lógjon ki: törhet, és a build() a betűméretet is igazítja. */
