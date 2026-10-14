@@ -162,6 +162,13 @@ body.tall .cname,body.square .cname{font-size:15px}
 .shot img,.shot video{display:block;width:100%;height:auto}
 body.land .shot{max-width:400px}
 @keyframes shotIn{from{opacity:0;transform:translateY(40px) scale(.94)}to{opacity:1;transform:none}}
+/* montázs: a saját képek és klipek gyors egymásutánban, teljes képen */
+.mont{position:absolute;inset:0;overflow:hidden;z-index:0;background:#000}
+.mont .mi{position:absolute;inset:0;opacity:0}
+.mont .mi img,.mont .mi video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+@keyframes mshow{0%{opacity:0;transform:scale(1.03)}10%{opacity:1}90%{opacity:1}100%{opacity:0;transform:scale(1.1)}}
+.mont::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(0,0,0,.55) 0%,rgba(0,0,0,.08) 35%,rgba(0,0,0,.08) 60%,rgba(0,0,0,.6) 100%)}
 .grid2m{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .grid2m .shot{border-radius:16px}
 @keyframes tileIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
@@ -264,6 +271,24 @@ function scene(s, t0, shots, dims, lib) {
         `<div class="shot" style="animation:${anim("tileIn", .5, t0 + .8 + .3 * i)}"><img src="${esc(lib[id].src)}" alt=""></div>`).join("")}</div>`
         + rise("sub", s.sub, t0 + 1.2 + ids.length * .3)};
     }
+    case "montage": {
+      // Az indulópont a médiához tartozik: a hiányzó elemek kiszűrése után is együtt maradnak.
+      const pairs = (s.medias || []).map((x, i) => [x, +(s.mfrom || [])[i] || 0]).filter(([x]) => lib[x]).slice(0, 12);
+      if (!pairs.length) return {txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
+      const ids = pairs.map((p) => p[0]), from = pairs.map((p) => p[1]);
+      const per = d / ids.length;
+      const items = ids.map((id, i) => {
+        const m = lib[id], a = t0 - .1 + i * per, last = i === ids.length - 1;
+        // Az utolsó kép a jelenet végéig marad; a többi átúszik a következőbe.
+        const st = `animation:mshow ${per + .3}s linear ${a}s ${last ? "backwards" : "both"}`;
+        const inner = m.kind === "clip"
+          ? `<video src="${esc(m.src)}" data-start="${a}" data-end="${a + per + .35}" data-from="${+from[i] || 0}" data-speed="1" muted playsinline preload="auto"></video>`
+          : `<img src="${esc(m.src)}" alt="">`;
+        return `<div class="mi" style="${st}${last ? ";opacity:1" : ""}">${inner}</div>`;
+      }).join("");
+      return {bleed: `<div class="mont">${items}</div>`, onbleed: true,
+        txt: (s.headline || s.sub) ? head(s, t0, true) + rise("sub", s.sub, t0 + .7) : ""};
+    }
     case "agents":
       return {txt: head(s, t0) + `<div class="tiles">${L.map((l, i) =>
         `<div class="tile" style="animation:${anim("lit", .5, t0 + .8 + per(L.length) * .6 * i, "ease")}"><small>${esc(s.tile_label || "AGENT")} ${String(i + 1).padStart(2, "0")}</small>${esc(l)}</div>`).join("")}</div>` + rise("sub", s.sub, t0 + 1.2 + L.length * .3)};
@@ -313,7 +338,10 @@ window.build = (cfg) => {
   }).join("");
   document.documentElement.style.setProperty("--total", t + "s");
   document.getElementById("tagline").textContent = cfg.tagline || "";
-  document.getElementById("brandname").textContent = cfg.brand || "AXIMBRA";
+  // Más témájú videón a saját márkájuk áll ott; az AXIMBRA-gyűrű csak AXIMBRA-n.
+  const brand = cfg.brand == null ? "AXIMBRA" : cfg.brand;
+  document.getElementById("brandname").textContent = brand;
+  document.querySelector(".brand .core").style.display = /aximbra/i.test(brand) ? "" : "none";
   document.getElementById("scenes").innerHTML = html;
   document.getElementById("captions").innerHTML = caps;
   document.getElementById("cues").innerHTML = cueHtml;
@@ -327,7 +355,11 @@ function fitText() {
   for (const el of document.querySelectorAll("#scenes .h, #scenes .url, #scenes .bignum, #scenes .quote")) {
     let size = parseFloat(getComputedStyle(el).fontSize);
     const lh = () => parseFloat(getComputedStyle(el).lineHeight) || size * 1.1;
-    for (let i = 0; i < 30 && size > 18 && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > lh() * 3 + 2); i++) {
+    // Egy szó, ami nem fér a sorba, nem lóg ki, hanem kettétörik („szombat-on”):
+    // ezt a szó dobozának magasságán vesszük észre (az offsetHeight-et a belépő
+    // animáció forgatása nem torzítja).
+    const broken = () => [...el.querySelectorAll(".w")].some((w) => w.offsetHeight > lh() * 1.4);
+    for (let i = 0; i < 30 && size > 18 && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > lh() * 3 + 2 || broken()); i++) {
       size -= 2;
       el.style.fontSize = size + "px";
     }
@@ -353,6 +385,8 @@ window.seek = (ms) => {
   if (!vids.length) return;
   return Promise.all(vids.map((v) => new Promise((done) => {
     const len = isFinite(v.duration) ? v.duration : 0;
+    // Montázsban sok klip van: amelyik épp nem látszik, azt nem léptetjük.
+    if (v.dataset.end && (ms / 1000 < (+v.dataset.start || 0) - .5 || ms / 1000 > +v.dataset.end)) return done();
     const local = Math.max(0, ms / 1000 - (+v.dataset.start || 0));
     const want = Math.max(0, Math.min(Math.max(0, len - 0.05), (+v.dataset.from || 0) + local * (+v.dataset.speed || 1)));
     if (v.dataset.cue) {

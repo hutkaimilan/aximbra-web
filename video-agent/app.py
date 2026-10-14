@@ -433,7 +433,7 @@ def _startup():
 class VideoIn(BaseModel):
     brief: str = Field(min_length=8, max_length=12000)
     # Az űrlapon ehhez a videóhoz csatolt képek/klipek: a rendezőnek mindet fel kell használnia.
-    media: list[str] = Field(default_factory=list, max_length=8)
+    media: list[str] = Field(default_factory=list, max_length=30)
     seconds: int = Field(default=30, ge=10, le=120)
     lang: str = Field(default="hu", pattern="^(hu|en)$")
     aspect: str = Field(default="9:16", pattern="^(9:16|4:5|1:1|16:9)$")

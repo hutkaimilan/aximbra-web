@@ -1354,3 +1354,33 @@ def test_multi_label_domain_removed_whole():
 def test_spelled_out_url_written_back_for_captions():
     assert videomaker._written_url("Try it free at aximbra dot h-u slash e-n.") == "Try it free at aximbra.hu/en."
     assert videomaker._written_url("Visit aximbra dot hu today") == "Visit aximbra.hu today"
+
+
+def test_montage_keeps_up_to_twelve_and_clip_start(monkeypatch):
+    lib = {f"img{i:09d}": {"id": f"img{i:09d}", "kind": "image"} for i in range(14)}
+    lib["clip00000001"] = {"id": "clip00000001", "kind": "clip", "segments": [{"from": 0, "to": 3, "pace": "wait"},
+                                                          {"from": 3, "to": 9, "pace": "result"}]}
+    monkeypatch.setattr(videomaker.media, "get", lambda i: lib.get(i))
+    ids = ["clip00000001"] + [f"img{i:09d}" for i in range(14)]
+    s = videomaker.normalize({"title": "T", "scenes": [
+        {"kind": "montage", "headline": "Nyár", "medias": ids, "seconds": 8},
+        {"kind": "statement", "headline": "Vége", "seconds": 3}]}, 20, 1, "video", aximbra=False)
+    m = s["scenes"][0]
+    assert m["kind"] == "montage" and len(m["medias"]) == 12 and m["mfrom"][0] == 3.0
+    assert s["scenes"][-1]["kind"] != "cta" and s["brand"] == "" and s["first_comment"] == ""
+
+
+def test_montage_on_a_carousel_becomes_a_grid(monkeypatch):
+    monkeypatch.setattr(videomaker.media, "get", lambda i: {"id": i, "kind": "image"})
+    s = videomaker.normalize({"title": "T", "scenes": [
+        {"kind": "montage", "headline": "A", "medias": [f"img{i:09d}" for i in range(5)]},
+        {"kind": "statement", "headline": "B"}]}, 30, 1, "carousel", aximbra=False)
+    assert s["scenes"][0]["kind"] == "gallery" and len(s["scenes"][0]["medias"]) == 4
+
+
+def test_cta_without_url_is_not_aximbra_on_other_topics():
+    s = videomaker.normalize({"title": "T", "scenes": [
+        {"kind": "hook", "headline": "A"}, {"kind": "cta", "headline": "Gyere el!", "url": ""}]}, 20, aximbra=False)
+    assert s["scenes"][-1]["kind"] == "statement"
+    s2 = videomaker.normalize({"title": "T", "scenes": [{"kind": "hook", "headline": "A"}, {"kind": "statement", "headline": "B"}]}, 20)
+    assert s2["scenes"][-1]["kind"] == "cta" and s2["scenes"][-1]["url"] == "aximbra.hu"
