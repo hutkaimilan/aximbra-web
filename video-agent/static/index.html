@@ -363,9 +363,21 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let S = null;
 // A telefonon történő hibák és lépések a szerver naplójába, hogy látszódjon, hol akad el.
+// fetch, nem sendBeacon: a beacon nem viszi a jelszót (401), a fetch igen.
 function clientLog(msg) {
-  try { navigator.sendBeacon("/api/clientlog", new Blob([JSON.stringify({msg: String(msg).slice(0, 1000)})], {type: "application/json"})); } catch {}
+  try {
+    fetch("/api/clientlog", {method: "POST", headers: {"Content-Type": "application/json"}, keepalive: true,
+      credentials: "same-origin", body: JSON.stringify({msg: (navigator.userAgent.includes("CriOS") ? "[Chrome iOS] " : "") + String(msg).slice(0, 900)})}).catch(() => {});
+  } catch {}
 }
+// Ha a választó bezárul, de nem jön fájl (a telefon nem adta át), azt is lássuk.
+let pickerOpen = 0;
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && pickerOpen) {
+    const t = pickerOpen;
+    setTimeout(() => { if (pickerOpen === t) { clientLog(`választó bezárult, ${Math.round((Date.now() - t) / 1000)} mp után még nincs fájl`); } }, 4000);
+  }
+});
 window.addEventListener("error", (e) => clientLog("JS hiba: " + (e.message || e) + " @" + (e.lineno || "")));
 window.addEventListener("unhandledrejection", (e) => clientLog("ígéret hiba: " + ((e.reason && e.reason.message) || e.reason)));
 async function api(path, body) {
@@ -481,11 +493,11 @@ $("#vAttached").onclick = (e) => {
 $("#vUp").onclick = () => {
   // A telefon a pipa után még előkészíti (átalakítja) a videókat: addig ne tűnjön lefagyottnak.
   $("#vAttachInfo").textContent = "Válaszd ki a fájlokat, majd a jobb felső pipa. A telefon a videókat feltöltés előtt előkészíti — ez sok videónál 1–2 perc is lehet.";
-  clientLog("csatolás: választó megnyitva");
+  clientLog("csatolás: választó megnyitva"); pickerOpen = Date.now();
   $("#vAttach").click();
 };
 $("#vAttach").onchange = async (e) => {
-  const files = [...(e.target.files || [])]; e.target.value = "";
+  const files = [...(e.target.files || [])]; e.target.value = ""; pickerOpen = 0;
   clientLog(`csatolás: ${files.length} fájl (${files.map((f) => (f.type || "?") + " " + kb(f.size)).join(", ").slice(0, 600)})`);
   if (!files.length) { flash("A telefon nem adott át fájlt. Próbáld a Fájlok menüből, vagy kevesebbet egyszerre."); return; }
   for (const [i, f] of files.entries()) {
