@@ -166,6 +166,10 @@ body.land .shot{max-width:400px}
 .mont{position:absolute;inset:0;overflow:hidden;z-index:0;background:#000}
 .mont .mi{position:absolute;inset:0;opacity:0}
 .mont .mi img,.mont .mi video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+@keyframes mcut{from{opacity:1}to{opacity:1}}
+@keyframes mzoom{from{opacity:1;transform:scale(1.32)}to{opacity:1;transform:scale(1.02)}}
+.mflash{position:absolute;inset:0;background:#fff;opacity:0;z-index:2}
+@keyframes mflash{from{opacity:.95}to{opacity:0}}
 @keyframes mshow{0%{opacity:0;transform:scale(1.03)}10%{opacity:1}90%{opacity:1}100%{opacity:0;transform:scale(1.1)}}
 .mont::after{content:"";position:absolute;inset:0;
   background:linear-gradient(180deg,rgba(0,0,0,.55) 0%,rgba(0,0,0,.08) 35%,rgba(0,0,0,.08) 60%,rgba(0,0,0,.6) 100%)}
@@ -277,14 +281,19 @@ function scene(s, t0, shots, dims, lib) {
       if (!pairs.length) return {txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
       const ids = pairs.map((p) => p[0]), from = pairs.map((p) => p[1]);
       const per = d / ids.length;
+      const tr = s.transition || "fade";
       const items = ids.map((id, i) => {
         const m = lib[id], a = t0 - .1 + i * per, last = i === ids.length - 1;
-        // Az utolsó kép a jelenet végéig marad; a többi átúszik a következőbe.
-        const st = `animation:mshow ${per + .3}s linear ${a}s ${last ? "backwards" : "both"}`;
+        // fade: átúszik a következőbe (az utolsó a jelenet végéig marad);
+        // cut / zoom / flash: kemény vágás, a következő kép egyszerűen rákerül.
+        const st = tr === "fade" ? `animation:mshow ${per + .3}s linear ${a}s ${last ? "backwards" : "both"}`
+          : tr === "zoom" ? `animation:mzoom ${per}s cubic-bezier(.2,.8,.2,1) ${a}s forwards`
+          : `animation:mcut ${per}s steps(1) ${a}s forwards`;
+        const flash = tr === "flash" && i > 0 ? `<div class="mflash" style="animation:mflash .22s ease-out ${a}s forwards"></div>` : "";
         const inner = m.kind === "clip"
           ? `<video src="${esc(m.src)}" data-start="${a}" data-end="${a + per + .35}" data-from="${+from[i] || 0}" data-speed="1" muted playsinline preload="auto"></video>`
           : `<img src="${esc(m.src)}" alt="">`;
-        return `<div class="mi" style="${st}${last ? ";opacity:1" : ""}">${inner}</div>`;
+        return `<div class="mi" style="${st}${last && tr === "fade" ? ";opacity:1" : ""}">${inner}</div>${flash}`;
       }).join("");
       return {bleed: `<div class="mont">${items}</div>`, onbleed: true,
         txt: (s.headline || s.sub) ? head(s, t0, true) + rise("sub", s.sub, t0 + .7) : ""};

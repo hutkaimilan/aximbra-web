@@ -28,6 +28,7 @@ import media
 import publisher
 import settings as settings_store
 import stop
+import trends
 import videomaker
 import websearch
 
@@ -188,6 +189,7 @@ def state():
         "settings": settings_store.load(),
         "publish": publisher.status(),
         "inbox": inbox.recent(8),
+        "trends": trends.load(),
         "config": {
             "ai": llm.available(),
             "ai_engine": llm.engine_name(),
@@ -434,6 +436,8 @@ class VideoIn(BaseModel):
     brief: str = Field(min_length=8, max_length=12000)
     # Az űrlapon ehhez a videóhoz csatolt képek/klipek: a rendezőnek mindet fel kell használnia.
     media: list[str] = Field(default_factory=list, max_length=30)
+    # Anyagonkénti utasítás: médiaazonosító → mit kezdjen vele a rendező.
+    media_notes: dict[str, str] = Field(default_factory=dict, max_length=30)
     seconds: int = Field(default=30, ge=10, le=120)
     lang: str = Field(default="hu", pattern="^(hu|en)$")
     aspect: str = Field(default="9:16", pattern="^(9:16|4:5|1:1|16:9)$")
@@ -453,7 +457,14 @@ class ReviseIn(BaseModel):
 def video_make(body: VideoIn):
     return _start(lambda say: videomaker.make(body.brief, body.seconds, body.lang, body.aspect, body.voice,
                                               body.male, body.research, body.form, say=say,
-                                              attach=body.media, captions=body.captions))
+                                              attach=body.media, captions=body.captions,
+                                              media_notes=body.media_notes))
+
+
+@app.post("/api/trends/refresh", dependencies=[Depends(auth)])
+def trends_refresh():
+    """A trendlista azonnali frissítése (különben hetente magától)."""
+    return _start(lambda say: {"trends": trends.refresh(say)})
 
 
 @app.post("/api/videos/{vid}/revise", dependencies=[Depends(auth)])

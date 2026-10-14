@@ -163,6 +163,15 @@ pre.txt{white-space:pre-wrap;font:14px/1.55 var(--sans);margin:0;background:rgba
 .drop span{font-size:13px}
 .drop:hover,.drop.hot{border-color:var(--c);background:rgba(0,229,255,.07)}
 .picked{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+/* csatolt anyag sora: bélyegkép, név, és mit kezdjen vele a rendező */
+.arow{display:grid;grid-template-columns:56px 1fr 32px;gap:8px;align-items:center;width:100%;padding:6px;border:1px solid var(--line);border-radius:12px;background:rgba(4,6,14,.5)}
+.arow .th{width:56px;height:56px;border-radius:8px;object-fit:cover;background:#000;display:grid;place-items:center;font-size:22px}
+.arow .nm{font:500 11px/1.3 var(--mono);color:var(--mute);word-break:break-word}
+.arow input{width:100%;margin-top:4px;font-size:14px}
+.arow button{padding:4px 0}
+.trend{padding:8px 0;border-top:1px solid var(--line)}
+.trend:first-child{border-top:0}
+.trend b{font-size:14px}.trend small{color:var(--mute)}
 .picked:empty{display:none}
 .chip{display:inline-flex;align-items:center;gap:7px;max-width:100%;font:500 12px/1.2 var(--mono);color:var(--mute);
   border:1px solid var(--line);border-radius:999px;padding:6px 8px 6px 11px;background:rgba(4,6,14,.6)}
@@ -252,6 +261,13 @@ pre.txt{white-space:pre-wrap;font:14px/1.55 var(--sans);margin:0;background:rgba
       <div class="mgrid" id="vLibGrid"></div>
     </div>
   </div>
+
+  <details class="card" id="vTrendsCard">
+    <summary style="cursor:pointer"><b>📈 Aktuális TikTok / Reels / Shorts trendek</b> <span class="mute" id="vTrendsAge"></span></summary>
+    <p class="mute" style="margin:8px 0">Hetente magától frissül a webről. A rendező ezekből választ 1–3-at, ha illik a leíráshoz és az anyagodhoz. Ha mást kérsz, a te leírásod az erősebb.</p>
+    <div id="vTrends"></div>
+    <button type="button" id="vTrendsGo" style="margin-top:8px">↻ Frissítés most</button>
+  </details>
 
   <div class="card">
     <div class="step"><span class="no">4</span><h2>Beállítások</h2></div>
@@ -438,13 +454,20 @@ const mStatus = (m) => m.status === "processing" ? "⏳ elmosás és elemzés…
   : m.status === "failed" ? "✕ " + (m.error || "hiba") + " — nem kerül videóba"
   : [m.kind === "clip" && m.seconds ? `${Math.round(m.seconds)} mp` : "", m.redacted ? `🔒 ${m.redacted} elmosva` : "",
      m.kind === "clip" && m.segments && m.segments.length ? `${m.segments.length} rész` : ""].filter(Boolean).join(" · ");
+var notes = {};  // csatolt anyag → mit kezdjen vele a rendező (ehhez a darabhoz)
 function drawAttached() {
   attached = attached.map((m) => (S && S.media || []).find((x) => x.id === m.id) || m);
+  // Gépelés közben nem rajzoljuk újra, különben elveszne a kurzor és a szöveg.
+  if ($("#vAttached").contains(document.activeElement)) { summary(); return; }
   $("#vAttached").innerHTML = attached.map((m, i) =>
-    `<span class="chip"><span>${m.kind === "clip" ? "🎬" : "🖼"} ${esc(m.note || m.name)}</span><span style="color:var(--dim)">${esc(mStatus(m))}</span>
-     <button type="button" data-ai="${i}" title="Eltávolítás">×</button></span>`).join("");
+    `<div class="arow">${m.kind === "clip" ? `<span class="th">🎬</span>` : `<img class="th" src="/api/media/${esc(m.id)}" alt="" loading="lazy">`}
+     <div><div class="nm">${i + 1}. ${esc(m.name || m.note || "")} <span style="color:var(--dim)">${esc(mStatus(m))}</span></div>
+       <input type="text" data-note="${esc(m.id)}" maxlength="300" value="${esc(notes[m.id] || "")}"
+         placeholder="Mit csináljon vele? pl. ez legyen a nyitókép / csak a 3. mp-től / írd rá: Nyitás szombaton"></div>
+     <button type="button" data-ai="${i}" title="Eltávolítás">×</button></div>`).join("");
   summary();
 }
+$("#vAttached").oninput = (e) => { const id = e.target.dataset && e.target.dataset.note; if (id) notes[id] = e.target.value; };
 $("#vAttached").onclick = (e) => {
   const b = e.target.closest("[data-ai]"); if (!b) return;
   attached.splice(+b.dataset.ai, 1); drawAttached(); libKey = ""; renderLib();
@@ -517,10 +540,11 @@ async function startNow() {
   try {
     await api("/api/videos", {brief: b, seconds: +F.seconds, lang: F.lang, aspect: F.aspect, form: F.form,
       voice: !!F.voice, male: F.voice === "m", research: $("#vResearch").checked, media: attached.map((m) => m.id),
+      media_notes: Object.fromEntries(attached.filter((m) => (notes[m.id] || "").trim()).map((m) => [m.id, notes[m.id].trim()])),
       captions: $("#vCaptions").checked});
     jobHidden = false;
     flash("Elindult. A fenti sávban látod, hol tart.");
-    attached = []; drawAttached(); $("#vAttachInfo").textContent = ""; refresh();
+    attached = []; notes = {}; drawAttached(); $("#vAttachInfo").textContent = ""; refresh();
   } catch (e) { flash("Nem indult el: " + e.message); }
   finally { starting = false; goState(); }
 }
@@ -654,6 +678,7 @@ $("#editOne").addEventListener("click", async (e) => {
       $("#vResearch").checked = !!o.research;
       $("#vCaptions").checked = o.captions === true;
       attached = (o.attach || []).map((id) => S.media.find((m) => m.id === id)).filter(Boolean);
+      notes = {...(o.media_notes || {})};
       paintSeg(); formChanged(); drawAttached(); go("#new");
       flash(t.id === "eReuseEn" ? "Betöltve angolra állítva. Csatold az angol felvételt, ha van, és nyomd meg a gombot." : "Betöltve. Módosíts, amit akarsz, és nyomd meg a gombot.");
     }
@@ -871,6 +896,7 @@ $("#jobStop").onclick = async () => {
 
 /* ================= kirajzolás ================= */
 function render() {
+  drawTrends();
   const c = S.config, j = S.job, s = S.settings;
   const dot = (on, name) => `<i class="${on ? "on" : "off"}" title="${esc(name)}: ${on ? "működik" : "nincs bekötve"}"></i>`;
   $("#sys").innerHTML = dot(c.ai, "AI rendező" + (c.ai_engine ? " · " + c.ai_engine : "")) + dot(c.web_search, "Webkeresés")
@@ -904,6 +930,24 @@ function renderRecent() {
   if (key === recentKey) return; recentKey = key;
   $("#recent").innerHTML = list.map(card).join("") || `<div class="empty">Még nincs kész darab. <a href="#new">Készíts egyet →</a></div>`;
 }
+const PLAT = {tiktok: "TikTok", instagram: "Reels", youtube: "Shorts"};
+let trendKey = "";
+function drawTrends() {
+  const d = (S && S.trends) || {}, list = d.trends || [];
+  const key = (d.fetched_at || "") + list.length;
+  if (key === trendKey) return;
+  trendKey = key;
+  $("#vTrendsAge").textContent = d.fetched_at ? `· frissítve: ${d.fetched_at.slice(0, 10)}` : "· még nincs lista — az első gyártáskor elkészül";
+  $("#vTrends").innerHTML = list.length ? list.map((t) => `<div class="trend"><b>${esc(t.name)}</b>
+    <small>${esc((t.platforms || []).map((p) => PLAT[p] || p).join(" · "))}${t.kind ? " · " + esc(t.kind) : ""}</small>
+    <div>${esc(t.what)}</div>
+    <small>Forrás: <a href="${esc(t.source && t.source.url)}" target="_blank" rel="noopener">${esc(t.source && t.source.title)}</a></small></div>`).join("")
+    : `<p class="mute">Még nincs trendlista.</p>`;
+}
+$("#vTrendsGo").onclick = async () => {
+  try { await api("/api/trends/refresh", {}); jobHidden = false; flash("Trendfigyelés elindult — fent látod, hol tart."); refresh(); }
+  catch (e) { flash(e.message); }
+};
 async function refresh() { try { S = await api("/api/state"); render(); } catch (e) { flash(e.message); } }
 
 paintSeg(); formChanged(); summary(); route(); refresh();
