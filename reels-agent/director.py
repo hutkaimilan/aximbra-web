@@ -183,10 +183,6 @@ def plan(items: list[dict], seconds: float = 25.0, aspect: str = "9:16",
             "motion": "none" if is_clip else MOTIONS[i % len(MOTIONS)],
             "look": "none",
             "speed": 1.0,
-            "text": note["text"] or (title if i == 0 and title else ""),
-            "text_position": "lower",
-            "text_style": "outline",
-            "text_anim": "fade" if (note["text"] or (title if i == 0 else "")) else "none",
             "transition": trans,
         })
     scenes[-1]["transition"] = "cut"

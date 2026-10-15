@@ -41,7 +41,7 @@ The editor's toolbox can do exactly these, and nothing else:
   colour/image looks: {look}
   transitions between shots: {transition}
   clip speed: 0.2 – 5.0
-  on-screen text: positions {text_position}, styles {text_style}, animations {text_anim}
+There is NO on-screen text: ignore any trend that is only about captions or titles.
 
 Pick the 6 most useful, concrete, CURRENT editing trends. For each give:
   "name": short name of the trend, as editors call it

@@ -9,7 +9,7 @@ iPhone-os feltöltés sosem működött.
 | 1 | Feltöltés a fotóválasztóból + médiatár + telefonos hibanapló | **kész, telefonon bizonyítva** |
 | 2 | TikTok/Reels montázs a feltöltött anyagból, elemenkénti utasítással, letöltés | **kész** |
 | 3 | Leírod, mit akarsz · trendfigyelő a webről · AI-rendező · bő effekt-készlet | **kész** |
-| 3b | Narráció (női/férfi/nincs) és felirat | később |
+| 3b | Narráció (női/férfi/nincs) | később |
 | 4 | `/api/inbox` és posztolás átvétele a régi agenttől — csak jóváhagyás után | később |
 
 A régi `video-agent/` és az `aximbra-video` szolgáltatás **változatlan**; ez a
@@ -56,11 +56,7 @@ feltöltés sorrendjében, a fotók és a klipek **keverve** (nem a klipek a vé
 * **Klipnél a legjobb pillanat**, nem az eleje: az ffmpeg `signalstats` szűrője
   képkockánként megadja a mozgást (YDIF) és a részletességet (YSTD), és a
   legerősebb ablak kezdetéről vágunk (`library.hot_moment`).
-* **Álló (9:16) videón a szöveg a telefon által levágott széleken belül marad:**
-  balra 64 px, jobbra 100 px, fent 100 px a logónak, az alsó negyed szabad
-  (`render.SAFE`, és teszt méri meg a képpontokat).
-* **Zene nincs rajta** — licenc. A kész videót letöltöd, és a TikTokban teszel
-  alá hangot.
+* **Felirat és hang nincs rajta** — a TikTokban teszel rá szöveget és hangot.
 
 ### Elemenkénti utasítások
 
@@ -73,7 +69,6 @@ A tárban egy elemre koppintva írhatsz utasítást; a rendező ezeket érti meg
 | `legyen az utolsó` | ez lesz az utolsó |
 | `hagyd ki` | nem kerül bele |
 | `csak a 3. mp-től`, `from 4s`, `1:05-től` | innen vágunk a klipből |
-| `írd rá: AXIMBRA` | felirat a biztonságos sávon belül |
 | `maradjon tovább` | hosszabb jelenet |
 
 ## Leírod, mit akarsz — és a mostani trendek alapján vágja meg
@@ -109,14 +104,16 @@ Ami kérhető, és amit valódi renderelés is próbál a tesztekben:
   `xfade` készlete — csúsztatás, törlés, kinyílás, pixelesedés, zoom, szeletelés,
   szél-hatás, elfedés, felfedés, átlós törlés és a többi
 * **sebesség**: 0,2× – 5× (klipnél)
-* **felirat**: 4 hely, 4 stílus, 5 animáció — a biztonságos sávon belül
 
 Új effektet elég egy helyen felvenni (`effects.py`), onnantól a rendező is
 kérheti és a renderelő is tudja.
 
-### Hang
+### Felirat és hang
 
-Nincs — nem is kell. A kész videót letöltöd, és a TikTokban teszel alá hangot.
+Egyik sincs, egyiket sem kérted. A videóra nem kerül szöveg: a rendezőnek a
+készletében sincs felirat, és ha a modell mégis küldene egyet, azt kidobjuk
+(teszt méri). A kész videót letöltöd, és a TikTokban teszel rá szöveget és
+hangot.
 
 ## Változók
 

@@ -132,7 +132,7 @@ def test_the_prompt_lists_only_our_own_effects(monkeypatch):
     monkeypatch.setattr(llm, "available", lambda: True)
     monkeypatch.setattr(llm, "_ask", lambda p: seen.update(p=p) or json.dumps(GOOD))
     trends.refresh()
-    for name in ("punch_in", "vhs", "zoomin", "slide_up"):
+    for name in ("punch_in", "vhs", "zoomin", "shake"):
         assert name in seen["p"]
     assert "velocity zoom mindenhol" in seen["p"], "a talált szöveg is menjen át"
 

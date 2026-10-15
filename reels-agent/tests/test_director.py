@@ -85,7 +85,7 @@ def test_plan_uses_every_item_and_respects_instructions():
              item(4, note="hagyd ki"), item(5)]
     p = director.plan(items, seconds=20, aspect="9:16")
     assert len(p["scenes"]) == 4, "a kihagyott elem nem kerül bele"
-    assert p["scenes"][0]["text"] == "AXIMBRA"
+    assert all("text" not in s for s in p["scenes"]), "feliratot nem teszünk ki"
     starts = {s["name"]: s["start"] for s in p["scenes"]}
     assert starts["IMG_2.jpg"] == 3.0, "amit mondtál, az számít"
     assert starts["IMG_3.jpg"] == 12.0, "egyébként a legjobb pillanat"

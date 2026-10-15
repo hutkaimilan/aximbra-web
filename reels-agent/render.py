@@ -7,9 +7,10 @@ futás, azonos formátumban, és a végén a `concat` másolással fűzi össze 
 Ez gyors, kevés memória, és egy hibás elem csak egy jelenetet visz el.
 
 Amit egy jelenet kaphat, azt az effects.py sorolja fel: mozgás, színezés/képi
-hatás, sebesség, felirat (hely, stílus, animáció) és az utána jövő átmenet.
+hatás, sebesség és az utána jövő átmenet.
 
-Hang nincs benne — nem is kérted; a TikTokon a saját hangot teszed alá.
+Felirat és hang nincs benne — egyiket sem kérted. A videót letöltöd, és a
+TikTokban teszel rá szöveget és hangot.
 """
 from __future__ import annotations
 
@@ -31,14 +32,6 @@ VIDEO_DIR = os.environ.get("VIDEO_DIR", "/data/videos")
 FPS = effects.FPS
 CRF = "21"
 PRESET = "veryfast"
-FONT_CANDIDATES = (
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-)
-# Álló videón a telefon felülete levágja a széleket: a szöveg ezeken belül marad.
-SAFE = {"left": 64, "right": 100, "top": 100, "bottom_quarter": 0.25}
-# A felirat függőleges helye a kereten belül (a doboz közepe).
-TEXT_Y = {"top": 0.17, "middle": 0.50, "lower": 0.63, "bottom": 0.72}
 FLASH_SECONDS = 0.07
 _ID_RE = re.compile(r"[a-z0-9]{10}")
 
@@ -56,92 +49,6 @@ def _must(args: list[str], what: str, timeout: int = 900) -> None:
     r = _ffmpeg(args, timeout)
     if r.returncode != 0:
         raise RenderError(f"{what}: {r.stderr.decode(errors='replace')[-300:]}")
-
-
-def font_path() -> str | None:
-    for p in FONT_CANDIDATES:
-        if os.path.exists(p):
-            return p
-    return None
-
-
-# ---- felirat képként ------------------------------------------------------
-# A szöveget a Pillow rajzolja PNG-re, nem az ffmpeg drawtext: így biztosan jó
-# az ékezet, tördelni is tudunk, és a biztonságos sávon belül maradunk.
-
-def text_overlay(text: str, w: int, h: int, out: str, position: str = "lower",
-                 style: str = "outline") -> bool:
-    """Felirat a biztonságos sávon belül. False, ha nincs mit kiírni."""
-    text = (text or "").strip()
-    if not text:
-        return False
-    from PIL import Image, ImageDraw, ImageFont
-    fp = font_path()
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    left, right = SAFE["left"], w - SAFE["right"]
-    box_w = right - left
-    size = max(26, int(w * (0.052 if style == "caption" else 0.072)))
-    font = ImageFont.truetype(fp, size) if fp else ImageFont.load_default()
-
-    def wrap(fnt):
-        lines, cur = [], ""
-        for word in text.split():
-            trial = (cur + " " + word).strip()
-            if d.textlength(trial, font=fnt) <= box_w or not cur:
-                cur = trial
-            else:
-                lines.append(cur)
-                cur = word
-        if cur:
-            lines.append(cur)
-        return lines
-
-    lines = wrap(font)
-    while len(lines) > 4 and size > 22 and fp:          # ne lógjon ki a képből
-        size = int(size * 0.88)
-        font = ImageFont.truetype(fp, size)
-        lines = wrap(font)
-    line_h = int(size * 1.24)
-    block_h = line_h * len(lines)
-    top_limit = SAFE["top"] + 16
-    bottom_limit = int(h * (1 - SAFE["bottom_quarter"]))
-    centre = TEXT_Y.get(position, TEXT_Y["lower"]) * h
-    y = int(max(top_limit, min(centre - block_h / 2, bottom_limit - block_h)))
-
-    pad = int(size * 0.42)
-    if style == "bar":
-        d.rectangle([0, y - pad, w, y + block_h + pad], fill=(0, 0, 0, 170))
-    elif style == "box":
-        widest = max(d.textlength(l, font=font) for l in lines)
-        bx = left + (box_w - widest) / 2
-        d.rounded_rectangle([bx - pad, y - pad, bx + widest + pad, y + block_h + pad],
-                            radius=int(pad * 0.9), fill=(0, 0, 0, 180))
-
-    for n, line in enumerate(lines):
-        tw = d.textlength(line, font=font)
-        x = left + (box_w - tw) / 2
-        ly = y + n * line_h
-        if style in ("outline", "caption"):
-            for dx, dy in ((-3, 0), (3, 0), (0, -3), (0, 3), (-2, -2), (2, 2), (-2, 2), (2, -2)):
-                d.text((x + dx, ly + dy), line, font=font, fill=(0, 0, 0, 220))
-        d.text((x, ly), line, font=font, fill=(255, 255, 255, 255))
-    img.save(out)
-    return True
-
-
-def _text_chain(anim: str, d: float, w: int, h: int) -> tuple[str, str]:
-    """(a felirat-réteg szűrője, az overlay x:y kifejezése)."""
-    anim = anim if anim in effects.TEXT_ANIMS else "none"
-    pre = "format=rgba"
-    if anim in ("fade", "pop"):
-        pre += f",fade=t=in:st=0:d={min(0.35, max(0.1, d * 0.3)):.3f}:alpha=1"
-    if anim == "slide_up" or anim == "pop":
-        rise = int(h * 0.05)
-        return pre, f"0:'if(lt(t,0.3),{rise}*(1-t/0.3),0)'"
-    if anim == "shake":
-        return pre, f"'{max(3, int(w * 0.006))}*sin(t*28)':'{max(2, int(h * 0.003))}*cos(t*33)'"
-    return pre, "0:0"
 
 
 # ---- egy jelenet ----------------------------------------------------------
@@ -191,7 +98,7 @@ def _scene_chain(scene: dict, w: int, h: int) -> tuple[str, bool]:
     return chain, complex_look
 
 
-def scene_segment(scene: dict, src: str, w: int, h: int, out: str, overlay: str | None) -> None:
+def scene_segment(scene: dict, src: str, w: int, h: int, out: str) -> None:
     """Egy jelenet önálló MP4-ként, mindegyik ugyanabban a formátumban —
     így a végén másolással fűzhetők össze."""
     d = float(scene["seconds"])
@@ -202,18 +109,7 @@ def scene_segment(scene: dict, src: str, w: int, h: int, out: str, overlay: str 
     else:
         ins = ["-loop", "1", "-framerate", str(FPS), "-t", f"{d:.3f}", "-i", src]
     chain, _complex = _scene_chain(scene, w, h)
-    args = [*ins]
-    if overlay:
-        pre, xy = _text_chain(scene.get("text_anim") or "none", d, w, h)
-        # A feliratot képkockákká kell tenni, különben az áttűnése egyetlen
-        # (nulla átlátszóságú) kockán ragadna, és a felirat sosem jelenne meg.
-        args += ["-loop", "1", "-framerate", str(FPS), "-t", f"{d:.3f}", "-i", overlay,
-                 "-filter_complex",
-                 f"[0:v]{chain},format=yuv420p[v];[1:v]{pre}[t];[v][t]overlay={xy}:format=auto[o]",
-                 "-map", "[o]"]
-    else:
-        args += ["-filter_complex", f"[0:v]{chain},format=yuv420p[o]", "-map", "[o]"]
-    args += ["-an", "-t", f"{d:.3f}", "-r", str(FPS), "-c:v", "libx264", "-preset", PRESET,
+    args = [*ins, "-filter_complex", f"[0:v]{chain},format=yuv420p[o]", "-map", "[o]", "-an", "-t", f"{d:.3f}", "-r", str(FPS), "-c:v", "libx264", "-preset", PRESET,
              "-crf", CRF, "-pix_fmt", "yuv420p", "-video_track_timescale", "90000", out]
     _must(args, f"jelenet ({scene.get('name') or scene['id']})", timeout=600)
 
@@ -312,21 +208,15 @@ def make(plan_: dict, say=lambda m: None) -> dict:
                 skipped.append(sc.get("name") or sc["id"])
                 continue
             seg = os.path.join(work, f"s{i:04d}.mp4")
-            ov = None
-            if sc.get("text"):
-                ov = os.path.join(work, f"t{i:04d}.png")
-                if not text_overlay(sc["text"], w, h, ov, sc.get("text_position") or "lower",
-                                    sc.get("text_style") or "outline"):
-                    ov = None
             try:
-                scene_segment(sc, src, w, h, seg, ov)
+                scene_segment(sc, src, w, h, seg)
             except (RenderError, subprocess.SubprocessError) as e:
                 logger.warning("jelenet hiba (%s): %s", sc["id"], e)
                 # Egy merészebb hatás néha nem jön össze: essünk vissza a
                 # csupasz kockára, hogy az elem azért bekerüljön.
                 try:
                     plain = {**sc, "motion": "none", "look": "none", "speed": 1.0}
-                    scene_segment(plain, src, w, h, seg, ov)
+                    scene_segment(plain, src, w, h, seg)
                     say(f"{i + 1}/{len(scenes)} effekt nélkül — {sc.get('name') or sc['id']}")
                 except (RenderError, subprocess.SubprocessError) as e2:
                     skipped.append(sc.get("name") or sc["id"])

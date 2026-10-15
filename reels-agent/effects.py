@@ -6,6 +6,8 @@ nem tud olyat kérni, ami elhasal, és új effektet elég egy helyen felvenni.
 
 A szűrőláncok a 9:16-os (vagy más arányú) keretre már ráskálázott, levágott
 képre épülnek; a `w`/`h` a kimeneti méret, a `d` a jelenet hossza.
+
+Felirat nincs: a videóra nem kerül szöveg.
 """
 from __future__ import annotations
 
@@ -42,12 +44,6 @@ XFADE = (
     "revealleft", "revealright", "revealup", "revealdown",
 )
 TRANSITIONS = OWN_TRANSITIONS + XFADE
-
-# ---- felirat ---------------------------------------------------------------
-TEXT_POSITIONS = ("top", "middle", "lower", "bottom")
-TEXT_STYLES = ("outline", "box", "bar", "caption")
-TEXT_ANIMS = ("none", "fade", "pop", "slide_up", "shake")
-
 
 def is_motion(x: str) -> bool:
     return x in MOTIONS
@@ -174,7 +170,7 @@ def clamp_speed(x) -> float:
 
 
 def catalogue() -> dict:
-    """Amit a rendezőnek átadunk: pontosan ezek a nevek használhatók."""
+    """Amit a rendezőnek átadunk: pontosan ezek a nevek használhatók.
+    Felirat nincs benne — nem kérted, és a videóra nem kerül szöveg."""
     return {"motion": list(MOTIONS), "look": list(LOOKS), "transition": list(TRANSITIONS),
-            "text_position": list(TEXT_POSITIONS), "text_style": list(TEXT_STYLES),
-            "text_anim": list(TEXT_ANIMS), "speed": "0.2 – 5.0 (klipnél)"}
+            "speed": "0.2 – 5.0 (klipnél)"}

@@ -117,14 +117,12 @@ A videógyártás ezután épül rá. Minden lépés a naplóba kerül — ha el
   <h2>Videó készítése</h2>
   <p class="mute" style="margin:2px 0 8px">Írd le, mit akarsz. A rendező ebből, a mostani
   TikTok/Reels-trendekből és a tár elemeiből vágja meg.</p>
-  <textarea id="vBrief" maxlength="4000" rows="5" placeholder="Pl.: Pörgős bemutató a hétvégi forgatásról. Legyen kemény, gyors vágás, erős kontraszt, a végén maradjon egy nyugodt kocka. Ne legyen rajta semmilyen cégnév."></textarea>
+  <textarea id="vBrief" maxlength="4000" rows="5" placeholder="Pl.: Pörgős bemutató a hétvégi forgatásról. Kemény, gyors vágás, erős kontraszt, a klipek a legmozgalmasabb részükkel. A végén maradjon egy nyugodt kocka."></textarea>
   <p class="tiny" id="vSrc">—</p>
   <div class="row" style="margin:8px 0 2px"><span class="tiny" style="width:100%">Hossz</span></div>
   <div class="row" id="vLen"></div>
   <div class="row" style="margin:10px 0 2px"><span class="tiny" style="width:100%">Képarány</span></div>
   <div class="row" id="vAsp"></div>
-  <div class="row" style="margin:10px 0 2px"><span class="tiny" style="width:100%">A feliratok nyelve</span></div>
-  <div class="row" id="vLang"></div>
   <label class="row tiny" style="margin:10px 0 0;gap:8px;align-items:flex-start">
     <input type="checkbox" id="vFresh" style="width:auto;margin-top:2px">
     <span>Keressen rá most a friss trendekre (egyébként a legutóbbi, max. egy hetes anyagot használja)</span>
@@ -317,7 +315,7 @@ $("#grid").addEventListener("click", async (e) => {
   if (!m) return;
   const note = prompt(`Utasítás ehhez az elemhez (${m.name}):\n`
     + 'ez legyen a nyitókép · legyen az utolsó · hagyd ki · csak a 3. mp-től · '
-    + 'írd rá: valami · maradjon tovább', m.note || "");
+    + 'maradjon tovább', m.note || "");
   if (note === null) return;
   try { await api(`/api/media/${m.id}/note`, {note}); refresh(); }
   catch (err) { flash("Mentés: " + err.message); }
@@ -465,15 +463,12 @@ for (const [id, which] of [["#fPick", "fotótár"], ["#fOne", "egyenként"]]) {
 
 /* ── videó ────────────────────────────────────────────────────────────── */
 const LENS = [15, 25, 40, 60], ASPECTS = [["9:16", "álló"], ["1:1", "négyzet"], ["4:5", "magas"], ["16:9", "fekvő"]];
-const LANGS = [["hu", "magyar"], ["en", "angol"]];
-let vLen = 25, vAsp = "9:16", vLang = "hu";
+let vLen = 25, vAsp = "9:16";
 function drawOpts() {
   $("#vLen").innerHTML = LENS.map((n) =>
     `<button type="button" class="sm ${n === vLen ? "" : "sec"}" data-len="${n}" style="flex:1">${n} mp</button>`).join("");
   $("#vAsp").innerHTML = ASPECTS.map(([a, n]) =>
     `<button type="button" class="sm ${a === vAsp ? "" : "sec"}" data-asp="${a}" style="flex:1">${a}<br><span class="tiny">${n}</span></button>`).join("");
-  $("#vLang").innerHTML = LANGS.map(([a, n]) =>
-    `<button type="button" class="sm ${a === vLang ? "" : "sec"}" data-lang="${a}" style="flex:1">${n}</button>`).join("");
 }
 drawOpts();
 try { $("#vBrief").value = localStorage.getItem("brief") || ""; } catch (e) {}
@@ -481,10 +476,9 @@ $("#vBrief").addEventListener("input", () => {
   try { localStorage.setItem("brief", $("#vBrief").value); } catch (e) {}
 });
 document.addEventListener("click", (e) => {
-  const l = e.target.closest("[data-len]"), a = e.target.closest("[data-asp]"), g = e.target.closest("[data-lang]");
+  const l = e.target.closest("[data-len]"), a = e.target.closest("[data-asp]");
   if (l) { vLen = +l.dataset.len; drawOpts(); }
   if (a) { vAsp = a.dataset.asp; drawOpts(); }
-  if (g) { vLang = g.dataset.lang; drawOpts(); }
 });
 function drawTrends() {
   const t = (S && S.trends) || {items: []};
@@ -510,10 +504,10 @@ $("#vGo").onclick = async () => {
   if (!ready) { flash("Nincs kész elem — várd meg a videók átalakítását."); return; }
   $("#vGo").disabled = true;
   $("#vInfo").textContent = "Indul…";
-  clientLog(`videó kérve: ${ready} elem, ${vLen} mp, ${vAsp}, ${vLang}, brief ${$("#vBrief").value.trim().length} karakter`);
+  clientLog(`videó kérve: ${ready} elem, ${vLen} mp, ${vAsp}, brief ${$("#vBrief").value.trim().length} karakter`);
   try {
     const d = await api("/api/videos", {brief: $("#vBrief").value.trim(), media: [], seconds: vLen,
-      aspect: vAsp, lang: vLang, fresh_trends: $("#vFresh").checked});
+      aspect: vAsp, fresh_trends: $("#vFresh").checked});
     $("#vInfo").textContent = `Fut: ${d.items} elemből. Trendkeresés → rendezés → vágás. A naplóban látod, hol tart.`;
   } catch (e) { $("#vInfo").textContent = "Nem indult: " + e.message; flash(e.message, 8000); }
   $("#vGo").disabled = false;

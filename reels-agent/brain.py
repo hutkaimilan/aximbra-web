@@ -2,8 +2,9 @@
 
 Bemenet: amit beírtál (mit akarsz), a friss trendek, és a tárban lévő elemek
 (mi ez, milyen hosszú, hol a legmozgalmasabb része, és mit írtál rá).
-Kimenet: jelenetenként melyik elem, meddig, milyen mozgás, színezés,
-sebesség, felirat és utána milyen átmenet — kizárólag az effects.py neveiből.
+Kimenet: jelenetenként melyik elem, meddig, milyen mozgás, színezés, sebesség
+és utána milyen átmenet — kizárólag az effects.py neveiből. Felirat nincs: a
+videóra nem kerül szöveg.
 
 Ha a modell nem elérhető (nincs kulcs, elfogyott a napi keret, hibás válasz),
 a determinista rendező (director.py) veszi át: videó akkor is lesz. Ezt a
@@ -26,7 +27,7 @@ PROMPT = """You are the editor of a short-form vertical video (TikTok / Reels / 
 WHAT THE USER ASKED FOR:
 {brief}
 
-TARGET: about {seconds} seconds, aspect {aspect}, on-screen language: {lang}.
+TARGET: about {seconds} seconds, aspect {aspect}.
 
 CURRENT TRENDS (researched on the web in the last days — use 1 to 3 of these if they fit
 the material; ignore the rest):
@@ -37,9 +38,6 @@ YOUR TOOLBOX — you may ONLY use these exact names:
   look (colour / image treatment): {look}
   transition (what happens AFTER this shot): {transition}
   speed: a number 0.2–5.0, clips only (1.0 = normal)
-  text_position: {text_position}
-  text_style: {text_style}
-  text_anim: {text_anim}
 
 THE MATERIAL (use the id exactly as given):
 {media}
@@ -47,28 +45,24 @@ THE MATERIAL (use the id exactly as given):
 RULES
 - Use every item at least once unless its note says to skip it. Obey every note:
   an item marked as the opening shot goes first, one marked last goes last,
-  "from N seconds" sets that clip's start, "write on it: X" must appear as text.
+  "from N seconds" sets that clip's start.
+- NO on-screen text of any kind. Never output a caption, title card or word mark.
 - Mix photos and clips; do not put all the clips at the end.
 - Scene length {min_scene}–{max_scene} seconds. Fast cuts carry energy; let a shot breathe
   only when something must be read.
 - For a clip, "start" is where to cut in. The strongest moment of each clip is given below;
   use it unless the note says otherwise.
-- Keep on-screen text short (max ~8 words), in {lang}, and only where it adds something.
 - The last scene's transition must be "cut".
 - {brand}
 
 Answer ONLY with JSON:
-{{"title": "short title, max 60 chars",
+{{"title": "short title for your own reference, max 60 chars",
   "trends_used": ["name of each trend you actually used"],
   "scenes": [{{"id": "<media id>", "seconds": 0.8, "start": 0.0, "motion": "punch_in",
-               "look": "none", "speed": 1.0, "transition": "cut",
-               "text": "", "text_position": "lower", "text_style": "outline",
-               "text_anim": "none"}}]}}"""
+               "look": "none", "speed": 1.0, "transition": "cut"}}]}}"""
 
-BRAND_ON = ("This IS about AXIMBRA, so an AXIMBRA word mark may appear in the text of the "
-            "first or last scene.")
-BRAND_OFF = ("This is NOT about AXIMBRA: never put the word AXIMBRA, any logo, link or "
-             "sign-off anywhere in the video.")
+BRAND_OFF = ("This is NOT about AXIMBRA: nothing in the video may refer to AXIMBRA.")
+BRAND_ON = "This is about AXIMBRA, but still put no text, logo or sign-off on screen."
 
 
 def media_lines(items: list[dict]) -> str:
@@ -91,7 +85,7 @@ def _is_aximbra(brief: str) -> bool:
     return "aximbra" in (brief or "").lower()
 
 
-def _clean_scene(raw: dict, by_id: dict, lang: str) -> dict | None:
+def _clean_scene(raw: dict, by_id: dict, lang: str = "hu") -> dict | None:
     if not isinstance(raw, dict):
         return None
     m = by_id.get(str(raw.get("id") or ""))
@@ -118,14 +112,10 @@ def _clean_scene(raw: dict, by_id: dict, lang: str) -> dict | None:
     motion = raw.get("motion") if effects.is_motion(str(raw.get("motion") or "")) else "none"
     look = raw.get("look") if effects.is_look(str(raw.get("look") or "")) else "none"
     trans = raw.get("transition") if effects.is_transition(str(raw.get("transition") or "")) else "cut"
-    text = str(raw.get("text") or "").strip()[:120]
-    pos = raw.get("text_position") if raw.get("text_position") in effects.TEXT_POSITIONS else "lower"
-    style = raw.get("text_style") if raw.get("text_style") in effects.TEXT_STYLES else "outline"
-    anim = raw.get("text_anim") if raw.get("text_anim") in effects.TEXT_ANIMS else "none"
+    # Feliratot akkor sem rakunk ki, ha a modell mégis küld: nem kérted.
     return {"id": m["id"], "kind": m.get("kind"), "name": m.get("name", ""),
             "seconds": round(secs, 3), "start": round(start, 3), "speed": speed,
             "motion": motion, "look": look, "transition": trans,
-            "text": text, "text_position": pos, "text_style": style, "text_anim": anim,
             "source_seconds": m.get("seconds")}
 
 
@@ -158,7 +148,7 @@ def plan(items: list[dict], brief: str, seconds: float = 25.0, aspect: str = "9:
     cat = effects.catalogue()
     prompt = PROMPT.format(
         brief=(brief or "").strip()[:4000] or "(no description given — make a clean, fast montage)",
-        seconds=int(seconds), aspect=aspect, lang="Hungarian" if lang == "hu" else "English",
+        seconds=int(seconds), aspect=aspect,
         trends=trends_mod.summary_for_prompt(td),
         media=media_lines(usable)[:12000],
         min_scene=director.MIN_SCENE, max_scene=director.MAX_SCENE,

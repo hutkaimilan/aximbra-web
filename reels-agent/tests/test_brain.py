@@ -43,7 +43,7 @@ def test_the_model_can_only_use_effects_we_have(monkeypatch):
     """Kitalált effektnév ne hasaltassa el a renderelést: csendben "none" lesz."""
     _fake_llm(monkeypatch, _plan_json([
         {"id": ITEMS[0]["id"], "seconds": 1.0, "motion": "hyperspace_warp",
-         "look": "instagram_1977", "transition": "teleport", "text_style": "neon_glow"},
+         "look": "instagram_1977", "transition": "teleport"},
         {"id": ITEMS[1]["id"], "seconds": 1.0, "motion": "punch_in", "look": "vhs",
          "transition": "zoomin"},
         {"id": ITEMS[2]["id"], "seconds": 1.0},
@@ -53,7 +53,6 @@ def test_the_model_can_only_use_effects_we_have(monkeypatch):
     at = {s["id"]: s for s in p["scenes"]}
     a, b = at[ITEMS[0]["id"]], at[ITEMS[1]["id"]]
     assert a["motion"] == "none" and a["look"] == "none" and a["transition"] == "cut"
-    assert a["text_style"] == "outline"
     assert b["motion"] == "punch_in" and b["look"] == "vhs" and b["transition"] == "zoomin"
 
 
@@ -135,7 +134,6 @@ def test_the_prompt_carries_your_words_the_trends_and_the_toolbox(monkeypatch):
     assert "Velocity zoom" in p
     assert "punch_in" in p and "zoomin" in p, "a készlet nevei is menjenek át"
     assert "strongest_moment=7.0s" in p, "a klip legjobb pillanata is"
-    assert "Hungarian" in p
 
 
 def test_aximbra_branding_only_when_it_is_about_aximbra(monkeypatch):
@@ -146,9 +144,9 @@ def test_aximbra_branding_only_when_it_is_about_aximbra(monkeypatch):
     monkeypatch.setattr(llm, "_ask", lambda p: seen.append(p) or _j.dumps(
         _plan_json([{"id": m["id"], "seconds": 1} for m in ITEMS])))
     brain.plan(ITEMS, "a kutyám a parkban")
-    assert "never put the word AXIMBRA" in seen[-1]
+    assert "NOT about AXIMBRA" in seen[-1]
     brain.plan(ITEMS, "az AXIMBRA új szolgáltatása")
-    assert "may appear" in seen[-1]
+    assert "is about AXIMBRA" in seen[-1]
 
 
 # ---- tartalék -------------------------------------------------------------
@@ -183,13 +181,27 @@ def test_nothing_usable_is_an_error():
 
 def test_every_scene_field_is_something_the_renderer_knows(monkeypatch):
     _fake_llm(monkeypatch, _plan_json([{"id": m["id"], "seconds": 1, "motion": "shake",
-                                        "look": "glitch", "transition": "pixelize",
-                                        "text": "Nézd", "text_anim": "pop",
-                                        "text_style": "box", "text_position": "top"}
+                                        "look": "glitch", "transition": "pixelize"}
                                        for m in ITEMS]))
     for s in brain.plan(ITEMS, "x")["scenes"]:
         assert effects.is_motion(s["motion"]) and effects.is_look(s["look"])
         assert effects.is_transition(s["transition"])
-        assert s["text_position"] in effects.TEXT_POSITIONS
-        assert s["text_style"] in effects.TEXT_STYLES
-        assert s["text_anim"] in effects.TEXT_ANIMS
+
+
+def test_a_caption_from_the_model_is_thrown_away(monkeypatch):
+    """Feliratot nem kérsz: ha a modell mégis küld, nem kerül a tervbe."""
+    _fake_llm(monkeypatch, _plan_json([{"id": m["id"], "seconds": 1, "text": "NE LÁTSZÓDJON"}
+                                       for m in ITEMS]))
+    for s in brain.plan(ITEMS, "x")["scenes"]:
+        assert "text" not in s
+
+
+def test_the_model_is_told_not_to_write_on_screen(monkeypatch):
+    seen = {}
+    import llm, json as _j
+    monkeypatch.setattr(llm, "available", lambda: True)
+    monkeypatch.setattr(llm, "engine_name", lambda: "teszt")
+    monkeypatch.setattr(llm, "_ask", lambda p: seen.update(p=p) or _j.dumps(
+        _plan_json([{"id": m["id"], "seconds": 1} for m in ITEMS])))
+    brain.plan(ITEMS, "x")
+    assert "NO on-screen text" in seen["p"]

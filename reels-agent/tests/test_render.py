@@ -57,44 +57,6 @@ def _frame(path, at, out):
     return Image.open(out).convert("RGB")
 
 
-# ---- felirat ---------------------------------------------------------------
-
-def test_caption_stays_inside_the_phone_safe_area(tmp_path):
-    """Álló videón a telefon levágja a széleket: balra 64, jobbra 100 px,
-    fent a logónak 100 px, és az alsó negyed maradjon szabadon."""
-    out = str(tmp_path / "t.png")
-    assert render.text_overlay("Ez egy elég hosszú felirat, aminek tördelnie kell magát",
-                               1080, 1920, out) is True
-    from PIL import Image
-    img = Image.open(out)
-    assert img.mode == "RGBA"
-    px = img.load()
-    xs, ys = [], []
-    for y in range(0, 1920, 2):
-        for x in range(0, 1080, 2):
-            if px[x, y][3] > 40:
-                xs.append(x)
-                ys.append(y)
-    assert xs, "nem rajzolódott felirat"
-    assert min(xs) >= render.SAFE["left"] - 4, f"balra kilóg: {min(xs)}"
-    assert max(xs) <= 1080 - render.SAFE["right"] + 4, f"jobbra kilóg: {max(xs)}"
-    assert min(ys) >= render.SAFE["top"], f"a logó sávjába ér: {min(ys)}"
-    assert max(ys) <= 1920 * (1 - render.SAFE["bottom_quarter"]), f"az alsó negyedbe ér: {max(ys)}"
-
-
-def test_empty_caption_draws_nothing(tmp_path):
-    assert render.text_overlay("   ", 1080, 1920, str(tmp_path / "x.png")) is False
-
-
-def test_a_very_long_caption_is_shrunk_not_cropped(tmp_path):
-    out = str(tmp_path / "t.png")
-    render.text_overlay("szó " * 60, 1080, 1920, out)
-    from PIL import Image
-    px = Image.open(out).load()
-    ys = [y for y in range(0, 1920, 2) if any(px[x, y][3] > 40 for x in range(0, 1080, 8))]
-    assert ys and max(ys) <= 1920 * (1 - render.SAFE["bottom_quarter"])
-
-
 # ---- a teljes videó --------------------------------------------------------
 
 def test_a_montage_is_made_from_photos_and_clips(tmp_path):
@@ -131,17 +93,13 @@ def test_a_landscape_photo_fills_a_vertical_frame(tmp_path):
         assert r + g + b > 60, f"fekete csík {y}-nál: {(r, g, b)}"
 
 
-def test_the_caption_really_lands_on_the_video(tmp_path):
-    mid = library.store(_photo(color=(10, 10, 10)), "image/jpeg", "p.jpg")["id"]
-    library.set_note(mid, "írd rá: TESZT")
-    p = director.plan([library.get(mid)], seconds=2, aspect="9:16")
-    assert p["scenes"][0]["text"] == "TESZT"
-    meta = render.make(p)
-    img = _frame(render.video_path(meta["id"]), 0.5, str(tmp_path / "c.png"))
-    px = img.load()
-    bright = sum(1 for y in range(300, 1500, 3) for x in range(64, 980, 3)
-                 if sum(px[x, y]) > 600)
-    assert bright > 150, f"nem látszik a felirat (fehér pontok: {bright})"
+def test_no_text_is_ever_put_on_the_video():
+    """Feliratot nem kérsz: a tervben nincs szövegmező, és a renderelő sem ismer ilyet."""
+    mid = library.store(_photo(), "image/jpeg", "p.jpg")["id"]
+    library.set_note(mid, "írd rá: EZ NE LÁTSZÓDJON")
+    scene = director.plan([library.get(mid)], seconds=2)["scenes"][0]
+    assert "text" not in scene
+    assert not hasattr(render, "text_overlay")
 
 
 def test_a_broken_item_does_not_kill_the_whole_video(tmp_path):
@@ -183,8 +141,7 @@ def test_a_rich_ai_plan_renders_end_to_end(tmp_path):
     by = {m["id"]: m for m in items}
     raw = {"title": "Teszt", "trends_used": ["Velocity zoom"], "scenes": [
         {"id": ids[0], "seconds": 1.0, "motion": "punch_in", "look": "contrast_pop",
-         "transition": "zoomin", "text": "Árvíztűrő", "text_style": "box", "text_anim": "pop",
-         "text_position": "top"},
+         "transition": "zoomin", "text": "ezt dobja el"},
         {"id": cid, "seconds": 1.0, "start": 2.0, "speed": 2.0, "motion": "shake",
          "look": "vhs", "transition": "flash"},
         {"id": ids[1], "seconds": 0.8, "motion": "ken_burns", "look": "rgb_split",
@@ -192,9 +149,10 @@ def test_a_rich_ai_plan_renders_end_to_end(tmp_path):
         {"id": ids[2], "seconds": 0.8, "motion": "zoom_pulse", "look": "glitch",
          "transition": "circleopen"},
         {"id": ids[3], "seconds": 1.0, "motion": "rotate_in", "look": "blur_in",
-         "transition": "cut", "text": "Vége", "text_style": "bar", "text_anim": "slide_up"},
+         "transition": "cut"},
     ]}
-    scenes = [brain._clean_scene(x, by, "hu") for x in raw["scenes"]]
+    scenes = [brain._clean_scene(x, by) for x in raw["scenes"]]
+    assert all("text" not in s for s in scenes), "felirat nem kerülhet a tervbe"
     plan = {"aspect": "9:16", "width": 1080, "height": 1920, "lang": "hu", "title": "Teszt",
             "brief": "proba", "by": "teszt-modell", "trends_used": ["Velocity zoom"],
             "scenes": [s for s in scenes if s], "seconds": 4.6, "fade_seconds": 0.3}
@@ -213,9 +171,9 @@ def test_every_transition_name_renders(tmp_path):
     a = str(tmp_path / "a.mp4")
     b = str(tmp_path / "b.mp4")
     base = {"id": mid, "kind": "image", "name": "p.jpg", "seconds": 0.6, "start": 0.0,
-            "speed": 1.0, "motion": "none", "look": "none", "text": ""}
-    render.scene_segment(base, library.path_of(mid), 540, 960, a, None)
-    render.scene_segment({**base, "look": "bw"}, library.path_of(mid), 540, 960, b, None)
+            "speed": 1.0, "motion": "none", "look": "none"}
+    render.scene_segment(base, library.path_of(mid), 540, 960, a)
+    render.scene_segment({**base, "look": "bw"}, library.path_of(mid), 540, 960, b)
     bad = []
     for name in effects.XFADE:
         try:
@@ -228,18 +186,18 @@ def test_every_transition_name_renders(tmp_path):
 def test_every_look_and_motion_renders(tmp_path):
     mid = library.store(_photo(), "image/jpeg", "p.jpg")["id"]
     base = {"id": mid, "kind": "image", "name": "p.jpg", "seconds": 0.5, "start": 0.0,
-            "speed": 1.0, "motion": "none", "look": "none", "text": ""}
+            "speed": 1.0, "motion": "none", "look": "none"}
     bad = []
     for look in effects.LOOKS:
         try:
             render.scene_segment({**base, "look": look}, library.path_of(mid), 540, 960,
-                                 str(tmp_path / "l.mp4"), None)
+                                 str(tmp_path / "l.mp4"))
         except render.RenderError as e:
             bad.append(("look:" + look, str(e)[-80:]))
     for motion in effects.MOTIONS:
         try:
             render.scene_segment({**base, "motion": motion}, library.path_of(mid), 540, 960,
-                                 str(tmp_path / "m.mp4"), None)
+                                 str(tmp_path / "m.mp4"))
         except render.RenderError as e:
             bad.append(("motion:" + motion, str(e)[-80:]))
     assert not bad, bad
