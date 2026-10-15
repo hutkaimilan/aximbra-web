@@ -46,6 +46,9 @@ app = FastAPI(title="AXIMBRA Reels-agent", docs_url=None, redoc_url=None, openap
 security = HTTPBasic()
 HERE = os.path.dirname(os.path.abspath(__file__))
 STARTED = time.time()
+# Egyben csak kis fájlt veszünk át: a nagy a darabolt úton megy, különben a
+# teljes videó a memóriába kerülne.
+SINGLE_SHOT_MAX = 32 * 1024 * 1024
 
 
 def auth(creds: HTTPBasicCredentials = Depends(security)):
@@ -153,9 +156,11 @@ def album_add(body: AlbumIn):
 @app.post("/api/upload", dependencies=[Depends(auth)])
 async def upload(file: UploadFile = File(...), note: str = Form(""), client_info: str = Form("")):
     """Egy fájl egészben (kis kép). A nagy fájl darabokban jön, lentebb."""
-    data = await file.read(library.MAX_BYTES + 1)
-    if len(data) > library.MAX_BYTES:
-        raise HTTPException(413, f"Túl nagy fájl (legfeljebb {library.MAX_BYTES // 1048576} MB).")
+    cap = min(library.MAX_BYTES, SINGLE_SHOT_MAX)
+    data = await file.read(cap + 1)
+    if len(data) > cap:
+        raise HTTPException(413, f"Ez a végpont legfeljebb {cap // 1048576} MB-ot vesz át — "
+                                 "a nagyobbat darabokban kell küldeni (/api/upload/chunk).")
     say(f"feltöltés: {file.filename!r} ({file.content_type or 'típus nélkül'}, "
         f"{len(data) / 1048576:.2f} MB){(' · ' + client_info[:200]) if client_info else ''}")
     try:

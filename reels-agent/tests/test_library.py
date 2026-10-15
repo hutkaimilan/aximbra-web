@@ -240,6 +240,42 @@ def test_chunk_bounds_are_checked():
         library.save_chunk("d" * 32, 0, 1, b"x" * (library.CHUNK_MAX + 1))
 
 
+def test_store_file_moves_a_clip_without_reading_it(tmp_path, monkeypatch):
+    """A darabolt feltöltés útja: a fájl a lemezen marad, nem a memóriában."""
+    src = tmp_path / "nagy.mov"
+    src.write_bytes(_mp4(str(tmp_path)))
+    monkeypatch.setattr(library, "store", lambda *a, **k: pytest.fail("ezt nem hívhatja"))
+    m = library.store_file(str(src), "video/quicktime", "nagy.MOV", "jegyzet")
+    assert m["kind"] == "clip" and m["note"] == "jegyzet"
+    assert not src.exists(), "a nyers fájlt átnevezi, nem másolja"
+    assert _wait(m["id"])["status"] == "ready"
+
+
+def test_store_file_handles_an_image_and_refuses_an_empty_file(tmp_path):
+    p = tmp_path / "a.jpg"
+    p.write_bytes(_jpeg(900, 700))
+    assert library.store_file(str(p), "image/jpeg", "a.jpg")["kind"] == "image"
+    empty = tmp_path / "ures.mov"
+    empty.write_bytes(b"")
+    with pytest.raises(library.LibraryError, match="üres"):
+        library.store_file(str(empty), "video/quicktime", "ures.MOV")
+
+
+def test_chunked_upload_of_a_big_clip_stays_on_disk(tmp_path, monkeypatch):
+    """A 4 MB-os darabokból összerakott videó nem megy át a memórián."""
+    data = _mp4(str(tmp_path), seconds=3, w=1080, h=1920)
+    monkeypatch.setattr(library, "store", lambda *a, **k: pytest.fail("ezt nem hívhatja"))
+    uid = "9" * 32
+    step = 20_000
+    parts = [data[i:i + step] for i in range(0, len(data), step)]
+    assert len(parts) > 3, "több darabból álljon össze"
+    for i, p in enumerate(parts):
+        library.save_chunk(uid, i, len(parts), p)
+    m = library.finish_chunks(uid, len(parts), "video/quicktime", "nagy.MOV")
+    done = _wait(m["id"])
+    assert done["status"] == "ready" and done["height"] > done["width"]
+
+
 # ---- a tár nem töröl friss elemet -----------------------------------------
 
 def test_fresh_items_are_never_pruned(monkeypatch):

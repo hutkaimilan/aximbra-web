@@ -49,13 +49,21 @@ def _client(calls, status=None):
     return httpx.Client(transport=httpx.MockTransport(handler))
 
 
+@pytest.fixture(autouse=True)
+def tmp_media(tmp_path, monkeypatch):
+    monkeypatch.setattr(icloud_album.library, "MEDIA_DIR", str(tmp_path / "media"))
+
+
 @pytest.fixture
 def stored(monkeypatch):
+    """A letöltés fájlba megy, nem a memóriába: a store_file-t figyeljük."""
     out = []
-    monkeypatch.setattr(icloud_album.library, "store",
-                        lambda data, ct, name, note, source="": out.append(
-                            {"ct": ct, "name": name, "note": note, "bytes": len(data)})
-                        or {"id": name})
+
+    def fake(path, ct, name, note, source=""):
+        out.append({"ct": ct, "name": name, "note": note, "bytes": os.path.getsize(path)})
+        return {"id": name}
+
+    monkeypatch.setattr(icloud_album.library, "store_file", fake)
     return out
 
 
@@ -71,6 +79,17 @@ def test_whole_album_comes_in_and_a_bad_item_is_skipped(stored):
     assert stored[0]["note"] == "első kör"
     assert any("p45-sharedstreams" in c for c in calls), "a 330 után a helyes gépet hívja"
     assert any("KIMARADT" in m for m in said), "a kimaradt elem a naplóba kerül"
+
+
+def test_the_download_never_goes_through_memory(stored, monkeypatch):
+    """Egy nagy videó nem kerülhet egyben a memóriába."""
+    seen = {}
+    real = icloud_album.library.store_file
+    monkeypatch.setattr(icloud_album.library, "store_file",
+                        lambda path, *a, **k: seen.update(path=path) or real(path, *a, **k))
+    icloud_album.run(URL, "x", client=_client([]))
+    assert seen["path"], "a store_file fájlútvonalat kap, nem bájtokat"
+    assert not os.path.exists(seen["path"]), "az átmeneti fájl utána törlődik"
 
 
 def test_a_failing_item_does_not_stop_the_rest(stored):

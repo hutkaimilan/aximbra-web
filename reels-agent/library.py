@@ -238,11 +238,16 @@ def _pillow():
     return Image
 
 
+# A típus eldöntéséhez a fájl eleje elég (a fejléc); egy 600 MB-os videót
+# nem olvasunk be csak azért, hogy megnézzük, kép-e.
+SNIFF_BYTES = 256 * 1024
+
+
 def _is_image(data: bytes) -> bool:
+    """Kép-e: a Pillow (HEIC-kel együtt) felismeri-e a fejlécét."""
     try:
         Image = _pillow()
-        Image.open(io.BytesIO(data)).verify()
-        return True
+        return bool(Image.open(io.BytesIO(data)).format)
     except Exception:  # noqa: BLE001
         return False
 
@@ -287,6 +292,36 @@ def store(data: bytes, content_type: str, name: str, note: str = "", source: str
     if ct.startswith("image/"):
         return _add_image(data, ct, name, note, source)
     return _add_clip(data, ct, name, note, source)
+
+
+def store_file(path: str, content_type: str, name: str, note: str = "",
+               source: str = "upload") -> dict:
+    """Egy már lemezen lévő fájl a tárba. Ezt használja a darabolt feltöltés:
+    egy 600 MB-os videót nem viszünk át a memórián (a beolvasás + a másolat
+    több mint egy gigabájt lenne, két futó ffmpeg mellett)."""
+    size = os.path.getsize(path)
+    if size == 0:
+        raise LibraryError("üres fájl")
+    if size > MAX_BYTES:
+        raise LibraryError(f"túl nagy fájl (legfeljebb {MAX_BYTES // (1024 * 1024)} MB)")
+    with open(path, "rb") as f:
+        head = f.read(SNIFF_BYTES)
+    ct = decide_type(content_type, name, head)
+    if ct.startswith("image/"):
+        with open(path, "rb") as f:          # kép: néhány tíz MB, elfér
+            return _add_image(f.read(), ct, name, note, source)
+    mid = _new_id()
+    os.makedirs(MEDIA_DIR, exist_ok=True)
+    raw = f"{mid}.upload"
+    dest = os.path.join(MEDIA_DIR, raw)
+    try:
+        os.replace(path, dest)               # ugyanazon a köteten: átnevezés, másolás nélkül
+    except OSError:
+        shutil.move(path, dest)
+    meta = _save(mid, {**_base_meta(mid, "clip", name, note, source, size),
+                       "file": f"{mid}.mp4", "raw": raw, "status": "processing", "src_type": ct})
+    _start_clip(mid)
+    return meta
 
 
 def _base_meta(mid: str, kind: str, name: str, note: str, source: str, size: int) -> dict:
@@ -454,6 +489,13 @@ UPLOAD_TTL = 24 * 3600
 _UPLOAD_ID_RE = re.compile(r"[a-f0-9]{16,40}")
 
 
+def scratch_dir() -> str:
+    """Átmeneti mappa a köteten: ide stream-el, ami még nem a tár része."""
+    d = os.path.join(MEDIA_DIR, ".uploads", "scratch")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
 def _upload_dir(upload_id: str) -> str:
     if not _UPLOAD_ID_RE.fullmatch(upload_id or ""):
         raise LibraryError("hibás feltöltés-azonosító")
@@ -503,11 +545,12 @@ def finish_chunks(upload_id: str, total: int, content_type: str, name: str, note
     if size > MAX_BYTES:
         shutil.rmtree(d, ignore_errors=True)
         raise LibraryError(f"túl nagy fájl (legfeljebb {MAX_BYTES // (1024 * 1024)} MB)")
-    buf = bytearray()
-    for p in parts:
-        with open(p, "rb") as f:
-            buf += f.read()
+    joined = os.path.join(d, "joined")
     try:
-        return store(bytes(buf), content_type, name, note)
+        with open(joined, "wb") as out:      # darabonként fűzzük össze, a lemezen
+            for p in parts:
+                with open(p, "rb") as f:
+                    shutil.copyfileobj(f, out, 1024 * 1024)
+        return store_file(joined, content_type, name, note)
     finally:
         shutil.rmtree(d, ignore_errors=True)

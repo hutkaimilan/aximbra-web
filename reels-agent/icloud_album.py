@@ -136,6 +136,24 @@ def listing(url: str, client: httpx.Client | None = None) -> tuple[str, list[dic
             client.close()
 
 
+def _fetch_one(client: httpx.Client, x: dict, tag: str) -> tuple[dict, int]:
+    """Egy elem letöltése fájlba (nem a memóriába), majd fel a tárba."""
+    dest = os.path.join(library.scratch_dir(), f"album-{x['checksum'][:16]}")
+    try:
+        with client.stream("GET", x["url"], headers={"User-Agent": HEADERS["User-Agent"]}) as r:
+            r.raise_for_status()
+            with open(dest, "wb") as f:
+                for block in r.iter_bytes(1024 * 1024):
+                    f.write(block)
+        ct = (r.headers.get("content-type") or "").split(";")[0].strip() \
+            or ("video/quicktime" if x["video"] else "image/jpeg")
+        size = os.path.getsize(dest)
+        return library.store_file(dest, ct, x["name"], tag, source="icloud-album"), size
+    finally:
+        if os.path.exists(dest):
+            os.remove(dest)
+
+
 def run(url: str, tag: str, say=lambda m: None, client: httpx.Client | None = None) -> dict:
     """Az album minden eleme a tárba. A rossz elem nem állítja meg a többit."""
     say("iCloud-album beolvasása…")
@@ -150,15 +168,9 @@ def run(url: str, tag: str, say=lambda m: None, client: httpx.Client | None = No
         done, failed = [], []
         for i, x in enumerate(items, 1):
             try:
-                r = client.get(x["url"], headers={"User-Agent": HEADERS["User-Agent"]})
-                r.raise_for_status()
-                if not r.content:
-                    raise AlbumError("üres válasz")
-                ct = (r.headers.get("content-type") or "").split(";")[0].strip() \
-                    or ("video/quicktime" if x["video"] else "image/jpeg")
-                m = library.store(r.content, ct, x["name"], tag, source="icloud-album")
+                m, size = _fetch_one(client, x, tag)
                 done.append(m["id"])
-                say(f"{i}/{len(items)} behúzva — {x['name']} ({len(r.content) / 1048576:.1f} MB)")
+                say(f"{i}/{len(items)} behúzva — {x['name']} ({size / 1048576:.1f} MB)")
             except Exception as e:  # noqa: BLE001 — egy rossz elem miatt nem áll le az egész
                 failed.append(x["name"])
                 logger.warning("albumelem kimaradt (%s): %s", x["name"], e)
