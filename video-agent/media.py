@@ -39,7 +39,7 @@ MAX_CLIP_SECONDS = 180
 # képkockát néz, és a kérésben utazó fájl legfeljebb ~20 MB lehet.
 ANALYSIS_MAX_BYTES = 18 * 1024 * 1024
 PACES = ("wait", "action", "result")
-KEEP = 60
+KEEP = 300   # egy nagy album (akár 200 elem) se szorítsa ki önmagát
 
 
 class MediaError(RuntimeError):

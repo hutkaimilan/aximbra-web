@@ -933,7 +933,7 @@ def test_the_director_sees_clip_segments_and_must_use_attachments(monkeypatch):
     ctx = {"urls": [], "pages": [], "web": [], "library": [clip], "attached": [clip["id"]]}
     p = videomaker.director_prompt("Összefoglaló", ctx, 120, "hu", "9:16", True)
     assert "75 s, tall/phone recording" in p and "0–12 s  wait: bejelentkezés, töltés" in p
-    assert "THE USER ATTACHED THESE" in p and p.count(clip["id"]) >= 2
+    assert "THE USER ATTACHED THESE" in p and p.count(clip["id"]) == 1  # csak a kötelező listában, nem duplán
     assert '"from": 0, "speed": 1' in p and "4×" in p
 
 

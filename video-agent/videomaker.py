@@ -71,7 +71,7 @@ MIN_TOTAL, MAX_TOTAL = 10, 120
 MAX_SCENES, MAX_SCENES_LONG = 10, 15
 # Egy videóhoz csatolható saját anyag; a sok képet a montázs jelenet viszi el
 # (egy jelenetben legfeljebb MONTAGE_MAX kép, gyors egymásutánban).
-MAX_ATTACH = 30
+MAX_ATTACH = 60
 MONTAGE_MAX = 12
 TRANSITIONS = ("cut", "zoom", "flash", "fade")
 SAMPLE_RATE = 24000
@@ -160,7 +160,10 @@ def director_prompt(brief: str, ctx: dict, seconds: int, lang: str, aspect: str,
     still = form in ("image", "carousel")
     sites = "\n".join(f"  [{i}] {u}" for i, u in enumerate(ctx["urls"])) or "  (none — do not use the 'site' scene)"
     lib = ctx.get("library") or []
-    shelf = "\n".join(_shelf_line(m) for m in lib) or "  (empty — you may still ask for generated images)"
+    # A tár sok száz elem is lehet: a csatoltakon kívül csak a legutóbbi 30 kerül a promptba.
+    att = set(ctx.get("attached") or [])
+    shelf = "\n".join(_shelf_line(m) for m in [m for m in lib if m["id"] not in att][:30]) \
+        or "  (empty — you may still ask for generated images)"
     attached = [m for m in (media.get(x) for x in ctx.get("attached") or []) if m]
     notes = ctx.get("media_notes") or {}
 
@@ -227,7 +230,7 @@ problem, benefit, agents or cta — "site", "call" and "inbox" animate, so they 
 - "montage": a fast full-screen TikTok/Reels-style cut of the user's own material — "medias" = 3–12 library
   ids, photos AND clips mixed, shown one after another (about 0.7–1.5 s each; a clip plays its best moment).
   Optional short headline/sub over it. Use it when there is a lot of material (an event, a trip, a product
-  range, a place, a project): several montage scenes in a row can carry 20–30 photos and clips.
+  range, a place, a project): several montage scenes in a row can carry 20–60 photos and clips.
   "transition": "cut" (hard cut on every shot), "zoom" (punch-in zoom on each cut), "flash" (white flash
   between shots) or "fade" (soft crossfade). The pace is the scene's seconds divided by its items.
 - "clip": an uploaded video clip. "media" = a library id of kind "clip". A long recording is used in several
@@ -1410,23 +1413,29 @@ def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", 
     return _finish(script, opts, ctx, say)
 
 
-ATTACH_WAIT_SECONDS = 20 * 60
+ATTACH_WAIT_SECONDS = 2 * 60 * 60     # felső határ
+ATTACH_STALL_SECONDS = 15 * 60       # ha ennyi ideig egy klip sem készül el, nem várunk tovább
 
 
 def _wait_ready(ids: list, say=lambda m: None) -> list:
     """A csatolt klipek közül amelyik még elmosás alatt van, azt megvárjuk
     (legfeljebb ATTACH_WAIT_SECONDS-ig). Ami elhasalt, az kimarad: elmosás
     nélkül nem mehet ki."""
-    deadline = time.time() + ATTACH_WAIT_SECONDS
-    told = False
+    # Sok videónál (egyszerre kettőt alakítunk) ez akár fél óra: addig várunk,
+    # amíg halad; ha 15 percig egy sem készül el, a késznek elkészült részével megyünk tovább.
+    start = last_progress = time.time()
+    last_busy = None
     while True:
         metas = [media.get(i) for i in ids]
         busy = [m for m in metas if m and m.get("status") == "processing"]
-        if not busy or time.time() > deadline:
+        now = time.time()
+        if not busy or now - start > ATTACH_WAIT_SECONDS or now - last_progress > ATTACH_STALL_SECONDS:
             break
-        if not told:
-            say(f"Várom a csatolt felvétel elmosását és elemzését ({len(busy)} db)…")
-            told = True
+        if busy and len(busy) != last_busy:
+            if last_busy is not None:
+                last_progress = now
+            say(f"Várom a csatolt felvételek feldolgozását: még {len(busy)} db…")
+            last_busy = len(busy)
         stop.sleep(5)
     ok = [m["id"] for m in (media.get(i) for i in ids) if media.ready(m)]
     if len(ok) < len(ids):

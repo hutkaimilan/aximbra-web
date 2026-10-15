@@ -247,7 +247,7 @@ pre.txt{white-space:pre-wrap;font:14px/1.55 var(--sans);margin:0;background:rgba
 
   <div class="card">
     <div class="step"><span class="no">3</span><h2>Saját kép vagy felvétel</h2><span class="opt">nem kötelező</span></div>
-    <p class="mute" style="margin:0 0 10px">Egyszerre akár 30 képet és videót is kijelölhetsz. A rendező mind beépíti: sok anyagból gyors, TikTok/Reels-stílusú vágást csinál, a hosszú felvételt pedig ott gyorsítja, ahol csak várni kell. Saját fotónál, kamerás videónál vedd ki az elmosás pipáját.</p>
+    <p class="mute" style="margin:0 0 10px">Egy darabba akár 60 képet és videót is tehetsz. A rendező mind beépíti: sok anyagból gyors, TikTok/Reels-stílusú vágást csinál, a hosszú felvételt pedig ott gyorsítja, ahol csak várni kell. Saját fotónál, kamerás videónál vedd ki az elmosás pipáját.</p>
     <div class="acts">
       <button type="button" class="pri" id="vUp">＋ Feltöltés a gépről / telefonról</button>
       <button type="button" id="vLibBtn">▦ Választás a médiatárból</button>
@@ -527,8 +527,8 @@ function attachAlbum() {
   const got = (S.media || []).filter((m) => m.note === albumTag && !attached.some((a) => a.id === m.id));
   albumTag = ""; try { localStorage.removeItem("albumTag"); } catch {}
   if (!got.length) return;
-  attached.push(...got.slice(0, 30 - attached.length)); drawAttached();
-  flash(`${got.length} elem az albumból csatolva.` + (got.length > 30 ? " (Egy darabba legfeljebb 30 fér.)" : ""));
+  attached.push(...got.slice(0, Math.max(0, 60 - attached.length))); drawAttached();
+  flash(`${got.length} elem az albumból csatolva.` + (attached.length >= 60 && got.length > 60 ? " (Egy darabba legfeljebb 60 fér — a többi a médiatárban marad.)" : ""));
 }
 $("#vUp").onclick = () => {
   // A telefon a pipa után még előkészíti (átalakítja) a videókat: addig ne tűnjön lefagyottnak.
@@ -543,7 +543,7 @@ $("#vAttach").onchange = async (e) => {
   for (const [i, f] of files.entries()) {
     const tag = `${i + 1}/${files.length}: ${f.name} (${kb(f.size)}) feltöltése`;
     $("#vAttachInfo").textContent = tag + "…";
-    if (attached.length >= 30) { flash("Legfeljebb 30 anyag csatolható — a többit nem töltöm fel."); break; }
+    if (attached.length >= 60) { flash("Legfeljebb 60 anyag csatolható — a többit nem töltöm fel."); break; }
     try { attached.push(await upload(f, "ehhez a darabhoz csatolva", $("#vRedact").checked,
       (p) => { upPct = p; $("#vAttachInfo").textContent = `${tag}: ${p}%`; goState(); })); drawAttached(); }
     catch (err) {
@@ -574,7 +574,7 @@ $("#vLibGrid").onclick = (e) => {
   const it = e.target.closest("[data-pick]"); if (!it) return;
   const id = it.dataset.pick, i = attached.findIndex((a) => a.id === id);
   if (i >= 0) attached.splice(i, 1);
-  else { if (attached.length >= 30) { flash("Legfeljebb 30 anyag csatolható."); return; } attached.push(S.media.find((m) => m.id === id)); }
+  else { if (attached.length >= 60) { flash("Legfeljebb 60 anyag csatolható."); return; } attached.push(S.media.find((m) => m.id === id)); }
   drawAttached(); renderLib();
 };
 let upPct = 0, starting = false, startWhenUploaded = false;

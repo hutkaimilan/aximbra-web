@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 TOKEN_RE = re.compile(r"sharedalbum/?#([A-Za-z0-9]{10,})")
 URL_BATCH = 25
-MAX_ITEMS = 60
+MAX_ITEMS = 200
 UA = {"User-Agent": "Mozilla/5.0 (AximbraVideo)", "Content-Type": "text/plain", "Origin": "https://www.icloud.com"}
 
 
