@@ -24,10 +24,14 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
+import brain
 import director
 import icloud_album
 import library
+import llm
 import render
+import trends
+import websearch
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("reels")
@@ -218,16 +222,27 @@ async def upload_done(upload_id: str = Form(...), total: int = Form(...), name: 
 # ---- a tár -----------------------------------------------------------------
 
 class VideoIn(BaseModel):
+    # Amit beírsz: miről szóljon, milyen legyen. Ez megy a rendezőnek.
+    brief: str = Field(default="", max_length=4000)
     media: list[str] = Field(default_factory=list, max_length=400)
     seconds: float = Field(default=25, ge=5, le=180)
     aspect: str = Field(default="9:16", pattern="^(9:16|4:5|1:1|16:9)$")
-    title: str = Field(default="", max_length=120)
     lang: str = Field(default="hu", pattern="^(hu|en)$")
+    # Hamis: a meglévő (legfeljebb egy hete frissített) trendanyaggal dolgozik.
+    fresh_trends: bool = False
+
+
+def _make_video(body: VideoIn, items: list[dict]):
+    def run():
+        td = trends.ensure(say, force=body.fresh_trends)
+        p = brain.plan(items, body.brief, body.seconds, body.aspect, body.lang, td, say)
+        return render.make(p, say)
+    return run
 
 
 @app.post("/api/videos", dependencies=[Depends(auth)])
 def video_make(body: VideoIn):
-    """Videó a tár elemeiből. Üres lista = minden kész elem."""
+    """Videó a tár elemeiből, a leírásod és a mostani trendek alapján."""
     ready = [m for m in library.listing() if library.ready(m)]
     if body.media:
         want = set(body.media)
@@ -235,15 +250,31 @@ def video_make(body: VideoIn):
     if not ready:
         raise HTTPException(409, "Nincs kész elem, amiből dolgozhatnék. "
                                  "Várd meg a videók átalakítását, vagy tölts fel valamit.")
-    try:
-        p = director.plan(ready, body.seconds, body.aspect, body.title.strip(), body.lang)
-    except ValueError as e:
-        raise HTTPException(409, str(e))
-    if not job.start("video", lambda: render.make(p, say)):
+    if not [m for m in ready if not director.read_note(m.get("note", ""))["skip"]]:
+        raise HTTPException(409, "Minden elem „hagyd ki” jelölésű.")
+    # A tervezés is percekig tarthat (keresés + modell), ezért az is a háttérben fut.
+    if not job.start("video", _make_video(body, ready)):
         raise HTTPException(409, "Már készül egy videó, várd meg.")
-    say(f"videó indítva: {len(p['scenes'])} jelenet, {p['aspect']}, "
-        f"{body.seconds:.0f} mp kérve")
-    return {"ok": True, "scenes": len(p["scenes"]), "seconds": p["seconds"]}
+    say(f"videó kérve: {len(ready)} elem, {body.seconds:.0f} mp, {body.aspect}"
+        + (f" — „{body.brief.strip()[:120]}”" if body.brief.strip() else " (leírás nélkül)"))
+    return {"ok": True, "items": len(ready)}
+
+
+@app.get("/api/trends", dependencies=[Depends(auth)])
+def trends_get():
+    d = trends.load()
+    return {"trends": d.get("trends", []), "checked_at": d.get("checked_at"),
+            "age_days": trends.age_days(d), "stale": trends.stale(),
+            "search": websearch.tavily_on(), "model": llm.available(),
+            "engine": llm.engine_name() if llm.available() else ""}
+
+
+@app.post("/api/trends/refresh", dependencies=[Depends(auth)])
+def trends_refresh():
+    """Trendek újrakeresése most (egyébként hetente magától)."""
+    if not job.start("trends", lambda: trends.refresh(say)):
+        raise HTTPException(409, "Most épp más fut, várd meg.")
+    return {"ok": True}
 
 
 @app.get("/api/videos/{vid}.mp4", dependencies=[Depends(auth)])
@@ -276,6 +307,10 @@ def video_delete(vid: str):
 def state(log: int = 120):
     return {"media": library.listing(), "stats": library.stats(), "job": job.state(),
             "videos": render.listing(),
+            "trends": {"items": trends.load().get("trends", []),
+                       "age_days": trends.age_days(),
+                       "search": websearch.tavily_on(),
+                       "engine": llm.engine_name() if llm.available() else ""},
             "log": log_lines(max(0, min(400, log))),
             "limits": {"max_mb": library.MAX_BYTES // 1048576, "chunk_mb": 4,
                        "clip_workers": library.CLIP_WORKERS, "keep": library.KEEP},

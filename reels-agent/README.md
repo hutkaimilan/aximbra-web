@@ -8,7 +8,8 @@ iPhone-os feltöltés sosem működött.
 |---|---|---|
 | 1 | Feltöltés a fotóválasztóból + médiatár + telefonos hibanapló | **kész, telefonon bizonyítva** |
 | 2 | TikTok/Reels montázs a feltöltött anyagból, elemenkénti utasítással, letöltés | **kész** |
-| 3 | Narráció (női/férfi/nincs), felirat, trendfigyelő | később |
+| 3 | Leírod, mit akarsz · trendfigyelő a webről · AI-rendező · bő effekt-készlet | **kész** |
+| 3b | Narráció (női/férfi/nincs) és felirat | később |
 | 4 | `/api/inbox` és posztolás átvétele a régi agenttől — csak jóváhagyás után | később |
 
 A régi `video-agent/` és az `aximbra-video` szolgáltatás **változatlan**; ez a
@@ -75,13 +76,47 @@ A tárban egy elemre koppintva írhatsz utasítást; a rendező ezeket érti meg
 | `írd rá: AXIMBRA` | felirat a biztonságos sávon belül |
 | `maradjon tovább` | hosszabb jelenet |
 
-### Miért nincs benne nyelvi modell
+## Leírod, mit akarsz — és a mostani trendek alapján vágja meg
 
-Az előző agent minden gyártásnál a Gemini ingyenes keretére támaszkodott; ha az
-elfogyott, nem lett videó. Ez a rendező a te utasításaidból és a fájlok mért
-tulajdonságaiból dolgozik, tehát **mindig lefut, kulcs és költség nélkül**. A
-szövegíró modell később ráépíthető: csak a jelenetek `text` mezőjét és a
-sorrendet kell felülírnia.
+A videó gombja fölött van egy szövegdoboz: oda írod, miről szóljon és milyen
+legyen. Ebből dolgozik a rendező.
+
+1. **Trendfigyelő** (`trends.py`). Keres a weben (Tavily, havi 1000 ingyenes
+   keresés) a mostani TikTok/Reels/Shorts vágási, effekt- és átmenet-trendekre,
+   majd a modell kivonatolja: a trend neve, mit csinál, **és hogy a mi
+   készletünkből mivel rakható ki**, forrással. Ami nem rakható ki a
+   készletből, az kiesik. Az anyag a köteten marad és egy hétig érvényes, így
+   nem égeti a keretet minden gyártásnál; a felületen egy gombbal frissíthető.
+2. **AI-rendező** (`brain.py`). Megkapja a leírásodat, a trendeket, és a tár
+   minden elemét (mi ez, milyen hosszú, hol a legmozgalmasabb része, mit írtál
+   rá). Jelenetenként ad vissza: melyik elem, meddig, milyen mozgás, színezés,
+   sebesség, felirat és utána milyen átmenet. **Csak az `effects.py` neveiből
+   választhat**, és amit mégis kitalál, azt kiszűrjük — így a terv nem tud
+   elhasalni a renderelésnél.
+3. **Ha nincs modell vagy elfogy a napi keret**, a beépített vágó
+   (`director.py`) veszi át. Videó akkor is lesz; a napló kimondja.
+
+### Az effekt-készlet (`effects.py`)
+
+Ami kérhető, és amit valódi renderelés is próbál a tesztekben:
+
+* **mozgás** (12): ráközelítés, ráhúzás, négyirányú pásztázás, Ken Burns,
+  ütemre lüktető zoom, kézi remegés, bedőlés, besodródás
+* **színezés / képi hatás** (19): fekete-fehér, szépia, vivid, moody, meleg,
+  hideg, neon, fakított, kontrasztos, VHS, szemcse, vignetta, RGB-szétcsúszás,
+  glitch, életlen indítás, élesítés, tükrözés, forgatás
+* **átmenet** (61): kemény vágás, villanás, sötétre váltás + az ffmpeg teljes
+  `xfade` készlete — csúsztatás, törlés, kinyílás, pixelesedés, zoom, szeletelés,
+  szél-hatás, elfedés, felfedés, átlós törlés és a többi
+* **sebesség**: 0,2× – 5× (klipnél)
+* **felirat**: 4 hely, 4 stílus, 5 animáció — a biztonságos sávon belül
+
+Új effektet elég egy helyen felvenni (`effects.py`), onnantól a rendező is
+kérheti és a renderelő is tudja.
+
+### Hang
+
+Nincs — nem is kell. A kész videót letöltöd, és a TikTokban teszel alá hangot.
 
 ## Változók
 

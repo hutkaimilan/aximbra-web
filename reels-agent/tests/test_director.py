@@ -120,7 +120,7 @@ def test_transitions_are_mixed_and_the_last_one_is_a_cut():
 
 def test_photos_move_and_clips_do_not():
     p = director.plan([item(1), item(2, kind="clip", seconds=9)], seconds=10)
-    by = {s["kind"]: s["effect"] for s in p["scenes"]}
+    by = {s["kind"]: s["motion"] for s in p["scenes"]}
     assert by["image"] != "none" and by["clip"] == "none"
 
 

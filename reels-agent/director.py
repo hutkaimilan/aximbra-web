@@ -25,7 +25,8 @@ FLASH_EVERY = 5          # ennyi vágásonként egy villanás
 FADE_EVERY = 7           # ennyi vágásonként egy áttűnés
 FADE_SECONDS = 0.28
 FLASH_SECONDS = 0.07
-EFFECTS = ("punch_in", "punch_out", "pan_right", "punch_in", "pan_left", "punch_in")
+MOTIONS = ("punch_in", "punch_out", "pan_right", "ken_burns", "pan_left", "punch_in",
+           "drift_in", "punch_out")
 
 ASPECTS = {"9:16": (1080, 1920), "4:5": (1080, 1350), "1:1": (1080, 1080), "16:9": (1920, 1080)}
 
@@ -179,13 +180,20 @@ def plan(items: list[dict], seconds: float = 25.0, aspect: str = "9:16",
             "start": round(best_window(m, want, note["start"]), 3) if is_clip else 0.0,
             "source_seconds": m.get("seconds"),
             # Klipnél nem erőltetünk ráközelítést: már van benne mozgás.
-            "effect": "none" if is_clip else EFFECTS[i % len(EFFECTS)],
+            "motion": "none" if is_clip else MOTIONS[i % len(MOTIONS)],
+            "look": "none",
+            "speed": 1.0,
             "text": note["text"] or (title if i == 0 and title else ""),
+            "text_position": "lower",
+            "text_style": "outline",
+            "text_anim": "fade" if (note["text"] or (title if i == 0 else "")) else "none",
             "transition": trans,
         })
+    scenes[-1]["transition"] = "cut"
     w, h = ASPECTS[aspect]
     total = sum(s["seconds"] for s in scenes) \
         + sum(FLASH_SECONDS for s in scenes if s["transition"] == "flash")
     return {"aspect": aspect, "width": w, "height": h, "lang": lang, "title": title[:120],
+            "by": "beépített vágó", "brief": "", "trends_used": [],
             "scenes": scenes, "seconds": round(total, 2),
             "fade_seconds": FADE_SECONDS, "flash_seconds": FLASH_SECONDS}

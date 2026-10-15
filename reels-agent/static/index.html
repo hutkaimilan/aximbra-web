@@ -115,16 +115,32 @@ A videógyártás ezután épül rá. Minden lépés a naplóba kerül — ha el
 <!-- ───────── videó ───────── -->
 <div class="card hi">
   <h2>Videó készítése</h2>
-  <p class="mute" id="vSrc">—</p>
-  <div class="row" style="margin:6px 0 2px"><span class="tiny" style="width:100%">Hossz</span></div>
+  <p class="mute" style="margin:2px 0 8px">Írd le, mit akarsz. A rendező ebből, a mostani
+  TikTok/Reels-trendekből és a tár elemeiből vágja meg.</p>
+  <textarea id="vBrief" maxlength="4000" rows="5" placeholder="Pl.: Pörgős bemutató a hétvégi forgatásról. Legyen kemény, gyors vágás, erős kontraszt, a végén maradjon egy nyugodt kocka. Ne legyen rajta semmilyen cégnév."></textarea>
+  <p class="tiny" id="vSrc">—</p>
+  <div class="row" style="margin:8px 0 2px"><span class="tiny" style="width:100%">Hossz</span></div>
   <div class="row" id="vLen"></div>
   <div class="row" style="margin:10px 0 2px"><span class="tiny" style="width:100%">Képarány</span></div>
   <div class="row" id="vAsp"></div>
-  <div style="height:10px"></div>
-  <input type="text" id="vTitle" maxlength="120" placeholder="Nyitó felirat (nem kötelező)">
+  <div class="row" style="margin:10px 0 2px"><span class="tiny" style="width:100%">A feliratok nyelve</span></div>
+  <div class="row" id="vLang"></div>
+  <label class="row tiny" style="margin:10px 0 0;gap:8px;align-items:flex-start">
+    <input type="checkbox" id="vFresh" style="width:auto;margin-top:2px">
+    <span>Keressen rá most a friss trendekre (egyébként a legutóbbi, max. egy hetes anyagot használja)</span>
+  </label>
   <div style="height:10px"></div>
   <button id="vGo">🎬 Videó készítése</button>
-  <p class="tiny" id="vInfo">A „hagyd ki" jelölésű elemek kimaradnak. Zene nincs rajta (licenc) — a TikTokon te teszel alá hangot.</p>
+  <p class="tiny" id="vInfo">A „hagyd ki” jelölésű elemek kimaradnak. Hang nincs rajta — a TikTokon te teszel alá.</p>
+</div>
+
+<div class="card" id="tCard">
+  <div class="row" style="justify-content:space-between">
+    <h2 style="margin:0">Mi megy most</h2>
+    <button class="sm sec" id="tGo">Frissítés</button>
+  </div>
+  <p class="tiny" id="tInfo">—</p>
+  <div id="tList"></div>
 </div>
 
 <div class="card" id="vDone" style="display:none">
@@ -239,7 +255,7 @@ async function refresh() {
   refreshing = true;
   try {
     S = await api("/api/state");
-    drawLog(); drawGrid(); drawVideos();
+    drawLog(); drawGrid(); drawVideos(); drawTrends();
     const ready = (S.media || []).filter((m) => m.status === "ready").length;
     const busy = (S.media || []).filter((m) => m.status === "processing").length;
     $("#vSrc").textContent = `${ready} kész elem a tárból, feltöltési sorrendben, fotók és klipek keverve.`
@@ -449,28 +465,56 @@ for (const [id, which] of [["#fPick", "fotótár"], ["#fOne", "egyenként"]]) {
 
 /* ── videó ────────────────────────────────────────────────────────────── */
 const LENS = [15, 25, 40, 60], ASPECTS = [["9:16", "álló"], ["1:1", "négyzet"], ["4:5", "magas"], ["16:9", "fekvő"]];
-let vLen = 25, vAsp = "9:16";
+const LANGS = [["hu", "magyar"], ["en", "angol"]];
+let vLen = 25, vAsp = "9:16", vLang = "hu";
 function drawOpts() {
   $("#vLen").innerHTML = LENS.map((n) =>
     `<button type="button" class="sm ${n === vLen ? "" : "sec"}" data-len="${n}" style="flex:1">${n} mp</button>`).join("");
   $("#vAsp").innerHTML = ASPECTS.map(([a, n]) =>
     `<button type="button" class="sm ${a === vAsp ? "" : "sec"}" data-asp="${a}" style="flex:1">${a}<br><span class="tiny">${n}</span></button>`).join("");
+  $("#vLang").innerHTML = LANGS.map(([a, n]) =>
+    `<button type="button" class="sm ${a === vLang ? "" : "sec"}" data-lang="${a}" style="flex:1">${n}</button>`).join("");
 }
 drawOpts();
+try { $("#vBrief").value = localStorage.getItem("brief") || ""; } catch (e) {}
+$("#vBrief").addEventListener("input", () => {
+  try { localStorage.setItem("brief", $("#vBrief").value); } catch (e) {}
+});
 document.addEventListener("click", (e) => {
-  const l = e.target.closest("[data-len]"), a = e.target.closest("[data-asp]");
+  const l = e.target.closest("[data-len]"), a = e.target.closest("[data-asp]"), g = e.target.closest("[data-lang]");
   if (l) { vLen = +l.dataset.len; drawOpts(); }
   if (a) { vAsp = a.dataset.asp; drawOpts(); }
+  if (g) { vLang = g.dataset.lang; drawOpts(); }
 });
+function drawTrends() {
+  const t = (S && S.trends) || {items: []};
+  const age = t.age_days == null ? null : Math.round(t.age_days);
+  $("#tInfo").textContent = !t.items.length
+    ? (t.search || t.engine ? "Még nem keresett rá. Nyomd meg a Frissítést, vagy pipáld be a videónál."
+       : "Nincs keresőkulcs és modell beállítva — a beépített vágó dolgozik, trendek nélkül.")
+    : `${t.items.length} trend · ${age === 0 ? "ma" : age + " napja"} frissítve`
+      + (t.engine ? ` · rendező: ${t.engine}` : "");
+  $("#tList").innerHTML = t.items.map((x) => `<div style="margin:8px 0;padding:8px 10px;background:var(--card2);border:1px solid var(--line);border-radius:10px">
+    <div style="font-weight:600;font-size:14px">${esc(x.name)}</div>
+    <div class="tiny">${esc(x.what)}</div>
+    <div class="tiny" style="color:var(--mute)">${esc(Object.entries(x.recipe || {}).map(([k, v]) => k + "=" + v).join(" · "))}</div>
+    ${x.source ? `<a class="tiny" href="${esc(x.source)}" target="_blank" rel="noopener">forrás</a>` : ""}</div>`).join("");
+}
+$("#tGo").onclick = async () => {
+  $("#tInfo").textContent = "Keresés fut…";
+  try { await api("/api/trends/refresh", {}); refresh(); }
+  catch (e) { $("#tInfo").textContent = e.message; }
+};
 $("#vGo").onclick = async () => {
   const ready = (S && S.media || []).filter((m) => m.status === "ready").length;
   if (!ready) { flash("Nincs kész elem — várd meg a videók átalakítását."); return; }
   $("#vGo").disabled = true;
   $("#vInfo").textContent = "Indul…";
-  clientLog(`videó kérve: ${ready} elem, ${vLen} mp, ${vAsp}`);
+  clientLog(`videó kérve: ${ready} elem, ${vLen} mp, ${vAsp}, ${vLang}, brief ${$("#vBrief").value.trim().length} karakter`);
   try {
-    const d = await api("/api/videos", {media: [], seconds: vLen, aspect: vAsp, title: $("#vTitle").value.trim(), lang: "hu"});
-    $("#vInfo").textContent = `Gyártás fut: ${d.scenes} jelenet, kb. ${Math.round(d.seconds)} mp. A naplóban látod, hol tart.`;
+    const d = await api("/api/videos", {brief: $("#vBrief").value.trim(), media: [], seconds: vLen,
+      aspect: vAsp, lang: vLang, fresh_trends: $("#vFresh").checked});
+    $("#vInfo").textContent = `Fut: ${d.items} elemből. Trendkeresés → rendezés → vágás. A naplóban látod, hol tart.`;
   } catch (e) { $("#vInfo").textContent = "Nem indult: " + e.message; flash(e.message, 8000); }
   $("#vGo").disabled = false;
   refresh();
@@ -483,6 +527,7 @@ function drawVideos() {
     <img src="/api/videos/${esc(v.id)}.jpg" loading="lazy" alt="">
     <div class="m"><span class="badge ok">${v.seconds ?? "?"} mp</span>
       <div class="nm">${esc(v.aspect)} · ${esc(v.used)} elem</div>
+      <div class="tiny" style="color:var(--mute)">${esc((v.trends || []).join(", ") || v.by || "")}</div>
       <a class="btn sm" style="display:block;text-align:center;margin-top:5px;text-decoration:none"
          href="/api/videos/${esc(v.id)}.mp4?download=1">Letöltés</a></div></div>`).join("");
 }

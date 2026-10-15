@@ -8,6 +8,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import director  # noqa: E402
+import effects  # noqa: E402
 import library  # noqa: E402
 import render  # noqa: E402
 
@@ -169,6 +170,79 @@ def test_videos_are_listed_and_deletable(tmp_path):
     assert render.get(meta["id"]) is None and render.video_path(meta["id"]) is None
     assert render.delete("abcdefghij") is False
     assert render.get("../../etc") is None
+
+
+def test_a_rich_ai_plan_renders_end_to_end(tmp_path):
+    """Amit a modell kérhet: mozgás, színezés, sebesség, felirat, átmenet — egyben."""
+    import brain
+    ids = [library.store(_photo(color=(30 + i * 40, 70, 150)), "image/jpeg", f"p{i}.jpg")["id"]
+           for i in range(4)]
+    cid = library.store(_clip(str(tmp_path), seconds=6), "video/quicktime", "c.MOV")["id"]
+    _wait(cid)
+    items = [m for m in library.listing() if library.ready(m)]
+    by = {m["id"]: m for m in items}
+    raw = {"title": "Teszt", "trends_used": ["Velocity zoom"], "scenes": [
+        {"id": ids[0], "seconds": 1.0, "motion": "punch_in", "look": "contrast_pop",
+         "transition": "zoomin", "text": "Árvíztűrő", "text_style": "box", "text_anim": "pop",
+         "text_position": "top"},
+        {"id": cid, "seconds": 1.0, "start": 2.0, "speed": 2.0, "motion": "shake",
+         "look": "vhs", "transition": "flash"},
+        {"id": ids[1], "seconds": 0.8, "motion": "ken_burns", "look": "rgb_split",
+         "transition": "slideleft"},
+        {"id": ids[2], "seconds": 0.8, "motion": "zoom_pulse", "look": "glitch",
+         "transition": "circleopen"},
+        {"id": ids[3], "seconds": 1.0, "motion": "rotate_in", "look": "blur_in",
+         "transition": "cut", "text": "Vége", "text_style": "bar", "text_anim": "slide_up"},
+    ]}
+    scenes = [brain._clean_scene(x, by, "hu") for x in raw["scenes"]]
+    plan = {"aspect": "9:16", "width": 1080, "height": 1920, "lang": "hu", "title": "Teszt",
+            "brief": "proba", "by": "teszt-modell", "trends_used": ["Velocity zoom"],
+            "scenes": [s for s in scenes if s], "seconds": 4.6, "fade_seconds": 0.3}
+    meta = render.make(plan)
+    assert meta["used"] == 5 and not meta["skipped"], meta
+    assert meta["trends"] == ["Velocity zoom"] and meta["by"] == "teszt-modell"
+    path = render.video_path(meta["id"])
+    a = _frame(path, 0.3, str(tmp_path / "x1.png"))
+    b = _frame(path, meta["seconds"] - 0.3, str(tmp_path / "x2.png"))
+    assert a.size == (1080, 1920) and a.tobytes() != b.tobytes()
+
+
+def test_every_transition_name_renders(tmp_path):
+    """Ha egy átmenet elhasalna, a vágás ne álljon meg — de ne is hasaljon el."""
+    mid = library.store(_photo(), "image/jpeg", "p.jpg")["id"]
+    a = str(tmp_path / "a.mp4")
+    b = str(tmp_path / "b.mp4")
+    base = {"id": mid, "kind": "image", "name": "p.jpg", "seconds": 0.6, "start": 0.0,
+            "speed": 1.0, "motion": "none", "look": "none", "text": ""}
+    render.scene_segment(base, library.path_of(mid), 540, 960, a, None)
+    render.scene_segment({**base, "look": "bw"}, library.path_of(mid), 540, 960, b, None)
+    bad = []
+    for name in effects.XFADE:
+        try:
+            render.transition_segment(a, b, name, 0.2, str(tmp_path / "t.mp4"))
+        except render.RenderError as e:
+            bad.append((name, str(e)[-80:]))
+    assert not bad, bad
+
+
+def test_every_look_and_motion_renders(tmp_path):
+    mid = library.store(_photo(), "image/jpeg", "p.jpg")["id"]
+    base = {"id": mid, "kind": "image", "name": "p.jpg", "seconds": 0.5, "start": 0.0,
+            "speed": 1.0, "motion": "none", "look": "none", "text": ""}
+    bad = []
+    for look in effects.LOOKS:
+        try:
+            render.scene_segment({**base, "look": look}, library.path_of(mid), 540, 960,
+                                 str(tmp_path / "l.mp4"), None)
+        except render.RenderError as e:
+            bad.append(("look:" + look, str(e)[-80:]))
+    for motion in effects.MOTIONS:
+        try:
+            render.scene_segment({**base, "motion": motion}, library.path_of(mid), 540, 960,
+                                 str(tmp_path / "m.mp4"), None)
+        except render.RenderError as e:
+            bad.append(("motion:" + motion, str(e)[-80:]))
+    assert not bad, bad
 
 
 def test_square_and_landscape_outputs(tmp_path):
