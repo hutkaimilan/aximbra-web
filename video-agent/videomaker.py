@@ -43,7 +43,6 @@ import httpx
 import imagegen
 import llm
 import logomaker
-import trends
 import media
 import playbook
 import stop
@@ -57,11 +56,11 @@ VIDEO_DIR = os.environ.get("VIDEO_DIR", "/data/videos")
 FPS = int(os.environ.get("VIDEO_FPS", "30"))
 KEEP = 20
 KINDS = ("hook", "statement", "problem", "benefit", "steps", "compare", "site", "call", "inbox", "sms",
-         "agents", "number", "quote", "photo", "gallery", "montage", "clip", "cta")
-VISUAL_KINDS = ("site", "call", "inbox", "sms", "photo", "gallery", "montage", "clip")
+         "agents", "number", "quote", "photo", "gallery", "clip", "cta")
+VISUAL_KINDS = ("site", "call", "inbox", "sms", "photo", "gallery", "clip")
 # Mozgó jelenetek: álló diában szöveges dia lesz belőlük.
 MOTION_KINDS = ("site", "call", "inbox", "sms", "clip")
-MEDIA_KINDS = ("photo", "gallery", "montage", "clip")
+MEDIA_KINDS = ("photo", "gallery", "clip")
 THEMES = ("neon", "clean", "warm", "mono")
 ASPECTS = {"9:16": (540, 960), "4:5": (540, 675), "1:1": (540, 540), "16:9": (960, 540)}
 FORMS = ("auto", "video", "image", "carousel", "logo")
@@ -69,11 +68,6 @@ MAX_SLIDES = 8
 MIN_TOTAL, MAX_TOTAL = 10, 120
 # Egy hosszabb (90 mp fölötti) videó több jelenetet bír el.
 MAX_SCENES, MAX_SCENES_LONG = 10, 15
-# Egy videóhoz csatolható saját anyag; a sok képet a montázs jelenet viszi el
-# (egy jelenetben legfeljebb MONTAGE_MAX kép, gyors egymásutánban).
-MAX_ATTACH = 60
-MONTAGE_MAX = 12
-TRANSITIONS = ("cut", "zoom", "flash", "fade")
 SAMPLE_RATE = 24000
 
 # Gyors kiindulópontok a felületen; a leírás mindig felülírja.
@@ -160,31 +154,19 @@ def director_prompt(brief: str, ctx: dict, seconds: int, lang: str, aspect: str,
     still = form in ("image", "carousel")
     sites = "\n".join(f"  [{i}] {u}" for i, u in enumerate(ctx["urls"])) or "  (none — do not use the 'site' scene)"
     lib = ctx.get("library") or []
-    # A tár sok száz elem is lehet: a csatoltakon kívül csak a legutóbbi 30 kerül a promptba.
-    att = set(ctx.get("attached") or [])
-    shelf = "\n".join(_shelf_line(m) for m in [m for m in lib if m["id"] not in att][:30]) \
-        or "  (empty — you may still ask for generated images)"
+    shelf = "\n".join(_shelf_line(m) for m in lib) or "  (empty — you may still ask for generated images)"
     attached = [m for m in (media.get(x) for x in ctx.get("attached") or []) if m]
-    notes = ctx.get("media_notes") or {}
-
-    def _must_line(m: dict) -> str:
-        note = notes.get(m["id"])
-        return _shelf_line(m) + (f'\n      → INSTRUCTION FOR THIS ONE: "{note}"' if note else "")
     must = ("THE USER ATTACHED THESE FOR THIS VIDEO — use every one of them (each at least once), they are the\n"
-            "point of the brief. Where the user wrote an instruction for an item, follow it exactly (where it goes,\n"
-            "how long, what text goes over it, what to cut):\n" + "\n".join(_must_line(m) for m in attached)) if attached else ""
-    trend_block = trends.prompt_block(ctx.get("trends") or {})
+            "point of the brief:\n" + "\n".join(_shelf_line(m) for m in attached)) if attached else ""
     pages = "\n\n".join(f"TEXT OF {p['url']}:\n{p['text']}" for p in ctx["pages"] if p["text"]) or "(none)"
     web = "\n\n".join(f"WEB: {w['title']} — {w['url']}\n{w['text']}" for w in ctx["web"]) or "(none)"
-    return f"""You are an award-winning creative director making social content from a brief, on ANY topic the brief asks
-for — it does not have to be about AXIMBRA or AI. No presenter appears on camera: everything is graphics, the
-user's own photos and clips, generated images, a real website shown on a phone, or UI.
+    return f"""You are an award-winning creative director making social content from a brief. No person appears on camera.
+Everything is graphics, a real website shown on a phone, or UI.
 
 THE BRIEF (this is what the client wants — follow it closely; it overrides the defaults below):
 \"\"\"{brief}\"\"\"
 
-Company facts (AXIMBRA — use them ONLY when the brief is about AXIMBRA; otherwise ignore them, brand the video
-for whoever the brief is about, and do not mention AXIMBRA anywhere):
+Company facts (AXIMBRA, use when the brief is about AXIMBRA):
 {playbook.AXIMBRA_FACTS}
 
 Websites captured for the video (use their index in "shot"):
@@ -200,8 +182,6 @@ Source text you may draw facts from:
 {web}
 
 {playbook.MARKETING_RULES}
-
-{trend_block}
 
 {FORM_RULES.get(form, FORM_RULES["video"])}
 Format: {aspect}{"" if still else f", about {seconds} seconds"}.
@@ -227,12 +207,6 @@ problem, benefit, agents or cta — "site", "call" and "inbox" animate, so they 
   (describe the picture in English: subject, setting, light, mood). "layout": "full" (text over the image) or
   "side" (image beside the text). Never ask for a recognisable real person.
 - "gallery": headline + "medias" = 2–4 library ids shown in a grid.
-- "montage": a fast full-screen TikTok/Reels-style cut of the user's own material — "medias" = 3–12 library
-  ids, photos AND clips mixed, shown one after another (about 0.7–1.5 s each; a clip plays its best moment).
-  Optional short headline/sub over it. Use it when there is a lot of material (an event, a trip, a product
-  range, a place, a project): several montage scenes in a row can carry 20–60 photos and clips.
-  "transition": "cut" (hard cut on every shot), "zoom" (punch-in zoom on each cut), "flash" (white flash
-  between shots) or "fade" (soft crossfade). The pace is the scene's seconds divided by its items.
 - "clip": an uploaded video clip. "media" = a library id of kind "clip". A long recording is used in several
   consecutive "clip" scenes, each one a stretch of it: "from" = where the stretch starts (seconds into the
   clip), "speed" = playback speed (1, 1.5, 2, 3 or 4), "seconds" = screen time; the stretch covers
@@ -253,7 +227,7 @@ problem, benefit, agents or cta — "site", "call" and "inbox" animate, so they 
     there, so the two never overlap.
 - "number": headline = a number FROM THE BRIEF OR SOURCES ONLY, sub = what it means.
 - "quote": headline = a quote FROM THE BRIEF OR SOURCES ONLY, sub = its source.
-- "cta": headline + "url" + sub + "button". Always last. "url" is the brief's own address; leave it empty if there is none.
+- "cta": headline + "url" + sub + "button". Always last.
 {'A still slide has no motion, so favour the kinds that hold up frozen, and let each carry more text than a video scene would. Never number the slides — no "slide 2", no "2/5"; the kicker is a real label or empty.' if still else ''}
 Fields: headline max 8 words, mark 1–2 key words with *asterisks*; sub max 16 words; kicker optional, max 3 words.
 Use the user's own uploaded media wherever it fits the brief — that is why they uploaded it. Ask for a generated
@@ -264,17 +238,17 @@ Pick a visual theme that fits the brief: "neon" (futuristic, default), "clean" (
 HARD RULES:
 - Never invent statistics, percentages, time or money savings, customers, testimonials, awards or results.
   Numbers and quotes may appear only if they are in the brief or the source text above.
-- No prices unless the brief asks for them (then only from the brief or the facts list).
+- No prices unless the brief asks for them (then only from the facts list).
 - Hungarian: formal-neutral, natural, no anglicisms where a Hungarian word exists.
 - Also write the social post that goes with it (120–250 words in short paragraphs, a first line under 140
   characters that works alone, one genuine question to the reader at the end, max 3 hashtags) and a first
-  comment holding the link (empty if the brief gives no link and is not about AXIMBRA). The post must stand on its own on any platform: do not tell the reader to swipe,
+  comment holding the link. The post must stand on its own on any platform: do not tell the reader to swipe,
   and do not point to a comment or to a "link below" — some platforms show only the first slide and no comment.
 
 Answer ONLY with JSON:
 {{"title": "", "tagline": "max 3 words", "brand": "AXIMBRA or the brand in the brief", "theme": "neon|clean|warm|mono",
 "scenes": [{{"kind": "", "kicker": "", "headline": "", "sub": "", "lines": [], "lines2": [], "left_title": "", "right_title": "",
-  "shot": 0, "media": "", "from": 0, "speed": 1, "medias": [], "transition": "", "image_prompt": "", "layout": "full", "app": "", "caller": "", "status": "",
+  "shot": 0, "media": "", "from": 0, "speed": 1, "medias": [], "image_prompt": "", "layout": "full", "app": "", "caller": "", "status": "",
   "tile_label": "", "center": false, "url": "", "button": "", "voice": "", "seconds": 0}}],
 "post": "", "first_comment": ""}}"""
 
@@ -322,8 +296,7 @@ def revise_prompt(script: dict, feedback: str, lang: str, form: str = "video") -
     still = form in ("image", "carousel")
     return f"""You are revising a {WHAT.get(form, WHAT["video"])}. Apply the client's feedback precisely; keep everything else as it is.
 Same JSON structure, same scene kinds available (hook, statement, problem, benefit, steps, compare, site, call,
-inbox, agents, number, quote, photo, gallery, montage, clip, cta). Keep the "media" ids that are still wanted.
-{_notes_text(script)}
+inbox, agents, number, quote, photo, gallery, clip, cta). Keep the "media" ids that are still wanted.
 {'Keep it still: the same number of slides as now, no narration, leave "voice" empty.' if still else ''}
 {'The subtitle (caption) part of the feedback is already handled outside the script: do NOT remove or shorten headlines, on-screen text or narration because of it.' if wants_captions(feedback) is not None else ''}
 Language: {_lang_name(lang)}. Never invent statistics, customers, testimonials or results.
@@ -336,14 +309,6 @@ CURRENT SCRIPT:
 {json.dumps(slim, ensure_ascii=False)}
 
 Answer ONLY with the full revised JSON."""
-
-
-def _notes_text(meta: dict) -> str:
-    notes = ((meta.get("opts") or {}).get("media_notes") or {})
-    if not notes:
-        return ""
-    return ("The user's instructions for their own material still apply:\n"
-            + "\n".join(f'  {k}: "{v}"' for k, v in notes.items()))
 
 
 def _clip(s, n: int) -> str:
@@ -411,18 +376,7 @@ def _media_id(v) -> str:
     return v if re.fullmatch(r"[a-z0-9]{12}", v) else ""
 
 
-def _best_moment(m: dict) -> float:
-    if m.get("kind") != "clip":
-        return 0.0
-    segs = m.get("segments") or []
-    for pace in ("result", "action"):
-        for g in segs:
-            if g.get("pace") == pace:
-                return float(g.get("from") or 0)
-    return 0.0
-
-
-def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video", aximbra: bool = True) -> dict:
+def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -> dict:
     """A modell kimenetéből érvényes, renderelhető forgatókönyv.
 
     Álló kép és körhinta ugyanebből készül: ott a jelenet egy dia, az idő
@@ -455,9 +409,7 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video", a
             "sub": _clip(_no_url(s.get("sub")), 140), "lines": lines("lines", 6), "lines2": lines("lines2", 4),
             "left_title": _clip(s.get("left_title"), 20), "right_title": _clip(s.get("right_title"), 20),
             "media": _media_id(s.get("media")),
-            "transition": str(s.get("transition") or "").strip().lower(),
-            "medias": [m for m in (_media_id(x) for x in (s.get("medias") or [])) if m][
-                :MONTAGE_MAX if s["kind"] == "montage" else 4],
+            "medias": [m for m in (_media_id(x) for x in (s.get("medias") or [])) if m][:4],
             "image_prompt": _clip(s.get("image_prompt"), 400),
             "layout": (str(s.get("layout") or "").strip() if str(s.get("layout") or "").strip() in ("side", "phone")
                        else "full"),
@@ -474,15 +426,9 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video", a
     for s in scenes:
         if s["kind"] == "call":
             s["lines"] = [l for l in (_TAIL_LABEL_RE.sub("", l).strip() for l in s["lines"]) if l]
-    # Montázsban a klip a legjobb pillanatától indul: az első "result" szakasz,
-    # különben az első nem várakozó rész, különben az eleje.
-    for s in scenes:
-        if s["kind"] == "montage":
-            s["mfrom"] = [_best_moment(media.get(m) or {}) for m in s["medias"]]
-            s["transition"] = s.get("transition") if s.get("transition") in TRANSITIONS else "fade"
     # Médiajelenet üres kézzel nem állja meg a helyét: szöveges lesz belőle.
     for s in scenes:
-        if s["kind"] in ("gallery", "montage") and not s["medias"]:
+        if s["kind"] == "gallery" and not s["medias"]:
             s["kind"] = "statement"
         elif s["kind"] in ("photo", "clip") and not s["media"] and not s["image_prompt"]:
             s["kind"] = "statement"
@@ -491,8 +437,6 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video", a
         for s in scenes:
             if s["kind"] in MOTION_KINDS:
                 s["kind"] = "statement"
-            elif s["kind"] == "montage":      # állóképen nincs pörgetés: rács lesz belőle
-                s["kind"], s["medias"] = "gallery", s["medias"][:4]
     # Ugyanaz az oldalrész kétszer: a néző ugyanazt látja kétszer, csak más
     # narrációval. Egy felvétel egyszer megy; a második egy még nem használtra
     # vált, ha van, különben szöveges jelenet lesz belőle.
@@ -525,22 +469,14 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video", a
             elif m.get("seconds"):
                 _fit_clip(s, float(m["seconds"]))
     # Egyetlen kép magában áll, nem kell rá külön záró dia.
-    # Az AXIMBRA-videó mindig az élő demóra hív; más témánál nem ragasztunk rá
-    # AXIMBRA-zárót, és a cím nélküli záróképből szöveges kép lesz.
     if form != "image":
         ctas = [s for s in scenes if s["kind"] == "cta"]
-        if aximbra:
-            scenes = [s for s in scenes if s["kind"] != "cta"] + (ctas[-1:] or [{
-                **scenes[-1], "kind": "cta", "headline": "Próbálja ki *élőben*", "sub": "", "lines": [], "url": "aximbra.hu",
-                "button": "Élő demó · regisztráció nélkül", "voice": "", "seconds": 4.0}])
-        else:
-            scenes = [s for s in scenes if s["kind"] != "cta"] + ctas[-1:]
+        scenes = [s for s in scenes if s["kind"] != "cta"] + (ctas[-1:] or [{
+            **scenes[-1], "kind": "cta", "headline": "Próbálja ki *élőben*", "sub": "", "lines": [], "url": "aximbra.hu",
+            "button": "Élő demó · regisztráció nélkül", "voice": "", "seconds": 4.0}])
     for s in scenes:
         if s["kind"] == "cta" and not s["url"]:
-            if aximbra:
-                s["url"] = "aximbra.hu"
-            else:
-                s["kind"], s["center"] = "statement", True
+            s["url"] = "aximbra.hu"
     if still:
         # A diákat a belépő mozgás vége után fotózzuk, ezért mindegyik egyforma hosszú.
         for s in scenes:
@@ -560,9 +496,9 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video", a
     theme = data.get("theme") if data.get("theme") in THEMES else "neon"
     return {
         "title": _clip(data.get("title") or "Videó", 80), "tagline": _clip(data.get("tagline") or "", 24).upper(),
-        "brand": _clip(data.get("brand") or ("AXIMBRA" if aximbra else ""), 20), "theme": theme, "scenes": scenes,
+        "brand": _clip(data.get("brand") or "AXIMBRA", 20), "theme": theme, "scenes": scenes,
         "post": _cap_hashtags(str(data.get("post") or "").strip()[:3000]),
-        "first_comment": str(data.get("first_comment") or ("Élő demók: https://aximbra.hu" if aximbra else "")).strip()[:500],
+        "first_comment": str(data.get("first_comment") or "Élő demók: https://aximbra.hu").strip()[:500],
     }
 
 
@@ -709,15 +645,10 @@ def _ask_json(prompt: str, say=lambda m: None, tries: int = 2):
             logger.info("újrapróbálás: %s", e)
 
 
-def is_aximbra(text: str) -> bool:
-    """AXIMBRA-ról szól-e a leírás: csak akkor kerül rá AXIMBRA-záró és -márka."""
-    return bool(re.search(r"aximbr", text or "", re.I))
-
-
 def write_script(brief: str, ctx: dict, seconds: int, lang: str, aspect: str, voice: bool,
                  say=lambda m: None, form: str = "video") -> dict:
     script = normalize(_ask_json(director_prompt(brief, ctx, seconds, lang, aspect, voice, form), say),
-                       seconds, len(ctx["urls"]), form, is_aximbra(brief))
+                       seconds, len(ctx["urls"]), form)
     return check(script, brief, ctx, seconds, lang, say, form)
 
 
@@ -760,7 +691,7 @@ def check(script: dict, brief: str, ctx: dict, seconds: int, lang: str, say=lamb
             fb += "Fix these craft problems (they break the proven rules):\n" + "\n".join(craft)
         try:
             script = normalize(llm.extract_json(llm._ask(revise_prompt(script, fb, lang, form))),
-                               seconds, len(ctx["urls"]), form, is_aximbra(brief))
+                               seconds, len(ctx["urls"]), form)
         except (llm.LLMError, VideoError) as e:
             logger.warning("javító kör hiba: %s", e)
         script = _strip_claims(script, sources)
@@ -773,7 +704,7 @@ def check(script: dict, brief: str, ctx: dict, seconds: int, lang: str, say=lamb
         fb = "\n".join(f'Translate into {_lang_name(lang)}, change nothing else: "{t}"' for t in left[:20])
         try:
             fixed = normalize(llm.extract_json(llm._ask(revise_prompt(script, fb, lang, form))),
-                              seconds, len(ctx["urls"]), form, is_aximbra(brief))
+                              seconds, len(ctx["urls"]), form)
             if len(fixed["scenes"]) >= (1 if form == "image" else 2):
                 script = _strip_claims(fixed, sources)
         except (llm.LLMError, VideoError) as e:
@@ -1370,7 +1301,7 @@ FORM_NAMES = {"video": "videó", "image": "kép", "carousel": "körhinta", "logo
 
 def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", voice: bool = True,
          male: bool = False, research: bool = False, form: str = "auto", say=lambda m: None,
-         attach: list | None = None, captions: bool = False, media_notes: dict | None = None) -> dict:
+         attach: list | None = None, captions: bool = False) -> dict:
     brief = (brief or "").strip()[:12000]
     if len(brief) < 8:
         raise VideoError("írd le, mit készítsek")
@@ -1381,11 +1312,9 @@ def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", 
     if form == "auto":
         form = pick_form(brief)
         say(f"Formátum a leírás alapján: {FORM_NAMES[form]}.")
-    attach = _wait_ready([m for m in (attach or []) if media.get(m)][:MAX_ATTACH], say)
-    # A felhasználó anyagonkénti utasítása („ez legyen a nyitókép”, „csak a 3. mp-től”).
-    notes = {k: str(v).strip()[:300] for k, v in (media_notes or {}).items() if k in attach and str(v).strip()}
+    attach = _wait_ready([m for m in (attach or []) if media.get(m)][:8], say)
     opts = {"brief": brief, "seconds": seconds, "lang": lang, "aspect": aspect, "voice": voice,
-            "male": male, "research": research, "form": form, "attach": attach, "media_notes": notes,
+            "male": male, "research": research, "form": form, "attach": attach,
             "captions": bool(captions) and wants_captions(brief) is not False}
     say("Kontextus: linkek beolvasása…")
     ctx = gather(brief, research, say)
@@ -1395,12 +1324,8 @@ def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", 
             say("Angol videó: az aximbra.hu angol változatát veszem fel.")
             ctx["urls"] = en
     ctx["attached"] = attach
-    ctx["media_notes"] = notes
     if attach:
-        say(f"Csatolt média: {len(attach)} db — a rendező mindet felhasználja"
-            + (f", {len(notes)} saját utasítással." if notes else "."))
-    if form in ("video", "carousel", "image"):
-        ctx["trends"] = trends.current(say)
+        say(f"Csatolt média: {len(attach)} db — a rendező mindet felhasználja.")
     if form == "logo":
         opts["aspect"] = "1:1"
         say("Logótervezés…")
@@ -1413,29 +1338,23 @@ def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", 
     return _finish(script, opts, ctx, say)
 
 
-ATTACH_WAIT_SECONDS = 2 * 60 * 60     # felső határ
-ATTACH_STALL_SECONDS = 15 * 60       # ha ennyi ideig egy klip sem készül el, nem várunk tovább
+ATTACH_WAIT_SECONDS = 20 * 60
 
 
 def _wait_ready(ids: list, say=lambda m: None) -> list:
     """A csatolt klipek közül amelyik még elmosás alatt van, azt megvárjuk
     (legfeljebb ATTACH_WAIT_SECONDS-ig). Ami elhasalt, az kimarad: elmosás
     nélkül nem mehet ki."""
-    # Sok videónál (egyszerre kettőt alakítunk) ez akár fél óra: addig várunk,
-    # amíg halad; ha 15 percig egy sem készül el, a késznek elkészült részével megyünk tovább.
-    start = last_progress = time.time()
-    last_busy = None
+    deadline = time.time() + ATTACH_WAIT_SECONDS
+    told = False
     while True:
         metas = [media.get(i) for i in ids]
         busy = [m for m in metas if m and m.get("status") == "processing"]
-        now = time.time()
-        if not busy or now - start > ATTACH_WAIT_SECONDS or now - last_progress > ATTACH_STALL_SECONDS:
+        if not busy or time.time() > deadline:
             break
-        if busy and len(busy) != last_busy:
-            if last_busy is not None:
-                last_progress = now
-            say(f"Várom a csatolt felvételek feldolgozását: még {len(busy)} db…")
-            last_busy = len(busy)
+        if not told:
+            say(f"Várom a csatolt felvétel elmosását és elemzését ({len(busy)} db)…")
+            told = True
         stop.sleep(5)
     ok = [m["id"] for m in (media.get(i) for i in ids) if media.ready(m)]
     if len(ok) < len(ids):
@@ -1572,7 +1491,7 @@ def revise(vid: str, feedback: str, say=lambda m: None) -> dict:
         return _finish(script, opts, ctx, say, parent=vid)
     say("Módosítás: a forgatókönyv átírása…")
     script = normalize(_ask_json(revise_prompt(meta, feedback, opts["lang"], form), say),
-                       opts["seconds"], len(ctx["urls"]), form, is_aximbra(opts["brief"] + " " + feedback))
+                       opts["seconds"], len(ctx["urls"]), form)
     script = check(script, opts["brief"] + " " + feedback, ctx, opts["seconds"], opts["lang"], say, form)
     script = fill_images(script, opts["aspect"], say)
     return _finish(script, opts, ctx, say, parent=vid)

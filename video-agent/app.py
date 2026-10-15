@@ -28,8 +28,6 @@ import media
 import publisher
 import settings as settings_store
 import stop
-import album_import
-import trends
 import videomaker
 import websearch
 
@@ -170,34 +168,6 @@ def public_slide(vid: str, ticket: str, n: int):
     return FileResponse(path, media_type="image/jpeg")
 
 
-class AlbumIn(BaseModel):
-    url: str = Field(min_length=10, max_length=500)
-
-
-@app.post("/api/media/import", dependencies=[Depends(auth)])
-def media_import(body: AlbumIn):
-    """Megosztott iCloud-album: a szerver tölti le az összes képet és videót.
-    A felület az import azonosítójával (a jegyzetben) csatolja őket utána."""
-    try:
-        album_import.token_of(body.url)
-    except album_import.ImportError_ as e:
-        raise HTTPException(400, str(e))
-    tag = "iCloud-album " + secrets.token_hex(3)
-    _start(lambda say: album_import.run(body.url, tag, say))
-    return {"ok": True, "tag": tag}
-
-
-class ClientLog(BaseModel):
-    msg: str = Field(default="", max_length=1000)
-
-
-@app.post("/api/clientlog", dependencies=[Depends(auth)])
-def client_log(body: ClientLog):
-    """A felület (telefon) üzenetei a naplóba: feltöltési lépések és JS-hibák."""
-    logger.info("felület: %s", body.msg.replace("\n", " ")[:1000])
-    return {"ok": True}
-
-
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -218,7 +188,6 @@ def state():
         "settings": settings_store.load(),
         "publish": publisher.status(),
         "inbox": inbox.recent(8),
-        "trends": trends.load(),
         "config": {
             "ai": llm.available(),
             "ai_engine": llm.engine_name(),
@@ -234,7 +203,7 @@ def state():
 async def media_add(file: UploadFile = File(...), note: str = Form(""), redact: bool = Form(True)):
     data = await file.read(media.MAX_BYTES + 1)
     if len(data) > media.MAX_BYTES:
-        raise HTTPException(413, "Túl nagy fájl (legfeljebb 600 MB).")
+        raise HTTPException(413, "Túl nagy fájl (legfeljebb 250 MB).")
     try:
         # A normalizálás és a képelmosás ffmpeg/Tesseract: ne fogja a többi kérést.
         return await asyncio.to_thread(media.store, data, file.content_type or "", file.filename or "",
@@ -464,9 +433,7 @@ def _startup():
 class VideoIn(BaseModel):
     brief: str = Field(min_length=8, max_length=12000)
     # Az űrlapon ehhez a videóhoz csatolt képek/klipek: a rendezőnek mindet fel kell használnia.
-    media: list[str] = Field(default_factory=list, max_length=60)
-    # Anyagonkénti utasítás: médiaazonosító → mit kezdjen vele a rendező.
-    media_notes: dict[str, str] = Field(default_factory=dict, max_length=60)
+    media: list[str] = Field(default_factory=list, max_length=8)
     seconds: int = Field(default=30, ge=10, le=120)
     lang: str = Field(default="hu", pattern="^(hu|en)$")
     aspect: str = Field(default="9:16", pattern="^(9:16|4:5|1:1|16:9)$")
@@ -486,14 +453,7 @@ class ReviseIn(BaseModel):
 def video_make(body: VideoIn):
     return _start(lambda say: videomaker.make(body.brief, body.seconds, body.lang, body.aspect, body.voice,
                                               body.male, body.research, body.form, say=say,
-                                              attach=body.media, captions=body.captions,
-                                              media_notes=body.media_notes))
-
-
-@app.post("/api/trends/refresh", dependencies=[Depends(auth)])
-def trends_refresh():
-    """A trendlista azonnali frissítése (különben hetente magától)."""
-    return _start(lambda say: {"trends": trends.refresh(say)})
+                                              attach=body.media, captions=body.captions))
 
 
 @app.post("/api/videos/{vid}/revise", dependencies=[Depends(auth)])

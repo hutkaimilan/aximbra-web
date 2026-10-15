@@ -933,7 +933,7 @@ def test_the_director_sees_clip_segments_and_must_use_attachments(monkeypatch):
     ctx = {"urls": [], "pages": [], "web": [], "library": [clip], "attached": [clip["id"]]}
     p = videomaker.director_prompt("Összefoglaló", ctx, 120, "hu", "9:16", True)
     assert "75 s, tall/phone recording" in p and "0–12 s  wait: bejelentkezés, töltés" in p
-    assert "THE USER ATTACHED THESE" in p and p.count(clip["id"]) == 1  # csak a kötelező listában, nem duplán
+    assert "THE USER ATTACHED THESE" in p and p.count(clip["id"]) >= 2
     assert '"from": 0, "speed": 1' in p and "4×" in p
 
 
@@ -1354,55 +1354,3 @@ def test_multi_label_domain_removed_whole():
 def test_spelled_out_url_written_back_for_captions():
     assert videomaker._written_url("Try it free at aximbra dot h-u slash e-n.") == "Try it free at aximbra.hu/en."
     assert videomaker._written_url("Visit aximbra dot hu today") == "Visit aximbra.hu today"
-
-
-def test_montage_keeps_up_to_twelve_and_clip_start(monkeypatch):
-    lib = {f"img{i:09d}": {"id": f"img{i:09d}", "kind": "image"} for i in range(14)}
-    lib["clip00000001"] = {"id": "clip00000001", "kind": "clip", "segments": [{"from": 0, "to": 3, "pace": "wait"},
-                                                          {"from": 3, "to": 9, "pace": "result"}]}
-    monkeypatch.setattr(videomaker.media, "get", lambda i: lib.get(i))
-    ids = ["clip00000001"] + [f"img{i:09d}" for i in range(14)]
-    s = videomaker.normalize({"title": "T", "scenes": [
-        {"kind": "montage", "headline": "Nyár", "medias": ids, "seconds": 8},
-        {"kind": "statement", "headline": "Vége", "seconds": 3}]}, 20, 1, "video", aximbra=False)
-    m = s["scenes"][0]
-    assert m["kind"] == "montage" and len(m["medias"]) == 12 and m["mfrom"][0] == 3.0
-    assert s["scenes"][-1]["kind"] != "cta" and s["brand"] == "" and s["first_comment"] == ""
-
-
-def test_montage_on_a_carousel_becomes_a_grid(monkeypatch):
-    monkeypatch.setattr(videomaker.media, "get", lambda i: {"id": i, "kind": "image"})
-    s = videomaker.normalize({"title": "T", "scenes": [
-        {"kind": "montage", "headline": "A", "medias": [f"img{i:09d}" for i in range(5)]},
-        {"kind": "statement", "headline": "B"}]}, 30, 1, "carousel", aximbra=False)
-    assert s["scenes"][0]["kind"] == "gallery" and len(s["scenes"][0]["medias"]) == 4
-
-
-def test_cta_without_url_is_not_aximbra_on_other_topics():
-    s = videomaker.normalize({"title": "T", "scenes": [
-        {"kind": "hook", "headline": "A"}, {"kind": "cta", "headline": "Gyere el!", "url": ""}]}, 20, aximbra=False)
-    assert s["scenes"][-1]["kind"] == "statement"
-    s2 = videomaker.normalize({"title": "T", "scenes": [{"kind": "hook", "headline": "A"}, {"kind": "statement", "headline": "B"}]}, 20)
-    assert s2["scenes"][-1]["kind"] == "cta" and s2["scenes"][-1]["url"] == "aximbra.hu"
-
-
-def test_phone_uploads_are_recognised(monkeypatch):
-    """iPhone: HEIC-fotó JPEG-re alakul; típus nélküli fájl a kiterjesztéséből derül ki."""
-    import io as _io
-    import pillow_heif
-    from PIL import Image
-    got = {}
-    monkeypatch.setattr(media, "add_image", lambda data, name, note, redact_pii=False: got.setdefault("img", data[:3]))
-    monkeypatch.setattr(media, "add_clip", lambda data, name, note, redact_pii=False: got.setdefault("clip", name))
-    buf = _io.BytesIO()
-    pillow_heif.from_pillow(Image.new("RGB", (8, 8), "red")).save(buf, format="HEIF")
-    media.store(buf.getvalue(), "image/heic", "IMG_0001.HEIC")
-    assert got["img"] == b"\xff\xd8\xff"            # JPEG
-    media.store(b"x" * 10, "", "VID_0001.MOV")
-    assert got["clip"] == "VID_0001.MOV"
-    media.store(b"x" * 10, "application/octet-stream", "valami")   # ismeretlen: videóként próbálja
-    assert got["clip"] == "VID_0001.MOV"
-    gif = _io.BytesIO(); Image.new("RGB", (4, 4)).save(gif, "GIF")
-    got.pop("img")
-    media.store(gif.getvalue(), "", "anim.gif")
-    assert got["img"] == b"\xff\xd8\xff"

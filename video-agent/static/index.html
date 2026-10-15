@@ -163,15 +163,6 @@ pre.txt{white-space:pre-wrap;font:14px/1.55 var(--sans);margin:0;background:rgba
 .drop span{font-size:13px}
 .drop:hover,.drop.hot{border-color:var(--c);background:rgba(0,229,255,.07)}
 .picked{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-/* csatolt anyag sora: bélyegkép, név, és mit kezdjen vele a rendező */
-.arow{display:grid;grid-template-columns:56px 1fr 32px;gap:8px;align-items:center;width:100%;padding:6px;border:1px solid var(--line);border-radius:12px;background:rgba(4,6,14,.5)}
-.arow .th{width:56px;height:56px;border-radius:8px;object-fit:cover;background:#000;display:grid;place-items:center;font-size:22px}
-.arow .nm{font:500 11px/1.3 var(--mono);color:var(--mute);word-break:break-word}
-.arow input{width:100%;margin-top:4px;font-size:14px}
-.arow button{padding:4px 0}
-.trend{padding:8px 0;border-top:1px solid var(--line)}
-.trend:first-child{border-top:0}
-.trend b{font-size:14px}.trend small{color:var(--mute)}
 .picked:empty{display:none}
 .chip{display:inline-flex;align-items:center;gap:7px;max-width:100%;font:500 12px/1.2 var(--mono);color:var(--mute);
   border:1px solid var(--line);border-radius:999px;padding:6px 8px 6px 11px;background:rgba(4,6,14,.6)}
@@ -247,25 +238,13 @@ pre.txt{white-space:pre-wrap;font:14px/1.55 var(--sans);margin:0;background:rgba
 
   <div class="card">
     <div class="step"><span class="no">3</span><h2>Saját kép vagy felvétel</h2><span class="opt">nem kötelező</span></div>
-    <p class="mute" style="margin:0 0 10px">Egy darabba akár 60 képet és videót is tehetsz. A rendező mind beépíti: sok anyagból gyors, TikTok/Reels-stílusú vágást csinál, a hosszú felvételt pedig ott gyorsítja, ahol csak várni kell. Saját fotónál, kamerás videónál vedd ki az elmosás pipáját.</p>
+    <p class="mute" style="margin:0 0 10px">Amit itt kiválasztasz, azt a rendező mind beépíti. A hosszú felvételt magától gyorsítja ott, ahol csak várni kell.</p>
     <div class="acts">
       <button type="button" class="pri" id="vUp">＋ Feltöltés a gépről / telefonról</button>
       <button type="button" id="vLibBtn">▦ Választás a médiatárból</button>
     </div>
-    <div id="vCrios" class="hide" style="margin:10px 0;padding:12px;border:1px solid #ffb020;border-radius:12px;background:rgba(255,176,32,.08)">
-      <b>iPhone-on a Chrome egyszerre csak pár fájlt tud átadni</b> — sok fotónál és videónál a pipa után elakad. Ez a Chrome hibája; Safariban egyszerre mindet fel tudod tölteni.
-      <div class="acts" style="margin-top:8px"><button type="button" class="pri" id="vSafari">Megnyitás Safariban</button></div>
-      <small class="mute">Ha a gomb nem nyitja meg: a link kimásolva — nyisd meg a Safarit és illeszd be. Tipp: Safariban Megosztás → „Főképernyőhöz adás”, és onnantól ikonról indul.</small>
-    </div>
-    <div style="margin:12px 0;padding:12px;border:1px solid var(--line2);border-radius:12px">
-      <b>Sok fotó és videó egyszerre (iPhone): megosztott albumból</b>
-      <p class="mute" style="margin:6px 0">Fotók app → jelöld ki mindet → Megosztás → <b>Hozzáadás megosztott albumhoz</b> → új album.
-        Utána az albumban: Személyek ikon → <b>Nyilvános webhely</b> be → <b>Link megosztása</b> → Másolás. Illeszd be ide — a szerver tölti le mindet, a telefonnak nem kell semmit előkészítenie.</p>
-      <div style="display:flex;gap:8px"><input type="url" id="vAlbum" placeholder="https://www.icloud.com/sharedalbum/#…" style="flex:1">
-        <button type="button" class="pri" id="vAlbumGo">Mindet behúzom</button></div>
-    </div>
-    <input type="file" id="vAttach" multiple hidden>
-    <label class="ck"><input type="checkbox" id="vRedact"> Képernyőfelvételnél: nevek, e-mail-címek, telefonszámok elmosása <small class="mute">(saját fotónál, kamerás videónál hagyd üresen — csak lassít)</small></label>
+    <input type="file" id="vAttach" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" multiple hidden>
+    <label class="ck"><input type="checkbox" id="vRedact" checked> Feltöltéskor nevek, e-mail-címek, telefonszámok elmosása</label>
     <div class="mute" id="vAttachInfo" style="margin-top:6px"></div>
     <div class="picked" id="vAttached"></div>
     <div id="vLib" class="hide">
@@ -273,13 +252,6 @@ pre.txt{white-space:pre-wrap;font:14px/1.55 var(--sans);margin:0;background:rgba
       <div class="mgrid" id="vLibGrid"></div>
     </div>
   </div>
-
-  <details class="card" id="vTrendsCard">
-    <summary style="cursor:pointer"><b>📈 Aktuális TikTok / Reels / Shorts trendek</b> <span class="mute" id="vTrendsAge"></span></summary>
-    <p class="mute" style="margin:8px 0">Hetente magától frissül a webről. A rendező ezekből választ 1–3-at, ha illik a leíráshoz és az anyagodhoz. Ha mást kérsz, a te leírásod az erősebb.</p>
-    <div id="vTrends"></div>
-    <button type="button" id="vTrendsGo" style="margin-top:8px">↻ Frissítés most</button>
-  </details>
 
   <div class="card">
     <div class="step"><span class="no">4</span><h2>Beállítások</h2></div>
@@ -293,11 +265,11 @@ pre.txt{white-space:pre-wrap;font:14px/1.55 var(--sans);margin:0;background:rgba
         <button type="button" data-v="15">15 mp</button><button type="button" data-v="30">30 mp</button>
         <button type="button" data-v="45">45 mp</button><button type="button" data-v="60">1 perc</button>
         <button type="button" data-v="90">1,5 perc</button><button type="button" data-v="120">2 perc</button></div></div>
-      <div id="oVoice"><label>Narráció (hang)</label><div class="seg" data-k="voice">
+      <div id="oVoice"><label>Hang</label><div class="seg" data-k="voice">
         <button type="button" data-v="f">Női narráció</button><button type="button" data-v="m">Férfi narráció</button>
         <button type="button" data-v="">Nincs hang</button></div>
         <label class="ck" id="oCap"><input type="checkbox" id="vCaptions"> Felirat: a narráció szövege a kép alján</label></div>
-      <div><label>A videó nyelve <small class="mute">(minden szöveg és a narráció)</small></label><div class="seg" data-k="lang">
+      <div><label>Nyelv</label><div class="seg" data-k="lang">
         <button type="button" data-v="hu">Magyar</button><button type="button" data-v="en">Angol</button></div></div>
     </div>
     <label class="ck"><input type="checkbox" id="vResearch"> Nézzen utána a weben is</label>
@@ -324,12 +296,12 @@ pre.txt{white-space:pre-wrap;font:14px/1.55 var(--sans);margin:0;background:rgba
 <section id="v-media" class="hide">
   <div class="card">
     <div class="step"><span class="no">↑</span><h2>Feltöltés</h2></div>
-    <input type="file" id="mFile" multiple hidden>
-    <label class="drop" id="mDrop" for="mFile"><b>Húzd ide a fájlokat</b><span>vagy koppints a tallózáshoz — bármilyen kép vagy videó, bármilyen formátumban (iPhone HEIC és MOV is), max. 600 MB, 3 perc</span></label>
+    <input type="file" id="mFile" multiple hidden accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm">
+    <label class="drop" id="mDrop" for="mFile"><b>Húzd ide a fájlokat</b><span>vagy koppints a tallózáshoz — JPG, PNG, WebP, MP4, MOV, WebM, max. 250 MB, 3 perc</span></label>
     <div class="picked" id="mPicked"></div>
     <label>Mi ez? (nem kötelező)</label>
     <input id="mNote" maxlength="200" placeholder="Pl.: e-mail rendező felvétel, magyar">
-    <label class="ck"><input type="checkbox" id="mRedact"> Képernyőfelvételnél: nevek, e-mail-címek, telefonszámok elmosása <small class="mute">(saját fotónál, kamerás videónál hagyd üresen)</small></label>
+    <label class="ck"><input type="checkbox" id="mRedact" checked> Nevek, e-mail-címek, telefonszámok elmosása</label>
     <p class="mute" style="margin:6px 0 0">Logónál, saját grafikánál kapcsold ki, különben a rajta lévő szöveget is elmoshatja.</p>
     <div class="row" style="margin-top:12px"><button class="pri" id="mGo" type="button">Feltöltés</button><span class="mute" id="mInfo"></span></div>
   </div>
@@ -374,24 +346,6 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let S = null;
-// A telefonon történő hibák és lépések a szerver naplójába, hogy látszódjon, hol akad el.
-// fetch, nem sendBeacon: a beacon nem viszi a jelszót (401), a fetch igen.
-function clientLog(msg) {
-  try {
-    fetch("/api/clientlog", {method: "POST", headers: {"Content-Type": "application/json"}, keepalive: true,
-      credentials: "same-origin", body: JSON.stringify({msg: (navigator.userAgent.includes("CriOS") ? "[Chrome iOS] " : "") + String(msg).slice(0, 900)})}).catch(() => {});
-  } catch {}
-}
-// Ha a választó bezárul, de nem jön fájl (a telefon nem adta át), azt is lássuk.
-let pickerOpen = 0;
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && pickerOpen) {
-    const t = pickerOpen;
-    setTimeout(() => { if (pickerOpen === t) { clientLog(`választó bezárult, ${Math.round((Date.now() - t) / 1000)} mp után még nincs fájl`); } }, 4000);
-  }
-});
-window.addEventListener("error", (e) => clientLog("JS hiba: " + (e.message || e) + " @" + (e.lineno || "")));
-window.addEventListener("unhandledrejection", (e) => clientLog("ígéret hiba: " + ((e.reason && e.reason.message) || e.reason)));
 async function api(path, body) {
   // Ha 30 mp alatt nem jön válasz, mondjuk meg, ne pörögjön némán.
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 30000);
@@ -484,66 +438,23 @@ const mStatus = (m) => m.status === "processing" ? "⏳ elmosás és elemzés…
   : m.status === "failed" ? "✕ " + (m.error || "hiba") + " — nem kerül videóba"
   : [m.kind === "clip" && m.seconds ? `${Math.round(m.seconds)} mp` : "", m.redacted ? `🔒 ${m.redacted} elmosva` : "",
      m.kind === "clip" && m.segments && m.segments.length ? `${m.segments.length} rész` : ""].filter(Boolean).join(" · ");
-var notes = {};  // csatolt anyag → mit kezdjen vele a rendező (ehhez a darabhoz)
 function drawAttached() {
   attached = attached.map((m) => (S && S.media || []).find((x) => x.id === m.id) || m);
-  // Gépelés közben nem rajzoljuk újra, különben elveszne a kurzor és a szöveg.
-  if ($("#vAttached").contains(document.activeElement)) { summary(); return; }
   $("#vAttached").innerHTML = attached.map((m, i) =>
-    `<div class="arow">${m.kind === "clip" ? `<span class="th">🎬</span>` : `<img class="th" src="/api/media/${esc(m.id)}" alt="" loading="lazy">`}
-     <div><div class="nm">${i + 1}. ${esc(m.name || m.note || "")} <span style="color:var(--dim)">${esc(mStatus(m))}</span></div>
-       <input type="text" data-note="${esc(m.id)}" maxlength="300" value="${esc(notes[m.id] || "")}"
-         placeholder="Mit csináljon vele? pl. ez legyen a nyitókép / csak a 3. mp-től / írd rá: Nyitás szombaton"></div>
-     <button type="button" data-ai="${i}" title="Eltávolítás">×</button></div>`).join("");
+    `<span class="chip"><span>${m.kind === "clip" ? "🎬" : "🖼"} ${esc(m.note || m.name)}</span><span style="color:var(--dim)">${esc(mStatus(m))}</span>
+     <button type="button" data-ai="${i}" title="Eltávolítás">×</button></span>`).join("");
   summary();
 }
-$("#vAttached").oninput = (e) => { const id = e.target.dataset && e.target.dataset.note; if (id) notes[id] = e.target.value; };
 $("#vAttached").onclick = (e) => {
   const b = e.target.closest("[data-ai]"); if (!b) return;
   attached.splice(+b.dataset.ai, 1); drawAttached(); libKey = ""; renderLib();
 };
-// iPhone-os Chrome (CriOS): sok fájl egyszerre a választóból nem jut át. Safariba küldjük.
-if (/CriOS/.test(navigator.userAgent)) $("#vCrios").classList.remove("hide");
-$("#vSafari").onclick = () => {
-  const url = location.origin + "/#new";
-  try { navigator.clipboard && navigator.clipboard.writeText(url); } catch {}
-  clientLog("Chrome iOS: Safariba küldés");
-  location.href = "x-safari-" + url;   // iOS: a Safari nyílik meg ezzel a címmel
-};
-// Megosztott album: a szerver tölti le; a kész elemeket a címkéjük alapján csatoljuk.
-let albumTag = localStorage.getItem("albumTag") || "";
-$("#vAlbumGo").onclick = async () => {
-  const url = $("#vAlbum").value.trim();
-  if (!url) { flash("Illeszd be a megosztott album linkjét."); return; }
-  try {
-    const d = await api("/api/media/import", {url});
-    albumTag = d.tag; try { localStorage.setItem("albumTag", albumTag); } catch {}
-    jobHidden = false; flash("Indul: a szerver letölti az album összes elemét — fent látod, hol tart."); refresh();
-  } catch (e) { flash(e.message); }
-};
-function attachAlbum() {
-  // Csak ha az album-letöltés már lefutott (különben a frissítés még a régi állapotot látja).
-  if (!albumTag || !S || S.job.running || !(S.job.log || []).some((l) => l.startsWith("iCloud-album"))) return;
-  const got = (S.media || []).filter((m) => m.note === albumTag && !attached.some((a) => a.id === m.id));
-  albumTag = ""; try { localStorage.removeItem("albumTag"); } catch {}
-  if (!got.length) return;
-  attached.push(...got.slice(0, Math.max(0, 60 - attached.length))); drawAttached();
-  flash(`${got.length} elem az albumból csatolva.` + (attached.length >= 60 && got.length > 60 ? " (Egy darabba legfeljebb 60 fér — a többi a médiatárban marad.)" : ""));
-}
-$("#vUp").onclick = () => {
-  // A telefon a pipa után még előkészíti (átalakítja) a videókat: addig ne tűnjön lefagyottnak.
-  $("#vAttachInfo").textContent = "Válaszd ki a fájlokat, majd a jobb felső pipa. A telefon a videókat feltöltés előtt előkészíti — ez sok videónál 1–2 perc is lehet.";
-  clientLog("csatolás: választó megnyitva"); pickerOpen = Date.now();
-  $("#vAttach").click();
-};
+$("#vUp").onclick = () => $("#vAttach").click();
 $("#vAttach").onchange = async (e) => {
-  const files = [...(e.target.files || [])]; e.target.value = ""; pickerOpen = 0;
-  clientLog(`csatolás: ${files.length} fájl (${files.map((f) => (f.type || "?") + " " + kb(f.size)).join(", ").slice(0, 600)})`);
-  if (!files.length) { flash("A telefon nem adott át fájlt. Próbáld a Fájlok menüből, vagy kevesebbet egyszerre."); return; }
+  const files = [...(e.target.files || [])]; e.target.value = "";
   for (const [i, f] of files.entries()) {
     const tag = `${i + 1}/${files.length}: ${f.name} (${kb(f.size)}) feltöltése`;
     $("#vAttachInfo").textContent = tag + "…";
-    if (attached.length >= 60) { flash("Legfeljebb 60 anyag csatolható — a többit nem töltöm fel."); break; }
     try { attached.push(await upload(f, "ehhez a darabhoz csatolva", $("#vRedact").checked,
       (p) => { upPct = p; $("#vAttachInfo").textContent = `${tag}: ${p}%`; goState(); })); drawAttached(); }
     catch (err) {
@@ -574,7 +485,7 @@ $("#vLibGrid").onclick = (e) => {
   const it = e.target.closest("[data-pick]"); if (!it) return;
   const id = it.dataset.pick, i = attached.findIndex((a) => a.id === id);
   if (i >= 0) attached.splice(i, 1);
-  else { if (attached.length >= 60) { flash("Legfeljebb 60 anyag csatolható."); return; } attached.push(S.media.find((m) => m.id === id)); }
+  else { if (attached.length >= 8) { flash("Legfeljebb 8 anyag csatolható."); return; } attached.push(S.media.find((m) => m.id === id)); }
   drawAttached(); renderLib();
 };
 let upPct = 0, starting = false, startWhenUploaded = false;
@@ -605,11 +516,10 @@ async function startNow() {
   try {
     await api("/api/videos", {brief: b, seconds: +F.seconds, lang: F.lang, aspect: F.aspect, form: F.form,
       voice: !!F.voice, male: F.voice === "m", research: $("#vResearch").checked, media: attached.map((m) => m.id),
-      media_notes: Object.fromEntries(attached.filter((m) => (notes[m.id] || "").trim()).map((m) => [m.id, notes[m.id].trim()])),
       captions: $("#vCaptions").checked});
     jobHidden = false;
     flash("Elindult. A fenti sávban látod, hol tart.");
-    attached = []; notes = {}; drawAttached(); $("#vAttachInfo").textContent = ""; refresh();
+    attached = []; drawAttached(); $("#vAttachInfo").textContent = ""; refresh();
   } catch (e) { flash("Nem indult el: " + e.message); }
   finally { starting = false; goState(); }
 }
@@ -743,7 +653,6 @@ $("#editOne").addEventListener("click", async (e) => {
       $("#vResearch").checked = !!o.research;
       $("#vCaptions").checked = o.captions === true;
       attached = (o.attach || []).map((id) => S.media.find((m) => m.id === id)).filter(Boolean);
-      notes = {...(o.media_notes || {})};
       paintSeg(); formChanged(); drawAttached(); go("#new");
       flash(t.id === "eReuseEn" ? "Betöltve angolra állítva. Csatold az angol felvételt, ha van, és nyomd meg a gombot." : "Betöltve. Módosíts, amit akarsz, és nyomd meg a gombot.");
     }
@@ -756,9 +665,7 @@ $("#editOne").addEventListener("click", async (e) => {
 
 /* ================= médiatár ================= */
 let mKey = "", picked = [];
-// Bármilyen kép vagy videó (iPhone HEIC, MOV is); a típus nélküli fájlt a szerver
-// a tartalmából ismeri fel. Csak a biztosan nem médiát (dokumentum, program) dobjuk el.
-const NOT_MEDIA = /^(application\/(?!octet-stream)|text\/|font\/|model\/)/;
+const OK_TYPE = /^(image\/(jpeg|png|webp)|video\/(mp4|quicktime|webm))$/;
 const kb = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
 const thumb = (m) => m.kind === "clip"
   ? (m.status === "processing" ? `<div class="th"></div>` : `<video class="th" src="/api/media/${esc(m.id)}#t=1" muted playsinline preload="metadata"></video>`)
@@ -840,14 +747,11 @@ function drawPicked() {
 function addFiles(list) {
   const bad = [];
   for (const f of list) {
-    if (NOT_MEDIA.test(f.type || "")) { bad.push(f.name); continue; }
+    if (!OK_TYPE.test(f.type)) { bad.push(f.name); continue; }
     if (!picked.some((p) => p.name === f.name && p.size === f.size)) picked.push(f);
   }
-  if (bad.length) flash("Ez nem kép vagy videó: " + bad.join(", "));
+  if (bad.length) flash("Ezt nem tudom feldolgozni: " + bad.join(", "));
   drawPicked();
-  clientLog(`médiatár: ${list.length} fájl kiválasztva, ${bad.length} elutasítva`);
-  // Kiválasztás után magától indul, ne kelljen még egy gombot keresni.
-  if (picked.length && !$("#mGo").disabled) $("#mGo").click();
 }
 $("#mFile").onchange = (e) => { addFiles(e.target.files || []); e.target.value = ""; };
 $("#mPicked").onclick = (e) => { const b = e.target.closest("button[data-i]"); if (b) { picked.splice(+b.dataset.i, 1); drawPicked(); } };
@@ -966,8 +870,6 @@ $("#jobStop").onclick = async () => {
 
 /* ================= kirajzolás ================= */
 function render() {
-  drawTrends();
-  attachAlbum();
   const c = S.config, j = S.job, s = S.settings;
   const dot = (on, name) => `<i class="${on ? "on" : "off"}" title="${esc(name)}: ${on ? "működik" : "nincs bekötve"}"></i>`;
   $("#sys").innerHTML = dot(c.ai, "AI rendező" + (c.ai_engine ? " · " + c.ai_engine : "")) + dot(c.web_search, "Webkeresés")
@@ -1001,24 +903,6 @@ function renderRecent() {
   if (key === recentKey) return; recentKey = key;
   $("#recent").innerHTML = list.map(card).join("") || `<div class="empty">Még nincs kész darab. <a href="#new">Készíts egyet →</a></div>`;
 }
-const PLAT = {tiktok: "TikTok", instagram: "Reels", youtube: "Shorts"};
-let trendKey = "";
-function drawTrends() {
-  const d = (S && S.trends) || {}, list = d.trends || [];
-  const key = (d.fetched_at || "") + list.length;
-  if (key === trendKey) return;
-  trendKey = key;
-  $("#vTrendsAge").textContent = d.fetched_at ? `· frissítve: ${d.fetched_at.slice(0, 10)}` : "· még nincs lista — az első gyártáskor elkészül";
-  $("#vTrends").innerHTML = list.length ? list.map((t) => `<div class="trend"><b>${esc(t.name)}</b>
-    <small>${esc((t.platforms || []).map((p) => PLAT[p] || p).join(" · "))}${t.kind ? " · " + esc(t.kind) : ""}</small>
-    <div>${esc(t.what)}</div>
-    <small>Forrás: <a href="${esc(t.source && t.source.url)}" target="_blank" rel="noopener">${esc(t.source && t.source.title)}</a></small></div>`).join("")
-    : `<p class="mute">Még nincs trendlista.</p>`;
-}
-$("#vTrendsGo").onclick = async () => {
-  try { await api("/api/trends/refresh", {}); jobHidden = false; flash("Trendfigyelés elindult — fent látod, hol tart."); refresh(); }
-  catch (e) { flash(e.message); }
-};
 async function refresh() { try { S = await api("/api/state"); render(); } catch (e) { flash(e.message); } }
 
 paintSeg(); formChanged(); summary(); route(); refresh();
