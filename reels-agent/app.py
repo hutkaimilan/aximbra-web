@@ -44,6 +44,15 @@ async def lifespan(_app: FastAPI):
     k = library.backfill_hot()
     if k:
         say(f"legjobb pillanat pótlása a korábbi klipekhez: {k} db (a háttérben)")
+    # Hogy lássam a naplóban, mi van a tárban: ami túl kicsi, az a videóban
+    # elmosódna (a ProRAW-fotók korábban csak bélyegképként jöttek be).
+    small = [f"{m.get('name')} {m.get('width')}x{m.get('height')}"
+             for m in library.listing()
+             if m.get("kind") == "image" and (m.get("width") or 0) < 900]
+    if small:
+        say(f"kis felbontású kép a tárban ({len(small)} db): " + ", ".join(small[:12]))
+    else:
+        say("a tár képei elég nagyok a videóhoz")
     yield
 
 
