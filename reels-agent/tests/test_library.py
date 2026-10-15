@@ -117,6 +117,43 @@ def test_empty_and_oversized_are_refused(monkeypatch):
         library.store(_jpeg(), "image/jpeg", "a.jpg")
 
 
+def _fake_raw(small=(160, 120), big=(4032, 3024)) -> bytes:
+    """ProRAW-szerű fájl: TIFF-fejléc, benne egy bélyegkép és egy teljes méretű
+    JPEG előnézet. Az iPhone .dng-je így néz ki — a Pillow magától a kicsit adná."""
+    from PIL import Image
+    parts = [b"II*\x00\x08\x00\x00\x00" + b"\x00" * 64]      # TIFF-fejléc + kitöltés
+    for size in (small, big):
+        buf = io.BytesIO()
+        Image.frombytes("RGB", size, os.urandom(size[0] * size[1] * 3)).save(buf, "JPEG", quality=60)
+        parts.append(buf.getvalue())
+        parts.append(b"\x00" * 128)
+    return b"".join(parts)
+
+
+def test_proraw_dng_keeps_the_full_size_preview():
+    """A telefonod 22 eleméből 7 DNG volt: ne bélyegkép kerüljön a videóba."""
+    out = library._to_jpeg(_fake_raw(), "image/x-adobe-dng")
+    from PIL import Image
+    assert Image.open(io.BytesIO(out)).size == (4032, 3024)
+
+
+def test_dng_is_stored_at_full_resolution():
+    m = library.store(_fake_raw(), "image/x-adobe-dng", "IMG_4155.dng")
+    assert m["status"] == "ready" and m["kind"] == "image"
+    assert m["width"] == library.MAX_IMAGE_W, "a teljes méretű előnézetből skálázunk le"
+
+
+def test_a_raw_without_a_preview_still_falls_back():
+    """Ha nincs beágyazott JPEG, a szokásos úton próbálja — és ha az se megy, szól."""
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", (300, 200), (9, 9, 9)).save(buf, "TIFF")
+    out = library._to_jpeg(buf.getvalue(), "image/tiff")
+    assert Image.open(io.BytesIO(out)).size == (300, 200)
+    with pytest.raises(library.LibraryError):
+        library._to_jpeg(b"II*\x00 semmi hasznalhato", "image/x-adobe-dng")
+
+
 # ---- videók ----------------------------------------------------------------
 
 def test_clip_upload_returns_at_once_then_converts(tmp_path):

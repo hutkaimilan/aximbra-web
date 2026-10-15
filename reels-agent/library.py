@@ -49,7 +49,7 @@ CLIP_ALIASES = {"video/x-m4v": "video/mp4", "video/3gpp": "video/mp4", "video/3g
                 "video/x-msvideo": "video/mp4", "video/hevc": "video/quicktime"}
 EXT_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp",
              ".gif": "image/gif", ".heic": "image/heic", ".heif": "image/heif", ".avif": "image/avif",
-             ".tif": "image/tiff", ".tiff": "image/tiff", ".bmp": "image/bmp", ".dng": "image/dng",
+             ".tif": "image/tiff", ".tiff": "image/tiff", ".bmp": "image/bmp", ".dng": "image/x-adobe-dng",
              ".mp4": "video/mp4", ".m4v": "video/mp4", ".mov": "video/quicktime", ".qt": "video/quicktime",
              ".webm": "video/webm", ".3gp": "video/mp4", ".mkv": "video/webm", ".avi": "video/mp4"}
 
@@ -252,14 +252,85 @@ def _is_image(data: bytes) -> bool:
         return False
 
 
-def _to_jpeg(data: bytes) -> bytes:
-    """Bármilyen Pillow által ismert kép (HEIC, AVIF, GIF, TIFF, BMP…) → JPEG."""
+# Az iPhone ProRAW-fotója (.dng) és a többi nyers formátum TIFF-alapú: a Pillow
+# meg tudja nyitni, de csak a benne lévő kis bélyegképet adja vissza — a videóba
+# így elmosódott kép kerülne. A nyers fájlban viszont ott a teljes méretű JPEG
+# előnézet is (ezt mutatja a Fotók app), azt szedjük ki.
+RAW_TYPES = {"image/dng", "image/x-adobe-dng", "image/x-canon-cr2", "image/x-nikon-nef",
+             "image/x-sony-arw", "image/x-fuji-raf", "image/x-olympus-orf",
+             "image/x-panasonic-rw2", "image/tiff"}
+SOI = b"\xff\xd8\xff"
+
+
+class _Window(io.RawIOBase):
+    """Fájlszerű ablak egy bájtsorozat adott pontjától. Azért kell, mert a
+    Pillow az Image.open elején a 0. bájtra ugrik — egy io.BytesIO-val tehát
+    mindig a fájl elejét (a TIFF-fejlécet) olvasná, nem a beágyazott JPEG-et.
+    Így viszont nem kell egy 77 MB-os ProRAW-fájlt szeletelve másolgatni."""
+
+    def __init__(self, data: bytes, start: int):
+        self._d, self._s, self._p = data, start, 0
+
+    def readable(self) -> bool:
+        return True
+
+    def seekable(self) -> bool:
+        return True
+
+    def tell(self) -> int:
+        return self._p
+
+    def seek(self, offset: int, whence: int = io.SEEK_SET) -> int:
+        size = len(self._d) - self._s
+        self._p = offset if whence == io.SEEK_SET else \
+            self._p + offset if whence == io.SEEK_CUR else size + offset
+        self._p = max(0, self._p)
+        return self._p
+
+    def readinto(self, b) -> int:
+        a = self._s + self._p
+        n = min(len(b), max(0, len(self._d) - a))
+        b[:n] = self._d[a:a + n]
+        self._p += n
+        return n
+
+
+def _largest_embedded_jpeg(data: bytes):
+    """A nyers fájlba ágyazott JPEG-ek közül a legnagyobb (képpontban)."""
+    Image = _pillow()
+    best, best_px, at = None, 0, 0
+    for _ in range(24):                    # néhány előnézet van benne, nem száz
+        at = data.find(SOI, at)
+        if at < 0:
+            break
+        try:
+            img = Image.open(io.BufferedReader(_Window(data, at)))
+            px = img.width * img.height
+            if px > best_px:
+                best, best_px = img, px
+        except Exception:  # noqa: BLE001 — nem minden találat valódi JPEG
+            pass
+        at += 3
+    return best
+
+
+def _to_jpeg(data: bytes, ct: str = "") -> bytes:
+    """Bármilyen kép (HEIC, AVIF, GIF, TIFF, BMP, DNG/ProRAW…) → JPEG."""
+    Image = _pillow()
+    img = None
+    if ct in RAW_TYPES:
+        try:
+            img = _largest_embedded_jpeg(data)
+        except Exception as e:  # noqa: BLE001 — essünk vissza a szokásos útra
+            logger.warning("nyers kép előnézete nem jött ki: %s", e)
+    if img is None:
+        try:
+            img = Image.open(io.BytesIO(data))
+        except Exception as e:  # noqa: BLE001
+            raise LibraryError(f"ezt a képet nem tudtam beolvasni ({type(e).__name__})") from e
     try:
-        Image = _pillow()
-        img = Image.open(io.BytesIO(data))
-        img = getattr(img, "convert")("RGB")
         out = io.BytesIO()
-        img.save(out, "JPEG", quality=92, optimize=True)
+        img.convert("RGB").save(out, "JPEG", quality=92, optimize=True)
         return out.getvalue()
     except Exception as e:  # noqa: BLE001
         raise LibraryError(f"ezt a képet nem tudtam beolvasni ({type(e).__name__})") from e
@@ -337,7 +408,7 @@ def _add_image(data: bytes, ct: str, name: str, note: str, source: str) -> dict:
     os.makedirs(MEDIA_DIR, exist_ok=True)
     meta = _base_meta(mid, "image", name, note, source, len(data))
     if ct not in IMAGE_TYPES:
-        data = _to_jpeg(data)
+        data = _to_jpeg(data, ct)
     out = os.path.join(MEDIA_DIR, f"{mid}.jpg")
     with tempfile.TemporaryDirectory() as d:
         src = os.path.join(d, "in")
@@ -356,8 +427,10 @@ def _add_image(data: bytes, ct: str, name: str, note: str, source: str) -> dict:
             except Exception as e:  # noqa: BLE001
                 raise LibraryError("ezt a képet nem sikerült beolvasni") from e
     info = probe(out)
+    logger.info("kép kész: %s — %sx%s (%s, %s)", mid, info.get("width"), info.get("height"),
+                ct, name)
     return _save(mid, {**meta, "file": f"{mid}.jpg", "poster": f"{mid}.jpg", "status": "ready",
-                       "width": info.get("width"), "height": info.get("height")})
+                       "src_type": ct, "width": info.get("width"), "height": info.get("height")})
 
 
 def _add_clip(data: bytes, ct: str, name: str, note: str, source: str) -> dict:
@@ -443,15 +516,77 @@ def _convert_clip(mid: str) -> None:
         os.remove(src)
     except OSError:
         pass
+    hot = None
+    try:
+        hot = hot_moment(out, pinfo.get("seconds") or 0)
+    except Exception as e:  # noqa: BLE001 — enélkül is használható a klip
+        logger.warning("legjobb pillanat kimaradt (%s): %s", mid, e)
     m = {**m, "width": pinfo.get("width"), "height": pinfo.get("height"),
-         "seconds": pinfo.get("seconds"), "fps": pinfo.get("fps"),
+         "seconds": pinfo.get("seconds"), "fps": pinfo.get("fps"), "hot": hot,
          "poster": poster if os.path.exists(os.path.join(MEDIA_DIR, poster)) else None,
          "status": "ready", "error": ""}
     m.pop("raw", None)
     _save(mid, m)
-    logger.info("klip kész: %s — %sx%s, %s mp, %.0f mp alatt", mid, m["width"], m["height"],
-                m["seconds"], time.time() - t0)
+    logger.info("klip kész: %s — %sx%s, %s mp, legjobb pillanat %s mp-nél, %.0f mp alatt",
+                mid, m["width"], m["height"], m["seconds"], m["hot"], time.time() - t0)
     _prune()
+
+
+# Egy felvétel eleje többnyire üres (a telefon még áll a kezedben), a vége
+# pedig gyakran a lefelé fordítás. A „legjobb pillanat" az a néhány másodperc,
+# ahol a legtöbb a mozgás és a részlet. Az ffmpeg signalstats szűrője
+# képkockánként megadja az előző képkockától vett eltérést (YDIF) és a
+# részletességet (YSTD); ezekből keressük a legerősebb ablakot.
+HOT_WINDOW = 1.2            # ekkora ablakot keresünk (mp)
+HOT_FPS = 4                 # ennyi mintát veszünk másodpercenként
+
+
+def hot_moment(path: str, seconds: float, window: float = HOT_WINDOW) -> float | None:
+    """A legmozgalmasabb rész kezdete másodpercben, vagy None, ha nem megy."""
+    if not seconds or seconds <= window * 1.5:
+        return 0.0
+    try:
+        r = subprocess.run(
+            [_ffmpeg(), "-hide_banner", "-loglevel", "error", "-i", path, "-an",
+             "-vf", f"scale=160:-2,fps={HOT_FPS},signalstats,metadata=print:file=-",
+             "-f", "null", "-"], capture_output=True, timeout=240)
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.warning("legjobb pillanat: nem futott (%s)", e)
+        return None
+    text = r.stdout.decode(errors="replace")
+    times: list[float] = []
+    scores: list[float] = []
+    cur_t = None
+    ydif = ystd = 0.0
+    for line in text.splitlines():
+        if line.startswith("frame:"):
+            if cur_t is not None:
+                times.append(cur_t)
+                scores.append(ydif * 2.0 + ystd)      # a mozgás számít a legtöbbet
+            m = re.search(r"pts_time:([0-9.]+)", line)
+            cur_t = float(m.group(1)) if m else None
+            ydif = ystd = 0.0
+        elif line.startswith("lavfi.signalstats.YDIF="):
+            ydif = float(line.split("=", 1)[1] or 0)
+        elif line.startswith("lavfi.signalstats.YSTD="):
+            ystd = float(line.split("=", 1)[1] or 0)
+    if cur_t is not None:
+        times.append(cur_t)
+        scores.append(ydif * 2.0 + ystd)
+    if len(scores) < 4:
+        return None
+    span = max(1, int(round(window * HOT_FPS)))
+    # Az első és az utolsó fél másodpercet nem választjuk kezdetnek.
+    best_i, best = 0, -1.0
+    for i in range(len(scores) - span + 1):
+        if times[i] < 0.4 or times[i] > max(0.0, seconds - window):
+            continue
+        total = sum(scores[i:i + span])
+        if total > best:
+            best_i, best = i, total
+    if best < 0:
+        return 0.0
+    return round(min(times[best_i], max(0.0, seconds - window)), 2)
 
 
 def retry(mid: str) -> bool:
@@ -464,6 +599,34 @@ def retry(mid: str) -> bool:
     _save(mid, {**m, "status": "processing", "error": ""})
     _start_clip(mid)
     return True
+
+
+def backfill_hot() -> int:
+    """A korábban feltöltött klipekhez utólag megkeresi a legjobb pillanatot.
+    (A tárban lévő felvételeid még a nélkül készültek — újratöltés nélkül
+    pótoljuk, a háttérben, egyszerre legfeljebb CLIP_WORKERS darabot.)"""
+    todo = [m for m in listing()
+            if m.get("kind") == "clip" and m.get("status") == "ready" and "hot" not in m]
+    if not todo:
+        return 0
+
+    def work():
+        for m in todo:
+            path = path_of(m["id"])
+            cur = get(m["id"])
+            if not path or not cur:
+                continue
+            with _sem:
+                try:
+                    hot = hot_moment(path, cur.get("seconds") or 0)
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("legjobb pillanat (%s): %s", m["id"], e)
+                    hot = None
+            _save(m["id"], {**(get(m["id"]) or cur), "hot": hot})
+            logger.info("legjobb pillanat pótolva: %s (%s) — %s mp", m["id"], cur.get("name"), hot)
+
+    threading.Thread(target=work, daemon=True).start()
+    return len(todo)
 
 
 def resume_pending() -> int:

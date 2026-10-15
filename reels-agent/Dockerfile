@@ -4,9 +4,10 @@
 FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
-# ffmpeg: a HEVC/MOV felvételek átalakítása és a borítóképek.
+# ffmpeg: a HEVC/MOV felvételek átalakítása, a borítóképek és a montázs.
+# dejavu: a feliratok betűtípusa (ékezetekkel együtt).
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg \
+ && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

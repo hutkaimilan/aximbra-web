@@ -112,6 +112,26 @@ A videógyártás ezután épül rá. Minden lépés a naplóba kerül — ha el
   <button id="pickOne" class="sec">Egyenként — ez mindig működik</button>
 </div>
 
+<!-- ───────── videó ───────── -->
+<div class="card hi">
+  <h2>Videó készítése</h2>
+  <p class="mute" id="vSrc">—</p>
+  <div class="row" style="margin:6px 0 2px"><span class="tiny" style="width:100%">Hossz</span></div>
+  <div class="row" id="vLen"></div>
+  <div class="row" style="margin:10px 0 2px"><span class="tiny" style="width:100%">Képarány</span></div>
+  <div class="row" id="vAsp"></div>
+  <div style="height:10px"></div>
+  <input type="text" id="vTitle" maxlength="120" placeholder="Nyitó felirat (nem kötelező)">
+  <div style="height:10px"></div>
+  <button id="vGo">🎬 Videó készítése</button>
+  <p class="tiny" id="vInfo">A „hagyd ki" jelölésű elemek kimaradnak. Zene nincs rajta (licenc) — a TikTokon te teszel alá hangot.</p>
+</div>
+
+<div class="card" id="vDone" style="display:none">
+  <h2>Kész videók</h2>
+  <div class="grid" id="vList"></div>
+</div>
+
 <!-- ───────── napló ───────── -->
 <div class="card">
   <div class="row" style="justify-content:space-between">
@@ -219,7 +239,13 @@ async function refresh() {
   refreshing = true;
   try {
     S = await api("/api/state");
-    drawLog(); drawGrid();
+    drawLog(); drawGrid(); drawVideos();
+    const ready = (S.media || []).filter((m) => m.status === "ready").length;
+    const busy = (S.media || []).filter((m) => m.status === "processing").length;
+    $("#vSrc").textContent = `${ready} kész elem a tárból, feltöltési sorrendben, fotók és klipek keverve.`
+      + (busy ? ` (${busy} még átalakítás alatt — várd meg, hogy bekerüljön.)` : "");
+    $("#vGo").disabled = !!S.job.running;
+    if (S.job.running && S.job.what === "video") $("#vInfo").textContent = "Gyártás fut — a naplóban látod, hol tart.";
     $("#stats").textContent = `${S.stats.count} elem · ${mb(S.stats.bytes)}`
       + (S.stats.pending ? ` · ${S.stats.pending} átalakítás alatt` : "")
       + (S.stats.failed ? ` · ${S.stats.failed} hibás` : "");
@@ -274,7 +300,8 @@ $("#grid").addEventListener("click", async (e) => {
   const m = (S.media || []).find((x) => x.id === it.dataset.id);
   if (!m) return;
   const note = prompt(`Utasítás ehhez az elemhez (${m.name}):\n`
-    + 'pl. "ez legyen a nyitókép", "csak a 3. mp-től", "írd rá: AXIMBRA"', m.note || "");
+    + 'ez legyen a nyitókép · legyen az utolsó · hagyd ki · csak a 3. mp-től · '
+    + 'írd rá: valami · maradjon tovább', m.note || "");
   if (note === null) return;
   try { await api(`/api/media/${m.id}/note`, {note}); refresh(); }
   catch (err) { flash("Mentés: " + err.message); }
@@ -418,6 +445,53 @@ for (const [id, which] of [["#fPick", "fotótár"], ["#fOne", "egyenként"]]) {
     await handleFiles(copy, which);
   };
 }
+
+
+/* ── videó ────────────────────────────────────────────────────────────── */
+const LENS = [15, 25, 40, 60], ASPECTS = [["9:16", "álló"], ["1:1", "négyzet"], ["4:5", "magas"], ["16:9", "fekvő"]];
+let vLen = 25, vAsp = "9:16";
+function drawOpts() {
+  $("#vLen").innerHTML = LENS.map((n) =>
+    `<button type="button" class="sm ${n === vLen ? "" : "sec"}" data-len="${n}" style="flex:1">${n} mp</button>`).join("");
+  $("#vAsp").innerHTML = ASPECTS.map(([a, n]) =>
+    `<button type="button" class="sm ${a === vAsp ? "" : "sec"}" data-asp="${a}" style="flex:1">${a}<br><span class="tiny">${n}</span></button>`).join("");
+}
+drawOpts();
+document.addEventListener("click", (e) => {
+  const l = e.target.closest("[data-len]"), a = e.target.closest("[data-asp]");
+  if (l) { vLen = +l.dataset.len; drawOpts(); }
+  if (a) { vAsp = a.dataset.asp; drawOpts(); }
+});
+$("#vGo").onclick = async () => {
+  const ready = (S && S.media || []).filter((m) => m.status === "ready").length;
+  if (!ready) { flash("Nincs kész elem — várd meg a videók átalakítását."); return; }
+  $("#vGo").disabled = true;
+  $("#vInfo").textContent = "Indul…";
+  clientLog(`videó kérve: ${ready} elem, ${vLen} mp, ${vAsp}`);
+  try {
+    const d = await api("/api/videos", {media: [], seconds: vLen, aspect: vAsp, title: $("#vTitle").value.trim(), lang: "hu"});
+    $("#vInfo").textContent = `Gyártás fut: ${d.scenes} jelenet, kb. ${Math.round(d.seconds)} mp. A naplóban látod, hol tart.`;
+  } catch (e) { $("#vInfo").textContent = "Nem indult: " + e.message; flash(e.message, 8000); }
+  $("#vGo").disabled = false;
+  refresh();
+};
+function drawVideos() {
+  const vs = S.videos || [];
+  $("#vDone").style.display = vs.length ? "" : "none";
+  $("#vList").innerHTML = vs.map((v) => `<div class="it">
+    <button class="x" data-vdel="${esc(v.id)}" title="Törlés">×</button>
+    <img src="/api/videos/${esc(v.id)}.jpg" loading="lazy" alt="">
+    <div class="m"><span class="badge ok">${v.seconds ?? "?"} mp</span>
+      <div class="nm">${esc(v.aspect)} · ${esc(v.used)} elem</div>
+      <a class="btn sm" style="display:block;text-align:center;margin-top:5px;text-decoration:none"
+         href="/api/videos/${esc(v.id)}.mp4?download=1">Letöltés</a></div></div>`).join("");
+}
+$("#vList").addEventListener("click", async (e) => {
+  const d = e.target.closest("[data-vdel]");
+  if (!d) return;
+  try { await api(`/api/videos/${d.dataset.vdel}/delete`, {}); refresh(); }
+  catch (err) { flash(err.message); }
+});
 
 $("#logCopy").onclick = async () => {
   const txt = (S && S.log || []).map((l) => `${l.at} [${l.who}] ${l.msg}`).join("\n");

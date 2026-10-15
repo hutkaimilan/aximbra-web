@@ -24,8 +24,10 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
+import director
 import icloud_album
 import library
+import render
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("reels")
@@ -33,11 +35,15 @@ logger = logging.getLogger("reels")
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     os.makedirs(library.MEDIA_DIR, exist_ok=True)
+    os.makedirs(render.VIDEO_DIR, exist_ok=True)
     say(f"indulás — tár: {library.MEDIA_DIR}, {library.stats()['count']} elem, "
         f"max {library.MAX_BYTES // 1048576} MB/fájl, {library.CLIP_WORKERS} párhuzamos átalakítás")
     n = library.resume_pending()
     if n:
         say(f"félbemaradt átalakítás folytatása: {n} db")
+    k = library.backfill_hot()
+    if k:
+        say(f"legjobb pillanat pótlása a korábbi klipekhez: {k} db (a háttérben)")
     yield
 
 
@@ -202,9 +208,65 @@ async def upload_done(upload_id: str = Form(...), total: int = Form(...), name: 
 
 # ---- a tár -----------------------------------------------------------------
 
+class VideoIn(BaseModel):
+    media: list[str] = Field(default_factory=list, max_length=400)
+    seconds: float = Field(default=25, ge=5, le=180)
+    aspect: str = Field(default="9:16", pattern="^(9:16|4:5|1:1|16:9)$")
+    title: str = Field(default="", max_length=120)
+    lang: str = Field(default="hu", pattern="^(hu|en)$")
+
+
+@app.post("/api/videos", dependencies=[Depends(auth)])
+def video_make(body: VideoIn):
+    """Videó a tár elemeiből. Üres lista = minden kész elem."""
+    ready = [m for m in library.listing() if library.ready(m)]
+    if body.media:
+        want = set(body.media)
+        ready = [m for m in ready if m["id"] in want]
+    if not ready:
+        raise HTTPException(409, "Nincs kész elem, amiből dolgozhatnék. "
+                                 "Várd meg a videók átalakítását, vagy tölts fel valamit.")
+    try:
+        p = director.plan(ready, body.seconds, body.aspect, body.title.strip(), body.lang)
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+    if not job.start("video", lambda: render.make(p, say)):
+        raise HTTPException(409, "Már készül egy videó, várd meg.")
+    say(f"videó indítva: {len(p['scenes'])} jelenet, {p['aspect']}, "
+        f"{body.seconds:.0f} mp kérve")
+    return {"ok": True, "scenes": len(p["scenes"]), "seconds": p["seconds"]}
+
+
+@app.get("/api/videos/{vid}.mp4", dependencies=[Depends(auth)])
+def video_file(vid: str, download: int = 0):
+    path = render.video_path(vid)
+    if not path:
+        raise HTTPException(404, "Nincs ilyen videó.")
+    return FileResponse(path, media_type="video/mp4",
+                        filename=f"aximbra-{vid}.mp4" if download else None)
+
+
+@app.get("/api/videos/{vid}.jpg", dependencies=[Depends(auth)])
+def video_poster(vid: str):
+    m = render.get(vid)
+    p = os.path.join(render.VIDEO_DIR, f"{vid}.jpg") if m else None
+    if not p or not os.path.exists(p):
+        raise HTTPException(404, "Nincs előnézet.")
+    return FileResponse(p, media_type="image/jpeg")
+
+
+@app.post("/api/videos/{vid}/delete", dependencies=[Depends(auth)])
+def video_delete(vid: str):
+    if not render.delete(vid):
+        raise HTTPException(404, "Nincs ilyen videó.")
+    say(f"videó törölve: {vid}")
+    return {"ok": True}
+
+
 @app.get("/api/state", dependencies=[Depends(auth)])
 def state(log: int = 120):
     return {"media": library.listing(), "stats": library.stats(), "job": job.state(),
+            "videos": render.listing(),
             "log": log_lines(max(0, min(400, log))),
             "limits": {"max_mb": library.MAX_BYTES // 1048576, "chunk_mb": 4,
                        "clip_workers": library.CLIP_WORKERS, "keep": library.KEEP},
