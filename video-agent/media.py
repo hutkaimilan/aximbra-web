@@ -238,7 +238,17 @@ def _start_processing(mid: str) -> None:
         if mid in _busy:
             return
         _busy.add(mid)
-    threading.Thread(target=_process_clip, args=(mid,), daemon=True).start()
+    threading.Thread(target=_process_clip_queued, args=(mid,), daemon=True).start()
+
+
+# Egyszerre legfeljebb ennyi videót alakítunk: egy 20-30 elemes feltöltésnél
+# a párhuzamos ffmpeg-ek különben kifutnának a memóriából.
+_proc_sem = threading.BoundedSemaphore(int(os.environ.get("CLIP_WORKERS", "2")))
+
+
+def _process_clip_queued(mid: str) -> None:
+    with _proc_sem:
+        _process_clip(mid)
 
 
 def _process_clip(mid: str) -> None:

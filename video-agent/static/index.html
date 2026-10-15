@@ -257,6 +257,13 @@ pre.txt{white-space:pre-wrap;font:14px/1.55 var(--sans);margin:0;background:rgba
       <div class="acts" style="margin-top:8px"><button type="button" class="pri" id="vSafari">Megnyitás Safariban</button></div>
       <small class="mute">Ha a gomb nem nyitja meg: a link kimásolva — nyisd meg a Safarit és illeszd be. Tipp: Safariban Megosztás → „Főképernyőhöz adás”, és onnantól ikonról indul.</small>
     </div>
+    <div style="margin:12px 0;padding:12px;border:1px solid var(--line2);border-radius:12px">
+      <b>Sok fotó és videó egyszerre (iPhone): megosztott albumból</b>
+      <p class="mute" style="margin:6px 0">Fotók app → jelöld ki mindet → Megosztás → <b>Hozzáadás megosztott albumhoz</b> → új album.
+        Utána az albumban: Személyek ikon → <b>Nyilvános webhely</b> be → <b>Link megosztása</b> → Másolás. Illeszd be ide — a szerver tölti le mindet, a telefonnak nem kell semmit előkészítenie.</p>
+      <div style="display:flex;gap:8px"><input type="url" id="vAlbum" placeholder="https://www.icloud.com/sharedalbum/#…" style="flex:1">
+        <button type="button" class="pri" id="vAlbumGo">Mindet behúzom</button></div>
+    </div>
     <input type="file" id="vAttach" multiple hidden>
     <label class="ck"><input type="checkbox" id="vRedact"> Képernyőfelvételnél: nevek, e-mail-címek, telefonszámok elmosása <small class="mute">(saját fotónál, kamerás videónál hagyd üresen — csak lassít)</small></label>
     <div class="mute" id="vAttachInfo" style="margin-top:6px"></div>
@@ -503,6 +510,26 @@ $("#vSafari").onclick = () => {
   clientLog("Chrome iOS: Safariba küldés");
   location.href = "x-safari-" + url;   // iOS: a Safari nyílik meg ezzel a címmel
 };
+// Megosztott album: a szerver tölti le; a kész elemeket a címkéjük alapján csatoljuk.
+let albumTag = localStorage.getItem("albumTag") || "";
+$("#vAlbumGo").onclick = async () => {
+  const url = $("#vAlbum").value.trim();
+  if (!url) { flash("Illeszd be a megosztott album linkjét."); return; }
+  try {
+    const d = await api("/api/media/import", {url});
+    albumTag = d.tag; try { localStorage.setItem("albumTag", albumTag); } catch {}
+    jobHidden = false; flash("Indul: a szerver letölti az album összes elemét — fent látod, hol tart."); refresh();
+  } catch (e) { flash(e.message); }
+};
+function attachAlbum() {
+  // Csak ha az album-letöltés már lefutott (különben a frissítés még a régi állapotot látja).
+  if (!albumTag || !S || S.job.running || !(S.job.log || []).some((l) => l.startsWith("iCloud-album"))) return;
+  const got = (S.media || []).filter((m) => m.note === albumTag && !attached.some((a) => a.id === m.id));
+  albumTag = ""; try { localStorage.removeItem("albumTag"); } catch {}
+  if (!got.length) return;
+  attached.push(...got.slice(0, 30 - attached.length)); drawAttached();
+  flash(`${got.length} elem az albumból csatolva.` + (got.length > 30 ? " (Egy darabba legfeljebb 30 fér.)" : ""));
+}
 $("#vUp").onclick = () => {
   // A telefon a pipa után még előkészíti (átalakítja) a videókat: addig ne tűnjön lefagyottnak.
   $("#vAttachInfo").textContent = "Válaszd ki a fájlokat, majd a jobb felső pipa. A telefon a videókat feltöltés előtt előkészíti — ez sok videónál 1–2 perc is lehet.";
@@ -940,6 +967,7 @@ $("#jobStop").onclick = async () => {
 /* ================= kirajzolás ================= */
 function render() {
   drawTrends();
+  attachAlbum();
   const c = S.config, j = S.job, s = S.settings;
   const dot = (on, name) => `<i class="${on ? "on" : "off"}" title="${esc(name)}: ${on ? "működik" : "nincs bekötve"}"></i>`;
   $("#sys").innerHTML = dot(c.ai, "AI rendező" + (c.ai_engine ? " · " + c.ai_engine : "")) + dot(c.web_search, "Webkeresés")

@@ -28,6 +28,7 @@ import media
 import publisher
 import settings as settings_store
 import stop
+import album_import
 import trends
 import videomaker
 import websearch
@@ -167,6 +168,23 @@ def public_slide(vid: str, ticket: str, n: int):
     if not path or not path.endswith(".jpg") or not _public_ok(vid, ticket):
         raise HTTPException(404, "Nincs ilyen kép.")
     return FileResponse(path, media_type="image/jpeg")
+
+
+class AlbumIn(BaseModel):
+    url: str = Field(min_length=10, max_length=500)
+
+
+@app.post("/api/media/import", dependencies=[Depends(auth)])
+def media_import(body: AlbumIn):
+    """Megosztott iCloud-album: a szerver tölti le az összes képet és videót.
+    A felület az import azonosítójával (a jegyzetben) csatolja őket utána."""
+    try:
+        album_import.token_of(body.url)
+    except album_import.ImportError_ as e:
+        raise HTTPException(400, str(e))
+    tag = "iCloud-album " + secrets.token_hex(3)
+    _start(lambda say: album_import.run(body.url, tag, say))
+    return {"ok": True, "tag": tag}
 
 
 class ClientLog(BaseModel):
