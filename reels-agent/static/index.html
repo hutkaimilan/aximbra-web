@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AXIMBRA Reels — feltöltés</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234f8cff'/%3E%3Cpath d='M12 10l11 6-11 6z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#0b0d10; --card:#14171c; --card2:#1b1f26; --line:#272c35;
+  --fg:#eef1f5; --dim:#9aa4b2; --mute:#6f7986;
+  --acc:#4f8cff; --ok:#3ddc8b; --bad:#ff6b6b; --warn:#ffc53d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);
+  font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-text-size-adjust:100%}
+body{padding:env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 24px)}
+.wrap{max-width:760px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:4px 0 2px}
+h2{font-size:16px;margin:0 0 8px}
+p{margin:6px 0}
+.mute{color:var(--dim);font-size:14px}
+.tiny{color:var(--mute);font-size:12.5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+.card.hi{border-color:#2f4e8f;background:linear-gradient(180deg,#16203a,#14171c)}
+button,.btn{font:inherit;font-weight:600;color:#fff;background:var(--acc);border:0;border-radius:11px;
+  padding:13px 16px;cursor:pointer;width:100%;-webkit-appearance:none}
+button.sec{background:var(--card2);color:var(--fg);border:1px solid var(--line)}
+button.sm{padding:8px 11px;font-size:13.5px;font-weight:500;width:auto}
+button:disabled{opacity:.5}
+input[type=url],input[type=text],textarea{font:inherit;width:100%;background:#0e1115;color:var(--fg);
+  border:1px solid var(--line);border-radius:11px;padding:12px;-webkit-appearance:none}
+textarea{min-height:60px;resize:vertical}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row>*{min-width:0}
+.step{display:inline-block;background:var(--acc);color:#fff;border-radius:999px;width:22px;height:22px;
+  text-align:center;line-height:22px;font-size:13px;font-weight:700;margin-right:7px}
+.badge{display:inline-block;font-size:11.5px;padding:2px 7px;border-radius:999px;background:var(--card2);
+  border:1px solid var(--line);color:var(--dim)}
+.badge.ok{color:var(--ok);border-color:#1f5e40}
+.badge.bad{color:var(--bad);border-color:#6b2a2a}
+.badge.wait{color:var(--warn);border-color:#6b5520}
+#bar{height:6px;background:var(--card2);border-radius:999px;overflow:hidden;margin:8px 0 4px}
+#bar>i{display:block;height:100%;background:var(--acc);width:0;transition:width .2s}
+#log{background:#07090c;border:1px solid var(--line);border-radius:11px;padding:10px;
+  font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;max-height:300px;overflow:auto;
+  white-space:pre-wrap;word-break:break-word}
+#log .t{color:var(--mute)}
+#log .ph{color:var(--warn)}
+#log .er{color:var(--bad)}
+#log .okl{color:var(--ok)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.it{background:var(--card2);border:1px solid var(--line);border-radius:11px;overflow:hidden;position:relative}
+.it img,.it .ph2{width:100%;height:76px;object-fit:cover;display:block;background:#0a0c0f}
+.it .ph2{display:flex;align-items:center;justify-content:center;color:var(--mute);font-size:11px}
+.it .m{padding:5px 6px}
+.it .nm{font-size:11px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.it .x{position:absolute;top:4px;right:4px;width:24px;height:24px;padding:0;border-radius:8px;
+  background:rgba(0,0,0,.6);font-size:15px;line-height:22px;border:1px solid var(--line)}
+.it.sel{outline:2px solid var(--acc)}
+.flash{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 12px);
+  background:#1d2430;border:1px solid var(--line);border-radius:12px;padding:12px;z-index:9;
+  box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.hidden{display:none!important}
+details summary{cursor:pointer;color:var(--dim);font-size:14px}
+ol{padding-left:22px;margin:8px 0}
+li{margin:4px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>AXIMBRA Reels — 1. szakasz</h1>
+<p class="mute">Most csak egy dolgot kell tudnia: <b>bármennyi fotó és videó feljusson a telefonról</b>.
+A videógyártás ezután épül rá. Minden lépés a naplóba kerül — ha elakad, látni fogjuk, hol.</p>
+
+<!-- ───────── feltöltés ───────── -->
+<div class="card hi">
+  <h2>Fotó / videó feltöltése</h2>
+  <p class="mute">Nyomd meg, válaszd a <b>Fotótár</b>-at, jelöld ki a fotókat és videókat,
+  majd jobb fent <b>Hozzáadás</b>. Ami átjön, azt azonnal feltöltöm — a tárban gyűlik,
+  nyugodtan nyomhatod többször.</p>
+  <button id="pick">📷 Fotó feltöltése</button>
+  <div id="bar"><i></i></div>
+  <p class="tiny" id="upInfo">Készen áll.</p>
+  <div class="row" id="more" style="display:none">
+    <button id="pickMore" class="sec" style="flex:1">+ Még több hozzáadása</button>
+  </div>
+  <!-- Szándékosan NINCS accept: a pontos típuslista iPhone-on kiszürkíti a
+       HEIC-fotókat és sok videót, és a böngészőt átalakításra kényszeríti —
+       pont ettől dobja el a kijelölést. A típust a szerver dönti el. -->
+  <input type="file" id="fPick" multiple class="hidden">
+  <input type="file" id="fOne" class="hidden">
+</div>
+
+<!-- ───────── ha nulla fájl jön ───────── -->
+<div class="card" id="rescue" style="display:none">
+  <h2 style="color:var(--warn)">A telefon nem adott át egyetlen fájlt sem</h2>
+  <p class="mute">Ilyenkor a telefon az egyik elem előkészítésén elakadt, és <b>az egész
+  kijelölést eldobta</b> (ez a WebKit működése, nem az oldal hibája). Két beállítás
+  ezt a legtöbbször megszünteti:</p>
+  <ol class="mute">
+    <li><b>Beállítások → Fotók → Eredetik letöltése és megtartása</b>
+      (ne „iPhone-tárhely optimalizálása”) — így az eredetik a telefonon vannak,
+      nem az iCloudból kell leszedni őket a feltöltés közben.</li>
+    <li><b>Beállítások → Fotók → Átvitel Macre vagy PC-re → Eredetik megtartása</b>
+      — így a telefon nem alakítja át a HEIC-et és a HEVC-videót feltöltés előtt.</li>
+  </ol>
+  <p class="mute">Utána próbáld újra. Ha sürgős, addig jelölj ki <b>kevesebbet</b>
+  (5–8 elemet) és nyomd meg többször — a tárban összeadódik.</p>
+  <button id="pickOne" class="sec">Egyenként — ez mindig működik</button>
+</div>
+
+<!-- ───────── napló ───────── -->
+<div class="card">
+  <div class="row" style="justify-content:space-between">
+    <h2 style="margin:0">Napló — mit adott át a telefon</h2>
+    <button class="sm sec" id="logCopy">Másolás</button>
+  </div>
+  <p class="tiny" id="diag"></p>
+  <div id="log">betöltés…</div>
+</div>
+
+<!-- ───────── tár ───────── -->
+<div class="card">
+  <div class="row" style="justify-content:space-between">
+    <h2 style="margin:0">Médiatár</h2>
+    <span class="tiny" id="stats"></span>
+  </div>
+  <p class="tiny">A tár magától nem töröl friss elemet. Koppints egy elemre, ha utasítást írnál hozzá
+  (a következő szakasz rendezője ezt követi).</p>
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="card">
+  <details>
+    <summary>Ha egyik út sem megy — mit küldj át</summary>
+    <p class="mute">Nyomd meg fent a <b>Másolás</b>-t, és illeszd be a naplót a beszélgetésbe.
+    Abból látszik, hány fájlt adott át a telefon, milyen típussal, és hol hasalt el.</p>
+  </details>
+  <details style="margin-top:8px">
+    <summary>Vészkijárat: megosztott iCloud-album linkje</summary>
+    <p class="mute">Csak akkor, ha a fenti végképp nem megy. A szerver tölti le az album
+    elemeit egyenként, a telefonnak nem kell semmit előkészítenie.</p>
+    <input type="url" id="albumUrl" placeholder="https://www.icloud.com/sharedalbum/#B0…"
+           autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="url">
+    <div style="height:8px"></div>
+    <button id="albumGo" class="sec">Album behúzása</button>
+    <p class="tiny" id="albumInfo"></p>
+  </details>
+</div>
+
+</div>
+<div class="flash hidden" id="flash"></div>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const mb = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " kB");
+let S = null, refreshing = false, uploading = 0, selected = null;
+
+/* ── a telefon üzenetei a szerver naplójába ────────────────────────────────
+   fetch, nem sendBeacon: a beacon nem viszi a HTTP Basic jelszót (401-et kap). */
+function clientLog(msg) {
+  const tag = /CriOS/.test(navigator.userAgent) ? "[Chrome iOS] "
+            : /FxiOS/.test(navigator.userAgent) ? "[Firefox iOS] " : "";
+  try {
+    fetch("/api/clientlog", {method: "POST", headers: {"Content-Type": "application/json"},
+      keepalive: true, credentials: "same-origin",
+      body: JSON.stringify({msg: tag + String(msg).slice(0, 1800)})}).catch(() => {});
+  } catch (e) {}
+}
+window.addEventListener("error", (e) =>
+  clientLog("JS HIBA: " + (e.message || e) + " @" + (e.filename || "") + ":" + (e.lineno || "")));
+window.addEventListener("unhandledrejection", (e) =>
+  clientLog("ÍGÉRET HIBA: " + ((e.reason && (e.reason.message || e.reason.name)) || e.reason)));
+
+/* Ha a választó bezárul, de nem jön fájl, azt is lássuk: ez a WebKit-hiba jele. */
+let pickerAt = 0, pickerWhich = "";
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible" || !pickerAt) return;
+  const t = pickerAt;
+  setTimeout(() => {
+    if (pickerAt === t) {
+      const s = Math.round((Date.now() - t) / 1000);
+      clientLog(`VÁLASZTÓ (${pickerWhich}) bezárult, ${s} mp után NULLA fájl érkezett — `
+        + "a telefon eldobta a kijelölést (WebKit: egy elem előkészítése elakadt).");
+      pickerAt = 0;
+      info(`A telefon nem adott át egyetlen fájlt sem (${s} mp). Ez a WebKit all-or-nothing hibája: `
+        + "használd az 1. utat (iCloud-album), vagy töltsd fel egyenként.");
+    }
+  }, 5000);
+});
+
+function info(t) { $("#upInfo").textContent = t; }
+function flash(t, ms = 5200) {
+  const f = $("#flash"); f.textContent = t; f.classList.remove("hidden");
+  clearTimeout(flash.t); flash.t = setTimeout(() => f.classList.add("hidden"), ms);
+}
+function pct(p) { $("#bar>i").style.width = Math.max(0, Math.min(100, p)) + "%"; }
+
+/* ── állapot ──────────────────────────────────────────────────────────── */
+async function api(path, body) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 45000);
+  try {
+    const r = await fetch(path, body === undefined ? {signal: ctl.signal, credentials: "same-origin"}
+      : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body),
+         signal: ctl.signal, credentials: "same-origin"});
+    let d = null; try { d = await r.json(); } catch (e) {}
+    if (!r.ok) { const err = new Error((d && d.detail) || ("Hiba " + r.status)); err.status = r.status; throw err; }
+    return d;
+  } finally { clearTimeout(t); }
+}
+
+async function refresh() {
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    S = await api("/api/state");
+    drawLog(); drawGrid();
+    $("#stats").textContent = `${S.stats.count} elem · ${mb(S.stats.bytes)}`
+      + (S.stats.pending ? ` · ${S.stats.pending} átalakítás alatt` : "")
+      + (S.stats.failed ? ` · ${S.stats.failed} hibás` : "");
+    const ai = $("#albumInfo");
+    if (ai && S.job.running) ai.textContent = "Album behúzása fut — a naplóban látod, hol tart.";
+    else if (ai && S.job.error) ai.textContent = "Album: " + S.job.error;
+    else if (ai && S.job.result) ai.textContent =
+      `Album „${S.job.result.album}”: ${S.job.result.ids.length}/${S.job.result.total} elem bejött`
+      + (S.job.result.failed.length ? `, ${S.job.result.failed.length} kimaradt.` : ".");
+  } catch (e) {
+    if (e.status === 401) { $("#log").textContent = "Lejárt a bejelentkezés — töltsd újra az oldalt."; return; }
+    $("#diag").textContent = "Az állapot nem jött le: " + e.message;
+  } finally { refreshing = false; }
+}
+
+function drawLog() {
+  const el = $("#log");
+  const near = el.scrollTop + el.clientHeight > el.scrollHeight - 40;
+  el.innerHTML = (S.log || []).map((l) => {
+    const cls = l.who === "telefon" ? "ph" : /HIBA|ELHASAL|KIMARADT|hiba/i.test(l.msg) ? "er"
+      : /kész|felvéve|behúzva/i.test(l.msg) ? "okl" : "";
+    return `<div><span class="t">${esc(l.at.slice(11, 19))}</span> `
+      + `<span class="${cls}">${l.who === "telefon" ? "📱 " : ""}${esc(l.msg)}</span></div>`;
+  }).join("") || "<div class='t'>még üres</div>";
+  if (near) el.scrollTop = el.scrollHeight;
+}
+
+function drawGrid() {
+  $("#grid").innerHTML = (S.media || []).map((m) => {
+    const st = m.status === "ready" ? `<span class="badge ok">${m.kind === "clip" ? (m.seconds ?? "?") + " mp" : "kép"}</span>`
+      : m.status === "processing" ? `<span class="badge wait">átalakítás…</span>`
+      : `<span class="badge bad">hiba</span>`;
+    const thumb = m.poster
+      ? `<img src="/api/media/${esc(m.id)}/poster.jpg" loading="lazy" alt="">`
+      : `<div class="ph2">${m.status === "processing" ? "feldolgozás" : "nincs kép"}</div>`;
+    return `<div class="it ${selected === m.id ? "sel" : ""}" data-id="${esc(m.id)}">
+      <button class="x" data-del="${esc(m.id)}" title="Törlés">×</button>
+      ${thumb}<div class="m">${st}<div class="nm">${esc(m.note || m.name)}</div></div></div>`;
+  }).join("") || `<div class="mute">Még nincs feltöltve semmi.</div>`;
+}
+
+$("#grid").addEventListener("click", async (e) => {
+  const del = e.target.closest("[data-del]");
+  if (del) {
+    e.stopPropagation();
+    try { await api(`/api/media/${del.dataset.del}/delete`, {}); refresh(); }
+    catch (err) { flash("Törlés: " + err.message); }
+    return;
+  }
+  const it = e.target.closest(".it");
+  if (!it) return;
+  const m = (S.media || []).find((x) => x.id === it.dataset.id);
+  if (!m) return;
+  const note = prompt(`Utasítás ehhez az elemhez (${m.name}):\n`
+    + 'pl. "ez legyen a nyitókép", "csak a 3. mp-től", "írd rá: AXIMBRA"', m.note || "");
+  if (note === null) return;
+  try { await api(`/api/media/${m.id}/note`, {note}); refresh(); }
+  catch (err) { flash("Mentés: " + err.message); }
+});
+
+/* ── album ────────────────────────────────────────────────────────────── */
+if ($("#albumGo")) $("#albumGo").onclick = async () => {
+  const url = $("#albumUrl").value.trim();
+  if (!url) { flash("Illeszd be a megosztott album linkjét."); return; }
+  clientLog("album indítása: " + url.slice(0, 120));
+  try {
+    await api("/api/album", {url});
+    $("#albumInfo").textContent = "Indult — a szerver tölti le az elemeket, a naplóban látod.";
+    refresh();
+  } catch (e) { $("#albumInfo").textContent = "Nem indult: " + e.message; flash(e.message, 9000); }
+};
+
+/* ── feltöltés ────────────────────────────────────────────────────────── */
+const CHUNK = 4 * 1024 * 1024;
+
+function xhrPost(path, fd, onLoaded = () => {}) {
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open("POST", path, true);
+    x.withCredentials = true;
+    x.timeout = 280000;                     // a Railway 5 perc alatt elvágja
+    x.upload.onprogress = (e) => onLoaded(e.loaded);
+    x.onload = () => {
+      let d = null; try { d = JSON.parse(x.responseText); } catch (e) {}
+      if (x.status >= 200 && x.status < 300) resolve(d);
+      else { const err = new Error((d && d.detail) || ("Hiba " + x.status)); err.status = x.status; reject(err); }
+    };
+    x.onerror = () => reject(new Error("megszakadt a kapcsolat"));
+    x.ontimeout = () => reject(new Error("túl lassú a kapcsolat"));
+    x.send(fd);
+  });
+}
+
+/* Nagy fájl 4 MB-os darabokban; egy elakadt darabot csak azt küldjük újra
+   (legfeljebb 6-szor, egyre hosszabb szünettel). Így egy kérés sem fut bele
+   a Railway 5 perces korlátjába, és gyenge neten is felér. */
+async function uploadOne(f, onPct = () => {}) {
+  const ci = `nav:${navigator.connection ? navigator.connection.effectiveType : "?"}`;
+  if (f.size <= CHUNK) {
+    const fd = new FormData();
+    fd.append("file", f, f.name || "file"); fd.append("note", ""); fd.append("client_info", ci);
+    return await xhrPost("/api/upload", fd, (n) => onPct(Math.floor(n / Math.max(1, f.size) * 100)));
+  }
+  const id = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const total = Math.ceil(f.size / CHUNK);
+  for (let i = 0; i < total; i++) {
+    const part = f.slice(i * CHUNK, Math.min(f.size, (i + 1) * CHUNK));
+    for (let attempt = 0; ; attempt++) {
+      const fd = new FormData();
+      fd.append("file", part, "part"); fd.append("upload_id", id);
+      fd.append("index", String(i)); fd.append("total", String(total));
+      try {
+        await xhrPost("/api/upload/chunk", fd,
+          (n) => onPct(Math.min(99, Math.floor((i * CHUNK + n) / f.size * 100))));
+        break;
+      } catch (e) {
+        if (e.status && e.status < 500 && e.status !== 408 && e.status !== 429) throw e;
+        if (attempt >= 5) throw new Error(`a(z) ${i + 1}/${total}. darab nem ért fel (${e.message})`);
+        clientLog(`darab újrapróbálás ${i + 1}/${total} (${attempt + 1}.): ${e.message}`);
+        await new Promise((r) => setTimeout(r, [2, 4, 8, 15, 30][attempt] * 1000));
+      }
+    }
+  }
+  onPct(99);
+  const fd = new FormData();
+  fd.append("upload_id", id); fd.append("total", String(total));
+  fd.append("name", f.name || "file"); fd.append("content_type", f.type || ""); fd.append("note", "");
+  const d = await xhrPost("/api/upload/done", fd);
+  onPct(100);
+  return d;
+}
+
+/* A választó által átadott fájlokat egyenként töltjük fel: ami sikerült, az
+   bent marad, a hibás elem a többit nem viszi magával. */
+async function handleFiles(files, which) {
+  pickerAt = 0;
+  const list = [...files];
+  if (!list.length) {
+    clientLog(`VÁLASZTÓ (${which}): NULLA fájl — a telefon eldobta a kijelölést.`);
+    info("A telefon nem adott át fájlt — lentebb látod, mit kell átállítani rajta.");
+    $("#rescue").style.display = "";
+    $("#rescue").scrollIntoView({behavior: "smooth", block: "start"});
+    return;
+  }
+  $("#rescue").style.display = "none";
+  /* Előbb naplózzuk, mit kaptunk — akkor is, ha a feltöltés később elhasal. */
+  clientLog(`VÁLASZTÓ (${which}): ${list.length} fájl átadva, összesen `
+    + mb(list.reduce((a, f) => a + f.size, 0)));
+  for (let i = 0; i < list.length; i += 8) {
+    clientLog("átadva " + list.slice(i, i + 8).map((f, j) =>
+      `${i + j + 1}. ${f.name || "?"} [${f.type || "típus nélkül"}] ${mb(f.size)}`).join(" | "));
+  }
+  uploading++;
+  let ok = 0, bad = 0;
+  for (const [i, f] of list.entries()) {
+    const head = `${i + 1}/${list.length} · ${f.name || "fájl"} (${mb(f.size)})`;
+    info(head + " feltöltése…");
+    try {
+      await uploadOne(f, (p) => { pct(p); info(`${head} — ${p}%`); });
+      ok++;
+      clientLog(`FELTÖLTVE ${i + 1}/${list.length}: ${f.name || "?"}`);
+    } catch (e) {
+      bad++;
+      clientLog(`FELTÖLTÉS HIBA ${i + 1}/${list.length}: ${f.name || "?"} — ${e.message}`);
+      info(`${head} — nem sikerült: ${e.message}`);
+    }
+    pct(0);
+    refresh();
+  }
+  uploading--;
+  if (ok) $("#more").style.display = "";
+  info(`Kész: ${ok} feltöltve${bad ? `, ${bad} nem sikerült` : ""}. `
+    + "A videók átalakítása a háttérben fut.");
+  flash(`${ok} elem feljutott${bad ? `, ${bad} nem` : ""}.`);
+  refresh();
+}
+
+function openPicker(which, el) {
+  pickerAt = Date.now(); pickerWhich = which;
+  clientLog(`választó megnyitva (${which}) — ua: ${navigator.userAgent.slice(0, 160)}`);
+  info(which === "egyenként"
+    ? "Válassz EGY elemet. A telefon előkészíti, majd feltöltjük — aztán jöhet a következő."
+    : "Fotótár → jelöld ki az elemeket → jobb fent Hozzáadás. "
+      + "A telefon a videókat előkészíti — sok videónál ez 1–2 perc is lehet, ne zárd be.");
+  el.click();
+}
+
+$("#pick").onclick = () => openPicker("fotótár", $("#fPick"));
+$("#pickMore").onclick = () => openPicker("fotótár", $("#fPick"));
+$("#pickOne").onclick = () => openPicker("egyenként", $("#fOne"));
+
+for (const [id, which] of [["#fPick", "fotótár"], ["#fOne", "egyenként"]]) {
+  $(id).onchange = async (e) => {
+    const copy = [...(e.target.files || [])];
+    e.target.value = "";
+    await handleFiles(copy, which);
+  };
+}
+
+$("#logCopy").onclick = async () => {
+  const txt = (S && S.log || []).map((l) => `${l.at} [${l.who}] ${l.msg}`).join("\n");
+  try { await navigator.clipboard.writeText(txt); flash("Napló a vágólapon."); }
+  catch (e) { flash("A vágólap nem engedte — jelöld ki és másold kézzel."); }
+};
+
+/* ── indulás ──────────────────────────────────────────────────────────── */
+$("#diag").textContent = `Böngésző: ${/CriOS/.test(navigator.userAgent) ? "Chrome iOS"
+  : /FxiOS/.test(navigator.userAgent) ? "Firefox iOS"
+  : /Safari/.test(navigator.userAgent) && /Mobile/.test(navigator.userAgent) ? "Safari iOS" : "más"}`
+  + ` · ${screen.width}×${screen.height} · ${navigator.connection ? navigator.connection.effectiveType : "net?"}`;
+clientLog(`panel megnyitva — ${navigator.userAgent.slice(0, 200)}`);
+refresh();
+setInterval(() => { if (document.visibilityState === "visible" && !uploading) refresh(); }, 4000);
+setInterval(() => { if (document.visibilityState === "visible" && uploading) refresh(); }, 10000);
+</script>
+</body>
+</html>
