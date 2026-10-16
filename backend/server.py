@@ -13,7 +13,8 @@ from pathlib import Path
 from datetime import datetime, timezone, date
 from pydantic import BaseModel, ValidationError, field_validator
 from typing import Literal
-from openai import AsyncOpenAI, BadRequestError, RateLimitError
+from openai import (AsyncOpenAI, BadRequestError, RateLimitError, InternalServerError,
+                    APIConnectionError, APITimeoutError)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -263,7 +264,20 @@ def _parse_json(raw: str) -> dict:
     start, end = raw.find("{"), raw.rfind("}")
     if start != -1 and end != -1:
         raw = raw[start:end + 1]
-    return json.loads(raw)
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as first:
+        # A Gemini hosszú válaszban néha nyers sortörést hagy egy szövegmezőben,
+        # vagy vesszőt az utolsó elem után. Ezt a kettőt javítjuk, mást nem.
+        try:
+            return json.loads(_re_json_trailing.sub(r"\1", raw), strict=False)
+        except json.JSONDecodeError:
+            # Csak a hiba helye a naplóba, a tartalom nem.
+            logger.warning("llm json invalid: %s at %d of %d", first.msg, first.pos, len(raw))
+            raise first
+
+
+_re_json_trailing = __import__("re").compile(r",\s*([}\]])")
 
 
 def _quota_exhausted(e: Exception) -> bool:
@@ -425,10 +439,12 @@ DOC_RISK_MAX = 15
 # A kockázati kör erősebb modellen fut: a mini a csapdák egy részét kihagyta
 # (kötbér, elvesző beruházás) és összekevert pontokat. Üres = az alapmodell.
 DOC_RISK_MODEL = os.environ.get("DOC_RISK_MODEL", "gpt-4o").strip()
-# Geminin ugyanez: az első elérhető erősebb modell, a végén az alapmodell
-# tartaléknak (ha az ingyenes keret elfogyott vagy a modell nem elérhető).
+# Geminin a kockázati kör alapból az alapmodellen fut: a pontonkénti körrel az
+# is minden csapdát megtalált (10/10, 12/12), a 3.8/3.6 flash viszont 2026
+# októberében az ingyenes szinten gyakran 503-mal vagy 90 mp-es csenddel válaszolt.
+# DOC_GEMINI_MODELS-szel erősebb modell tehető elé; hibánál a következő jön.
 DOC_GEMINI_MODELS = [m.strip() for m in os.environ.get(
-    "DOC_GEMINI_MODELS", "gemini-3.8-flash,gemini-3.6-flash").split(",") if m.strip().startswith("gemini")]
+    "DOC_GEMINI_MODELS", "").split(",") if m.strip().startswith("gemini")]
 DOC_MAIN_TOKENS = 8000
 DOC_RISK_TOKENS = 6000
 DOC_CLAUSE_TOKENS = 16000  # pontonként egy bejegyzés, és a gondolkodás is ebből megy
@@ -444,8 +460,13 @@ class DocRequest(BaseModel):
     lang: str = "hu"
 
 
-def doc_sys(lang: str) -> str:
+def doc_sys(lang: str, labelled: bool = False) -> str:
     in_lang = AGENT_LANG_NAMES.get(lang, AGENT_LANG_NAMES["hu"])
+    labels = (
+        "\nThe document is given as clauses; each starts with its label in square brackets, e.g. [3.1]. In EVERY "
+        "object above (each field, each key_obligation, each risk) also add \"clauses\": the list of labels (at most "
+        "3) the value comes from. Never put the bracketed labels into \"source\"."
+    ) if labelled else ""
     return (
         "You analyse ONE business document (usually a contract) for a small-business owner who will sign or pay it. "
         "Reply with a VALID JSON object ONLY, with keys:\n"
@@ -474,6 +495,7 @@ def doc_sys(lang: str) -> str:
         "If the document does not contain the information, use value \"\" and source \"\". NEVER guess or infer facts."
         + (" Address the reader informally (tegezés: \"kérdezd meg\", \"tárgyald újra\"), never with \"Ön\"."
            if lang == "hu" else "")
+        + labels
     )
 
 
@@ -544,7 +566,8 @@ def doc_clause_sys(lang: str) -> str:
         "\"low\" = a minor disadvantage; \"none\" = standard, balanced, mutual, required by law, purely descriptive, "
         "or favourable to the reader.\n"
         f"Clauses of these kinds are high or medium: {DOC_TRAPS}\n"
-        "Reply with a VALID JSON object ONLY: {\"clauses\": [{\"id\": label, \"risk\": \"high\"|\"medium\"|\"low\"|"
+        "Reply with a VALID JSON object ONLY: {\"document_type\": \"contract\"|\"invoice\"|\"quote\"|\"other\", "
+        "\"clauses\": [{\"id\": label, \"risk\": \"high\"|\"medium\"|\"low\"|"
         "\"none\", \"title\": string, \"why\": string, \"party\": string, \"duty\": string, \"key\": boolean}], "
         "\"recommendations\": [string]}.\n"
         "title = the clause in a few words, why = one concrete sentence on what this clause can cost the reader or "
@@ -676,7 +699,7 @@ def _source_pieces(source: str) -> list[str]:
     return out
 
 
-def _grounded(item, text_n: str) -> dict:
+def _grounded(item, text_n: str, bodies: dict | None = None) -> dict:
     """Egy mező, csak ha a forrása tényleg a dokumentumból származik."""
     if not isinstance(item, dict):
         return {"value": "", "source": ""}
@@ -700,16 +723,49 @@ def _grounded(item, text_n: str) -> dict:
     substantial = sum(len(p) for p in pieces if len(p) >= 16)
     if not value or not pieces or not all(found(p) for p in pieces) \
             or (len(_norm(source)) > 30 and substantial * 2 < sum(map(len, pieces))):
-        return {"value": "", "source": ""}
+        cited = _cited_excerpt(item, value, bodies) if value and bodies else ""
+        return {"value": value, "source": cited} if cited else {"value": "", "source": ""}
     return {"value": value, "source": source}
 
 
-def _clean_list(items, text_n: str, limit: int = DOC_LIST_MAX) -> list:
+def _words(s: str) -> set:
+    return set(_re.findall(r"\w{3,}", _norm(s)))
+
+
+def _best_excerpt(body: str, value: str, limit: int = 260) -> str:
+    """A pontból az a mondat, amelyik a legtöbb szót osztja az értékkel."""
+    if len(body) <= limit:
+        return body
+    want = _words(value)
+    best = max(_re.split(r"(?<=[.;!?])\s+", body), key=lambda s: len(want & _words(s)))
+    return best if len(best) <= limit else best[:limit].rsplit(" ", 1)[0] + " …"
+
+
+def _cited_excerpt(item: dict, value: str, bodies: dict) -> str:
+    """Ha a modell nem szó szerint idézett, de megjelölte, melyik pontból vette
+    az adatot: a forrás a pont saját szövege. Csak akkor, ha az érték legalább két
+    szava (vagy száma) tényleg ott áll — kitalált érték így sem csúszik át."""
+    labels = item.get("clauses")
+    labels = [labels] if isinstance(labels, str) else labels if isinstance(labels, list) else []
+    parts, seen = [], set()
+    for raw in labels[:3]:
+        label = str(raw).strip().strip("[]").rstrip(".")
+        if label in bodies and label not in seen:
+            seen.add(label)
+            parts.append(_best_excerpt(bodies[label], value))
+    if not parts or len(_words(value) & _words(" ".join(bodies[l] for l in seen))) < 2:
+        return ""
+    return " … ".join(parts[:2])
+
+
+def _clean_list(items, text_n: str, limit: int = DOC_LIST_MAX, bodies: dict | None = None) -> list:
     """Kötelezettség- vagy kockázatlista: csak a forrással igazolt elemek, a
     kiegészítő mezőkkel (ki a kötelezett, miért kockázat, mennyire súlyos)."""
     out = []
     for x in (items if isinstance(items, list) else [])[:limit]:
-        g = _grounded(x, text_n)
+        if not isinstance(x, dict):
+            continue
+        g = _grounded(x, text_n, bodies)
         if not g["value"]:
             continue
         if x.get("party"):
@@ -762,14 +818,20 @@ async def demo_document(request: Request, body: DocRequest):
     async def ask(system: str, user_text: str, tokens: int, models: list, timeout: float):
         """Az első modell, amelyik érvényes JSON-objektumot ad. Az utolsó előtti
         modellek hibájánál (nem elérhető, elfogyott a keret, rossz JSON) nem
-        várunk, hanem a következővel próbálkozunk; az utolsót kétszer is."""
+        várunk, hanem a következővel próbálkozunk; az utolsót háromszor is, a
+        túlterheltségi (503) hibák után rövid szünettel."""
         last = None
         for i, model in enumerate(models):
             final = i == len(models) - 1
             strong = bool(model) and _llm_provider() == "gemini"
-            for _ in range(2 if final else 1):
+            for attempt in range(3 if final else 1):
+                if attempt and isinstance(last, (InternalServerError, APIConnectionError, APITimeoutError)):
+                    await asyncio.sleep(2 * attempt)
                 try:
-                    raw = await _call_llm(system, user_text, tokens, model=model, timeout=timeout,
+                    # Tartalék előtti modellre legfeljebb 60 mp-et várunk, hogy egy
+                    # néma modell ne húzza percekre az elemzést.
+                    raw = await _call_llm(system, user_text, tokens, model=model,
+                                          timeout=timeout if final else min(timeout, 60.0),
                                           wait_on_limit=final, temperature=None if strong else 0)
                     data = _parse_json(raw)
                     if isinstance(data, dict):
@@ -794,10 +856,15 @@ async def demo_document(request: Request, body: DocRequest):
     else:
         risk_models = [DOC_RISK_MODEL, None] if DOC_RISK_MODEL else [None]
     clauses = _split_clauses(text)
+    labelled = len(clauses) >= 3
+    # A mezős kör is címkézett pontokat kap: ha nem szó szerint idéz, a megjelölt
+    # pont saját szövege lesz a forrás (lásd _cited_excerpt).
+    bodies = dict(clauses) if labelled else None
+    main_text = _clause_prompt(clauses) if labelled else text
 
     async def risk_pass():
         # Pontokra bontható dokumentumnál pontonként; különben a szabad lista.
-        if len(clauses) >= 3:
+        if labelled:
             data, used = await ask(doc_clause_sys(lang), _clause_prompt(clauses), DOC_CLAUSE_TOKENS,
                                    risk_models, 90.0)
             return "clauses", data, used
@@ -808,20 +875,26 @@ async def demo_document(request: Request, body: DocRequest):
     # kockázati kör a teljes figyelmét a feltételekre fordíthatja. A keret
     # bőséges: magyarul a teljes válasz 3000 token fölé is mehet, és a Gemini a
     # gondolkodását is ebből vonja le; levágott JSON-ból nincs eredmény.
-    main, risk = await asyncio.gather(ask(doc_sys(lang), text, DOC_MAIN_TOKENS, [None], 75.0), risk_pass(),
-                                      return_exceptions=True)
+    main, risk = await asyncio.gather(ask(doc_sys(lang, labelled), main_text, DOC_MAIN_TOKENS, [None], 75.0),
+                                      risk_pass(), return_exceptions=True)
     if isinstance(main, HTTPException):
         raise main
     if isinstance(main, Exception):
-        logger.warning("doc demo failed: %s", type(main).__name__)
-        raise HTTPException(status_code=502, detail="model_error")
-    data, _ = main
+        # A mezős kör elbukott: ha a pontonkénti kör sikerült, a kockázatokat és a
+        # kötelezettségeket akkor is megkapja az olvasó, hibaüzenet helyett.
+        if isinstance(risk, Exception) or risk[0] != "clauses":
+            logger.warning("doc demo failed: %s", type(main).__name__)
+            raise HTTPException(status_code=502, detail="model_error")
+        logger.warning("doc field pass failed, showing the clause pass only: %s", type(main).__name__)
+        data = {"document_type": risk[1].get("document_type")}
+    else:
+        data, _ = main
     dtype = str(data.get("document_type") or "other").strip().lower()
     out = {"document_type": dtype if dtype in DOC_TYPES else "other",
            "summary": str(data.get("summary") or "").strip()[:900]}
     for k in DOC_FIELDS:
-        out[k] = _grounded(data.get(k), text_n)
-    out["key_obligations"] = _clean_list(data.get("key_obligations"), text_n)
+        out[k] = _grounded(data.get(k), text_n, bodies)
+    out["key_obligations"] = _clean_list(data.get("key_obligations"), text_n, bodies=bodies)
     risks, recs = [], []
     if isinstance(risk, Exception):
         logger.warning("doc risk pass failed: %s", type(risk).__name__)
@@ -840,7 +913,7 @@ async def demo_document(request: Request, body: DocRequest):
         logger.info("doc free risk pass: model=%s risks=%d", risk[2], len(risks))
     rank = {"high": 0, "medium": 1, "low": 2}
     if not risks:
-        risks = _clean_list(data.get("risks_or_unusual_terms"), text_n)
+        risks = _clean_list(data.get("risks_or_unusual_terms"), text_n, bodies=bodies)
         risks.sort(key=lambda r: rank.get(r.get("severity"), 3))
     out["risks_or_unusual_terms"] = risks
     if not recs:

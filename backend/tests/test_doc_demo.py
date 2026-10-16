@@ -201,3 +201,51 @@ def test_clause_pass_runs_on_the_strong_model_and_falls_back(monkeypatch):
     assert (None, False, True, 0) in calls                       # a mezős kör az alapmodellen
     assert ("gemini-strong", True, False, None) in calls          # nem vár, alap temperature
     assert d["key_obligations"][0]["value"] == "elkészíti a weboldalt"
+
+
+def test_a_paraphrased_quote_falls_back_to_the_cited_clause_but_not_for_made_up_values(monkeypatch):
+    async def fake(system, text, max_tokens=600, model=None, **kw):
+        if "Judge EVERY clause" in system:
+            return json.dumps({"clauses": []})
+        assert "In EVERY object above" in system and text.startswith("[0] ")
+        return json.dumps({
+            "document_type": "contract",
+            # nem szó szerinti idézet, de a jó pontot jelöli meg
+            "amount": {"value": "havi 100 000 Ft", "source": "A díj havonta 100 000 forint.", "clauses": ["[2.1]"]},
+            # kitalált érték egy valódi ponthoz kötve: a pontban nincs ott
+            "termination": {"value": "90 napos felmondás", "source": "felmondási idő 90 nap", "clauses": ["3.1"]},
+            "parties": {"value": "Példa Kft. és Minta Bt.", "source": "Példa Kft. … Minta Bt.", "clauses": ["0"]},
+            "key_obligations": [{"party": "Megrendelő", "value": "havonta fizet 100 000 Ft-ot",
+                                 "source": "fizetni kell", "clauses": ["2.1"]}],
+        })
+
+    monkeypatch.setattr(server, "_call_llm", fake)
+    txt = base64.b64encode(CONTRACT.encode()).decode()
+    d = client.post("/api/demo/document", json={"filename": "c.txt", "mime": "text/plain", "data_b64": txt},
+                    headers={"X-Session-Id": "t8"}).json()
+    assert d["amount"] == {"value": "havi 100 000 Ft",
+                           "source": "2.1. A díj havi 100 000 Ft, amelyet a Megrendelő minden hónap 5. napjáig fizet meg."}
+    assert d["termination"] == {"value": "", "source": ""}
+    assert d["parties"]["source"] == "Példa Kft. … Minta Bt."  # a szó szerinti idézet marad, ha jó
+    assert d["key_obligations"][0]["source"].startswith("2.1. A díj havi")
+
+
+def test_json_with_raw_newlines_and_trailing_commas_is_repaired():
+    raw = '```json\n{"summary": "első sor\nmásodik sor", "items": [1, 2,],}\n```'
+    assert server._parse_json(raw) == {"summary": "első sor\nmásodik sor", "items": [1, 2]}
+
+
+def test_a_failed_field_pass_still_returns_the_clause_findings(monkeypatch):
+    async def fake(system, text, max_tokens=600, model=None, **kw):
+        if "Judge EVERY clause" in system:
+            return json.dumps({"document_type": "contract", **_clause_answer()})
+        return "{not json at all"
+
+    monkeypatch.setattr(server, "_call_llm", fake)
+    txt = base64.b64encode(CONTRACT.encode()).decode()
+    r = client.post("/api/demo/document", json={"filename": "c.txt", "mime": "text/plain", "data_b64": txt},
+                    headers={"X-Session-Id": "t9"})
+    d = r.json()
+    assert r.status_code == 200 and d["document_type"] == "contract"
+    assert [x["value"] for x in d["risks_or_unusual_terms"]] == ["Vissza nem járó előleg", "Havi díj"]
+    assert d["amount"] == {"value": "", "source": ""} and d["summary"] == ""
