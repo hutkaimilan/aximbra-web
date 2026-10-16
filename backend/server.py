@@ -397,6 +397,7 @@ async def demo_lead(request: Request, body: DemoRequest):
 # állítjuk: a demó semmit nem állíthat, ami nincs a papíron.
 import base64
 import re as _re
+import unicodedata as _ud
 from doc_samples import SAMPLES as DOC_SAMPLES
 import attachments as _att
 
@@ -484,8 +485,16 @@ def doc_risk_sys(lang: str) -> str:
     )
 
 
+# A PDF-ek gyakran ligatúrával írják a „fi”-t („ﬁzet”), a modell viszont sima
+# betűkkel idéz, és a tipográfiai jeleket (–, „ ”) is egyszerűsítheti. Ezeket
+# mindkét oldalon egy alakra hozzuk, különben a jó idézet is „nincs a papíron”.
+_PUNCT = str.maketrans({"–": "-", "—": "-", "‑": "-", "„": '"', "”": '"', "“": '"',
+                        "‚": "'", "‘": "'", "’": "'", "«": '"', "»": '"'})
+
+
 def _norm(s: str) -> str:
-    return _re.sub(r"\s+", " ", (s or "")).strip().lower()
+    s = _ud.normalize("NFKC", s or "").translate(_PUNCT)
+    return _re.sub(r"\s+", " ", s).strip().lower()
 
 
 def _grounded(item, text_n: str) -> dict:

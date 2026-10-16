@@ -58,6 +58,24 @@ def test_uploaded_text_file_is_analysed(monkeypatch):
     assert d["document_type"] == "contract" and d["amount"]["value"] == "100 EUR"
 
 
+def test_pdf_ligatures_and_typography_do_not_hide_a_real_quote(monkeypatch):
+    # A PDF „ﬁ” ligatúrát és nagykötőjelet ír, a modell sima betűkkel idéz.
+    monkeypatch.setattr(server, "_call_llm", _fake({
+        "document_type": "contract",
+        "payment_terms": {"value": "havonta előre", "source": "minden hónap 5. napjáig, előre, átutalással fizet meg"},
+        "termination": {"value": "30 nap", "source": "felmondhatja - indokolás nélkül"},
+        "amount": {"value": "kitalált", "source": "fizet 999 Ft-ot"},
+    }))
+    txt = ("Bérleti szerződés. A Bérlő minden hónap 5.\nnapjáig, előre, átutalással ﬁzet meg. "
+           "A Bérbeadó felmondhatja – indokolás nélkül.")
+    d = client.post("/api/demo/document", json={"filename": "c.txt", "mime": "text/plain",
+                                                "data_b64": base64.b64encode(txt.encode()).decode()},
+                    headers={"X-Session-Id": "t5"}).json()
+    assert d["payment_terms"]["value"] == "havonta előre"
+    assert d["termination"]["value"] == "30 nap"
+    assert d["amount"] == {"value": "", "source": ""}  # ami nincs a papíron, továbbra is kiesik
+
+
 def test_detailed_contract_analysis(monkeypatch):
     monkeypatch.setattr(server, "_call_llm", _fake({
         "document_type": "contract",
