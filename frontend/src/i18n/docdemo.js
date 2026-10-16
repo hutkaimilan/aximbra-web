@@ -2,7 +2,7 @@
 const docdemo = {
   hu: {
     intro: "Töltsd fel a saját szerződésed, számlád vagy árajánlatod: megkapod az összefoglalót, a fő adatokat, a kockázatokat súlyosság szerint, és hogy mit tárgyalj újra aláírás előtt. Minden adat mellett ott a forrásmondat.",
-    privacy: "A fájlt nem tároljuk: a memóriában dolgozzuk fel, a szövegét az elemzéshez az OpenAI-nak küldjük (az Emergent átjáróján keresztül), és a válasz után eldobjuk. Nagyon bizalmas iratnál előtte takard ki a neveket és a számokat.",
+    privacy: "A fájlt nem tároljuk: a memóriában dolgozzuk fel, a szövegét az elemzéshez a Google Gemini API-jának küldjük (az EU-ban a Google nem tanít vele modellt), és a válasz után eldobjuk. Nagyon bizalmas iratnál előtte takard ki a neveket és a számokat.",
     samples: { contract_hu: "Szolgáltatási szerződés", invoice_en: "Angol beszállítói számla", quote_hu: "Árajánlat" },
     upload: "Töltsd fel a saját szerződésed",
     uploadHint: "Koppints ide, vagy húzd ide a fájlt · PDF, DOCX, TXT · max. 5 MB",
@@ -36,7 +36,7 @@ const docdemo = {
   },
   en: {
     intro: "Upload your own contract, invoice or quote: you get a summary, the key terms, the risks ranked by severity, and what to renegotiate before signing. Every item shows the sentence it comes from.",
-    privacy: "Nothing is stored: the file is processed in memory, its text is sent to OpenAI for the analysis (through Emergent's gateway), and discarded after the response. For highly confidential papers, black out names and numbers first.",
+    privacy: "Nothing is stored: the file is processed in memory, its text is sent to Google's Gemini API for the analysis (in the EU, Google does not use it to improve its models), and discarded after the response. For highly confidential papers, black out names and numbers first.",
     samples: { contract_hu: "Service contract (HU)", invoice_en: "Supplier invoice", quote_hu: "Price quote (HU)" },
     upload: "Upload your own contract",
     uploadHint: "Tap here or drop the file · PDF, DOCX, TXT · max 5 MB",
@@ -70,7 +70,7 @@ const docdemo = {
   },
   de: {
     intro: "Laden Sie Ihren eigenen Vertrag, Ihre Rechnung oder Ihr Angebot hoch: Sie erhalten eine Zusammenfassung, die wichtigsten Bedingungen, die Risiken nach Schwere geordnet und was Sie vor der Unterschrift nachverhandeln sollten. Zu jedem Punkt steht der Quellsatz.",
-    privacy: "Nichts wird gespeichert: Die Datei wird im Arbeitsspeicher verarbeitet, ihr Text für die Analyse an OpenAI gesendet (über das Gateway von Emergent) und nach der Antwort verworfen. Bei sehr vertraulichen Unterlagen schwärzen Sie vorher Namen und Zahlen.",
+    privacy: "Nichts wird gespeichert: Die Datei wird im Arbeitsspeicher verarbeitet, ihr Text für die Analyse an die Gemini-API von Google gesendet (in der EU nutzt Google ihn nicht zur Verbesserung seiner Modelle) und nach der Antwort verworfen. Bei sehr vertraulichen Unterlagen schwärzen Sie vorher Namen und Zahlen.",
     samples: { contract_hu: "Dienstleistungsvertrag (HU)", invoice_en: "Lieferantenrechnung (EN)", quote_hu: "Angebot (HU)" },
     upload: "Eigenen Vertrag hochladen",
     uploadHint: "Hier tippen oder Datei hierher ziehen · PDF, DOCX, TXT · max. 5 MB",

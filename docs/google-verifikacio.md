@@ -22,8 +22,11 @@ A lépések sorrendje számít. Mindegyik után elég nekem annyit írnod, hogy 
 - **A Google-adatok korlátozott felhasználásáról szóló nyilatkozat** a
   tájékoztató 6. pontjában, és most már a bekötés gombja alatt is, mind a 8
   nyelven, linkkel a tájékoztatóra.
-- **Egyértelmű mondat arról, hogy az OpenAI az API-n kapott adattal nem tanít
-  modellt** — a Google ellenőrei ezt kérdezik a legtöbbször.
+- **Egyértelmű mondat arról, hogy a nyelvi modell (2026. október 16. óta a Google
+  Gemini API-ja, előtte az OpenAI) a kapott adattal nem tanít modellt** — a Google
+  ellenőrei ezt kérdezik a legtöbbször. Az EGT-ből használt Gemini API-ra a Google
+  fizetős adatfeltételei érvényesek: nem fejlesztenek vele terméket, adatfeldolgozóként
+  kezelik, csak visszaélés-figyelésre naplózzák.
 
 ---
 
@@ -212,7 +215,10 @@ kell majd válaszolni.
   miért nem elég a `gmail.metadata`, miért nem elég a `gmail.send`, és hogy
   a törlés soha nem végleges (`users.messages.trash`)
 - **Additional info** (658 karakter): mintafiók belépés nélkül, a redirect
-  URI, az OpenAI-mondat (nem tanítanak vele modellt), az adatkezelési link
+  URI, az OpenAI-mondat (nem tanítanak vele modellt), az adatkezelési link.
+  **Elavult:** 2026. október 16. óta a Gemini API dolgozza fel a leveleket —
+  ha a Google rákérdez, vagy a beküldött szöveg még szerkeszthető, az alábbi
+  „short description” friss változatát kell használni.
 - **A négy kérdésre mind „No"**, és bepipálva a CASA-vállalás
 
 **Mi jön most.** A Google e-mailben jelentkezik a `hutkaimilan11@gmail.com`
@@ -321,8 +327,9 @@ action.
 AXIMBRA is a Budapest-based AI agent studio. Its email triage agent helps a user
 see which emails need attention first: it categorises and ranks the user's recent
 Gmail messages on the page and, on request, drafts replies. Email content is sent
-to the OpenAI API only to produce this categorisation and the drafts shown to the
-user; under OpenAI's API terms it is not used to train models. Nothing is stored
+to Google's Gemini API only to produce this categorisation and the drafts shown to
+the user; under the Gemini API terms for use from the EEA, Google processes it as a
+data processor and does not use it to improve its products or train models. Nothing is stored
 beyond the 30-minute session, no human reads the data, and it is never sold or
 used for advertising. Privacy notice: https://aximbra.hu/en/adatkezeles
 

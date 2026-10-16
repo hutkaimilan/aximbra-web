@@ -32,9 +32,9 @@ export const CONTROLLER_ADDRESS_DE =
   `${CONTROLLER.addressLine}, ${CONTROLLER.postcode} ${CONTROLLER.city}, Ungarn`;
 
 /** A tájékoztató hatálybalépése. Frissítsd, ha érdemi változás történik. */
-export const LEGAL_UPDATED = "2026. október 13.";
-export const LEGAL_UPDATED_EN = "13 October 2026";
-export const LEGAL_UPDATED_DE = "13. Oktober 2026";
+export const LEGAL_UPDATED = "2026. október 16.";
+export const LEGAL_UPDATED_EN = "16 October 2026";
+export const LEGAL_UPDATED_DE = "16. Oktober 2026";
 
 /** Adatfeldolgozók — mind a kódból, nem emlékezetből. Az angol oszlopok az
  *  angol fordításhoz kellenek; a két nyelv egy sorban áll, hogy ne csússzon el. */
@@ -49,21 +49,12 @@ export const PROCESSORS = [
     whereDe: "Amsterdam, Niederlande (EU)",
   },
   {
-    name: "OpenAI, L.L.C. (az Emergent átjáróján keresztül)",
-    role: "Nyelvi modell — a demókban beküldött szövegek és a csatlakoztatott levelek feldolgozása",
+    name: "Google LLC (Gemini API)",
+    role: "Nyelvi modell — a demókban beküldött szövegek, a feltöltött dokumentumok és a csatlakoztatott levelek feldolgozása",
     where: "Egyesült Államok",
-    roleEn: "Language model (OpenAI API, through Emergent's gateway) — processing the text submitted to the demos and the connected emails",
+    roleEn: "Language model (Gemini API) — processing the text submitted to the demos, uploaded documents and the connected emails",
     whereEn: "United States",
-    roleDe: "Sprachmodell (OpenAI-API, über das Gateway von Emergent) — Verarbeitung der in den Demos eingegebenen Texte und der verbundenen E-Mails",
-    whereDe: "Vereinigte Staaten",
-  },
-  {
-    name: "Emergent Labs, Inc.",
-    role: "API-átjáró: a nyelvi modell hívásait továbbítja az OpenAI-hoz, és elszámolja a használatot",
-    where: "Egyesült Államok",
-    roleEn: "API gateway: forwards the language model calls to OpenAI and bills the usage",
-    whereEn: "United States",
-    roleDe: "API-Gateway: leitet die Sprachmodell-Aufrufe an OpenAI weiter und rechnet die Nutzung ab",
+    roleDe: "Sprachmodell (Gemini-API) — Verarbeitung der in den Demos eingegebenen Texte, hochgeladener Dokumente und der verbundenen E-Mails",
     whereDe: "Vereinigte Staaten",
   },
   {

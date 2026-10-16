@@ -137,15 +137,26 @@ export default function PrivacyEn({ lang }) {
         </section>
 
         <section>
-          <h2>4. Lead qualifier demo</h2>
+          <h2>4. Lead qualifier and document analyser demos</h2>
           <p>
-            What you type into the field (up to 4,000 characters) is sent to the OpenAI API (through Emergent's gateway)
-            in a single call, and the result is returned to the page.{" "}
-            <b>Neither the text nor the result is stored</b> — there is no database behind
-            it. Legal basis: consent (GDPR Art. 6(1)(a)), which you give by starting the demo.
+            What you type into the lead qualifier field (up to 4,000 characters) is sent to
+            Google's Gemini API in a single call, and the result is returned to the page.
+          </p>
+          <p>
+            A file you upload to the document analyser (PDF, Word or plain text, up to 5 MB) is
+            read in the server's memory. Up to 30,000 characters of its text are sent to
+            Google's Gemini API in two calls, the result is returned to the page, and the file
+            and its text are discarded.
+          </p>
+          <p>
+            <b>In neither demo is the text, the file or the result stored</b> — there is no
+            database behind them. Google handles the data it receives through the Gemini API
+            under the terms described in section 6. Legal basis: consent (GDPR Art. 6(1)(a)),
+            which you give by starting the demo.
           </p>
           <p className="legal-note">
-            Please do not paste in real personal data — the demo does not need it.
+            Please do not paste in or upload real personal data — the demos do not need it.
+            For a confidential document, black out names and numbers first.
           </p>
         </section>
 
@@ -174,7 +185,7 @@ export default function PrivacyEn({ lang }) {
               per email, up to <b>5 MB</b> per file (Word, Excel, PowerPoint, PDF, plain text
               and CSV). We do not open images, videos or other formats, and{" "}
               <b>we do not run OCR</b>: no text is extracted from a scanned document. The file
-              itself goes nowhere; the extracted text reaches the OpenAI API (through Emergent's gateway) together with the
+              itself goes nowhere; the extracted text reaches Google's Gemini API together with the
               text of the email, and is gone when the run ends.
             </li>
             <li>
@@ -202,7 +213,7 @@ export default function PrivacyEn({ lang }) {
               (<code>delete</code>, <code>batchDelete</code>). We do not label or star.
             </li>
             <li>
-              <b>Where it goes:</b> the text of the emails is sent to the OpenAI API (through Emergent's gateway), one call
+              <b>Where it goes:</b> the text of the emails is sent to Google's Gemini API, one call
               per classification. Nothing is written to a database.
             </li>
             <li>
@@ -246,10 +257,14 @@ export default function PrivacyEn({ lang }) {
             We <b>do not use</b> this data for advertising, do not sell it, do not transfer it
             to third parties beyond what providing the features above requires, and{" "}
             <b>do not use it to train any artificial intelligence model</b>. The only third
-            party whose model processes email content is OpenAI, through its API, reached via Emergent's
-            API gateway (which forwards the calls and bills the usage), to produce the categorisation
-            and the drafts shown to you; by default, OpenAI does not use data sent through its API to
-            train its models. No human reads the data unless
+            party whose model processes email content is Google, through the Gemini API, to produce
+            the categorisation and the drafts shown to you. For the Gemini API used from the European
+            Economic Area, Google's data terms for paid services apply (
+            <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer">
+              Gemini API Additional Terms of Service
+            </a>): Google <b>does not use the prompts or responses to improve its products</b>,
+            processes them as a data processor, and logs them only for a limited period, solely to
+            detect abuse and to meet legal obligations. No human reads the data unless
             you separately agree to it, or it is required for security reasons or by law.
           </p>
         </section>

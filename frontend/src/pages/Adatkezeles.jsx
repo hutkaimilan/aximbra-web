@@ -147,16 +147,26 @@ function AdatkezelesHu({ lang }) {
         </section>
 
         <section>
-          <h2>4. Érdeklődő-minősítő bemutató</h2>
+          <h2>4. Érdeklődő-minősítő és dokumentum-elemző bemutató</h2>
           <p>
-            Amit a mezőbe beírsz (legfeljebb 4000 karakter), egyetlen hívásban
-            elküldjük az OpenAI API-jának (az Emergent átjáróján keresztül), és az eredményt visszaadjuk a lapnak.{" "}
-            <b>Sem a beírt szöveget, sem az eredményt nem tároljuk</b> — nincs mögötte
-            adatbázis. Jogalap: hozzájárulás (GDPR 6. cikk (1) a)), amit azzal adsz meg,
-            hogy elindítod a bemutatót.
+            Amit az érdeklődő-minősítő mezőjébe beírsz (legfeljebb 4000 karakter), egyetlen
+            hívásban elküldjük a Google Gemini API-jának, és az eredményt visszaadjuk a lapnak.
+          </p>
+          <p>
+            A dokumentum-elemzőbe feltöltött fájlt (PDF, Word vagy sima szöveg, legfeljebb
+            5 MB) a kiszolgáló memóriájában olvassuk ki. A kiolvasott szöveg legfeljebb
+            30 000 karakterét két hívásban elküldjük a Google Gemini API-jának, az eredményt
+            visszaadjuk a lapnak, a fájlt és a szöveget pedig eldobjuk.
+          </p>
+          <p>
+            <b>Egyik bemutatónál sem tároljuk sem a beküldött szöveget vagy fájlt, sem az
+            eredményt</b> — nincs mögöttük adatbázis. A Google a Gemini API-n kapott adatot a{" "}
+            6. pontban leírt feltételekkel kezeli. Jogalap: hozzájárulás (GDPR 6. cikk (1) a)),
+            amit azzal adsz meg, hogy elindítod a bemutatót.
           </p>
           <p className="legal-note">
-            Kérünk, ne másolj be valódi személyes adatot — a bemutatóhoz nem szükséges.
+            Kérünk, ne másolj be és ne tölts fel valódi személyes adatot — a bemutatóhoz nem
+            szükséges. Bizalmas iratnál előtte takard ki a neveket és a számokat.
           </p>
         </section>
 
@@ -187,8 +197,8 @@ function AdatkezelesHu({ lang }) {
               (Word, Excel, PowerPoint, PDF, sima szöveg és CSV). Képet, videót és
               egyéb formátumot nem nyitunk meg, és <b>OCR-t nem végzünk</b>: egy
               szkennelt dokumentumból nem nyerünk ki szöveget. A fájl maga nem kerül
-              sehova; a kiolvasott szöveg a levél szövegével együtt jut el az OpenAI
-              API-jához (az Emergent átjáróján keresztül), és a futással együtt megszűnik.
+              sehova; a kiolvasott szöveg a levél szövegével együtt jut el a Google
+              Gemini API-jához, és a futással együtt megszűnik.
             </li>
             <li>
               <b>Milyen jogot kérünk:</b> alapesetben csak olvasásit
@@ -218,7 +228,7 @@ function AdatkezelesHu({ lang }) {
             </li>
             <li>
               <b>Hová kerül:</b> a levelek szövegét osztályozásonként egy-egy hívásban
-              elküldjük az OpenAI API-jának (az Emergent átjáróján keresztül). Adatbázisba semmi nem kerül.
+              elküldjük a Google Gemini API-jának. Adatbázisba semmi nem kerül.
             </li>
             <li>
               <b>Meddig él:</b> a futás a kiszolgáló memóriájában él, és{" "}
@@ -264,10 +274,15 @@ function AdatkezelesHu({ lang }) {
             Ezeket az adatokat <b>nem használjuk</b> hirdetéshez, nem adjuk el, nem adjuk
             át harmadik félnek a fenti funkciók biztosításán kívül, és{" "}
             <b>nem használjuk fel semmilyen mesterséges intelligencia modell
-            tanítására</b>. A levelek tartalmát az OpenAI modellje dolgozza fel, az API-ján keresztül, amit
-            az Emergent API-átjáróján érünk el (az továbbítja a hívást és elszámolja a használatot),
-            hogy elkészüljön a neked megjelenő besorolás és vázlat; az OpenAI az API-n küldött adattal
-            alapbeállítás szerint nem tanítja a modelljeit.
+            tanítására</b>. A levelek tartalmát a Google Gemini modellje dolgozza fel, a Gemini
+            API-n keresztül, hogy elkészüljön a neked megjelenő besorolás és vázlat. Az Európai
+            Gazdasági Térségből használt Gemini API-ra a Google fizetős szolgáltatásokra vonatkozó
+            adatkezelési feltételei érvényesek (
+            <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer">
+              Gemini API Additional Terms of Service
+            </a>): a Google a beküldött szöveget és a választ <b>nem használja a termékei
+            fejlesztésére</b>, adatfeldolgozóként kezeli, és csak korlátozott ideig naplózza,
+            kizárólag a visszaélések felderítése és jogszabályi kötelezettség miatt.
             Ember nem olvassa őket, kivéve ha ahhoz külön hozzájárulsz, az biztonsági okból
             vagy jogszabály miatt szükséges.
           </p>
