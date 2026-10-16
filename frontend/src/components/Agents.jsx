@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Reveal } from "./Reveal";
 import { LiveDemo } from "./LiveDemo";
 import { DocDemo } from "./DocDemo";
@@ -91,6 +91,9 @@ export const Agents = () => {
   const [simOpen, setSimOpen] = useState(null);
   const [showAll, setShowAll] = useState(false);
   const { slug } = useParams();
+  // ?demo=1: a link egyből az élő demót nyitja (pl. a feltöltést), nem a szimulációt.
+  const [params] = useSearchParams();
+  const wantsDemo = params.get("demo") === "1";
   // Ár szerint növekvő sorrend (a sáv alja, egyenlőnél a teteje); az ár nélküli
   // „Egyedi agent” a végére. A `kind` (index) marad az eredeti, mert ahhoz
   // tartozik a slug, a rajz és a szimuláció.
@@ -100,7 +103,12 @@ export const Agents = () => {
     const idx = SLUGS.indexOf(slug);
     if (idx < 0) return;
     if (ordered.findIndex((o) => o.i === idx) >= VISIBLE_AT_FIRST) setShowAll(true);
-    setOpen(null); setSimOpen(idx);
+    const agent = t.agents[idx];
+    if (wantsDemo && agent?.live && agent.demo && !agent.demoLink) {
+      setSimOpen(null); setOpen(agent.demo);
+    } else {
+      setOpen(null); setSimOpen(idx);
+    }
     const tid = setTimeout(() => {
       document.getElementById(`agent-${slug}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 500);

@@ -76,6 +76,29 @@ def test_pdf_ligatures_and_typography_do_not_hide_a_real_quote(monkeypatch):
     assert d["amount"] == {"value": "", "source": ""}  # ami nincs a papíron, továbbra is kiesik
 
 
+def test_line_break_hyphens_and_joined_sentences_still_count(monkeypatch):
+    # A PDF a sor végén elválaszt („webshop-⏎funkcióval”), a modell egyben idéz;
+    # és két nem szomszédos mondatot „ … ” nélkül fűz össze.
+    monkeypatch.setattr(server, "_call_llm", _fake({
+        "document_type": "contract",
+        "subject": {"value": "webshop", "source": "egy legfeljebb 12 aloldalas, webshop-funkcióval rendelkező weboldal"},
+        "payment_terms": {"value": "70% előleg, 30% átadáskor",
+                          "source": "A fejlesztési díj 70%-át előlegként fizeti meg. A fennmaradó 30%-a átadáskor esedékes."},
+        "parties": {"value": "kitalált", "source": "A Megrendelő. A Vállalkozó. Fizet."},
+        "termination": {"value": "kitalált", "source": "A fejlesztési díj 70%-át előlegként fizeti meg. Kötbért fizet 5 millió forintot."},
+    }))
+    txt = ("Szerződés. A Vállalkozó egy legfeljebb 12 aloldalas, webshop-\nfunkcióval rendelkező weboldalt készít. "
+           "A Megrendelő a fejlesztési díj 70%-át előlegként fizeti meg. Az előleg nem jár vissza. "
+           "A fennmaradó 30%-a átadáskor esedékes.")
+    d = client.post("/api/demo/document", json={"filename": "c.txt", "mime": "text/plain",
+                                                "data_b64": base64.b64encode(txt.encode()).decode()},
+                    headers={"X-Session-Id": "t6"}).json()
+    assert d["subject"]["value"] == "webshop"
+    assert d["payment_terms"]["value"] == "70% előleg, 30% átadáskor"
+    assert d["parties"] == {"value": "", "source": ""}      # csak apró, általános darabok
+    assert d["termination"] == {"value": "", "source": ""}  # az egyik mondat kitalált
+
+
 def test_detailed_contract_analysis(monkeypatch):
     monkeypatch.setattr(server, "_call_llm", _fake({
         "document_type": "contract",

@@ -503,6 +503,25 @@ def _norm(s: str) -> str:
     return _re.sub(r"\s+", " ", s).strip().lower()
 
 
+def _flat(s: str) -> str:
+    """Kötőjel nélkül: a sor végén elválasztott „webshop-⏎funkcióval” és a
+    modell „webshop-funkcióval” idézete így ugyanaz."""
+    return _re.sub(r"\s*-\s*", "", s)
+
+
+def _source_pieces(source: str) -> list[str]:
+    """A forrás darabjai: a „ … ” jellel elválasztott idézetek, és azokon belül
+    a mondatok. A modell gyakran két nem szomszédos mondatot idéz egyben; ha
+    mindkettő szó szerint megvan, az idézet valódi."""
+    out = []
+    for chunk in _re.split(r"\s*(?:…|\.\.\.)\s*", source):
+        for piece in _re.split(r"(?<=[.;!?])\s+", _norm(chunk)):
+            piece = piece.strip(" .;:,…\"'")
+            if len(piece) >= 4:
+                out.append(piece)
+    return out
+
+
 def _grounded(item, text_n: str) -> dict:
     """Egy mező, csak ha a forrása tényleg a dokumentumból származik."""
     if not isinstance(item, dict):
@@ -511,9 +530,22 @@ def _grounded(item, text_n: str) -> dict:
     source = str(item.get("source") or "").strip()[:400]
     # A forrás állhat több rövid idézetből is („ … ” jellel elválasztva), pl. a
     # felek két külön sorból: mindegyik darabnak szó szerint benne kell lennie.
-    parts = [_norm(x).strip(" .;:,…\"'") for x in _re.split(r"\s*(?:…|\.\.\.)\s*", source)]
-    parts = [x for x in parts if x]
-    if not value or not parts or any(len(x) < 4 or x not in text_n for x in parts):
+    pieces = _source_pieces(source)
+    text_flat = None
+
+    def found(piece: str) -> bool:
+        nonlocal text_flat
+        if piece in text_n:
+            return True
+        if text_flat is None:
+            text_flat = _flat(text_n)
+        return _flat(piece) in text_flat
+
+    # Apró, általános darabokból („a megrendelő”, „fizet”) bármi összerakható:
+    # hosszabb forrásnál a szöveg nagyobbik része érdemi, 16+ karakteres mondat legyen.
+    substantial = sum(len(p) for p in pieces if len(p) >= 16)
+    if not value or not pieces or not all(found(p) for p in pieces) \
+            or (len(_norm(source)) > 30 and substantial * 2 < sum(map(len, pieces))):
         return {"value": "", "source": ""}
     return {"value": value, "source": source}
 
