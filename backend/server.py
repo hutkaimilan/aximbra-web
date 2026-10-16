@@ -235,7 +235,11 @@ async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600,
     if resp is None:
         raise ValueError("model rejected request parameters")
 
-    content = resp.choices[0].message.content
+    choice = resp.choices[0]
+    if getattr(choice, "finish_reason", None) == "length":
+        # Félbevágott JSON lesz belőle: a naplóban látszódjon, hogy a keret kevés.
+        logger.warning("llm output cut at the token limit (max %s)", max_tokens)
+    content = choice.message.content
     if not content:
         raise ValueError("empty completion")
     return content
@@ -412,6 +416,8 @@ DOC_RISK_MAX = 10
 # A kockázati kör erősebb modellen fut: a mini a csapdák egy részét kihagyta
 # (kötbér, elvesző beruházás) és összekevert pontokat. Üres = az alapmodell.
 DOC_RISK_MODEL = os.environ.get("DOC_RISK_MODEL", "gpt-4o").strip()
+DOC_MAIN_TOKENS = 8000
+DOC_RISK_TOKENS = 6000
 DOC_SEVERITY = {"high", "medium", "low"}
 
 
@@ -588,8 +594,11 @@ async def demo_document(request: Request, body: DocRequest):
         raise last or ValueError("no answer")
 
     # A mezők és a kockázatok két párhuzamos hívás: így nem lassabb, és a
-    # kockázati kör a teljes figyelmét a feltételekre fordíthatja.
-    main, risk = await asyncio.gather(ask(doc_sys(lang), 3000), ask(doc_risk_sys(lang), 2500, DOC_RISK_MODEL or None, 75.0),
+    # kockázati kör a teljes figyelmét a feltételekre fordíthatja. A keret
+    # bőséges: magyarul a teljes válasz 3000 token fölé is mehet, és a Gemini a
+    # gondolkodását is ebből vonja le; levágott JSON-ból nincs eredmény.
+    main, risk = await asyncio.gather(ask(doc_sys(lang), DOC_MAIN_TOKENS, None, 75.0),
+                                      ask(doc_risk_sys(lang), DOC_RISK_TOKENS, DOC_RISK_MODEL or None, 75.0),
                                       return_exceptions=True)
     if isinstance(main, HTTPException):
         raise main
