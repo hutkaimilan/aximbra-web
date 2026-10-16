@@ -183,7 +183,8 @@ def _llm_provider() -> str:
 
 
 async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600,
-                    model: str | None = None, timeout: float | None = None) -> str:
+                    model: str | None = None, timeout: float | None = None,
+                    wait_on_limit: bool = True, temperature: float | None = 0) -> str:
     """
     Egyetlen OpenAI chat-completion hivas, JSON kimenetre kenyszeritve.
 
@@ -193,11 +194,18 @@ async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600,
     Nehany ujabb modell nem engedi a temperature-t vagy a max_tokens-t.
     Ilyenkor a hivast egyszer megismeteljuk igazitott parameterekkel, hogy egy
     modellvaltas ne torje el a demot.
+
+    wait_on_limit=False: percenkénti korlátnál nem várunk, hanem azonnal
+    hibát adunk, hogy a hívó a következő (tartalék) modellel próbálkozhasson.
+    temperature=None: a modell alapértéke (a Gemini 3-as gondolkodó modelljei
+    0 mellett hurokba eshetnek).
     """
     client, default_model = _llm_client()
     if _llm_provider() == "gemini":
         system_msg = system_msg + GEMINI_JSON_RULES
-        model = None  # az OpenAI-modellnevek ott nem léteznek
+        # Az OpenAI-modellnevek ott nem léteznek; Gemini-modellt viszont lehet kérni.
+        if not (model or "").startswith("gemini"):
+            model = None
     if timeout:
         client = client.with_options(timeout=timeout)
     kwargs = {
@@ -208,8 +216,9 @@ async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600,
         ],
         "response_format": {"type": "json_object"},
         "max_tokens": max_tokens,
-        "temperature": 0,
     }
+    if temperature is not None:
+        kwargs["temperature"] = temperature
 
     resp = None
     waits = list(RATE_LIMIT_WAITS)
@@ -220,7 +229,7 @@ async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600,
         except RateLimitError as exc:
             # Percenkénti korlát (a példa-postafiók tíz hívást indít egyszerre):
             # kivárjuk. A napi keret kimerülésénél a várakozás nem segít.
-            if not waits or _daily_quota(exc):
+            if not waits or not wait_on_limit or _daily_quota(exc):
                 raise
             await asyncio.sleep(waits.pop(0))
         except BadRequestError as exc:
@@ -412,12 +421,18 @@ DOC_FIELDS = ("parties", "subject", "date", "duration", "amount", "payment_terms
               "due_date_or_deadline", "termination")
 DOC_LISTS = ("key_obligations", "risks_or_unusual_terms")
 DOC_LIST_MAX = 6
-DOC_RISK_MAX = 10
+DOC_RISK_MAX = 15
 # A kockázati kör erősebb modellen fut: a mini a csapdák egy részét kihagyta
 # (kötbér, elvesző beruházás) és összekevert pontokat. Üres = az alapmodell.
 DOC_RISK_MODEL = os.environ.get("DOC_RISK_MODEL", "gpt-4o").strip()
+# Geminin ugyanez: az első elérhető erősebb modell, a végén az alapmodell
+# tartaléknak (ha az ingyenes keret elfogyott vagy a modell nem elérhető).
+DOC_GEMINI_MODELS = [m.strip() for m in os.environ.get(
+    "DOC_GEMINI_MODELS", "gemini-3.8-flash,gemini-3.6-flash").split(",") if m.strip().startswith("gemini")]
 DOC_MAIN_TOKENS = 8000
 DOC_RISK_TOKENS = 6000
+DOC_CLAUSE_TOKENS = 16000  # pontonként egy bejegyzés, és a gondolkodás is ebből megy
+DOC_CLAUSE_MAX = 70
 DOC_SEVERITY = {"high", "medium", "low"}
 
 
@@ -489,6 +504,145 @@ def doc_risk_sys(lang: str) -> str:
         "\"source\" MUST be copied word for word from the document. Only clauses that are really in the document."
         + (" Address the reader informally (tegezés), never with \"Ön\"." if lang == "hu" else "")
     )
+
+
+# ---- Pontonkénti kockázati kör ----------------------------------------------
+# A szabad listát kérő kör futásonként más-más csapdát hagyott ki (6–9 a 10-ből):
+# a modell maga válogatta, mit sorol fel. Itt a dokumentumot mi bontjuk pontokra,
+# és a modellnek MINDEN pontra ítéletet kell mondania, így egy sem maradhat ki.
+# A forrás a pont saját szövege, ezért az idézet-ellenőrzés semmit nem dobhat el.
+
+DOC_TRAPS = (
+    "deadlines of the other party that are only indicative or have no consequence, while the reader's own delays "
+    "are penalised; fees for the reader's delay (standby or waiting fees); non-refundable advance payments, even "
+    "when the other party is at fault; deemed acceptance after a short period and waiving later defect claims; "
+    "the other party keeping ownership of what the reader pays for (source code, designs, domain name, data), or "
+    "only a licence while paying; lock-in periods, automatic renewal, long notice periods; unilateral price "
+    "changes, indexation, especially with a minimum; a short free warranty followed by paid fixes; liability caps "
+    "or exclusions for the other party (data loss, downtime, lost revenue), and unlimited liability or indemnities "
+    "for the reader; fees to get the reader's own data or content back, and deletion of data soon after the end; "
+    "penalties, liquidated damages, exit fees; high late-payment interest (convert daily or monthly rates to a "
+    "yearly figure); deposits, their size and slow or conditional refund; costs normally borne by the other party "
+    "(structural repairs, roof, walls, utility lines, insurance); losing investments or improvements without "
+    "compensation; accepting the subject 'as is' or waiving complaints; waiving court proceedings or an arbitrator "
+    "chosen by one side; restrictions on assignment, subletting or change of ownership; non-compete or "
+    "non-solicitation; obligations to operate or stay open; the other party's right to terminate unilaterally or "
+    "at short notice, immediate termination for small or short delays, and any asymmetry between the two parties' "
+    "rights."
+)
+
+
+def doc_clause_sys(lang: str) -> str:
+    in_lang = AGENT_LANG_NAMES.get(lang, AGENT_LANG_NAMES["hu"])
+    return (
+        "You review ONE business document to protect the party who receives it and pays or signs it (customer, "
+        "tenant, buyer, client, subscriber, employee). The document is given as clauses; each starts with its label "
+        "in square brackets, e.g. [3.2]. Judge EVERY clause on its own and return EXACTLY ONE entry per label, in "
+        "the same order — never skip a clause, never merge two.\n"
+        "risk for each clause: \"high\" = can cost the reader a lot of money, rights or control, or is clearly "
+        "one-sided against the reader; \"medium\" = unfavourable or unusual for the reader, worth negotiating; "
+        "\"low\" = a minor disadvantage; \"none\" = standard, balanced, mutual, required by law, purely descriptive, "
+        "or favourable to the reader.\n"
+        f"Clauses of these kinds are high or medium: {DOC_TRAPS}\n"
+        "Reply with a VALID JSON object ONLY: {\"clauses\": [{\"id\": label, \"risk\": \"high\"|\"medium\"|\"low\"|"
+        "\"none\", \"title\": string, \"why\": string, \"party\": string, \"duty\": string, \"key\": boolean}], "
+        "\"recommendations\": [string]}.\n"
+        "title = the clause in a few words, why = one concrete sentence on what this clause can cost the reader or "
+        "how it can hurt; both only when risk is not none, otherwise \"\". party and duty = who must do what under "
+        "this clause (duty in at most 15 words), \"\" when the clause imposes no duty. key = true for at most 6 "
+        "clauses holding the most important duties (payment, delivery, deadlines, deposit). recommendations = at "
+        "most 5: what the reader should ask, delete or renegotiate before signing, each naming the clause label.\n"
+        f"Write title, why, party, duty and recommendations {in_lang}."
+        + (" Address the reader informally (tegezés), never with \"Ön\"." if lang == "hu" else "")
+    )
+
+
+# Pontszám a sor elején: „6.1.”, „6.1”, „12.” — utána nagybetűvel kezdődő szöveg.
+# A nagybetű szűri ki a tördelésből sor elejére került „5. napjáig”-féle számokat.
+_CLAUSE_RX = _re.compile(r"(?m)^[ \t]*(\d{1,2}(?:\.\d{1,2})*)\.?[ \t]+(?=\S)")
+
+
+def _clause_head_ok(text: str, pos: int) -> bool:
+    ch = text[pos:pos + 1]
+    return bool(ch) and (ch.isupper() or ch in "„\"(§")
+
+
+def _split_clauses(text: str) -> list[tuple[str, str]]:
+    """A dokumentum pontjai (címke, szöveg). Számozott pontok híján mondatcsoportok
+    (B1, B2, …). A puszta fejezetcímeket („2. Határidők”) kihagyja."""
+    marks = [m for m in _CLAUSE_RX.finditer(text) if _clause_head_ok(text, m.end())]
+    out: list[tuple[str, str]] = []
+    if len(marks) >= 3:
+        pre = text[:marks[0].start()].strip()
+        if len(pre) > 40:
+            out.append(("0", pre))
+        for i, m in enumerate(marks):
+            end = marks[i + 1].start() if i + 1 < len(marks) else len(text)
+            body = _re.sub(r"\s+", " ", text[m.start():end]).strip()
+            if len(body) < 60 and not body.rstrip().endswith((".", ":", ";")):
+                continue  # fejezetcím, nincs benne feltétel
+            out.append((m.group(1), body))
+    else:
+        flat = _re.sub(r"\s+", " ", text).strip()
+        sentences = _re.split(r"(?<=[.!?;])\s+(?=[A-ZÁÉÍÓÖŐÚÜŰ\"„(])", flat)
+        chunk = ""
+        for s in sentences:
+            if chunk and len(chunk) + len(s) > 450:
+                out.append((f"B{len(out) + 1}", chunk))
+                chunk = ""
+            chunk = f"{chunk} {s}".strip()
+        if chunk:
+            out.append((f"B{len(out) + 1}", chunk))
+    # Túl sok pont: a szomszédosakat összevonjuk, hogy egy hívásba férjen.
+    while len(out) > DOC_CLAUSE_MAX:
+        merged = []
+        for i in range(0, len(out), 2):
+            pair = out[i:i + 2]
+            merged.append((pair[0][0], " ".join(b for _, b in pair)))
+        out = merged
+    return out
+
+
+def _clause_prompt(clauses: list[tuple[str, str]]) -> str:
+    return "\n".join(f"[{label}] {body[:1500]}" for label, body in clauses)
+
+
+def _clause_source(body: str) -> str:
+    return body if len(body) <= 400 else body[:400].rsplit(" ", 1)[0] + " …"
+
+
+def _from_clauses(data: dict, clauses: list[tuple[str, str]]) -> tuple[list, list, list, int]:
+    """A pontonkénti válaszból: kockázatok, fő kötelezettségek, javaslatok, és hány
+    pontra mondott ítéletet a modell."""
+    bodies = dict(clauses)
+    order = {label: i for i, (label, _) in enumerate(clauses)}
+    risks, duties, seen = [], [], set()
+    for e in data.get("clauses") if isinstance(data.get("clauses"), list) else []:
+        if not isinstance(e, dict):
+            continue
+        label = str(e.get("id") or "").strip().strip("[]").rstrip(".")
+        if label not in bodies or label in seen:
+            continue
+        seen.add(label)
+        src = _clause_source(bodies[label])
+        sev = str(e.get("risk") or "").strip().lower()
+        title = str(e.get("title") or "").strip()[:160]
+        if sev in DOC_SEVERITY and title:
+            risks.append({"value": title, "why": str(e.get("why") or "").strip()[:300], "severity": sev,
+                          "source": src, "_at": order[label]})
+        duty = str(e.get("duty") or "").strip()[:200]
+        if duty:
+            duties.append({"value": duty, "party": str(e.get("party") or "").strip()[:80], "source": src,
+                           "_key": e.get("key") is True, "_at": order[label]})
+    rank = {"high": 0, "medium": 1, "low": 2}
+    risks.sort(key=lambda r: (rank[r["severity"]], r["_at"]))
+    duties.sort(key=lambda d: (not d["_key"], d["_at"]))
+    for item in risks + duties:
+        item.pop("_at", None)
+        item.pop("_key", None)
+    recs = data.get("recommendations") if isinstance(data.get("recommendations"), list) else []
+    recs = [str(r).strip()[:300] for r in recs[:5] if isinstance(r, str) and r.strip()]
+    return risks[:DOC_RISK_MAX], duties[:DOC_LIST_MAX], recs, len(seen)
 
 
 # A PDF-ek gyakran ligatúrával írják a „fi”-t („ﬁzet”), a modell viszont sima
@@ -605,58 +759,96 @@ async def demo_document(request: Request, body: DocRequest):
     _check_limits(request, session_id)
     text_n = _norm(text)
 
-    async def ask(system: str, tokens: int, model: str | None = None, timeout: float | None = None):
+    async def ask(system: str, user_text: str, tokens: int, models: list, timeout: float):
+        """Az első modell, amelyik érvényes JSON-objektumot ad. Az utolsó előtti
+        modellek hibájánál (nem elérhető, elfogyott a keret, rossz JSON) nem
+        várunk, hanem a következővel próbálkozunk; az utolsót kétszer is."""
         last = None
-        for _ in range(2):
-            try:
-                data = _parse_json(await _call_llm(system, text, tokens, model=model, timeout=timeout))
-                if isinstance(data, dict):
-                    return data
-                last = ValueError("not an object")
-            except (json.JSONDecodeError, ValueError, AttributeError) as e:
-                last = e
-            except HTTPException:
-                raise
-            except Exception as e:
-                if _quota_exhausted(e):
-                    logger.error("doc demo paused: model quota exhausted")
-                    raise HTTPException(status_code=503, detail="demo_paused")
-                last = e
-                logger.error(f"doc demo llm error: {type(e).__name__}")
+        for i, model in enumerate(models):
+            final = i == len(models) - 1
+            strong = bool(model) and _llm_provider() == "gemini"
+            for _ in range(2 if final else 1):
+                try:
+                    raw = await _call_llm(system, user_text, tokens, model=model, timeout=timeout,
+                                          wait_on_limit=final, temperature=None if strong else 0)
+                    data = _parse_json(raw)
+                    if isinstance(data, dict):
+                        return data, model or "default"
+                    last = ValueError("not an object")
+                except (json.JSONDecodeError, ValueError, AttributeError) as e:
+                    last = e
+                except HTTPException:
+                    raise
+                except Exception as e:
+                    if final and _quota_exhausted(e):
+                        logger.error("doc demo paused: model quota exhausted")
+                        raise HTTPException(status_code=503, detail="demo_paused")
+                    last = e
+                    logger.warning("doc demo model %s failed: %s", model or "default", type(e).__name__)
+                    if not final:
+                        break
         raise last or ValueError("no answer")
+
+    if _llm_provider() == "gemini":
+        risk_models = [*DOC_GEMINI_MODELS, None]
+    else:
+        risk_models = [DOC_RISK_MODEL, None] if DOC_RISK_MODEL else [None]
+    clauses = _split_clauses(text)
+
+    async def risk_pass():
+        # Pontokra bontható dokumentumnál pontonként; különben a szabad lista.
+        if len(clauses) >= 3:
+            data, used = await ask(doc_clause_sys(lang), _clause_prompt(clauses), DOC_CLAUSE_TOKENS,
+                                   risk_models, 90.0)
+            return "clauses", data, used
+        data, used = await ask(doc_risk_sys(lang), text, DOC_RISK_TOKENS, risk_models, 90.0)
+        return "free", data, used
 
     # A mezők és a kockázatok két párhuzamos hívás: így nem lassabb, és a
     # kockázati kör a teljes figyelmét a feltételekre fordíthatja. A keret
     # bőséges: magyarul a teljes válasz 3000 token fölé is mehet, és a Gemini a
     # gondolkodását is ebből vonja le; levágott JSON-ból nincs eredmény.
-    main, risk = await asyncio.gather(ask(doc_sys(lang), DOC_MAIN_TOKENS, None, 75.0),
-                                      ask(doc_risk_sys(lang), DOC_RISK_TOKENS, DOC_RISK_MODEL or None, 75.0),
+    main, risk = await asyncio.gather(ask(doc_sys(lang), text, DOC_MAIN_TOKENS, [None], 75.0), risk_pass(),
                                       return_exceptions=True)
     if isinstance(main, HTTPException):
         raise main
     if isinstance(main, Exception):
-        last_err = main
+        logger.warning("doc demo failed: %s", type(main).__name__)
+        raise HTTPException(status_code=502, detail="model_error")
+    data, _ = main
+    dtype = str(data.get("document_type") or "other").strip().lower()
+    out = {"document_type": dtype if dtype in DOC_TYPES else "other",
+           "summary": str(data.get("summary") or "").strip()[:900]}
+    for k in DOC_FIELDS:
+        out[k] = _grounded(data.get(k), text_n)
+    out["key_obligations"] = _clean_list(data.get("key_obligations"), text_n)
+    risks, recs = [], []
+    if isinstance(risk, Exception):
+        logger.warning("doc risk pass failed: %s", type(risk).__name__)
+    elif risk[0] == "clauses":
+        risks, duties, recs, judged = _from_clauses(risk[1], clauses)
+        # Csak darabszámok a naplóba, a dokumentum tartalma nem.
+        logger.info("doc clause pass: model=%s clauses=%d judged=%d risks=%d",
+                    risk[2], len(clauses), judged, len(risks))
+        # A pontonkénti kötelezettségek forrása biztosan a dokumentum: ha legalább
+        # annyi van belőlük, mint a mezős körből, azokat mutatjuk.
+        if duties and len(duties) >= len(out["key_obligations"]):
+            out["key_obligations"] = duties
     else:
-        data = main
-        dtype = str(data.get("document_type") or "other").strip().lower()
-        out = {"document_type": dtype if dtype in DOC_TYPES else "other",
-               "summary": str(data.get("summary") or "").strip()[:900]}
-        for k in DOC_FIELDS:
-            out[k] = _grounded(data.get(k), text_n)
-        out["key_obligations"] = _clean_list(data.get("key_obligations"), text_n)
-        risks = _clean_list(risk.get("risks"), text_n, DOC_RISK_MAX) if isinstance(risk, dict) else []
-        out["risks_or_unusual_terms"] = risks or _clean_list(data.get("risks_or_unusual_terms"), text_n)
-        rank = {"high": 0, "medium": 1, "low": 2}
-        out["risks_or_unusual_terms"].sort(key=lambda r: rank.get(r.get("severity"), 3))
-        recs = risk.get("recommendations") if isinstance(risk, dict) and isinstance(risk.get("recommendations"), list) else []
-        if not recs:
-            recs = data.get("recommendations") if isinstance(data.get("recommendations"), list) else []
-        out["recommendations"] = [str(r).strip()[:300] for r in recs[:5] if isinstance(r, str) and r.strip()]
-        out["truncated"] = len(text) >= DOC_MAX_CHARS
-        _record_run(session_id)
-        return out
-    logger.warning("doc demo failed: %s", type(last_err).__name__ if last_err else "?")
-    raise HTTPException(status_code=502, detail="model_error")
+        risks = _clean_list(risk[1].get("risks"), text_n, DOC_RISK_MAX)
+        recs = risk[1].get("recommendations") if isinstance(risk[1].get("recommendations"), list) else []
+        logger.info("doc free risk pass: model=%s risks=%d", risk[2], len(risks))
+    rank = {"high": 0, "medium": 1, "low": 2}
+    if not risks:
+        risks = _clean_list(data.get("risks_or_unusual_terms"), text_n)
+        risks.sort(key=lambda r: rank.get(r.get("severity"), 3))
+    out["risks_or_unusual_terms"] = risks
+    if not recs:
+        recs = data.get("recommendations") if isinstance(data.get("recommendations"), list) else []
+    out["recommendations"] = [str(r).strip()[:300] for r in recs[:5] if isinstance(r, str) and r.strip()]
+    out["truncated"] = len(text) >= DOC_MAX_CHARS
+    _record_run(session_id)
+    return out
 
 
 # Kilenc nyelven fut az oldal, tehát kilenc nyelven kell a kimenet is. A

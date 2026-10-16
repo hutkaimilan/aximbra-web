@@ -124,3 +124,80 @@ def test_detailed_contract_analysis(monkeypatch):
     assert d["risks_or_unusual_terms"][0]["why"].startswith("kilépéskor")
     assert d["recommendations"] == ["Kérd a 24 hónapos kötöttség rövidítését."]
     assert d["truncated"] is False
+
+
+CONTRACT = (
+    "Szolgáltatási szerződés, amely létrejött a Példa Kft. és a Minta Bt. között.\n"
+    "1. A szerződés tárgya\n"
+    "1.1. A Vállalkozó weboldalt készít a Megrendelőnek.\n"
+    "2. Díjak\n"
+    "2.1. A díj havi 100 000 Ft, amelyet a Megrendelő minden hónap\n"
+    "5. napjáig fizet meg.\n"
+    "2.2. Az előleg semmilyen esetben nem jár vissza.\n"
+    "3. Felelősség\n"
+    "3.1. A felek a titkokat kölcsönösen megőrzik.\n"
+)
+
+
+def test_clauses_are_split_by_number_and_headings_and_wrapped_numbers_are_ignored():
+    labels = [label for label, _ in server._split_clauses(CONTRACT)]
+    assert labels == ["0", "1.1", "2.1", "2.2", "3.1"]  # „2. Díjak” cím, „5. napjáig” tördelés
+    body = dict(server._split_clauses(CONTRACT))["2.1"]
+    assert body.startswith("2.1. A díj") and "5. napjáig fizet meg." in body
+
+
+def test_unnumbered_text_is_split_into_sentence_groups():
+    text = " ".join(f"Ez a(z) {i}. mondat egy számozatlan levélből, elég hosszú ahhoz, hogy számítson." for i in range(30))
+    parts = server._split_clauses(text)
+    assert parts[0][0] == "B1" and len(parts) > 3 and all(len(b) <= 500 for _, b in parts)
+
+
+def _clause_answer():
+    return {
+        "clauses": [
+            {"id": "0", "risk": "none", "title": "", "why": "", "party": "", "duty": ""},
+            {"id": "1.1", "risk": "none", "title": "", "why": "", "party": "Vállalkozó", "duty": "elkészíti a weboldalt", "key": True},
+            {"id": "[2.1]", "risk": "low", "title": "Havi díj", "why": "fix költség", "party": "Megrendelő", "duty": "havonta fizet", "key": True},
+            {"id": "2.2", "risk": "high", "title": "Vissza nem járó előleg", "why": "elveszik a pénzed", "party": "", "duty": ""},
+            {"id": "2.2", "risk": "none", "title": "", "why": ""},             # kétszer: az első számít
+            {"id": "9.9", "risk": "high", "title": "Kitalált pont", "why": "x"},  # nincs ilyen pont
+        ],
+        "recommendations": ["Kérd a 2.2. pont törlését."],
+    }
+
+
+def test_every_flagged_clause_keeps_its_own_text_as_source(monkeypatch):
+    risks, duties, recs, judged = server._from_clauses(_clause_answer(), server._split_clauses(CONTRACT))
+    assert [r["value"] for r in risks] == ["Vissza nem járó előleg", "Havi díj"]  # súlyosság szerint
+    assert risks[0]["source"].startswith("2.2. Az előleg semmilyen esetben") and risks[0]["severity"] == "high"
+    assert [d["value"] for d in duties] == ["elkészíti a weboldalt", "havonta fizet"]
+    assert recs == ["Kérd a 2.2. pont törlését."] and judged == 4
+
+
+def test_clause_pass_runs_on_the_strong_model_and_falls_back(monkeypatch):
+    import openai
+    import httpx
+    monkeypatch.setenv("LLM_PROVIDER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    monkeypatch.setattr(server, "DOC_GEMINI_MODELS", ["gemini-strong", "gemini-backup"])
+    calls = []
+
+    async def fake(system, text, max_tokens=600, model=None, **kw):
+        calls.append((model, "Judge EVERY clause" in system, kw.get("wait_on_limit"), kw.get("temperature")))
+        if model == "gemini-strong":
+            r = httpx.Response(404, request=httpx.Request("POST", "https://x"))
+            raise openai.NotFoundError("no such model", response=r, body=None)
+        if "Judge EVERY clause" in system:
+            assert "[2.2] 2.2. Az előleg" in text  # a modell címkézett pontokat kap
+            return json.dumps(_clause_answer())
+        return json.dumps({"document_type": "contract", "summary": "Szerződés."})
+
+    monkeypatch.setattr(server, "_call_llm", fake)
+    txt = base64.b64encode(CONTRACT.encode()).decode()
+    d = client.post("/api/demo/document", json={"filename": "c.txt", "mime": "text/plain", "data_b64": txt},
+                    headers={"X-Session-Id": "t7"}).json()
+    assert [r["value"] for r in d["risks_or_unusual_terms"]] == ["Vissza nem járó előleg", "Havi díj"]
+    assert [c[0] for c in calls if c[1]] == ["gemini-strong", "gemini-backup"]
+    assert (None, False, True, 0) in calls                       # a mezős kör az alapmodellen
+    assert ("gemini-strong", True, False, None) in calls          # nem vár, alap temperature
+    assert d["key_obligations"][0]["value"] == "elkészíti a weboldalt"
