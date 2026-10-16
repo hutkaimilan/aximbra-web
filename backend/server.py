@@ -435,7 +435,10 @@ DOC_FIELDS = ("parties", "subject", "date", "duration", "amount", "payment_terms
               "due_date_or_deadline", "termination")
 DOC_LISTS = ("key_obligations", "risks_or_unusual_terms")
 DOC_LIST_MAX = 6
-DOC_RISK_MAX = 15
+# Felső korlát a kockázatlistán. 15-nél egy 20 pontos bérleti szerződésből a
+# korlát vágott le egy valódi csapdát (albérlet-tilalom); a lista súlyosság
+# szerint rendezett, így a hosszabb lista teteje ugyanaz marad.
+DOC_RISK_MAX = 25
 # A kockázati kör erősebb modellen fut: a mini a csapdák egy részét kihagyta
 # (kötbér, elvesző beruházás) és összekevert pontokat. Üres = az alapmodell.
 DOC_RISK_MODEL = os.environ.get("DOC_RISK_MODEL", "gpt-4o").strip()
