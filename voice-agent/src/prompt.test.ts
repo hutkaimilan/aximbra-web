@@ -189,7 +189,7 @@ test('az angol hivasnak is van kimondhato arlistaja', () => {
   const en = buildSystemPrompt(0, facts(), '', 'en');
   assert.match(en, /between one hundred fifty thousand and four hundred thousand forints/);
   assert.match(en, /between six and fifteen million forints/);
-  assert.match(en, /two to four weeks/);
+  assert.match(en, /two to three weeks/);
 });
 
 test('a prompt nem tartalmaz nem letezo arat peldakent', () => {
