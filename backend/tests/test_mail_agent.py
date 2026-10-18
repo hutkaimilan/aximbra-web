@@ -1652,3 +1652,92 @@ def test_the_sample_inbox_is_searchable_without_google():
     assert all(word in " ".join([e["sender"], e["subject"], e["body"]]).lower() for e in hits)
     # Két szó: mindkettőnek szerepelnie kell, nem elég az egyik.
     assert mail_agent._sample_search(emails, "neptun kaposzta") == []
+
+
+def test_every_login_asks_which_google_account(monkeypatch):
+    """Kilépés után a következő belépés nem veheti át magától a böngészőben
+    bejelentkezett (előző) fiókot: a Google fiókválasztót mutat."""
+    seen = {}
+
+    class FakeFlow:
+        code_verifier = None
+
+        def authorization_url(self, **kw):
+            seen.update(kw)
+            return ("https://accounts.google.com/fake", kw.get("state"))
+
+    monkeypatch.setattr(mail_agent, "_flow", lambda with_compose=False, with_modify=False: FakeFlow())
+    c.get("/api/agent/email/connect")
+    assert "select_account" in seen["prompt"].split() and "consent" in seen["prompt"].split()
+
+
+def test_logout_ends_the_session_and_revokes_the_google_grant(monkeypatch):
+    revoked = []
+
+    async def fake_revoke(creds):
+        revoked.append(creds)
+
+    monkeypatch.setattr(mail_agent, "_revoke", fake_revoke)
+    creds = type("Creds", (), {"token": "ya29.test"})()
+    sid = "logout-test"
+    mail_agent._sessions[sid] = {"email": "a@b.hu", "creds": creds, "analyses": [], "state": {},
+                                 "created_at": mail_agent.datetime.now(mail_agent.timezone.utc)}
+    token = mail_agent._fernet.encrypt(sid.encode()).decode()
+    r = c.post("/api/agent/email/disconnect", headers={mail_agent.SESSION_HEADER: token})
+    assert r.status_code == 200 and sid not in mail_agent._sessions and revoked == [creds]
+    # a régi tokennel utána semmi nem érhető el
+    assert c.get("/api/agent/email/results", headers={mail_agent.SESSION_HEADER: token}).status_code == 401
+    status = c.get("/api/agent/email/status", headers={mail_agent.SESSION_HEADER: token}).json()
+    assert status["connected"] is False and status["email"] is None
+
+
+def test_revoke_posts_the_token_to_google(monkeypatch):
+    import asyncio
+    calls = []
+
+    class FakeClient:
+        def __init__(self, **kw):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, url, data=None):
+            calls.append((url, data))
+            return type("R", (), {"status_code": 200})()
+
+    monkeypatch.setattr(mail_agent.httpx, "AsyncClient", FakeClient)
+    loop = asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(mail_agent._revoke(type("C", (), {"token": "ya29.x"})()))
+        loop.run_until_complete(mail_agent._revoke(None))  # mintapostafiók: nincs mit visszavonni
+    finally:
+        loop.close()
+    assert calls == [("https://oauth2.googleapis.com/revoke", {"token": "ya29.x"})]
+
+
+def test_an_expired_session_is_revoked_too(monkeypatch):
+    import asyncio
+    revoked = []
+
+    async def fake_revoke(creds):
+        revoked.append(creds)
+
+    monkeypatch.setattr(mail_agent, "_revoke", fake_revoke)
+    old = mail_agent.datetime.now(mail_agent.timezone.utc) - mail_agent.timedelta(seconds=mail_agent.SESSION_TTL_SECONDS + 5)
+    creds = type("Creds", (), {"token": "ya29.old"})()
+    mail_agent._sessions["expired-test"] = {"email": "x@y.hu", "creds": creds, "created_at": old}
+
+    async def sweep_then_settle():
+        mail_agent._sweep()
+        await asyncio.sleep(0)
+
+    loop = asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(sweep_then_settle())
+    finally:
+        loop.close()
+    assert "expired-test" not in mail_agent._sessions and revoked == [creds]

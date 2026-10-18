@@ -523,9 +523,18 @@ export default function EmailAgent({ embedded = false }) {
       if (t && navigator.sendBeacon) {
         navigator.sendBeacon(`${API}/disconnect?s=${encodeURIComponent(t)}`);
       }
+      setToken("");
     };
+    // A „Vissza” gomb a böngésző gyorsítótárából hozná vissza a lapot, a
+    // korábbi fiók leveleivel együtt — pedig a munkamenet már véget ért. Ilyenkor
+    // újratöltjük, hogy a képernyőn se maradjon semmi a kilépett fiókból.
+    const back = (e) => { if (e.persisted) window.location.reload(); };
     window.addEventListener("pagehide", end);
-    return () => window.removeEventListener("pagehide", end);
+    window.addEventListener("pageshow", back);
+    return () => {
+      window.removeEventListener("pagehide", end);
+      window.removeEventListener("pageshow", back);
+    };
   }, []);
 
   const runSample = async () => {

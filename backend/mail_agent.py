@@ -21,6 +21,7 @@ from email.utils import parsedate_to_datetime
 from typing import Literal
 
 import httplib2
+import httpx
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse
@@ -212,11 +213,45 @@ def _new_state() -> dict:
     return {"running": False, "total": 0, "done": 0, "errors": 0, "message": ""}
 
 
+GOOGLE_REVOKE_URL = "https://oauth2.googleapis.com/revoke"
+
+
+async def _revoke(creds) -> None:
+    """Visszavonja a Google-hozzáférést. Kilépés után így nem marad élő token:
+    a postafiókhoz csak egy újabb, a fiókválasztón át adott engedéllyel lehet
+    újra hozzáférni. Legjobb igyekezet — ha a Google épp nem érhető el, a
+    token egy órán belül magától lejár, és nálunk már nincs meg."""
+    token = getattr(creds, "token", None)
+    if not token:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.post(GOOGLE_REVOKE_URL, data={"token": token})
+        if r.status_code != 200:
+            logger.warning("agent token revoke: HTTP %s", r.status_code)
+    except Exception as e:  # noqa - a kilépés akkor is megtörténik
+        logger.warning("agent token revoke failed: %s", type(e).__name__)
+
+
+def _revoke_later(sess: dict) -> None:
+    """A lejárt munkamenet tokenjét is visszavonjuk, a háttérben."""
+    creds = sess.get("creds")
+    if not creds:
+        return
+    try:
+        task = asyncio.get_running_loop().create_task(_revoke(creds))
+    except RuntimeError:  # nincs futó esemény-ciklus (pl. szinkron teszt)
+        return
+    _runs.add(task)
+    task.add_done_callback(_runs.discard)
+
+
 def _sweep():
     now = datetime.now(timezone.utc)
     for key, sess in list(_sessions.items()):
         if (now - sess["created_at"]).total_seconds() > SESSION_TTL_SECONDS:
             _sessions.pop(key, None)
+            _revoke_later(sess)
 
 
 def _read_session(request: Request):
@@ -520,7 +555,10 @@ async def connect(drafts: bool = False, cleanup: bool = False, lang: str = "hu")
     flow.code_verifier = _new_code_verifier()
     url, _ = flow.authorization_url(
         access_type="online",
-        prompt="consent",
+        # select_account: a Google minden belépésnél megkérdezi, melyik fiókkal.
+        # Csak „consent”-tel a böngészőben épp bejelentkezett fiókot vette
+        # magától, így kilépés után az előző látogató fiókja jött vissza.
+        prompt="select_account consent",
         include_granted_scopes="false",
         state=_pack_state(flow.code_verifier, drafts, lang, with_modify=cleanup),
     )
@@ -611,7 +649,11 @@ async def disconnect(request: Request, s: str = ""):
         except Exception:  # noqa
             sid = None
     if sid:
-        _sessions.pop(sid, None)
+        sess = _sessions.pop(sid, None)
+        if sess:
+            # A munkamenet törlése mellett a Google-hozzáférést is visszavonjuk,
+            # hogy a kilépés tényleg kilépés legyen, ne csak a mi oldalunkon.
+            await _revoke(sess.get("creds"))
     return {"ok": True}
 
 
