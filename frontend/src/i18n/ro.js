@@ -41,7 +41,7 @@ const ro = {
     sub: "Construim agenți AI pentru companii, care fac o muncă concretă — sortează e-mailuri, califică solicitări, răspund la telefon. Nu predăm o demonstrație, ci un sistem funcțional pe care îl menținem în viață.",
     ctaPrimary: "Vezi agenții",
     ctaGhost: "Vezi live",
-    stats: [["2–4 săptămâni", "primul agent"], ["3 limbi", "vorbite de agentul telefonic"], ["100%", "aprobare umană"]],
+    stats: [["2–4 săptămâni", "primul agent"], ["9 limbi", "site-ul și demo-urile live"], ["100%", "aprobare umană"]],
   },
   agentsSection: {
     tag: "Ce construim",
@@ -66,7 +66,7 @@ const ro = {
     { title: "Agent de relații cu clienții", badge: "Demo", desc: "Răspunde din propriile tale documente, cu surse. Ce nu știe, predă unui om — nu inventează.", lead: "6–10 săptămâni" },
     { title: "Agent de conținut", badge: "Demo", desc: "Antrenat pe un singur ton: newsletter, descriere de produs, postare pe social. Aprobarea rămâne la tine.", lead: "2–3 săptămâni" },
     { title: "Asistent pentru magazin online", badge: "Demo", desc: "Recomandă produse, verifică stocul, urmărește comenzile. Lucrează împotriva abandonului coșului, nu împotriva vizitatorului.", lead: "3–5 săptămâni" },
-    { title: "Analizator de documente", badge: "Live", desc: "Citește contracte, facturi și oferte și extrage cele șapte câmpuri pentru care cineva citea tot până acum.", lead: "6–8 săptămâni" },
+    { title: "Analizator de documente", badge: "Live", desc: "Citește contracte, facturi și oferte: extrage datele principale, verifică fiecare clauză pentru condiții în dezavantajul tău și îți spune ce să renegociezi înainte de semnare. Fiecare constatare vine cu fraza din document pe care se bazează.", lead: "6–8 săptămâni" },
     { title: "Asistent financiar", badge: "Demo", desc: "Clasifică costurile, semnalează abaterile, întocmește rapoarte. În spatele fiecărei afirmații stă o linie-sursă.", lead: "6–8 săptămâni" },
     { title: "Agent de recrutare", badge: "Demo", desc: "Prefiltrează CV-urile după criterii structurate. Din cauza AI Act al UE, include jurnal de audit și control uman.", lead: "3–4 săptămâni + juridic" },
     { title: "Agent de operațiuni IT", badge: "Demo", desc: "Se uită la loguri, clasifică alertele, rulează remedierea pentru erori cunoscute. Ce nu recunoaște, te trezește pentru asta.", lead: "3–6 săptămâni" },

@@ -41,7 +41,7 @@ const es = {
     sub: "Creamos agentes de IA para empresas que hacen un trabajo concreto — ordenan correos, califican consultas, atienden el teléfono. No entregamos una demo, sino un sistema que funciona y que mantenemos vivo.",
     ctaPrimary: "Ver los agentes",
     ctaGhost: "Verlo en vivo",
-    stats: [["2–4 semanas", "el primer agente"], ["3 idiomas", "habla el agente telefónico"], ["100%", "aprobación humana"]],
+    stats: [["2–4 semanas", "el primer agente"], ["9 idiomas", "la web y las demos en vivo"], ["100%", "aprobación humana"]],
   },
   agentsSection: {
     tag: "Lo que construimos",
@@ -66,7 +66,7 @@ const es = {
     { title: "Agente de atención al cliente", badge: "Demo", desc: "Responde a partir de tus propios documentos, citando fuentes. Lo que no sabe, lo pasa a una persona — no se lo inventa.", lead: "6–10 semanas" },
     { title: "Agente de contenidos", badge: "Demo", desc: "Entrenado en un tono: boletín, ficha de producto, publicación social. La aprobación se queda contigo.", lead: "2–3 semanas" },
     { title: "Asistente de tienda online", badge: "Demo", desc: "Recomienda productos, comprueba stock, sigue pedidos. Trabaja contra el abandono del carrito, no contra el visitante.", lead: "3–5 semanas" },
-    { title: "Analizador de documentos", badge: "En vivo", desc: "Lee contratos, facturas y presupuestos, y extrae los siete campos por los que alguien lo leía todo.", lead: "6–8 semanas" },
+    { title: "Analizador de documentos", badge: "En vivo", desc: "Lee contratos, facturas y presupuestos: extrae los datos clave, revisa cada cláusula en busca de condiciones que te perjudican y te dice qué renegociar antes de firmar. Cada hallazgo va con la frase del documento en la que se basa.", lead: "6–8 semanas" },
     { title: "Asistente financiero", badge: "Demo", desc: "Categoriza gastos, señala desviaciones, compila informes. Detrás de cada afirmación hay una línea de origen.", lead: "6–8 semanas" },
     { title: "Agente de selección", badge: "Demo", desc: "Preselecciona currículums con criterios estructurados. Por el Reglamento de IA de la UE incluye registro de auditoría y revisión humana.", lead: "3–4 semanas + legal" },
     { title: "Agente de operaciones TI", badge: "Demo", desc: "Mira logs, clasifica alertas, ejecuta la solución para fallos conocidos. Lo que no reconoce, te despierta para ello.", lead: "3–6 semanas" },

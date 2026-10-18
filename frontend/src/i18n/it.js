@@ -41,7 +41,7 @@ const it = {
     sub: "Costruiamo agenti AI per le aziende che svolgono un lavoro concreto — smistano email, qualificano richieste, rispondono al telefono. Non consegniamo una demo, ma un sistema funzionante che teniamo in vita.",
     ctaPrimary: "Vedi gli agenti",
     ctaGhost: "Guardalo dal vivo",
-    stats: [["2–4 settimane", "il primo agente"], ["3 lingue", "parlate dall'agente telefonico"], ["100%", "approvazione umana"]],
+    stats: [["2–4 settimane", "il primo agente"], ["9 lingue", "il sito e le demo dal vivo"], ["100%", "approvazione umana"]],
   },
   agentsSection: {
     tag: "Cosa costruiamo",
@@ -66,7 +66,7 @@ const it = {
     { title: "Agente di assistenza clienti", badge: "Demo", desc: "Risponde dai tuoi documenti, con le fonti. Ciò che non sa lo passa a una persona — non lo inventa.", lead: "6–10 settimane" },
     { title: "Agente di contenuti", badge: "Demo", desc: "Addestrato su un tono: newsletter, scheda prodotto, post social. L'approvazione resta a te.", lead: "2–3 settimane" },
     { title: "Assistente e-commerce", badge: "Demo", desc: "Consiglia prodotti, controlla le scorte, segue gli ordini. Lavora contro l'abbandono del carrello, non contro il visitatore.", lead: "3–5 settimane" },
-    { title: "Analizzatore di documenti", badge: "Live", desc: "Legge contratti, fatture e preventivi ed estrae i sette campi per cui qualcuno finora leggeva tutto.", lead: "6–8 settimane" },
+    { title: "Analizzatore di documenti", badge: "Live", desc: "Legge contratti, fatture e preventivi: estrae i dati principali, esamina ogni clausola per trovare le condizioni a tuo svantaggio e ti dice cosa rinegoziare prima di firmare. Ogni risultato riporta la frase del documento su cui si basa.", lead: "6–8 settimane" },
     { title: "Assistente finanziario", badge: "Demo", desc: "Categorizza i costi, segnala scostamenti, compila report. Dietro ogni affermazione c'è una riga di origine.", lead: "6–8 settimane" },
     { title: "Agente di selezione", badge: "Demo", desc: "Prevaglia i CV secondo criteri strutturati. Per l'AI Act UE include log di audit e revisione umana.", lead: "3–4 settimane + legale" },
     { title: "Agente di operations IT", badge: "Demo", desc: "Guarda i log, classifica gli allarmi, esegue la correzione per i problemi noti. Ciò che non riconosce, ti sveglia per quello.", lead: "3–6 settimane" },
