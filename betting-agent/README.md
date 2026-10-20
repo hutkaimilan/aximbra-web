@@ -1,11 +1,54 @@
 # Fogadáskészítő agent (TippmixPro)
 
-Bajnokok Ligája, Európa-liga, Premier League, La Liga és Bundesliga meccseire
-kiszámolja a **valós esélyeket**, megmondja tippenként a **legkisebb
-Tippmix-szorzót**, amelynél még megéri, és a beírt Tippmix-szorzókból a
-TippmixPro feltételeinek megfelelő **szelvényt** rak össze téttel együtt.
+Bajnokok Ligája, Európa-liga, Premier League, La Liga, Bundesliga és portugál
+bajnokság. Két felülete van:
 
-Csak a Python standard könyvtárát használja, külső csomag nem kell.
+- **Weboldal** (`web.py`): a TippmixPro aktuális szorzói sorozatonként külön,
+  szelvényépítő a TippmixPro saját kötéstiltás-ellenőrzésével, értékkereső,
+  és kattintható csapatok a korábbi eredményeikkel.
+- **Parancssor** (`agent.py`): ugyanaz a számolás, kézzel kitöltött táblázattal.
+
+## Weboldal
+
+| Mit mutat | Honnan |
+|---|---|
+| Szorzók: 1X2, kétesély, gólszám 2,5, mindkét csapat gólt szerez, DNB | a TippmixPro saját felülete (`sportsapi.tippmixpro.hu`, ugyanaz a csatorna, amit a böngésző használ) |
+| Kötéstiltás, Fogadásépítő-szorzó egy meccsen belül, minimális tét | a TippmixPro szelvény-ellenőrzője (`bettingOptionsV2`) |
+| Csapatok korábbi meccsei minden sorozatból | ESPN nyilvános JSON |
+| Valós esély, várható érték, értékkereső | The Odds API (Pinnacle, Betfair-tőzsde) — opcionális |
+
+**Fontos:** a TippmixPro-csatorna nem dokumentált, nyilvános API. Bármikor
+megváltozhat; ilyenkor az oldal a legutóbbi sikeres adatot mutatja „elavult"
+jelzéssel és kiírja a hibát. Csak kérésre és 3 perces gyorsítótárral kérdez,
+vagyis annyi terhelést okoz, mint egy böngésző. A fogadást a TippmixPro-n kell
+leadni.
+
+### Erőforrás
+
+Egy Python-folyamat (standard könyvtár + `websockets`), nincs böngésző,
+adatbázis vagy nyelvi modell. ~40 MB memória; Railway-en alvó módban fut,
+forgalom nélkül nem fogyaszt. Az első kérés ébredés után néhány másodperc.
+
+### Környezeti változók
+
+| Változó | Kötelező | Mire |
+|---|---|---|
+| `APP_PASSWORD` | igen | belépési jelszó; nélküle az API nem válaszol |
+| `ODDS_API_KEY` | nem | valós esély és értékkereső (ingyenes: the-odds-api.com) |
+| `ODDS_CACHE_MINUTES` | nem | ennyi percig nem kér újra a The Odds API-tól (alap: 120) |
+| `TIPPMIX_CACHE_SECONDS` | nem | TippmixPro-gyorsítótár (alap: 180) |
+| `APP_SECRET` | nem | munkamenet-kulcs; alapból a jelszóból származik |
+
+Egy The Odds API-frissítés 12 kredit (6 sorozat × 2 piac). Az ingyenes havi 500
+kreditből a 2 órás gyorsítótárral bőven kitart, de egy újraindulás (telepítés,
+ébredés alvásból) törli a gyorsítótárat.
+
+### Helyi futtatás
+
+```bash
+pip install -r requirements.txt
+APP_PASSWORD=valami python3 web.py      # http://localhost:8080
+```
 
 ## Amit tudnod kell, mielőtt használod
 
@@ -50,7 +93,7 @@ Egy teljes futás 10 kredit (5 bajnokság × 2 piac), az ingyenes keretből ~50
 futás jön ki havonta. 30 percen belüli újrafuttatás a gyorsítótárból megy, nem
 fizet újra.
 
-## Használat
+## Parancssor
 
 ```bash
 cd betting-agent
@@ -80,13 +123,13 @@ Egyéb kapcsolók: `--liga soccer_epl soccer_spain_la_liga` (csak ezek),
 `--negativ-is` (a célszorzóhoz negatív lábat is felhasznál — megmutatja, mennyit
 veszítesz vele), `--regi-is` (6 óránál régebbi elemzésből is számol).
 
-## Miért nem tölti le a Tippmix-szorzókat?
+## Csapatnév-egyeztetés
 
-A TippmixPro-nak nincs nyilvános API-ja; a weboldal lekaparása a felhasználási
-feltételekbe ütközhet, és bármikor eltörik. A csapatnevek automatikus
-párosítása (angol forrás ↔ magyar Tippmix-név) pedig csendben rossz meccshez
-rendelhetne egy szorzót. A kitöltendő táblázat soronként azonosít, így ez nem
-fordulhat elő, és a második lépés nem költ kvótát.
+A TippmixPro, az ESPN és a The Odds API másként írja a neveket („Bayern
+München" / „Bayern Munich", „1. FC Köln" / „FC Cologne"). Meccset ezért mindig
+a kezdési idő és mindkét csapatnév együtt párosít (`names.py`): ugyanabban a
+percben két meccs csapatai nem hasonlítanak egymásra. Ahol nincs biztos pár, ott
+nincs valós esély — azt a tippet nem nevezi értékesnek.
 
 ## A TippmixPro-szabályok
 
@@ -94,14 +137,14 @@ Alapértékek (`config.py`), környezeti változóval felülírhatók:
 
 | Szabály | Érték | Változó |
 |---|---|---|
-| Minimális tét kombinációnként | 200 Ft | `TIPPMIX_MIN_STAKE` |
+| Minimális tét kombinációnként | 100 Ft (a weboldal a TippmixPro-tól kérdezi) | `TIPPMIX_MIN_STAKE` |
 | Maximális tét | 100 000 Ft | `TIPPMIX_MAX_STAKE` |
 | Maximális nyeremény fogadásonként | 1 000 000 Ft | `TIPPMIX_MAX_PAYOUT` |
 | Események száma egy szelvényen | max. 20 | `TIPPMIX_MAX_EVENTS` |
 
-Ezek nyilvános összefoglalókból származnak (2018-as részvételi szabályzat,
-2026-os cikkek), nem a Szerencsejáték Zrt. friss szabályzatából. Ahol a források
-eltértek (min. tét 100 vagy 200 Ft; max. nyeremény 1 vagy 2 millió Ft), a
+A minimális tétet és a kötéstiltást a TippmixPro maga adja vissza. A többi szám
+nyilvános összefoglalókból származik (2018-as részvételi szabályzat, 2026-os
+cikkek); ahol a források eltértek (max. nyeremény 1 vagy 2 millió Ft), a
 szigorúbbat választottuk: így legfeljebb kimarad egy szelvény, de nem javasol
 olyat, amit a rendszer nem fogad el. Érdemes egyszer a hivatalos szabályzatban
 ellenőrizni.

@@ -1,7 +1,7 @@
 """A TippmixPro szabályai és a stratégia paraméterei, környezeti változóból felülírhatóan.
 
-A szabályok számait nem a Szerencsejáték Zrt. hivatalos, friss szabályzatából
-vettük, hanem nyilvános összefoglalókból (2018-as részvételi szabályzat,
+A minimális tétet a TippmixPro szelvény-ellenőrzője maga visszaadja. A többi
+számot nyilvános összefoglalókból vettük (2018-as részvételi szabályzat,
 2026-os cikkek), és ahol a források eltérnek, a szigorúbbat választottuk:
 egy túl szigorú korlát legfeljebb kihagy egy szelvényt, egy túl laza viszont
 olyat ajánl, amit a TippmixPro nem fogad el. A hivatalos szabályzatban
@@ -23,8 +23,8 @@ def _num(name: str, default, cast):
 
 @dataclass(frozen=True)
 class Rules:
-    # 100 Ft a legtöbb forrás szerint, de 2025-ben emelkedett a Tippmix minimuma: a 200 mindkettőnek megfelel.
-    min_stake: int = 200          # Ft, kombinációnként
+    # A TippmixPro szelvény-ellenőrzője maga adja vissza (minStake: 100); a webes felület onnan olvassa.
+    min_stake: int = 100          # Ft, kombinációnként
     max_stake: int = 100_000      # Ft, egységnyi fogadásonként
     # A 2018-as szabályzat 1 000 000 Ft-ot ír, egy újabb forrás 2 000 000-et: a kisebbel számolunk.
     max_payout: int = 1_000_000   # Ft, egységnyi fogadásonként
@@ -85,6 +85,7 @@ LEAGUES = {
     "soccer_epl": "Premier League",
     "soccer_spain_la_liga": "La Liga",
     "soccer_germany_bundesliga": "Bundesliga",
+    "soccer_portugal_primeira_liga": "Portugál bajnokság",
 }
 
 # Éles (alacsony árrésű, gyorsan korrigáló) piacok: ezek árából számolunk valós esélyt.

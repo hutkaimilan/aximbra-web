@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1115">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Szelvényépítő</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div id="login" class="login" hidden>
+    <form id="login-form" class="login-card">
+      <h1>Szelvényépítő</h1>
+      <p class="muted">TippmixPro-szorzók, kötéstiltás, értékkereső</p>
+      <label for="pw">Jelszó</label>
+      <input id="pw" type="password" autocomplete="current-password" required>
+      <button type="submit" class="primary">Belépés</button>
+      <p id="login-err" class="err" role="alert"></p>
+    </form>
+  </div>
+
+  <div id="app" hidden>
+    <header class="top">
+      <div class="brand">Szelvényépítő</div>
+      <div class="status" id="status"></div>
+      <button id="refresh" class="ghost" title="Szorzók frissítése" aria-label="Szorzók frissítése">↻</button>
+      <button id="logout" class="ghost" title="Kilépés" aria-label="Kilépés">⎋</button>
+    </header>
+
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="Keresés csapatra…" autocomplete="off" aria-label="Keresés csapatra">
+    </div>
+    <nav class="tabs" id="tabs" role="tablist"></nav>
+    <div id="notices"></div>
+
+    <main class="layout">
+      <section id="content" class="content" aria-live="polite"></section>
+      <aside id="slip" class="slip" aria-label="Szelvény">
+        <div class="slip-head" id="slip-head">
+          <strong>Szelvény</strong>
+          <span id="slip-count" class="pill">0</span>
+          <span id="slip-odds" class="slip-odds"></span>
+          <button id="slip-toggle" class="ghost slip-toggle" aria-label="Szelvény megnyitása">▲</button>
+        </div>
+        <div class="slip-body" id="slip-body">
+          <ul id="slip-legs" class="slip-legs"></ul>
+          <div class="slip-stake">
+            <label for="stake">Tét (Ft)</label>
+            <input id="stake" type="number" inputmode="numeric" min="100" step="100" value="500">
+          </div>
+          <div id="slip-result" class="slip-result"></div>
+          <button id="slip-clear" class="ghost small">Szelvény törlése</button>
+          <p class="muted tiny">A köthetőséget és a Fogadásépítő-szorzót a TippmixPro saját szelvény-ellenőrzése adja.
+            A fogadást a TippmixPro-n add le.</p>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <dialog id="team" class="team">
+    <form method="dialog" class="team-close"><button aria-label="Bezárás">✕</button></form>
+    <div id="team-body"></div>
+  </dialog>
+</body>
+</html>

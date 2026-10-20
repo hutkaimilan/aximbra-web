@@ -156,10 +156,10 @@ def test_stake_respects_share_payout_and_step():
 
 
 def test_min_stake_only_when_full_kelly_allows_it():
-    # Teljes Kelly 1% → 50 000 Ft-nál 500 Ft, a negyede 125: a 200 Ft-os minimum még belefér.
-    stake, note = slip.stake_for(0.34, 3.0, 50_000, R, S)
+    # Teljes Kelly 1% → 30 000 Ft-nál 300 Ft, a negyede 75: a 100 Ft-os minimum még belefér.
+    stake, note = slip.stake_for(0.34, 3.0, 30_000, R, S)
     assert stake == R.min_stake and "minimális" in note
-    # 5 000 Ft-nál a teljes Kelly 50 Ft: a 200 Ft túlfogadás lenne.
+    # 5 000 Ft-nál a teljes Kelly 50 Ft: a 100 Ft túlfogadás lenne.
     assert slip.stake_for(0.34, 3.0, 5_000, R, S)[0] == 0
 
 
@@ -204,7 +204,7 @@ def test_singles_take_one_bet_per_match():
 
 
 def test_cap_total_keeps_the_best_instead_of_dropping_everything():
-    # 40 egyforma fogadás, mindegyik 300 Ft: arányosan mind 200 alá esne, a helyes eredmény ~8 marad.
+    # 40 egyforma fogadás, mindegyik 300 Ft: arányosan mind 100 alá esne, a helyes eredmény ~8 marad.
     bets = [slip.Bet((leg(i, 0.6, 1.9),), 300) for i in range(40)]
     kept, dropped, _ = slip.cap_total(bets, 50_000, R, S)
     assert kept and sum(b.stake for b in kept) <= 2500 and all(b.stake >= R.min_stake for b in kept)
