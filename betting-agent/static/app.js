@@ -328,18 +328,32 @@ function renderBest(root) {
       h("p", { class: "muted tiny" }, "Végignézi mind a hat sorozat TippmixPro-kínálatát, és azokat a tippeket keresi, ahol a Tippmix szorzója nagyobb, mint amit a valós esély indokol. A javasolt kötéseket a TippmixPro kötéstiltás-ellenőrzése is jóváhagyja."),
       h("div", { class: "form-row" },
         h("label", {}, "Keret (Ft)", bankIn),
-        h("label", {}, "Célszorzó (kötés, opcionális)", targetIn),
+        h("label", {}, "Célszorzó (alap: 3,0)", targetIn),
         h("button", { class: "primary", onclick: run }, "Keresés"))),
     result);
   if (S.best) result.replaceChildren(bestView(S.best)); else run();
 }
 
+function norefPanel(b) {
+  const t = String(b.noref_target).replace(".", ",");
+  return h("div", { class: "panel" },
+    h("h2", {}, `Kész szelvények ${t}-es célszorzóra`),
+    h("p", { class: "muted tiny" }, "Az esélyt a TippmixPro saját szorzóiból számolom, árrés nélkül, és azokat a tippeket választom, ahol a Tippmix a legkevesebbet veszi el. Mindegyiket a TippmixPro kötéstiltás-ellenőrzése jóváhagyta. Előnyt ez nem ad: a várható érték a Tippmix árrése miatt negatív, és ezt ki is írom."),
+    b.noref.length ? null : h("p", { class: "muted" }, "Nincs köthető szelvény erre a célszorzóra — próbálj másikat."),
+    ...b.noref.map((x, i) => h("div", { class: "bet" },
+      h("div", { class: "row" }, h("b", {}, `${i + 1}. szelvény · ${x.legs.length === 1 ? "egyes" : x.legs.length + " esemény"} · szorzó ${odds(x.odds)}`), h("span", {}, `tét ${ft(x.stake)}`)),
+      h("div", { class: "muted tiny" }, `becsült nyerési esély ${pct(x.prob)} · lehetséges nyeremény ${ft(x.payout)} · várható érték ${signedPct(x.ev)} (a Tippmix árrése)`),
+      h("ul", {}, ...x.legs.map((l) => h("li", {}, `${l.match} — ${l.label} @ ${odds(l.odds)} (esély ${pct(l.prob, 0)})`))),
+      h("button", { class: "primary small", onclick: () => addLegs(x.legs) }, "Szelvényre"))));
+}
+
 function bestView(b) {
   const nodes = [];
   for (const n of b.notes || []) nodes.push(h("div", { class: "notice" }, n));
+  if (b.noref_target) nodes.push(norefPanel(b));
   if (!b.enabled) {
-    nodes.push(h("div", { class: "panel" }, h("h2", {}, "Valós esély nélkül"),
-      h("p", { class: "muted" }, "Az értékkereséshez egy ingyenes The Odds API-kulcs kell (ODDS_API_KEY a szerveren). Addig a legalacsonyabb árrésű meccseket mutatom: ezeken veszi el a Tippmix a legkevesebbet, de ez még nem jelent pozitív várható értéket."),
+    nodes.push(h("div", { class: "panel" }, h("h2", {}, "Legalacsonyabb árrésű meccsek"),
+      h("p", { class: "muted tiny" }, "Valódi értékkereséshez (ahol a Tippmix szorzója jobb a valós esélynél) egy ingyenes The Odds API-kulcs kell; addig ezeken a meccseken veszi el a Tippmix a legkevesebbet."),
       ...b.low_margin.map((r) => h("div", { class: "pick" },
         h("div", {}, h("div", { class: "t" }, r.match), h("div", { class: "s" }, `${r.competition} · ${fmtShort.format(new Date(r.kickoff))} ${fmtTime.format(new Date(r.kickoff))}`)),
         h("div", { class: "r" }, h("b", {}, pct(r.margin)), h("div", { class: "s" }, "árrés"))))));

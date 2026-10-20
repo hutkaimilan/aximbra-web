@@ -1,4 +1,5 @@
 """A webes réteg hálózat nélkül: TippmixPro-rekordok, névegyeztetés, valós esély, munkamenet, gyorsítótár."""
+import math
 import os
 import sys
 import time
@@ -192,3 +193,53 @@ def test_open_mode_without_password(monkeypatch):
 def test_forced_refresh_is_throttled():
     lim = web.Limiter(1, 30)
     assert lim.allow("all") and not lim.allow("all")
+
+
+# --- célszorzós szelvény valós esély nélkül ---
+
+import target as target_mod  # noqa: E402
+
+
+def _state(matches):
+    return {"competitions": [{"key": "x", "name": "X", "matches": matches}]}
+
+
+def _m(mid, o1, ox, o2, over=None, under=None):
+    mk = [{"key": "1x2", "name": "1X2", "line": None, "outcomes": [
+        {"id": f"{mid}1", "pick": "1", "odds": o1}, {"id": f"{mid}X", "pick": "X", "odds": ox},
+        {"id": f"{mid}2", "pick": "2", "odds": o2}]},
+        {"key": "dc", "name": "Kétesély", "line": None, "outcomes": [{"id": f"{mid}d", "pick": "1X", "odds": 1.2}]},
+        {"key": "dnb", "name": "DNB", "line": None, "outcomes": [{"id": f"{mid}n", "pick": "1", "odds": 1.3}]}]
+    if over:
+        mk.append({"key": "ou", "name": "Gólszám 2,5", "line": 2.5, "outcomes": [
+            {"id": f"{mid}o", "pick": "Több", "odds": over}, {"id": f"{mid}u", "pick": "Kevesebb", "odds": under}]})
+    return {"id": mid, "home": f"H{mid}", "away": f"A{mid}", "markets": mk}
+
+
+def test_candidates_devig_own_odds_skip_dnb_and_derive_double_chance():
+    cands = target_mod.candidates(_state([_m("a", 2.0, 3.4, 3.8, 1.9, 1.9)]), max_odds=10)
+    ids = {c.id for c in cands}
+    assert "an" not in ids                      # DNB kimarad
+    assert all(c.ratio <= 1.0 + 1e-9 for c in cands)
+    assert len([c for c in cands if c.match_id == "a"]) <= target_mod.PER_MATCH
+
+
+def test_search_hits_target_window_one_leg_per_match():
+    ms = [_m(str(i), 1.9 + i * 0.05, 3.5, 4.0, 1.85, 1.95) for i in range(8)]
+    cands = target_mod.candidates(_state(ms), max_odds=8 * 1.35)
+    found = target_mod.search(cands, 8.0)
+    assert found
+    for ratio, _, odds, legs in found:
+        assert 8.0 <= odds <= 8.0 * 1.35 + 1e-9
+        assert len({l.match_id for l in legs}) == len(legs)
+        assert ratio == pytest.approx(math.prod(l.ratio for l in legs))
+    # a legjobb elöl
+    assert found[0][0] == max(f[0] for f in found)
+    picked = target_mod.pick_disjoint(found, 3)
+    seen = [l.match_id for f in picked for l in f[3]]
+    assert len(seen) == len(set(seen))
+
+
+def test_search_returns_nothing_for_unreachable_target():
+    cands = target_mod.candidates(_state([_m("a", 1.5, 4.0, 6.0)]), max_odds=1000)
+    assert target_mod.search(cands, 500.0) == []

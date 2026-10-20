@@ -35,6 +35,7 @@ import markets
 import names
 import odds_api
 import slip
+import target as target_mod
 import tippmix
 import value
 from config import DEFAULT_BOOKMAKERS, load_rules, load_strategy
@@ -290,10 +291,48 @@ def check(ids: list, stake: int) -> dict:
     return res
 
 
+def _noref_slips(state: dict, bankroll: int, target: float | None, notes: list) -> tuple[list, float]:
+    """Kész szelvények célszorzóra a TippmixPro saját árrésmentesített szorzóiból (lásd target.py)."""
+    goal = target or 3.0
+    cands = target_mod.candidates(state, max_odds=goal * 1.35)
+    found = target_mod.search(cands, goal)
+    stake = max(RULES.min_stake, int(bankroll * STRATEGY.max_bet_share // RULES.stake_step * RULES.stake_step))
+    out, used, checks = [], set(), 0
+    try:
+        with tippmix.Session() as s:
+            for ratio, _, odds, legs in found:
+                ms = {l.match_id for l in legs}
+                if ms & used:
+                    continue
+                if checks >= 12:  # ne terheljük a TippmixPro-t: ennyi ellenőrzésből már kijön 3 szelvény
+                    break
+                checks += 1
+                chk = tippmix.check_slip(s, [(l.id, l.odds) for l in legs])
+                if chk["forbidden"] or chk["bet_builder"]:
+                    continue
+                prob = 1.0
+                for l in legs:
+                    prob *= l.prob
+                st = max(stake, int(chk.get("min_stake") or RULES.min_stake))
+                out.append({"legs": [{"id": l.id, "match": l.match, "label": l.label, "odds": l.odds,
+                                      "prob": round(l.prob, 4)} for l in legs],
+                            "odds": round(odds, 4), "prob": round(prob, 4), "ev": round(ratio - 1, 4),
+                            "stake": st, "payout": int(st * odds)})
+                used |= ms
+                if len(out) >= 3:
+                    break
+    except tippmix.TippmixError as e:
+        notes.append(f"A szelvényeket a TippmixPro most nem tudta ellenőrizni, ezért nem ajánlok kötést: {e}")
+        return [], goal
+    if not out:
+        notes.append(f"Nem találtam köthető szelvényt {str(goal).replace('.', ',')}-es célszorzóra.")
+    return out, goal
+
+
 def best(bankroll: int, target: float | None) -> dict:
     state = build_state()
     out = {"enabled": state["fair"]["enabled"], "picks": [], "singles": [], "combos": [], "low_margin": [],
-           "notes": list(state["fair"]["status"])}
+           "notes": list(state["fair"]["status"]), "noref": [], "noref_target": None}
     rows = []
     for c in state["competitions"]:
         for m in c["matches"]:
@@ -313,6 +352,7 @@ def best(bankroll: int, target: float | None) -> dict:
                              "fair": o["fair"], "prob": o["prob"], "ev": o["ev"], "min_odds": o["min_odds"],
                              "source": o["source"]})
     if not out["enabled"] or not rows:
+        out["noref"], out["noref_target"] = _noref_slips(state, bankroll, target, out["notes"])
         return out
     legs = [slip.Leg(id=o["id"], match_id=m["id"], match=f"{m['home']} – {m['away']}",
                      label=f"{mk['name']}: {o['pick']}", prob=o["prob"], odds=o["odds"], source=o["source"],
