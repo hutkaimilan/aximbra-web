@@ -33,10 +33,16 @@ napra szóljon (budapesti idő szerint); alapból az első olyan nap, ahol legal
 | Gólos szelvény | győztes nélkül: a legvalószínűbb gólszám + „mindkét csapat szerez gólt” pár |
 | Teljes Fogadásépítő | győztes + gólszám + „mindkét csapat szerez gólt” |
 
-Minden szelvény becsült esélye legalább 60% (`MIN_SLIP_PROB`; a felületen 70% vagy 80% is
-kérhető, alacsonyabb nem): ezen belül a legesélyesebb meccsekkel kezdve annyit tesz rá,
-amennyi a küszöb fölött elfér. Ha egy stratégia legesélyesebb meccse sem éri el, a felület
-kiírja, és azt a változatot kihagyja.
+Esély-mód (`resolve_min_prob`):
+
+| Mód | Célszorzó nélkül | Célszorzóval |
+|---|---|---|
+| Automatikus (60%) — alap | a legnagyobb szorzó, amelynek esélye legalább 60% | a legnagyobb esélyű szelvény, amely eléri a célt (60% alatt narancssárga címke) |
+| legalább 70% / 80% | a legnagyobb szorzó a küszöb fölött | csak ha a cél és a küszöb együtt teljesíthető |
+| 60% alatti is | az n legesélyesebb csoport | a legnagyobb esélyű szelvény, amely eléri a célt |
+
+A választás pontos keresés a legesélyesebb 10 csoport összes (legfeljebb 6 meccses)
+kombinációján, nem mohó hozzáadás: az egy utolsó nagy lábbal jócskán túllőne a célon.
 
 1,10 alatti szorzójú csoport nem kerül szelvényre: szinte semmit nem ad hozzá,
 csak egy újabb helyet, ahol a szelvény elbukhat.

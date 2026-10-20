@@ -12,6 +12,8 @@ A csoport szorzóját nem mi számoljuk: azt a TippmixPro Fogadásépítője adj
 függetlenek, és a TippmixPro is a saját árával fogadja el. A csoportok egymás
 között függetlenek, ezért a szelvény esélye a csoportok esélyének szorzata.
 """
+import itertools
+import math
 from dataclasses import dataclass, field
 
 import names
@@ -149,30 +151,47 @@ def ranked(state: dict, kind: str) -> list[Group]:
 
 def assemble(name: str, desc: str, groups: list, n_default: int, target: float | None,
              min_prob: float | None = None) -> Version | None:
-    """A legesélyesebb csoportokból.
+    """A legjobb szelvény a csoportokból (esély szerint csökkenő sorrendben érkeznek).
 
-    - min_prob nélkül, célszorzó nélkül: n_default meccs.
-    - célszorzóval: addig vesz hozzá, amíg el nem éri.
-    - min_prob-bal: csak addig, amíg a szelvény együttes esélye nem esik alá; célszorzó nélkül
-      ezen belül a lehető legtöbb meccs, mert az adja a legnagyobb szorzót ugyanakkora esélyküszöb mellett.
+    - célszorzóval: a LEGNAGYOBB ESÉLYŰ kombináció, amely eléri a célszorzót (és a küszöböt, ha van);
+      egyenlőségnél a célhoz közelebbi szorzó. Mohó hozzáadással egy utolsó nagy láb
+      jócskán túllőhet a célon, feleslegesen kis eséllyel — ezért pontos keresés.
+    - küszöbbel, célszorzó nélkül: a LEGNAGYOBB SZORZÓJÚ kombináció, amelynek esélye még eléri a küszöböt.
+    - egyik sem: az n_default legesélyesebb csoport.
+    A jelöltek legfeljebb CANDIDATES darabok, a meccsek legfeljebb MAX_MATCHES: ≤ ~850 kombináció.
     """
-    v = Version(name=name, desc=desc)
-    used_teams: set = set()
-    for g in groups:
-        if g.odds is None or g.odds < MIN_GROUP_ODDS:
-            continue  # nem árazott (tiltott, nem elérhető) vagy szinte semmit nem ad — kimarad
-        if used_teams & set(g.teams):
-            continue  # ugyanaz a csapat két fordulóban: a két láb ugyanazon a formán állna vagy bukna
-        if min_prob is not None and v.prob * g.prob < min_prob:
-            break  # a csoportok esély szerint csökkenő sorrendben jönnek: a következő sem férne bele
-        v.groups.append(g)
-        used_teams |= set(g.teams)
-        if target is None and min_prob is None and len(v.groups) >= n_default:
-            break
-        if target is not None and v.odds >= target:
-            break
-        if len(v.groups) >= MAX_MATCHES:
-            break
-    if not v.groups or (target is not None and v.odds < target):
+    pool = [g for g in groups if g.odds is not None and g.odds >= MIN_GROUP_ODDS][:CANDIDATES]
+    if target is None and min_prob is None:
+        v = Version(name=name, desc=desc)
+        used: set = set()
+        for g in pool:
+            if used & set(g.teams):
+                continue  # ugyanaz a csapat két fordulóban: a két láb ugyanazon a formán állna vagy bukna
+            v.groups.append(g)
+            used |= set(g.teams)
+            if len(v.groups) >= n_default:
+                break
+        return v if v.groups else None
+
+    best_key, best = None, None
+    for k in range(1, min(MAX_MATCHES, len(pool)) + 1):
+        for combo in itertools.combinations(pool, k):
+            teams = [t for g in combo for t in g.teams]
+            if len(teams) != len(set(teams)):
+                continue
+            odds = math.prod(g.odds for g in combo)
+            prob = math.prod(g.prob for g in combo)
+            if min_prob is not None and prob < min_prob:
+                continue
+            if target is not None:
+                if odds < target:
+                    continue
+                key = (prob, -odds)
+            else:
+                key = (odds, prob)
+            if best_key is None or key > best_key:
+                best_key, best = key, combo
+    if best is None:
         return None
-    return v
+    # A szelvényen esély szerinti sorrendben állnak, ahogy a jelöltek is.
+    return Version(name=name, desc=desc, groups=sorted(best, key=lambda g: -g.prob))

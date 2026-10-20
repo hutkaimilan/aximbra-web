@@ -1,4 +1,5 @@
 """A webes réteg hálózat nélkül: TippmixPro-rekordok, névegyeztetés, valós esély, munkamenet, gyorsítótár."""
+import math
 import os
 import sys
 import time
@@ -322,3 +323,39 @@ def test_assemble_keeps_slip_above_minimum_probability():
     assert builder.assemble("x", "", groups, 3, None, min_prob=0.99) is None
     # célszorzó és küszöb ütközik: nincs szelvény
     assert builder.assemble("x", "", groups, 3, 20.0, min_prob=0.6) is None
+
+
+def test_probability_modes():
+    assert web.resolve_min_prob("auto", None) == 0.6
+    assert web.resolve_min_prob("auto", 5.0) is None      # célszorzóval a célszorzó dönt
+    assert web.resolve_min_prob("0", None) is None
+    assert web.resolve_min_prob("70", 5.0) == 0.7         # szigorú küszöb célszorzóval is
+    for bad in ("50", "99", "abc"):
+        with pytest.raises(ValueError):
+            web.resolve_min_prob(bad, None)
+
+
+def _groups(spec):
+    return [builder.Group(match_id=str(i), match=f"M{i}", competition="X", kickoff="", picks=[], prob=p, odds=o,
+                          teams=(f"h{i}", f"a{i}")) for i, (p, o) in enumerate(spec)]
+
+
+def test_target_picks_most_likely_combination_not_greedy_overshoot():
+    # A valós esetből: mohón 5,4-nél egy 2,16-os láb jönne (11,68-as szelvény, 7,6%).
+    spec = [(0.83, 1.19), (0.82, 1.20), (0.81, 1.22), (0.63, 1.56), (0.49, 1.99), (0.46, 2.16)]
+    gs = sorted(_groups(spec), key=lambda g: -g.prob)
+    v = builder.assemble("x", "", gs, 3, 6.0)
+    import itertools
+    feasible = [c for k in range(1, 7) for c in itertools.combinations(gs, k) if math.prod(g.odds for g in c) >= 6.0]
+    best = max(math.prod(g.prob for g in c) for c in feasible)
+    assert v.odds >= 6.0 and v.prob == pytest.approx(best)
+
+
+def test_min_prob_without_target_maximises_odds():
+    spec = [(0.90, 1.10), (0.88, 1.12), (0.80, 1.30), (0.75, 1.45)]
+    gs = _groups(spec)
+    v = builder.assemble("x", "", gs, 3, None, min_prob=0.6)
+    assert v.prob >= 0.6
+    import itertools
+    ok = [c for k in range(1, 5) for c in itertools.combinations(gs, k) if math.prod(g.prob for g in c) >= 0.6]
+    assert v.odds == pytest.approx(max(math.prod(g.odds for g in c) for c in ok))

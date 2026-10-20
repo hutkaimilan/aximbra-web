@@ -354,10 +354,11 @@ function slipMaker({ key, fixed, auto }) {
   const targetIn = h("input", { type: "text", inputmode: "decimal", placeholder: "nem kötelező, pl. 8", value: store.get("target", "") });
   const bankIn = h("input", { type: "number", inputmode: "numeric", min: "1000", step: "1000", value: store.get("bank", 50000) });
   const dayIn = h("select", { "aria-label": "Melyik naptól" });
-  // A szelvény esélye mindig legalább 60% (a szerver is ezt követeli meg); magasabbat lehet választani.
-  let minProb = store.get("esely", "60");
-  if (!["60", "70", "80"].includes(minProb)) minProb = "60";
-  const probIn = h("select", { "aria-label": "Minimum esély" }, ...[["60", "legalább 60%"], ["70", "legalább 70%"], ["80", "legalább 80%"]]
+  // Automatikus: célszorzó nélkül legalább 60%, célszorzóval a célszorzót éri el a lehető legnagyobb eséllyel.
+  const PROB_OPTS = [["auto", "Automatikus (60%)"], ["70", "legalább 70%"], ["80", "legalább 80%"], ["0", "60% alatti is"]];
+  let minProb = store.get("esely", "auto");
+  if (!PROB_OPTS.some(([v]) => v === minProb)) minProb = "auto";
+  const probIn = h("select", { "aria-label": "Esély" }, ...PROB_OPTS
     .map(([v, t]) => h("option", { value: v, selected: v === minProb }, t)));
   probIn.addEventListener("change", () => store.set("esely", probIn.value));
   const seg = h("div", { class: "seg", role: "radiogroup", "aria-label": "Hány napra" });
@@ -436,7 +437,7 @@ function slipMaker({ key, fixed, auto }) {
       h("div", { class: "form-row" + (fairOn ? " three" : "") },
         h("label", {}, "Tét (Ft)", stakeIn),
         h("label", {}, "Célszorzó", targetIn),
-        h("label", {}, "Minimum esély", probIn),
+        h("label", {}, "Esély", probIn),
         fairOn ? h("label", {}, "Keret az értékkereséshez (Ft)", bankIn) : null,
         h("button", { class: "primary", onclick: run }, "Szelvények készítése"))),
     result);
@@ -449,7 +450,8 @@ function slipCard(v, i) {
   const when = (k) => `${fmtShort.format(new Date(k))} ${fmtTime.format(new Date(k))}`;
   return h("div", { class: "tslip" },
     h("div", { class: "tslip-head" },
-      h("div", { class: "row" }, h("b", {}, `${i + 1}. ${v.name}`), h("span", { class: "pchip" }, `${pct(v.prob, 0)} esély`)),
+      h("div", { class: "row" }, h("b", {}, `${i + 1}. ${v.name}`),
+        h("span", { class: "pchip" + (v.prob < 0.6 ? " low" : ""), title: v.prob < 0.6 ? "60% alatti esély" : "" }, `${pct(v.prob, 0)} esély`)),
       h("span", { class: "muted tiny" }, v.desc)),
     ...v.groups.map((g) => h("div", { class: "tgroup" + (g.builder ? " bb" : "") },
       h("div", { class: "thead" },
