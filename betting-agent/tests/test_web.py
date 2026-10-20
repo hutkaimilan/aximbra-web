@@ -178,3 +178,17 @@ def test_espn_results_from_team_perspective():
     assert r["result"] == "GY" and not r["is_home"] and r["competition"] == "Bundesliga"
     [r] = espn._results(data, "1")
     assert r["result"] == "V"
+
+
+def test_open_mode_without_password(monkeypatch):
+    monkeypatch.delenv("APP_PASSWORD", raising=False)
+    h = web.Handler.__new__(web.Handler)
+    h.headers = {}
+    assert h._authed()
+    monkeypatch.setenv("APP_PASSWORD", "titok")
+    assert not h._authed()
+
+
+def test_forced_refresh_is_throttled():
+    lim = web.Limiter(1, 30)
+    assert lim.allow("all") and not lim.allow("all")

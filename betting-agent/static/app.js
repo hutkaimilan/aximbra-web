@@ -57,6 +57,7 @@ async function boot() {
   try {
     const me = await api("/api/me");
     if (!me.authed) return showLogin();
+    $("#logout").hidden = !!me.open;
   } catch (e) { $("#login-err").textContent = e.message; return showLogin(); }
   $("#login").hidden = true; $("#app").hidden = false;
   load(false);

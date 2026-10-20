@@ -33,7 +33,7 @@ forgalom nélkül nem fogyaszt. Az első kérés ébredés után néhány másod
 
 | Változó | Kötelező | Mire |
 |---|---|---|
-| `APP_PASSWORD` | igen | belépési jelszó; nélküle az API nem válaszol |
+| `APP_PASSWORD` | nem | belépési jelszó; üresen vagy hiányában az oldal jelszó nélkül, bárki számára nyitott |
 | `ODDS_API_KEY` | nem | valós esély és értékkereső (ingyenes: the-odds-api.com) |
 | `ODDS_CACHE_MINUTES` | nem | ennyi percig nem kér újra a The Odds API-tól (alap: 120) |
 | `TIPPMIX_CACHE_SECONDS` | nem | TippmixPro-gyorsítótár (alap: 180) |

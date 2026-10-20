@@ -9,7 +9,7 @@ kérés tölt (a többi megvárja): két gyors kattintás nem kérdez kétszer, 
 egy újrafuttatás nem költ újabb The Odds API-kreditet.
 
 Környezeti változók:
-  APP_PASSWORD      a belépési jelszó (nélküle az API nem válaszol)
+  APP_PASSWORD      opcionális belépési jelszó; üresen vagy hiányában az oldal jelszó nélkül nyitott
   APP_SECRET        a munkamenet aláírókulcsa (alapból a jelszóból származik)
   ODDS_API_KEY      opcionális: valós esély és értékkereső (the-odds-api.com)
   PORT              a Railway adja
@@ -412,6 +412,7 @@ class Limiter:
 LOGIN_LIMIT = Limiter(8, 15 * 60)
 LOGIN_GLOBAL = Limiter(40, 15 * 60)
 CHECK_LIMIT = Limiter(40, 60)
+REFRESH_LIMIT = Limiter(1, 30)
 
 
 # --- HTTP ----------------------------------------------------------------------------------------
@@ -460,6 +461,8 @@ class Handler(BaseHTTPRequestHandler):
         self._json(status, {"error": msg})
 
     def _authed(self) -> bool:
+        if not os.environ.get("APP_PASSWORD"):
+            return True  # nyitott mód: nincs jelszó beállítva
         for part in self.headers.get("Cookie", "").split(";"):
             k, _, v = part.strip().partition("=")
             if k == "sess" and valid_token(v):
@@ -495,16 +498,15 @@ class Handler(BaseHTTPRequestHandler):
             return self._static(STATIC_FILES[url.path])
         if not url.path.startswith("/api/"):
             return self._err(404, "nincs ilyen oldal")
-        if not os.environ.get("APP_PASSWORD"):
-            return self._err(503, "Az APP_PASSWORD nincs beállítva a szerveren.")
         if url.path == "/api/me":
-            return self._json(200, {"authed": self._authed()})
+            return self._json(200, {"authed": self._authed(), "open": not os.environ.get("APP_PASSWORD")})
         if not self._authed():
             return self._err(401, "Jelentkezz be.")
         q = {k: v[0] for k, v in parse_qs(url.query).items()}
         try:
             if url.path == "/api/state":
-                if q.get("refresh") == "1":
+                # Jelszó nélkül bárki nyomhat frissítést: 30 másodpercenként legfeljebb egy éri el a TippmixPro-t.
+                if q.get("refresh") == "1" and REFRESH_LIMIT.allow("all"):
                     CACHE.drop("tippmix")
                 return self._json(200, build_state())
             if url.path == "/api/best":
@@ -530,8 +532,6 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         url = urlparse(self.path)
-        if not os.environ.get("APP_PASSWORD"):
-            return self._err(503, "Az APP_PASSWORD nincs beállítva a szerveren.")
         # Csak azonos eredetű kérés: a SameSite=Strict mellé második védvonal a CSRF ellen.
         origin = self.headers.get("Origin")
         if origin and urlparse(origin).netloc != self.headers.get("Host"):
@@ -595,7 +595,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     if not os.environ.get("APP_PASSWORD"):
-        logger.warning("Az APP_PASSWORD nincs beállítva: az oldal betölt, de az API nem válaszol.")
+        logger.warning("Az APP_PASSWORD nincs beállítva: az oldal jelszó nélkül, bárki számára nyitott.")
     port = int(os.environ.get("PORT", "8080"))
     srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     srv.daemon_threads = True
