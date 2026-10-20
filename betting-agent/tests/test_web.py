@@ -307,3 +307,18 @@ def test_assemble_skips_near_certain_groups_that_add_no_odds():
     groups[0].odds = 1.03
     v = builder.assemble("x", "", groups, 3, None)
     assert groups[0] not in v.groups and all(g.odds >= builder.MIN_GROUP_ODDS for g in v.groups)
+
+
+def test_assemble_keeps_slip_above_minimum_probability():
+    state = {"competitions": [{"name": "X", "matches": [_bmatch(str(i), 2.6 - i * 0.15, 0.7) for i in range(6)]}]}
+    groups = builder.ranked(state, "win")
+    for g in groups:
+        g.odds = 1.25
+    v = builder.assemble("x", "", groups, 3, None, min_prob=0.6)
+    assert v.prob >= 0.6
+    # egy további csoport már a küszöb alá vinné: ennél több meccs nem fér bele
+    rest = [g for g in groups if g not in v.groups]
+    assert not rest or v.prob * rest[0].prob < 0.6
+    assert builder.assemble("x", "", groups, 3, None, min_prob=0.99) is None
+    # célszorzó és küszöb ütközik: nincs szelvény
+    assert builder.assemble("x", "", groups, 3, 20.0, min_prob=0.6) is None

@@ -354,6 +354,12 @@ function slipMaker({ key, fixed, auto }) {
   const targetIn = h("input", { type: "text", inputmode: "decimal", placeholder: "nem kötelező, pl. 8", value: store.get("target", "") });
   const bankIn = h("input", { type: "number", inputmode: "numeric", min: "1000", step: "1000", value: store.get("bank", 50000) });
   const dayIn = h("select", { "aria-label": "Melyik naptól" });
+  // A szelvény esélye mindig legalább 60% (a szerver is ezt követeli meg); magasabbat lehet választani.
+  let minProb = store.get("esely", "60");
+  if (!["60", "70", "80"].includes(minProb)) minProb = "60";
+  const probIn = h("select", { "aria-label": "Minimum esély" }, ...[["60", "legalább 60%"], ["70", "legalább 70%"], ["80", "legalább 80%"]]
+    .map(([v, t]) => h("option", { value: v, selected: v === minProb }, t)));
+  probIn.addEventListener("change", () => store.set("esely", probIn.value));
   const seg = h("div", { class: "seg", role: "radiogroup", "aria-label": "Hány napra" });
   const chips = h("div", { class: "comp-chips", role: "group", "aria-label": "Sorozatok" });
   const result = h("div", {});
@@ -411,6 +417,7 @@ function slipMaker({ key, fixed, auto }) {
         keret: String(parseInt(bankIn.value, 10) || 50000), napok: String(ndays), sorozat: comps.join(",") });
       if (start) qs.set("kezd", start);
       if (targetIn.value.trim()) qs.set("cel", targetIn.value.trim().replace(",", "."));
+      qs.set("esely", probIn.value);
       S.bestBy[key] = await api("/api/best?" + qs);
       result.replaceChildren(bestView(S.bestBy[key]));
     } catch (e) { result.replaceChildren(h("p", { class: "err" }, e.message)); }
@@ -429,6 +436,7 @@ function slipMaker({ key, fixed, auto }) {
       h("div", { class: "form-row" + (fairOn ? " three" : "") },
         h("label", {}, "Tét (Ft)", stakeIn),
         h("label", {}, "Célszorzó", targetIn),
+        h("label", {}, "Minimum esély", probIn),
         fairOn ? h("label", {}, "Keret az értékkereséshez (Ft)", bankIn) : null,
         h("button", { class: "primary", onclick: run }, "Szelvények készítése"))),
     result);
@@ -440,7 +448,9 @@ function slipMaker({ key, fixed, auto }) {
 function slipCard(v, i) {
   const when = (k) => `${fmtShort.format(new Date(k))} ${fmtTime.format(new Date(k))}`;
   return h("div", { class: "tslip" },
-    h("div", { class: "tslip-head" }, h("b", {}, `${i + 1}. ${v.name}`), h("span", { class: "muted tiny" }, v.desc)),
+    h("div", { class: "tslip-head" },
+      h("div", { class: "row" }, h("b", {}, `${i + 1}. ${v.name}`), h("span", { class: "pchip" }, `${pct(v.prob, 0)} esély`)),
+      h("span", { class: "muted tiny" }, v.desc)),
     ...v.groups.map((g) => h("div", { class: "tgroup" + (g.builder ? " bb" : "") },
       h("div", { class: "thead" },
         h("div", {}, g.builder ? h("div", { class: "tbb" }, "Fogadásépítő") : null,

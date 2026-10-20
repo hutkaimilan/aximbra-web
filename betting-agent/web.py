@@ -57,6 +57,7 @@ MAX_BODY = 64 * 1024
 MAX_SLIP = 20
 BUDAPEST = ZoneInfo("Europe/Budapest")
 MAX_DAYS = 7
+MIN_SLIP_PROB = 0.60  # a szelvény becsült esélye legalább ennyi legyen (≥ 60%); magasabbat lehet kérni, alacsonyabbat nem
 
 
 class Cache:
@@ -315,7 +316,7 @@ def _bb_odds(session, picks: list) -> float | None:
     return val or None
 
 
-def _versions(state: dict, stake: int, target: float | None, notes: list) -> list:
+def _versions(state: dict, stake: int, target: float | None, notes: list, min_prob: float | None = None) -> list:
     """A három változat (builder.VERSIONS), a TippmixPro Fogadásépítő-szorzóival és végső ellenőrzésével."""
     out = []
     try:
@@ -328,7 +329,7 @@ def _versions(state: dict, stake: int, target: float | None, notes: list) -> lis
                 excluded, v, chk = set(), None, None
                 for _ in range(4):
                     v = builder.assemble(name, desc, [g for g in groups if g.match_id not in excluded],
-                                         n_default, target)
+                                         n_default, target, min_prob)
                     if not v:
                         break
                     # Végső ellenőrzés a teljes szelvényre: kötéstiltás és a TippmixPro saját csoportszorzói.
@@ -342,7 +343,15 @@ def _versions(state: dict, stake: int, target: float | None, notes: list) -> lis
                     excluded.add(min(bad, key=lambda g: g.prob).match_id if bad else v.groups[-1].match_id)
                     v = None
                 if not v:
-                    if target:
+                    priced = [g for g in groups if g.odds and g.odds >= builder.MIN_GROUP_ODDS]
+                    if min_prob is not None and (not priced or priced[0].prob < min_prob):
+                        top = (f" (a legesélyesebb meccsé is csak {priced[0].prob * 100:.1f}%)".replace(".", ",")
+                               if priced else "")
+                        notes.append(f"A „{name}” változatból most nincs legalább {min_prob:.0%}-os szelvény{top}.")
+                    elif target and min_prob is not None:
+                        notes.append(f"A „{name}” változattal a {str(target).replace('.', ',')}-es célszorzó és a "
+                                     f"{min_prob:.0%}-os minimum esély együtt nem teljesíthető.")
+                    elif target:
                         notes.append(f"A „{name}” változat legfeljebb {builder.MAX_MATCHES} meccsel sem éri el "
                                      f"a {str(target).replace('.', ',')}-es célszorzót.")
                     continue
@@ -388,7 +397,7 @@ def window(state: dict, start: date | None, days: int) -> tuple[dict, date | Non
 
 
 def best(bankroll: int, target: float | None, stake: int = 1000, start: date | None = None, days: int = 1,
-         comps: list | None = None) -> dict:
+         comps: list | None = None, min_prob: float = MIN_SLIP_PROB) -> dict:
     full = build_state()
     if comps:
         full = {**full, "competitions": [c for c in full["competitions"] if c["key"] in comps]}
@@ -420,7 +429,7 @@ def best(bankroll: int, target: float | None, stake: int = 1000, start: date | N
     if not out["window"]["matches"]:
         out["notes"].append("A kiválasztott napokon nincs meccs a kiválasztott sorozatokban. Válassz másik napot.")
         return out
-    out["versions"] = _versions(state, stake, target, out["notes"])
+    out["versions"] = _versions(state, stake, target, out["notes"], min_prob)
     if not out["enabled"] or not rows:
         return out
     legs = [slip.Leg(id=o["id"], match_id=m["id"], match=f"{m['home']} – {m['away']}",
@@ -638,7 +647,10 @@ class Handler(BaseHTTPRequestHandler):
                 comps = [k for k in q.get("sorozat", "").split(",") if k]
                 if any(k not in tippmix.BY_KEY for k in comps):
                     return self._err(400, "Ismeretlen sorozat.")
-                return self._json(200, best(bankroll, target, stake, start, days, comps or None))
+                min_prob = int(q["esely"]) / 100 if q.get("esely") else MIN_SLIP_PROB
+                if not MIN_SLIP_PROB <= min_prob <= 0.95:
+                    return self._err(400, f"A minimum esély {MIN_SLIP_PROB:.0%} és 95% között legyen.")
+                return self._json(200, best(bankroll, target, stake, start, days, comps or None, min_prob))
             if url.path == "/api/team":
                 return self._json(200, team(q.get("id"), q.get("name"), q.get("league")))
         except (ValueError, LookupError) as e:

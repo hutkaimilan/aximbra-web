@@ -33,6 +33,11 @@ napra szóljon (budapesti idő szerint); alapból az első olyan nap, ahol legal
 | Gólos szelvény | győztes nélkül: a legvalószínűbb gólszám + „mindkét csapat szerez gólt” pár |
 | Teljes Fogadásépítő | győztes + gólszám + „mindkét csapat szerez gólt” |
 
+Minden szelvény becsült esélye legalább 60% (`MIN_SLIP_PROB`; a felületen 70% vagy 80% is
+kérhető, alacsonyabb nem): ezen belül a legesélyesebb meccsekkel kezdve annyit tesz rá,
+amennyi a küszöb fölött elfér. Ha egy stratégia legesélyesebb meccse sem éri el, a felület
+kiírja, és azt a változatot kihagyja.
+
 1,10 alatti szorzójú csoport nem kerül szelvényre: szinte semmit nem ad hozzá,
 csak egy újabb helyet, ahol a szelvény elbukhat.
 

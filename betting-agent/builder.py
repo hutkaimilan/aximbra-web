@@ -147,8 +147,15 @@ def ranked(state: dict, kind: str) -> list[Group]:
     return out
 
 
-def assemble(name: str, desc: str, groups: list, n_default: int, target: float | None) -> Version | None:
-    """A legesélyesebb csoportokból: célszorzó nélkül n_default meccs, célszorzóval addig, amíg el nem éri."""
+def assemble(name: str, desc: str, groups: list, n_default: int, target: float | None,
+             min_prob: float | None = None) -> Version | None:
+    """A legesélyesebb csoportokból.
+
+    - min_prob nélkül, célszorzó nélkül: n_default meccs.
+    - célszorzóval: addig vesz hozzá, amíg el nem éri.
+    - min_prob-bal: csak addig, amíg a szelvény együttes esélye nem esik alá; célszorzó nélkül
+      ezen belül a lehető legtöbb meccs, mert az adja a legnagyobb szorzót ugyanakkora esélyküszöb mellett.
+    """
     v = Version(name=name, desc=desc)
     used_teams: set = set()
     for g in groups:
@@ -156,9 +163,11 @@ def assemble(name: str, desc: str, groups: list, n_default: int, target: float |
             continue  # nem árazott (tiltott, nem elérhető) vagy szinte semmit nem ad — kimarad
         if used_teams & set(g.teams):
             continue  # ugyanaz a csapat két fordulóban: a két láb ugyanazon a formán állna vagy bukna
+        if min_prob is not None and v.prob * g.prob < min_prob:
+            break  # a csoportok esély szerint csökkenő sorrendben jönnek: a következő sem férne bele
         v.groups.append(g)
         used_teams |= set(g.teams)
-        if target is None and len(v.groups) >= n_default:
+        if target is None and min_prob is None and len(v.groups) >= n_default:
             break
         if target is not None and v.odds >= target:
             break
