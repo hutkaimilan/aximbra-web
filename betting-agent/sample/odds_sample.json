@@ -1,0 +1,2278 @@
+{
+ "soccer_uefa_champs_league": [
+  {
+   "id": "uefa_champs_-00",
+   "sport_key": "soccer_uefa_champs_league",
+   "commence_time": "2026-10-22T18:00:00Z",
+   "home_team": "Real Madrid",
+   "away_team": "Juventus",
+   "bookmakers": [
+    {
+     "key": "pinnacle",
+     "title": "pinnacle",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Real Madrid",
+         "price": 1.75
+        },
+        {
+         "name": "Juventus",
+         "price": 4.57
+        },
+        {
+         "name": "Draw",
+         "price": 4.35
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.78,
+         "point": 2.25
+        },
+        {
+         "name": "Under",
+         "price": 2.19,
+         "point": 2.25
+        },
+        {
+         "name": "Over",
+         "price": 1.77,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.22,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "betfair_ex_eu",
+     "title": "betfair_ex_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Real Madrid",
+         "price": 1.75
+        },
+        {
+         "name": "Juventus",
+         "price": 4.62
+        },
+        {
+         "name": "Draw",
+         "price": 4.39
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.79,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.23,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "unibet_eu",
+     "title": "unibet_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Real Madrid",
+         "price": 1.69
+        },
+        {
+         "name": "Juventus",
+         "price": 4.49
+        },
+        {
+         "name": "Draw",
+         "price": 4.12
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.72,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.11,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "williamhill",
+     "title": "williamhill",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Real Madrid",
+         "price": 1.65
+        },
+        {
+         "name": "Juventus",
+         "price": 4.43
+        },
+        {
+         "name": "Draw",
+         "price": 4.14
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.67,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.13,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "marathonbet",
+     "title": "marathonbet",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Real Madrid",
+         "price": 1.69
+        },
+        {
+         "name": "Juventus",
+         "price": 4.55
+        },
+        {
+         "name": "Draw",
+         "price": 4.25
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.75,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.16,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "uefa_champs_-01",
+   "sport_key": "soccer_uefa_champs_league",
+   "commence_time": "2026-10-22T19:00:00Z",
+   "home_team": "Bayern Munich",
+   "away_team": "PSG",
+   "bookmakers": [
+    {
+     "key": "pinnacle",
+     "title": "pinnacle",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Bayern Munich",
+         "price": 2.11
+        },
+        {
+         "name": "PSG",
+         "price": 3.19
+        },
+        {
+         "name": "Draw",
+         "price": 4.16
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.65,
+         "point": 2.25
+        },
+        {
+         "name": "Under",
+         "price": 2.38,
+         "point": 2.25
+        },
+        {
+         "name": "Over",
+         "price": 1.66,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.4,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "betfair_ex_eu",
+     "title": "betfair_ex_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Bayern Munich",
+         "price": 2.17
+        },
+        {
+         "name": "PSG",
+         "price": 3.19
+        },
+        {
+         "name": "Draw",
+         "price": 4.18
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.67,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.39,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "unibet_eu",
+     "title": "unibet_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Bayern Munich",
+         "price": 2.06
+        },
+        {
+         "name": "PSG",
+         "price": 3.11
+        },
+        {
+         "name": "Draw",
+         "price": 3.99
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.59,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.28,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "williamhill",
+     "title": "williamhill",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Bayern Munich",
+         "price": 2.07
+        },
+        {
+         "name": "PSG",
+         "price": 3.07
+        },
+        {
+         "name": "Draw",
+         "price": 3.96
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.58,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.26,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "marathonbet",
+     "title": "marathonbet",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Bayern Munich",
+         "price": 2.1
+        },
+        {
+         "name": "PSG",
+         "price": 3.17
+        },
+        {
+         "name": "Draw",
+         "price": 3.98
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.63,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.3,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "uefa_champs_-02",
+   "sport_key": "soccer_uefa_champs_league",
+   "commence_time": "2026-10-22T20:00:00Z",
+   "home_team": "Arsenal",
+   "away_team": "Atalanta BC",
+   "bookmakers": [
+    {
+     "key": "pinnacle",
+     "title": "pinnacle",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Arsenal",
+         "price": 1.75
+        },
+        {
+         "name": "Atalanta BC",
+         "price": 4.87
+        },
+        {
+         "name": "Draw",
+         "price": 4.15
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.92,
+         "point": 2.25
+        },
+        {
+         "name": "Under",
+         "price": 1.96,
+         "point": 2.25
+        },
+        {
+         "name": "Over",
+         "price": 1.92,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.95,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "betfair_ex_eu",
+     "title": "betfair_ex_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Arsenal",
+         "price": 1.75
+        },
+        {
+         "name": "Atalanta BC",
+         "price": 4.82
+        },
+        {
+         "name": "Draw",
+         "price": 4.15
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.93,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.99,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "unibet_eu",
+     "title": "unibet_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Arsenal",
+         "price": 1.66
+        },
+        {
+         "name": "Atalanta BC",
+         "price": 4.65
+        },
+        {
+         "name": "Draw",
+         "price": 3.96
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.85,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.94,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "williamhill",
+     "title": "williamhill",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Arsenal",
+         "price": 1.66
+        },
+        {
+         "name": "Atalanta BC",
+         "price": 4.56
+        },
+        {
+         "name": "Draw",
+         "price": 3.98
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.84,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.91,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "marathonbet",
+     "title": "marathonbet",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Arsenal",
+         "price": 1.71
+        },
+        {
+         "name": "Atalanta BC",
+         "price": 4.78
+        },
+        {
+         "name": "Draw",
+         "price": 4.05
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.89,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.96,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "soccer_uefa_europa_league": [
+  {
+   "id": "uefa_europa_-00",
+   "sport_key": "soccer_uefa_europa_league",
+   "commence_time": "2026-10-22T16:00:00Z",
+   "home_team": "Tottenham Hotspur",
+   "away_team": "AS Roma",
+   "bookmakers": [
+    {
+     "key": "pinnacle",
+     "title": "pinnacle",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Tottenham Hotspur",
+         "price": 2.36
+        },
+        {
+         "name": "AS Roma",
+         "price": 2.97
+        },
+        {
+         "name": "Draw",
+         "price": 3.85
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.95,
+         "point": 2.25
+        },
+        {
+         "name": "Under",
+         "price": 1.99,
+         "point": 2.25
+        },
+        {
+         "name": "Over",
+         "price": 1.93,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.95,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "betfair_ex_eu",
+     "title": "betfair_ex_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Tottenham Hotspur",
+         "price": 2.38
+        },
+        {
+         "name": "AS Roma",
+         "price": 3.01
+        },
+        {
+         "name": "Draw",
+         "price": 3.83
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.91,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.97,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "unibet_eu",
+     "title": "unibet_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Tottenham Hotspur",
+         "price": 2.23
+        },
+        {
+         "name": "AS Roma",
+         "price": 2.9
+        },
+        {
+         "name": "Draw",
+         "price": 3.7
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.87,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.89,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "williamhill",
+     "title": "williamhill",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Tottenham Hotspur",
+         "price": 2.22
+        },
+        {
+         "name": "AS Roma",
+         "price": 2.91
+        },
+        {
+         "name": "Draw",
+         "price": 3.7
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.87,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.92,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "marathonbet",
+     "title": "marathonbet",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Tottenham Hotspur",
+         "price": 2.29
+        },
+        {
+         "name": "AS Roma",
+         "price": 2.96
+        },
+        {
+         "name": "Draw",
+         "price": 3.72
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.92,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.94,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "uefa_europa_-01",
+   "sport_key": "soccer_uefa_europa_league",
+   "commence_time": "2026-10-22T17:00:00Z",
+   "home_team": "Ferencvaros",
+   "away_team": "Lyon",
+   "bookmakers": [
+    {
+     "key": "unibet_eu",
+     "title": "unibet_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Ferencvaros",
+         "price": 3.69
+        },
+        {
+         "name": "Lyon",
+         "price": 1.9
+        },
+        {
+         "name": "Draw",
+         "price": 3.7
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.95,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.82,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "williamhill",
+     "title": "williamhill",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Ferencvaros",
+         "price": 3.64
+        },
+        {
+         "name": "Lyon",
+         "price": 1.95
+        },
+        {
+         "name": "Draw",
+         "price": 3.67
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.93,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.8,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "marathonbet",
+     "title": "marathonbet",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Ferencvaros",
+         "price": 3.68
+        },
+        {
+         "name": "Lyon",
+         "price": 1.96
+        },
+        {
+         "name": "Draw",
+         "price": 3.73
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.99,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.87,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "soccer_epl": [
+  {
+   "id": "epl-00",
+   "sport_key": "soccer_epl",
+   "commence_time": "2026-10-22T18:00:00Z",
+   "home_team": "Liverpool",
+   "away_team": "Chelsea",
+   "bookmakers": [
+    {
+     "key": "pinnacle",
+     "title": "pinnacle",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Liverpool",
+         "price": 1.77
+        },
+        {
+         "name": "Chelsea",
+         "price": 4.33
+        },
+        {
+         "name": "Draw",
+         "price": 4.43
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.67,
+         "point": 2.25
+        },
+        {
+         "name": "Under",
+         "price": 2.39,
+         "point": 2.25
+        },
+        {
+         "name": "Over",
+         "price": 1.67,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.4,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "betfair_ex_eu",
+     "title": "betfair_ex_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Liverpool",
+         "price": 1.81
+        },
+        {
+         "name": "Chelsea",
+         "price": 4.35
+        },
+        {
+         "name": "Draw",
+         "price": 4.44
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.67,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.41,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "unibet_eu",
+     "title": "unibet_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Liverpool",
+         "price": 1.7
+        },
+        {
+         "name": "Chelsea",
+         "price": 4.18
+        },
+        {
+         "name": "Draw",
+         "price": 4.21
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.62,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.3,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "williamhill",
+     "title": "williamhill",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Liverpool",
+         "price": 1.72
+        },
+        {
+         "name": "Chelsea",
+         "price": 4.07
+        },
+        {
+         "name": "Draw",
+         "price": 4.26
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.57,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.28,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "marathonbet",
+     "title": "marathonbet",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Liverpool",
+         "price": 1.75
+        },
+        {
+         "name": "Chelsea",
+         "price": 4.24
+        },
+        {
+         "name": "Draw",
+         "price": 4.34
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.64,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.34,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "epl-01",
+   "sport_key": "soccer_epl",
+   "commence_time": "2026-10-22T19:00:00Z",
+   "home_team": "Brentford",
+   "away_team": "Everton",
+   "bookmakers": [
+    {
+     "key": "pinnacle",
+     "title": "pinnacle",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Brentford",
+         "price": 2.34
+        },
+        {
+         "name": "Everton",
+         "price": 3.11
+        },
+        {
+         "name": "Draw",
+         "price": 3.67
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 2.11,
+         "point": 2.25
+        },
+        {
+         "name": "Under",
+         "price": 1.79,
+         "point": 2.25
+        },
+        {
+         "name": "Over",
+         "price": 2.16,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.79,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "betfair_ex_eu",
+     "title": "betfair_ex_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Brentford",
+         "price": 2.41
+        },
+        {
+         "name": "Everton",
+         "price": 3.04
+        },
+        {
+         "name": "Draw",
+         "price": 3.65
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 2.13,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.79,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "unibet_eu",
+     "title": "unibet_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Brentford",
+         "price": 2.3
+        },
+        {
+         "name": "Everton",
+         "price": 2.99
+        },
+        {
+         "name": "Draw",
+         "price": 3.53
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 2.05,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.73,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "williamhill",
+     "title": "williamhill",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Brentford",
+         "price": 2.25
+        },
+        {
+         "name": "Everton",
+         "price": 2.98
+        },
+        {
+         "name": "Draw",
+         "price": 3.52
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 2.04,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.7,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "marathonbet",
+     "title": "marathonbet",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Brentford",
+         "price": 2.29
+        },
+        {
+         "name": "Everton",
+         "price": 2.98
+        },
+        {
+         "name": "Draw",
+         "price": 3.53
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 2.08,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.77,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "soccer_spain_la_liga": [
+  {
+   "id": "spain_la_lig-00",
+   "sport_key": "soccer_spain_la_liga",
+   "commence_time": "2026-10-22T20:00:00Z",
+   "home_team": "Barcelona",
+   "away_team": "Sevilla",
+   "bookmakers": [
+    {
+     "key": "pinnacle",
+     "title": "pinnacle",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Barcelona",
+         "price": 1.43
+        },
+        {
+         "name": "Sevilla",
+         "price": 7.52
+        },
+        {
+         "name": "Draw",
+         "price": 5.24
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.68,
+         "point": 2.25
+        },
+        {
+         "name": "Under",
+         "price": 2.38,
+         "point": 2.25
+        },
+        {
+         "name": "Over",
+         "price": 1.67,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.35,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "betfair_ex_eu",
+     "title": "betfair_ex_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Barcelona",
+         "price": 1.42
+        },
+        {
+         "name": "Sevilla",
+         "price": 7.35
+        },
+        {
+         "name": "Draw",
+         "price": 5.25
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.64,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.35,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "unibet_eu",
+     "title": "unibet_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Barcelona",
+         "price": 1.39
+        },
+        {
+         "name": "Sevilla",
+         "price": 7.23
+        },
+        {
+         "name": "Draw",
+         "price": 5.09
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.62,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.31,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "williamhill",
+     "title": "williamhill",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Barcelona",
+         "price": 1.37
+        },
+        {
+         "name": "Sevilla",
+         "price": 7.06
+        },
+        {
+         "name": "Draw",
+         "price": 4.96
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.6,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.27,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "marathonbet",
+     "title": "marathonbet",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Barcelona",
+         "price": 1.39
+        },
+        {
+         "name": "Sevilla",
+         "price": 7.24
+        },
+        {
+         "name": "Draw",
+         "price": 5.18
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.61,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.3,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "spain_la_lig-01",
+   "sport_key": "soccer_spain_la_liga",
+   "commence_time": "2026-10-22T16:00:00Z",
+   "home_team": "Getafe",
+   "away_team": "Osasuna",
+   "bookmakers": [
+    {
+     "key": "pinnacle",
+     "title": "pinnacle",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Getafe",
+         "price": 2.63
+        },
+        {
+         "name": "Osasuna",
+         "price": 3.13
+        },
+        {
+         "name": "Draw",
+         "price": 3.07
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 3.26,
+         "point": 2.25
+        },
+        {
+         "name": "Under",
+         "price": 1.39,
+         "point": 2.25
+        },
+        {
+         "name": "Over",
+         "price": 3.26,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.37,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "betfair_ex_eu",
+     "title": "betfair_ex_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Getafe",
+         "price": 2.67
+        },
+        {
+         "name": "Osasuna",
+         "price": 3.08
+        },
+        {
+         "name": "Draw",
+         "price": 3.1
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 3.29,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.41,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "unibet_eu",
+     "title": "unibet_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Getafe",
+         "price": 2.59
+        },
+        {
+         "name": "Osasuna",
+         "price": 2.96
+        },
+        {
+         "name": "Draw",
+         "price": 3.0
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 3.16,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.35,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "williamhill",
+     "title": "williamhill",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Getafe",
+         "price": 2.53
+        },
+        {
+         "name": "Osasuna",
+         "price": 2.97
+        },
+        {
+         "name": "Draw",
+         "price": 2.91
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 3.18,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.33,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "marathonbet",
+     "title": "marathonbet",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Getafe",
+         "price": 2.63
+        },
+        {
+         "name": "Osasuna",
+         "price": 3.0
+        },
+        {
+         "name": "Draw",
+         "price": 3.06
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 3.22,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.36,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "soccer_germany_bundesliga": [
+  {
+   "id": "germany_bund-00",
+   "sport_key": "soccer_germany_bundesliga",
+   "commence_time": "2026-10-22T17:00:00Z",
+   "home_team": "Borussia Dortmund",
+   "away_team": "RB Leipzig",
+   "bookmakers": [
+    {
+     "key": "pinnacle",
+     "title": "pinnacle",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Borussia Dortmund",
+         "price": 2.27
+        },
+        {
+         "name": "RB Leipzig",
+         "price": 2.85
+        },
+        {
+         "name": "Draw",
+         "price": 4.12
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.61,
+         "point": 2.25
+        },
+        {
+         "name": "Under",
+         "price": 2.45,
+         "point": 2.25
+        },
+        {
+         "name": "Over",
+         "price": 1.64,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.45,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "betfair_ex_eu",
+     "title": "betfair_ex_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Borussia Dortmund",
+         "price": 2.33
+        },
+        {
+         "name": "RB Leipzig",
+         "price": 2.92
+        },
+        {
+         "name": "Draw",
+         "price": 4.12
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.64,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.47,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "unibet_eu",
+     "title": "unibet_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Borussia Dortmund",
+         "price": 2.19
+        },
+        {
+         "name": "RB Leipzig",
+         "price": 2.79
+        },
+        {
+         "name": "Draw",
+         "price": 3.99
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.57,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.32,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "williamhill",
+     "title": "williamhill",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Borussia Dortmund",
+         "price": 2.22
+        },
+        {
+         "name": "RB Leipzig",
+         "price": 2.78
+        },
+        {
+         "name": "Draw",
+         "price": 3.91
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.57,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.34,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "marathonbet",
+     "title": "marathonbet",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Borussia Dortmund",
+         "price": 2.29
+        },
+        {
+         "name": "RB Leipzig",
+         "price": 2.86
+        },
+        {
+         "name": "Draw",
+         "price": 4.04
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 1.62,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 2.36,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "germany_bund-01",
+   "sport_key": "soccer_germany_bundesliga",
+   "commence_time": "2026-10-22T18:00:00Z",
+   "home_team": "Union Berlin",
+   "away_team": "FC Augsburg",
+   "bookmakers": [
+    {
+     "key": "pinnacle",
+     "title": "pinnacle",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Union Berlin",
+         "price": 2.35
+        },
+        {
+         "name": "FC Augsburg",
+         "price": 3.28
+        },
+        {
+         "name": "Draw",
+         "price": 3.43
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 2.49,
+         "point": 2.25
+        },
+        {
+         "name": "Under",
+         "price": 1.61,
+         "point": 2.25
+        },
+        {
+         "name": "Over",
+         "price": 2.5,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.6,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "betfair_ex_eu",
+     "title": "betfair_ex_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Union Berlin",
+         "price": 2.32
+        },
+        {
+         "name": "FC Augsburg",
+         "price": 3.31
+        },
+        {
+         "name": "Draw",
+         "price": 3.49
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 2.53,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.62,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "unibet_eu",
+     "title": "unibet_eu",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Union Berlin",
+         "price": 2.23
+        },
+        {
+         "name": "FC Augsburg",
+         "price": 3.19
+        },
+        {
+         "name": "Draw",
+         "price": 3.32
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 2.4,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.53,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "williamhill",
+     "title": "williamhill",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Union Berlin",
+         "price": 2.24
+        },
+        {
+         "name": "FC Augsburg",
+         "price": 3.18
+        },
+        {
+         "name": "Draw",
+         "price": 3.29
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 2.4,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.53,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "key": "marathonbet",
+     "title": "marathonbet",
+     "last_update": "2026-10-20T10:00:00Z",
+     "markets": [
+      {
+       "key": "h2h",
+       "outcomes": [
+        {
+         "name": "Union Berlin",
+         "price": 2.28
+        },
+        {
+         "name": "FC Augsburg",
+         "price": 3.24
+        },
+        {
+         "name": "Draw",
+         "price": 3.36
+        }
+       ]
+      },
+      {
+       "key": "totals",
+       "outcomes": [
+        {
+         "name": "Over",
+         "price": 2.42,
+         "point": 2.5
+        },
+        {
+         "name": "Under",
+         "price": 1.56,
+         "point": 2.5
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
