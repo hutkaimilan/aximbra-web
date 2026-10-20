@@ -25,10 +25,11 @@ import os
 import threading
 import time
 from collections import deque
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+from zoneinfo import ZoneInfo
 
 import espn
 import markets
@@ -54,6 +55,8 @@ TEAM_TTL = 6 * 3600
 SESSION_DAYS = 30
 MAX_BODY = 64 * 1024
 MAX_SLIP = 20
+BUDAPEST = ZoneInfo("Europe/Budapest")
+MAX_DAYS = 7
 
 
 class Cache:
@@ -317,8 +320,8 @@ def _versions(state: dict, stake: int, target: float | None, notes: list) -> lis
     out = []
     try:
         with tippmix.Session() as s:
-            for name, level, n_default, desc in builder.VERSIONS:
-                groups = builder.ranked(state, level)[:builder.CANDIDATES]
+            for name, kind, n_default, desc in builder.VERSIONS:
+                groups = builder.ranked(state, kind)[:builder.CANDIDATES]
                 for g in groups:
                     if len(g.picks) > 1:
                         g.odds = _bb_odds(s, g.picks)
@@ -365,10 +368,36 @@ def _versions(state: dict, stake: int, target: float | None, notes: list) -> lis
     return out
 
 
-def best(bankroll: int, target: float | None, stake: int = 1000) -> dict:
-    state = build_state()
+def local_day(kickoff_iso: str) -> date:
+    return datetime.fromisoformat(kickoff_iso).astimezone(BUDAPEST).date()
+
+
+def window(state: dict, start: date | None, days: int) -> tuple[dict, date | None, list]:
+    """Csak a [start, start+days) budapesti napokra eső meccsek. Kezdőnap nélkül az első meccsnap.
+
+    Visszaad: (szűrt állapot, a ténylegesen használt kezdőnap, az összes meccsnap).
+    """
+    match_days = sorted({local_day(m["kickoff"]) for c in state["competitions"] for m in c["matches"]})
+    if not match_days:
+        return state, None, []
+    start = start or match_days[0]
+    end = start + timedelta(days=days)
+    comps = [{**c, "matches": [m for m in c["matches"] if start <= local_day(m["kickoff"]) < end]}
+             for c in state["competitions"]]
+    return {**state, "competitions": comps}, start, match_days
+
+
+def best(bankroll: int, target: float | None, stake: int = 1000, start: date | None = None, days: int = 1,
+         comps: list | None = None) -> dict:
+    full = build_state()
+    if comps:
+        full = {**full, "competitions": [c for c in full["competitions"] if c["key"] in comps]}
+    state, start, match_days = window(full, start, days)
     out = {"enabled": state["fair"]["enabled"], "picks": [], "singles": [], "combos": [], "low_margin": [],
-           "notes": list(state["fair"]["status"]), "versions": []}
+           "notes": list(state["fair"]["status"]), "versions": [],
+           "window": {"start": start.isoformat() if start else None, "days": days,
+                      "matches": sum(len(c["matches"]) for c in state["competitions"]),
+                      "match_days": [d.isoformat() for d in match_days]}}
     rows = []
     for c in state["competitions"]:
         for m in c["matches"]:
@@ -388,6 +417,9 @@ def best(bankroll: int, target: float | None, stake: int = 1000) -> dict:
                              "label": o.get("text"),
                              "fair": o["fair"], "prob": o["prob"], "ev": o["ev"], "min_odds": o["min_odds"],
                              "source": o["source"]})
+    if not out["window"]["matches"]:
+        out["notes"].append("A kiválasztott napokon nincs meccs a kiválasztott sorozatokban. Válassz másik napot.")
+        return out
     out["versions"] = _versions(state, stake, target, out["notes"])
     if not out["enabled"] or not rows:
         return out
@@ -596,7 +628,17 @@ class Handler(BaseHTTPRequestHandler):
                 stake = int(q.get("tet", "1000"))
                 if not 0 < stake <= 10_000_000:
                     return self._err(400, "Hibás tét.")
-                return self._json(200, best(bankroll, target, stake))
+                days = int(q.get("napok", "1"))
+                if not 1 <= days <= MAX_DAYS:
+                    return self._err(400, f"A napok száma 1 és {MAX_DAYS} között legyen.")
+                try:
+                    start = date.fromisoformat(q["kezd"]) if q.get("kezd") else None
+                except ValueError:
+                    return self._err(400, "Hibás dátum (ÉÉÉÉ-HH-NN formában kell).")
+                comps = [k for k in q.get("sorozat", "").split(",") if k]
+                if any(k not in tippmix.BY_KEY for k in comps):
+                    return self._err(400, "Ismeretlen sorozat.")
+                return self._json(200, best(bankroll, target, stake, start, days, comps or None))
             if url.path == "/api/team":
                 return self._json(200, team(q.get("id"), q.get("name"), q.get("league")))
         except (ValueError, LookupError) as e:

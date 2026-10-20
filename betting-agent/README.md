@@ -20,13 +20,21 @@ bajnokság. Két felülete van:
 
 ### Szelvénykészítő
 
-Három változat, mindegyik a legesélyesebb meccsekből (`builder.py`):
+A fő fülön tetszőleges sorozatokból (egy, több vagy mind), minden sorozat
+fülén csak abból a sorozatból. Kiválasztható a kezdőnap és hogy 1, 2 vagy 3
+napra szóljon (budapesti idő szerint); alapból az első olyan nap, ahol legalább
+3 meccs van. Öt stratégia, mindegyik a legesélyesebb meccsekből (`builder.py`):
 
 | Változat | Meccsenként |
 |---|---|
+| Biztos tippek | a legvalószínűbb kétesély (nyer vagy döntetlen) |
 | Győztesek | a favorit győzelme |
 | Győztes + gólok | győztes + a vele együtt legvalószínűbb gólszám (Fogadásépítő) |
+| Gólos szelvény | győztes nélkül: a legvalószínűbb gólszám + „mindkét csapat szerez gólt” pár |
 | Teljes Fogadásépítő | győztes + gólszám + „mindkét csapat szerez gólt” |
+
+1,10 alatti szorzójú csoport nem kerül szelvényre: szinte semmit nem ad hozzá,
+csak egy újabb helyet, ahol a szelvény elbukhat.
 
 Az egy meccsen belüli tippek együttes esélyét a meccs gólmodelljének
 eredménymátrixából számolja (a tippek összefüggenek), a csoport szorzóját a

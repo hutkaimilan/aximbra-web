@@ -6,6 +6,8 @@ const TZ = "Europe/Budapest";
 const fmtDay = new Intl.DateTimeFormat("hu-HU", { timeZone: TZ, weekday: "long", month: "long", day: "numeric" });
 const fmtTime = new Intl.DateTimeFormat("hu-HU", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
 const fmtShort = new Intl.DateTimeFormat("hu-HU", { timeZone: TZ, month: "2-digit", day: "2-digit" });
+const fmtIsoDay = new Intl.DateTimeFormat("sv-SE", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" });
+const fmtDayLabel = new Intl.DateTimeFormat("hu-HU", { timeZone: TZ, month: "short", day: "numeric", weekday: "long" });
 const odds = (x) => (x == null ? "–" : Number(x).toFixed(2).replace(".", ","));
 const pct = (x, d = 1) => (x == null ? "–" : (x * 100).toFixed(d).replace(".", ",") + "%");
 const signedPct = (x) => (x == null ? "" : (x >= 0 ? "+" : "") + (x * 100).toFixed(1).replace(".", ",") + "%");
@@ -39,7 +41,7 @@ const S = {
   stake: store.get("stake", 500),
   expanded: new Set(),
   check: null,
-  best: null,
+  bestBy: {},   // szelvénykészítő eredménye fülenként
 };
 
 async function api(path, opts = {}) {
@@ -79,6 +81,7 @@ async function load(refresh) {
   $("#refresh").disabled = true;
   try {
     S.state = await api("/api/state" + (refresh ? "?refresh=1" : ""));
+    if (refresh) S.bestBy = {};
     renderAll();
     if (S.slip.length) runCheck();
   } catch (e) {
@@ -132,6 +135,8 @@ function renderContent() {
   if (S.query.trim()) return renderList(root, matchesFor("search"), true);
   if (S.tab === "best") return renderBest(root);
   renderList(root, matchesFor(S.tab), false);
+  const comp = S.state.competitions.find((c) => c.key === S.tab);
+  if (comp && comp.matches.length) root.prepend(slipMaker({ key: comp.key, fixed: comp.key, auto: false }));
 }
 
 function renderList(root, list, showComp) {
@@ -336,33 +341,100 @@ $("#slip-head").addEventListener("click", (e) => { if (window.innerWidth < 980) 
 
 // --- értékkereső -----------------------------------------------------------------------------
 function renderBest(root) {
+  root.replaceChildren(slipMaker({ key: "best", fixed: null, auto: true }));
+}
+
+// Szelvénykészítő panel. fixed: egyetlen sorozat (a sorozat fülén) vagy null (a fő fülön, választható sorozatokkal).
+function slipMaker({ key, fixed, auto }) {
   const fairOn = S.state && S.state.fair.enabled;
+  const allComps = S.state.competitions.filter((c) => c.matches.length);
+  let comps = fixed ? [fixed] : store.get("comps", allComps.map((c) => c.key)).filter((k) => allComps.some((c) => c.key === k));
+  if (!comps.length) comps = allComps.map((c) => c.key);
   const stakeIn = h("input", { type: "number", inputmode: "numeric", min: "100", step: "100", value: store.get("bstake", 1000) });
   const targetIn = h("input", { type: "text", inputmode: "decimal", placeholder: "nem kötelező, pl. 8", value: store.get("target", "") });
   const bankIn = h("input", { type: "number", inputmode: "numeric", min: "1000", step: "1000", value: store.get("bank", 50000) });
+  const dayIn = h("select", { "aria-label": "Melyik naptól" });
+  const seg = h("div", { class: "seg", role: "radiogroup", "aria-label": "Hány napra" });
+  const chips = h("div", { class: "comp-chips", role: "group", "aria-label": "Sorozatok" });
   const result = h("div", {});
+  let start = null, ndays = store.get("napok", 1);
+
+  // Meccsnapok budapesti idő szerint, a kiválasztott sorozatokból, meccsszámmal.
+  const drawDays = () => {
+    const count = new Map();
+    for (const c of S.state.competitions) if (comps.includes(c.key)) for (const m of c.matches) {
+      const d = fmtIsoDay.format(new Date(m.kickoff));
+      count.set(d, (count.get(d) || 0) + 1);
+    }
+    const days = [...count.keys()].sort();
+    // Ha a felhasználó nem választott napot (vagy a választottján nincs meccs), az első olyan napra
+    // állunk, ahol legalább 3 meccs van: egy-két meccsből nem lehet érdemi szelvényt rakni.
+    const firstGood = days.find((d) => count.get(d) >= 3) || days[0];
+    start = store.get("kezd", null);
+    if (!days.includes(start)) start = firstGood;
+    dayIn.replaceChildren(...days.map((d) => h("option", { value: d, selected: d === start },
+      `${fmtDayLabel.format(new Date(d + "T12:00:00Z"))} (${count.get(d)} meccs)`)));
+  };
+  const drawSeg = () => seg.replaceChildren(...[1, 2, 3].map((n) => h("button", {
+    type: "button", role: "radio", "aria-checked": String(n === ndays), class: n === ndays ? "on" : "",
+    onclick: () => { ndays = n; store.set("napok", n); drawSeg(); },
+  }, `${n} nap`)));
+  const drawChips = () => {
+    const all = comps.length === allComps.length;
+    chips.replaceChildren(
+      h("button", { type: "button", class: "chip-btn" + (all ? " on" : ""), "aria-pressed": String(all),
+        onclick: () => { comps = allComps.map((c) => c.key); store.set("comps", comps); drawChips(); drawDays(); } }, "Mind"),
+      ...allComps.map((c) => {
+        const on = comps.includes(c.key);
+        return h("button", { type: "button", class: "chip-btn" + (on && !all ? " on" : ""), "aria-pressed": String(on && !all),
+          onclick: () => {
+            // „Mind" állapotból egy kattintás = csak ez; különben ki-be kapcsol, de legalább egy marad.
+            if (all) comps = [c.key];
+            else if (on) comps = comps.length > 1 ? comps.filter((k) => k !== c.key) : comps;
+            else comps = [...comps, c.key];
+            store.set("comps", comps); drawChips(); drawDays();
+          } }, c.name);
+      }));
+  };
+  dayIn.addEventListener("change", () => { start = dayIn.value; store.set("kezd", start); });
+  // Gépelés közben mentjük: egy szorzóra kattintás újrarajzolja a panelt, a beírt érték ne vesszen el.
+  stakeIn.addEventListener("input", () => store.set("bstake", Number(stakeIn.value)));
+  targetIn.addEventListener("input", () => store.set("target", targetIn.value));
+  bankIn.addEventListener("input", () => store.set("bank", Number(bankIn.value)));
+  drawDays(); drawSeg(); if (!fixed) drawChips();
+
   const run = async () => {
     store.set("bstake", Number(stakeIn.value)); store.set("target", targetIn.value); store.set("bank", Number(bankIn.value));
     result.replaceChildren(h("div", { class: "spinner" }, "Szelvények összerakása a TippmixPro kínálatából…"));
     try {
       const qs = new URLSearchParams({ tet: String(Math.max(100, parseInt(stakeIn.value, 10) || 1000)),
-        keret: String(parseInt(bankIn.value, 10) || 50000) });
+        keret: String(parseInt(bankIn.value, 10) || 50000), napok: String(ndays), sorozat: comps.join(",") });
+      if (start) qs.set("kezd", start);
       if (targetIn.value.trim()) qs.set("cel", targetIn.value.trim().replace(",", "."));
-      S.best = await api("/api/best?" + qs);
-      result.replaceChildren(bestView(S.best));
+      S.bestBy[key] = await api("/api/best?" + qs);
+      result.replaceChildren(bestView(S.bestBy[key]));
     } catch (e) { result.replaceChildren(h("p", { class: "err" }, e.message)); }
   };
-  root.replaceChildren(
+  const compName = fixed && S.state.competitions.find((c) => c.key === fixed).name;
+  const panel = h("div", {},
     h("div", { class: "panel" },
-      h("h2", {}, "Szelvénykészítő"),
-      h("p", { class: "muted tiny" }, "Meccsenként a legesélyesebb tippeket rakja egy Fogadásépítőbe (győztes, gólszám, mindkét csapat szerez gólt), a csoport szorzóját a TippmixPro adja, és minden szelvényt a TippmixPro kötéstiltás-ellenőrzése jóváhagy."),
+      h("h2", {}, fixed ? `Szelvénykészítő — ${compName}` : "Szelvénykészítő"),
+      h("p", { class: "muted tiny" }, fixed
+        ? `Csak ${compName}-meccsekből: öt stratégia, a legesélyesebb tippekkel, a TippmixPro szorzóival és kötéstiltás-ellenőrzésével.`
+        : "Válaszd ki a sorozatokat és a napokat: öt stratégiát rak össze a legesélyesebb tippekből (Fogadásépítővel, ahol kell), a TippmixPro szorzóival és kötéstiltás-ellenőrzésével."),
+      fixed ? null : h("div", { class: "field" }, h("span", { class: "flabel" }, "Sorozatok"), chips),
+      h("div", { class: "day-row" },
+        h("label", {}, "Melyik naptól", dayIn),
+        h("div", { class: "day-seg" }, h("span", {}, "Hány napra szóljon"), seg)),
       h("div", { class: "form-row" + (fairOn ? " three" : "") },
         h("label", {}, "Tét (Ft)", stakeIn),
         h("label", {}, "Célszorzó", targetIn),
         fairOn ? h("label", {}, "Keret az értékkereséshez (Ft)", bankIn) : null,
         h("button", { class: "primary", onclick: run }, "Szelvények készítése"))),
     result);
-  if (S.best) result.replaceChildren(bestView(S.best)); else run();
+  if (S.bestBy[key]) result.replaceChildren(bestView(S.bestBy[key]));
+  else if (auto) run();
+  return panel;
 }
 
 function slipCard(v, i) {

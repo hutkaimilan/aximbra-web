@@ -228,22 +228,23 @@ def test_joint_prob_matches_marginals_and_is_never_larger():
 
 def test_options_pick_favourite_then_most_likely_companions():
     opts = builder.options(_bmatch("a", 2.6, 0.7))
-    picks1, p1 = opts[1]
+    picks1, p1 = opts["win"]
     assert [p["pick"] for p in picks1] == ["1"]
-    picks3, p3 = opts[3]
+    picks3, p3 = opts["full"]
     assert [p["market"] for p in picks3] == ["1x2", "ou", "btts"]
-    assert p3 <= opts[2][1] <= p1
+    assert p3 <= opts["win_goals"][1] <= p1
     # a harmadik tipp az, amelyik az első kettővel EGYÜTT a legvalószínűbb
     mat = poisson.score_matrix(2.6, 0.7)
     base = [("1x2", "1", None), ("ou", picks3[1]["pick"], 2.5)]
     want = max(("Igen", "Nem"), key=lambda b: builder.joint_prob(mat, base + [("btts", b, None)]))
     assert picks3[2]["pick"] == want
-    assert 3 not in builder.options(_bmatch("b", 1.5, 1.2, with_btts=False))
+    no_btts = builder.options(_bmatch("b", 1.5, 1.2, with_btts=False))
+    assert "full" not in no_btts and "goals" not in no_btts and "win_goals" in no_btts
 
 
 def test_ranked_and_assemble_respect_target_and_skip_unpriced():
     state = {"competitions": [{"name": "X", "matches": [_bmatch(str(i), 1.5 + i * 0.2, 0.9) for i in range(5)]}]}
-    groups = builder.ranked(state, 2)
+    groups = builder.ranked(state, "win_goals")
     assert [g.prob for g in groups] == sorted((g.prob for g in groups), reverse=True)
     for g in groups:
         g.odds = 1.6
@@ -261,7 +262,48 @@ def test_assemble_never_uses_the_same_team_twice():
     b["home"] = a["home"]  # ugyanaz a csapat egy másik fordulóban
     c = _bmatch("c", 2.0, 0.8)
     state = {"competitions": [{"name": "X", "matches": [a, b, c]}]}
-    groups = builder.ranked(state, 1)
+    groups = builder.ranked(state, "win")
     v = builder.assemble("x", "", groups, 3, None)
     teams = [t for g in v.groups for t in g.teams]
     assert len(teams) == len(set(teams)) and len(v.groups) == 2
+
+
+def test_window_uses_budapest_days():
+    def m(mid, iso):
+        return {"id": mid, "kickoff": iso}
+    state = {"competitions": [{"name": "X", "matches": [
+        m("a", "2026-10-21T16:45:00+00:00"),   # szerda 18:45
+        m("b", "2026-10-21T22:30:00+00:00"),   # Budapesten már csütörtök 00:30
+        m("c", "2026-10-22T19:00:00+00:00"),   # csütörtök
+        m("d", "2026-10-24T13:30:00+00:00")]}]}  # szombat
+    from datetime import date as d
+    one, start, days = web.window(state, None, 1)
+    assert start == d(2026, 10, 21) and [x["id"] for x in one["competitions"][0]["matches"]] == ["a"]
+    assert days == [d(2026, 10, 21), d(2026, 10, 22), d(2026, 10, 24)]
+    two, _, _ = web.window(state, d(2026, 10, 21), 2)
+    assert [x["id"] for x in two["competitions"][0]["matches"]] == ["a", "b", "c"]
+    sat, _, _ = web.window(state, d(2026, 10, 24), 1)
+    assert [x["id"] for x in sat["competitions"][0]["matches"]] == ["d"]
+    empty, _, _ = web.window(state, d(2026, 10, 23), 1)
+    assert empty["competitions"][0]["matches"] == []
+
+
+def test_goals_strategy_picks_the_most_likely_pair_without_a_winner():
+    match = _bmatch("g", 1.6, 1.4)
+    picks, prob = builder.options(match)["goals"]
+    assert [p["market"] for p in picks] == ["ou", "btts"]
+    mat = poisson.score_matrix(1.6, 1.4)
+    best = max(((s, b) for s in ("Több", "Kevesebb") for b in ("Igen", "Nem")),
+               key=lambda sb: builder.joint_prob(mat, [("ou", sb[0], 2.5), ("btts", sb[1], None)]))
+    assert (picks[0]["pick"], picks[1]["pick"]) == best
+    assert prob == pytest.approx(builder.joint_prob(mat, [("ou", best[0], 2.5), ("btts", best[1], None)]))
+
+
+def test_assemble_skips_near_certain_groups_that_add_no_odds():
+    state = {"competitions": [{"name": "X", "matches": [_bmatch(str(i), 1.5 + i * 0.2, 0.9) for i in range(4)]}]}
+    groups = builder.ranked(state, "win")
+    for g in groups:
+        g.odds = 1.5
+    groups[0].odds = 1.03
+    v = builder.assemble("x", "", groups, 3, None)
+    assert groups[0] not in v.groups and all(g.odds >= builder.MIN_GROUP_ODDS for g in v.groups)

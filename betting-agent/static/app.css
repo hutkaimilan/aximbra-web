@@ -201,3 +201,22 @@ dialog.team::backdrop { background: rgba(0, 0, 0, .55); }
 .slip .tgroup { border: 1px solid var(--line); border-left-width: 3px; border-radius: 10px; background: var(--panel-2); }
 .slip .tgroup.bb { border-left-color: var(--accent); }
 .slip .tgroup.forbidden, .slip .tpick.forbidden { border-color: var(--bad); background: var(--bad-bg); }
+
+/* napválasztó */
+.day-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; margin-bottom: 10px; }
+.day-row label, .day-seg span { font-size: 12px; color: var(--muted); display: grid; gap: 4px; }
+.day-seg { display: grid; gap: 4px; }
+select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2);
+  color: var(--text); font: inherit; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { border: 0; background: var(--panel-2); padding: 9px 14px; font-weight: 600; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
+@media (max-width: 640px) { .day-row { grid-template-columns: 1fr; } .seg { width: 100%; } .seg button { flex: 1; } }
+
+/* sorozatválasztó */
+.field { display: grid; gap: 6px; margin-bottom: 10px; }
+.flabel { font-size: 12px; color: var(--muted); }
+.comp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-btn { border: 1px solid var(--line); background: var(--panel-2); border-radius: 999px; padding: 6px 12px; font-size: 13px; }
+.chip-btn.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }

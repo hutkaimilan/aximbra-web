@@ -1,8 +1,9 @@
 """Fogadásépítős szelvények a legesélyesebb tippekből, a TippmixPro szelvényének mintájára.
 
-Meccsenként egy csoport (Fogadásépítő): előbb a győztes, aztán az a gólszám-
-oldal, amelyik a győztessel EGYÜTT a legvalószínűbb, végül az a „mindkét
-csapat szerez gólt" válasz, amelyik mindezzel együtt a legvalószínűbb. Az
+Öt stratégia (VERSIONS). A Fogadásépítős változatoknál meccsenként egy csoport:
+előbb a győztes, aztán az a gólszám-oldal, amelyik a győztessel EGYÜTT a
+legvalószínűbb, végül az a „mindkét csapat szerez gólt" válasz, amelyik
+mindezzel együtt a legvalószínűbb. Az
 együttes esélyt a meccs gólmodelljének eredménymátrixából számoljuk, így az
 összefüggést is figyelembe vesszük (ha a favorit nyer, valószínűbb a több gól).
 
@@ -16,13 +17,17 @@ from dataclasses import dataclass, field
 import names
 import poisson
 
-# (név, tippszint meccsenként, meccsek száma célszorzó nélkül, leírás)
+# (név, stratégia, meccsek száma célszorzó nélkül, leírás)
 VERSIONS = (
-    ("Győztesek", 1, 3, "A legesélyesebb favoritok, meccsenként csak a győztes."),
-    ("Győztes + gólok", 2, 3, "Győztes és a vele együtt legvalószínűbb gólszám, Fogadásépítőben."),
-    ("Teljes Fogadásépítő", 3, 2, "Győztes, gólszám és „mindkét csapat szerez gólt”, Fogadásépítőben."),
+    ("Biztos tippek", "safe", 4, "Meccsenként a legvalószínűbb kétesély: a csapat nyer vagy döntetlen."),
+    ("Győztesek", "win", 3, "A legesélyesebb favoritok, meccsenként csak a győztes."),
+    ("Győztes + gólok", "win_goals", 3, "Győztes és a vele együtt legvalószínűbb gólszám, Fogadásépítőben."),
+    ("Gólos szelvény", "goals", 3, "Győztes nélkül: a legvalószínűbb gólszám és „mindkét csapat szerez gólt” együtt."),
+    ("Teljes Fogadásépítő", "full", 2, "Győztes, gólszám és „mindkét csapat szerez gólt”, Fogadásépítőben."),
 )
+KINDS = {v[1] for v in VERSIONS}
 MAX_MATCHES = 6
+MIN_GROUP_ODDS = 1.10  # ennél kisebb szorzójú csoport alig ad szorzót, csak egy újabb helyet, ahol a szelvény elbukhat
 CANDIDATES = 10  # változatonként ennyi legesélyesebb meccsből válogatunk (a csapatismétlés kiszűr néhányat)
 
 
@@ -90,37 +95,47 @@ def _outcomes(match: dict) -> dict:
 
 
 def options(match: dict) -> dict:
-    """Tippszint (1–3) → (tippek, együttes esély). Csak a TippmixPro-n kiírt piacokból."""
+    """Stratégia → (tippek, együttes esély). Csak a TippmixPro-n kiírt piacokból."""
     a = match.get("analysis")
     if not a:
         return {}
     m = poisson.score_matrix(a["xg_home"], a["xg_away"])
     outs = _outcomes(match)
+    res = {}
+    pick = lambda keys: [outs[k] for k in keys]  # noqa: E731
+
+    dcs = [k for k in (("dc", "1X", None), ("dc", "X2", None), ("dc", "12", None)) if k in outs]
+    if dcs:
+        best_dc = max(dcs, key=lambda k: joint_prob(m, [k]))
+        res["safe"] = (pick([best_dc]), joint_prob(m, [best_dc]))
+
+    sides = [k for k in (("ou", "Több", 2.5), ("ou", "Kevesebb", 2.5)) if k in outs]
+    btts = [k for k in (("btts", "Igen", None), ("btts", "Nem", None)) if k in outs]
+    if sides and btts:
+        pair = max(((s_, b) for s_ in sides for b in btts), key=lambda kb: joint_prob(m, list(kb)))
+        res["goals"] = (pick(pair), joint_prob(m, list(pair)))
+
     fav = "1" if a["p_home"] >= a["p_away"] else "2"
     if ("1x2", fav, None) not in outs:
-        return {}
+        return res
     chosen = [("1x2", fav, None)]
-    res = {1: ([outs[chosen[0]]], joint_prob(m, chosen))}
-    sides = [k for k in (("ou", "Több", 2.5), ("ou", "Kevesebb", 2.5)) if k in outs]
+    res["win"] = (pick(chosen), joint_prob(m, chosen))
     if not sides:
         return res
-    best_side = max(sides, key=lambda k: joint_prob(m, chosen + [k]))
-    chosen = chosen + [best_side]
-    res[2] = ([outs[k] for k in chosen], joint_prob(m, chosen))
-    btts = [k for k in (("btts", "Igen", None), ("btts", "Nem", None)) if k in outs]
+    chosen = chosen + [max(sides, key=lambda k: joint_prob(m, chosen + [k]))]
+    res["win_goals"] = (pick(chosen), joint_prob(m, chosen))
     if btts:
-        best_b = max(btts, key=lambda k: joint_prob(m, chosen + [k]))
-        chosen = chosen + [best_b]
-        res[3] = ([outs[k] for k in chosen], joint_prob(m, chosen))
+        chosen = chosen + [max(btts, key=lambda k: joint_prob(m, chosen + [k]))]
+        res["full"] = (pick(chosen), joint_prob(m, chosen))
     return res
 
 
-def ranked(state: dict, level: int) -> list[Group]:
-    """Az adott tippszintű csoportok minden meccsre, a legesélyesebb elöl."""
+def ranked(state: dict, kind: str) -> list[Group]:
+    """Az adott stratégia csoportjai minden meccsre, a legesélyesebb elöl."""
     out = []
     for c in state["competitions"]:
         for match in c["matches"]:
-            opt = options(match).get(level)
+            opt = options(match).get(kind)
             if not opt:
                 continue
             picks, prob = opt
@@ -137,8 +152,8 @@ def assemble(name: str, desc: str, groups: list, n_default: int, target: float |
     v = Version(name=name, desc=desc)
     used_teams: set = set()
     for g in groups:
-        if g.odds is None or g.odds <= 1.0:
-            continue  # a TippmixPro nem árazta (tiltott vagy nem elérhető) — kimarad
+        if g.odds is None or g.odds < MIN_GROUP_ODDS:
+            continue  # nem árazott (tiltott, nem elérhető) vagy szinte semmit nem ad — kimarad
         if used_teams & set(g.teams):
             continue  # ugyanaz a csapat két fordulóban: a két láb ugyanazon a formán állna vagy bukna
         v.groups.append(g)
