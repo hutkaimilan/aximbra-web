@@ -46,11 +46,22 @@ def over_prob(by_total: list[float], line: float) -> float:
 
 
 def _loss(lh, la, target_1x2, target_overs):
-    m = outcome_probs(score_matrix(lh, la))
-    err = ((m["home"] - target_1x2[0]) ** 2 + (m["draw"] - target_1x2[1]) ** 2
-           + (m["away"] - target_1x2[2]) ** 2)
+    # Ugyanaz, mint outcome_probs + over_prob, de a 11×11-es mátrix helyett kumulált összegekkel:
+    # az illesztés ezt ezerszer hívja, így tízszer gyorsabb.
+    ph, pa = pmf(lh), pmf(la)
+    cum_a, acc = [], 0.0
+    for x in pa:
+        acc += x
+        cum_a.append(acc)
+    home = sum(ph[i] * cum_a[i - 1] for i in range(1, len(ph)))
+    draw = sum(ph[i] * pa[i] for i in range(len(ph)))
+    total = sum(ph) * cum_a[-1]
+    away = total - home - draw
+    err = ((home / total - target_1x2[0]) ** 2 + (draw / total - target_1x2[1]) ** 2
+           + (away / total - target_1x2[2]) ** 2)
     for line, p in target_overs.items():
-        err += (over_prob(m["by_total"], line) - p) ** 2
+        upto = sum(ph[i] * pa[k - i] for k in range(int(line) + 1) for i in range(k + 1))
+        err += ((total - upto) / total - p) ** 2
     return err
 
 

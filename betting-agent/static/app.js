@@ -99,7 +99,7 @@ function renderStatus() {
 }
 
 function renderTabs() {
-  const tabs = [{ key: "best", name: "Értékkereső" }, ...S.state.competitions.map((c) => ({ key: c.key, name: c.name, n: c.matches.length }))];
+  const tabs = [{ key: "best", name: "Szelvénykészítő" }, ...S.state.competitions.map((c) => ({ key: c.key, name: c.name, n: c.matches.length }))];
   if (!tabs.some((t) => t.key === S.tab)) S.tab = "best";
   $("#tabs").replaceChildren(...tabs.map((t) => h("button", {
     class: "tab", role: "tab", "aria-selected": String(t.key === S.tab),
@@ -168,6 +168,7 @@ function matchCard(m, showComp) {
         h("span", {}, fmtTime.format(new Date(m.kickoff))),
         showComp ? h("span", { class: "chip" }, m.comp.name) : null,
         m.margin != null ? h("span", { class: "chip", title: "A TippmixPro árrése az 1X2 piacon" }, "árrés " + pct(m.margin)) : null)),
+    analysisBlock(m),
     ...mks.map((mk) => h("div", { class: "mk" },
       h("div", { class: "mk-name" }, mk.name),
       h("div", { class: "odds-row" }, ...mk.outcomes.map((o) => oddButton(m, mk, o))))),
@@ -180,9 +181,21 @@ function matchCard(m, showComp) {
   return card;
 }
 
+function analysisBlock(m) {
+  const a = m.analysis;
+  if (!a) return null;
+  const n = (x) => x.toFixed(1).replace(".", ",");
+  return h("div", { class: "insight" },
+    h("div", {}, h("b", {}, "Ki nyer? "), `${m.home} ${pct(a.p_home, 0)} · döntetlen ${pct(a.p_draw, 0)} · ${m.away} ${pct(a.p_away, 0)}`),
+    h("div", {}, h("b", {}, "Várható gólok: "), `${m.home} ${n(a.xg_home)}, ${m.away} ${n(a.xg_away)} (összesen ${n(a.xg_home + a.xg_away)})`),
+    h("div", {}, h("b", {}, "Mindkét csapat lő gólt: "), pct(a.btts, 0), " · ", h("b", {}, "Legalább 3 gól: "), pct(a.over25, 0)),
+    h("div", {}, h("b", {}, "Legvalószínűbb eredmény: "), a.top_scores.map(([sc, p]) => `${sc.replace("-", "–")} (${pct(p, 0)})`).join(", ")),
+    h("div", { class: "src" }, "Forrás: ", a.source));
+}
+
 function oddButton(m, mk, o) {
   const on = S.slip.some((s) => s.id === o.id);
-  const label = mk.key === "ou" ? `${o.pick}` : o.pick;
+  const label = o.label || o.pick;
   const title = o.prob != null
     ? `Valós esély ${pct(o.prob)} · fair szorzó ${odds(o.fair)} · min. szorzó ${odds(o.min_odds)} · EV ${signedPct(o.ev)}`
     : "Nincs valós esély ehhez a tipphez";
@@ -227,18 +240,20 @@ function toggleLeg(m, mk, o) {
   if (i >= 0) S.slip.splice(i, 1);
   else {
     if (S.slip.length >= 20) { alert("Egy szelvényen legfeljebb 20 esemény lehet."); return; }
-    S.slip.push({ id: o.id, match: `${m.home} – ${m.away}`, market: mk.name, pick: o.pick, odds: o.odds, matchId: m.id });
+    S.slip.push({ id: o.id, match: `${m.home} – ${m.away}`, market: mk.name, pick: o.label || o.pick, odds: o.odds, matchId: m.id });
   }
   store.set("slip", S.slip);
   renderContent(); renderSlip(); runCheck();
 }
 
-function addLegs(legs) {
+function addLegs(legs, opts = {}) {
   const idx = indexState();
+  if (opts.replace) S.slip = [];   // kész szelvény: ez lesz a szelvény, nem keveredik a korábbival
+  if (opts.stake) { S.stake = opts.stake; store.set("stake", S.stake); }
   for (const l of legs) {
     if (S.slip.some((s) => s.id === l.id)) continue;
     const hit = idx.get(l.id);
-    if (hit) S.slip.push({ id: l.id, match: `${hit.m.home} – ${hit.m.away}`, market: hit.mk.name, pick: hit.o.pick, odds: hit.o.odds, matchId: hit.m.id });
+    if (hit) S.slip.push({ id: l.id, match: `${hit.m.home} – ${hit.m.away}`, market: hit.mk.name, pick: hit.o.label || hit.o.pick, odds: hit.o.odds, matchId: hit.m.id });
   }
   store.set("slip", S.slip);
   renderContent(); renderSlip(); runCheck();
@@ -277,10 +292,23 @@ function renderSlip() {
   const builder = new Set((S.check && S.check.bet_builder || []).flatMap((b) => b.ids));
   $("#slip-count").textContent = S.slip.length;
   $("#slip-odds").textContent = S.check && S.check.odds ? odds(S.check.odds) : "";
-  $("#slip-legs").replaceChildren(...S.slip.map((s) => h("li", { class: "leg" + (forbidden.has(s.id) ? " forbidden" : "") + (builder.has(s.id) ? " builder" : "") },
-    h("div", {}, h("div", {}, `${s.market}: `, h("b", {}, s.pick)), h("div", { class: "m" }, s.match)),
-    h("b", {}, odds(s.odds)),
-    h("button", { class: "x", "aria-label": "Tipp törlése", onclick: () => { S.slip = S.slip.filter((x) => x.id !== s.id); store.set("slip", S.slip); renderContent(); renderSlip(); runCheck(); } }, "✕"))));
+  const bbOdds = new Map();
+  for (const b of (S.check && S.check.bet_builder) || []) for (const id of b.ids) bbOdds.set(id, b.odds);
+  const byMatch = new Map();
+  for (const leg of S.slip) { if (!byMatch.has(leg.matchId)) byMatch.set(leg.matchId, []); byMatch.get(leg.matchId).push(leg); }
+  const removeLeg = (id) => { S.slip = S.slip.filter((x) => x.id !== id); store.set("slip", S.slip); renderContent(); renderSlip(); runCheck(); };
+  $("#slip-legs").replaceChildren(...[...byMatch.values()].map((legs) => {
+    const isBB = legs.length > 1 && legs.every((l) => builder.has(l.id));
+    const head = h("div", { class: "thead" },
+      h("div", {}, isBB ? h("div", { class: "tbb" }, "Fogadásépítő") : null, h("div", { class: "tmatch" }, legs[0].match)),
+      h("b", {}, odds(isBB ? bbOdds.get(legs[0].id) : legs.length === 1 ? legs[0].odds : null)));
+    return h("li", { class: "tgroup" + (isBB ? " bb" : "") + (legs.some((l) => forbidden.has(l.id)) ? " forbidden" : "") }, head,
+      ...legs.map((l) => h("div", { class: "tpick" + (forbidden.has(l.id) ? " forbidden" : "") },
+        h("span", { class: "tcheck", "aria-hidden": "true" }, "✓"),
+        h("div", {}, h("div", { class: "tname" }, l.pick), h("div", { class: "tmarket" }, l.market)),
+        h("span", { class: "todd" }, odds(l.odds)),
+        h("button", { class: "x", "aria-label": "Tipp törlése", onclick: () => removeLeg(l.id) }, "✕"))));
+  }));
   if (!S.slip.length) $("#slip-legs").replaceChildren(h("li", { class: "muted" }, "Kattints egy szorzóra, hogy a szelvényre kerüljön."));
   $("#stake").value = S.stake;
   const out = [];
@@ -289,8 +317,8 @@ function renderSlip() {
   else if (c && c.legs && c.legs.length) {
     if (c.forbidden.length) out.push(h("div", { class: "bad" }, "✗ Kötéstiltás: a pirossal jelölt tippek nem köthetők egymással a TippmixPro-n."));
     else out.push(h("div", { class: "ok" }, "✓ A TippmixPro szerint köthető"));
-    if (c.bet_builder.length) out.push(h("div", { class: "warn" }, "Ugyanarról a meccsről több tipp: a TippmixPro Fogadásépítőként árazza (sárga keret), a saját szorzójával."));
-    out.push(h("div", { class: "row" }, h("span", {}, "Eredő szorzó"), h("b", {}, odds(c.odds))));
+    if (c.bet_builder.length) out.push(h("div", { class: "muted tiny" }, "Az egy meccsre tett tippeket a TippmixPro Fogadásépítőként árazza, a saját szorzójával."));
+    out.push(h("div", { class: "row big" }, h("span", {}, "Odds összesen"), h("b", {}, odds(c.odds))));
     out.push(h("div", { class: "row" }, h("span", {}, "Lehetséges nyeremény"), h("b", {}, ft(c.payout || 0))));
     out.push(h("div", { class: "row" }, h("span", {}, "Minimális tét"), h("span", {}, ft(c.min_stake))));
     if (c.prob != null) {
@@ -308,15 +336,17 @@ $("#slip-head").addEventListener("click", (e) => { if (window.innerWidth < 980) 
 
 // --- értékkereső -----------------------------------------------------------------------------
 function renderBest(root) {
-  const bank = store.get("bank", 50000), target = store.get("target", "");
-  const bankIn = h("input", { type: "number", inputmode: "numeric", min: "1000", step: "1000", value: bank });
-  const targetIn = h("input", { type: "text", inputmode: "decimal", placeholder: "pl. 3,5", value: target });
+  const fairOn = S.state && S.state.fair.enabled;
+  const stakeIn = h("input", { type: "number", inputmode: "numeric", min: "100", step: "100", value: store.get("bstake", 1000) });
+  const targetIn = h("input", { type: "text", inputmode: "decimal", placeholder: "nem kötelező, pl. 8", value: store.get("target", "") });
+  const bankIn = h("input", { type: "number", inputmode: "numeric", min: "1000", step: "1000", value: store.get("bank", 50000) });
   const result = h("div", {});
   const run = async () => {
-    store.set("bank", Number(bankIn.value)); store.set("target", targetIn.value);
-    result.replaceChildren(h("div", { class: "spinner" }, "Keresés a teljes kínálatban…"));
+    store.set("bstake", Number(stakeIn.value)); store.set("target", targetIn.value); store.set("bank", Number(bankIn.value));
+    result.replaceChildren(h("div", { class: "spinner" }, "Szelvények összerakása a TippmixPro kínálatából…"));
     try {
-      const qs = new URLSearchParams({ keret: String(parseInt(bankIn.value, 10) || 50000) });
+      const qs = new URLSearchParams({ tet: String(Math.max(100, parseInt(stakeIn.value, 10) || 1000)),
+        keret: String(parseInt(bankIn.value, 10) || 50000) });
       if (targetIn.value.trim()) qs.set("cel", targetIn.value.trim().replace(",", "."));
       S.best = await api("/api/best?" + qs);
       result.replaceChildren(bestView(S.best));
@@ -324,45 +354,51 @@ function renderBest(root) {
   };
   root.replaceChildren(
     h("div", { class: "panel" },
-      h("h2", {}, "Értékkereső"),
-      h("p", { class: "muted tiny" }, "Végignézi mind a hat sorozat TippmixPro-kínálatát, és azokat a tippeket keresi, ahol a Tippmix szorzója nagyobb, mint amit a valós esély indokol. A javasolt kötéseket a TippmixPro kötéstiltás-ellenőrzése is jóváhagyja."),
-      h("div", { class: "form-row" },
-        h("label", {}, "Keret (Ft)", bankIn),
-        h("label", {}, "Célszorzó (alap: 3,0)", targetIn),
-        h("button", { class: "primary", onclick: run }, "Keresés"))),
+      h("h2", {}, "Szelvénykészítő"),
+      h("p", { class: "muted tiny" }, "Meccsenként a legesélyesebb tippeket rakja egy Fogadásépítőbe (győztes, gólszám, mindkét csapat szerez gólt), a csoport szorzóját a TippmixPro adja, és minden szelvényt a TippmixPro kötéstiltás-ellenőrzése jóváhagy."),
+      h("div", { class: "form-row" + (fairOn ? " three" : "") },
+        h("label", {}, "Tét (Ft)", stakeIn),
+        h("label", {}, "Célszorzó", targetIn),
+        fairOn ? h("label", {}, "Keret az értékkereséshez (Ft)", bankIn) : null,
+        h("button", { class: "primary", onclick: run }, "Szelvények készítése"))),
     result);
   if (S.best) result.replaceChildren(bestView(S.best)); else run();
 }
 
-function norefPanel(b) {
-  const t = String(b.noref_target).replace(".", ",");
-  return h("div", { class: "panel" },
-    h("h2", {}, `Kész szelvények ${t}-es célszorzóra`),
-    h("p", { class: "muted tiny" }, "Az esélyt a TippmixPro saját szorzóiból számolom, árrés nélkül, és azokat a tippeket választom, ahol a Tippmix a legkevesebbet veszi el. Mindegyiket a TippmixPro kötéstiltás-ellenőrzése jóváhagyta. Előnyt ez nem ad: a várható érték a Tippmix árrése miatt negatív, és ezt ki is írom."),
-    b.noref.length ? null : h("p", { class: "muted" }, "Nincs köthető szelvény erre a célszorzóra — próbálj másikat."),
-    ...b.noref.map((x, i) => h("div", { class: "bet" },
-      h("div", { class: "row" }, h("b", {}, `${i + 1}. szelvény · ${x.legs.length === 1 ? "egyes" : x.legs.length + " esemény"} · szorzó ${odds(x.odds)}`), h("span", {}, `tét ${ft(x.stake)}`)),
-      h("div", { class: "muted tiny" }, `becsült nyerési esély ${pct(x.prob)} · lehetséges nyeremény ${ft(x.payout)} · várható érték ${signedPct(x.ev)} (a Tippmix árrése)`),
-      h("ul", {}, ...x.legs.map((l) => h("li", {}, `${l.match} — ${l.label} @ ${odds(l.odds)} (esély ${pct(l.prob, 0)})`))),
-      h("button", { class: "primary small", onclick: () => addLegs(x.legs) }, "Szelvényre"))));
+function slipCard(v, i) {
+  const when = (k) => `${fmtShort.format(new Date(k))} ${fmtTime.format(new Date(k))}`;
+  return h("div", { class: "tslip" },
+    h("div", { class: "tslip-head" }, h("b", {}, `${i + 1}. ${v.name}`), h("span", { class: "muted tiny" }, v.desc)),
+    ...v.groups.map((g) => h("div", { class: "tgroup" + (g.builder ? " bb" : "") },
+      h("div", { class: "thead" },
+        h("div", {}, g.builder ? h("div", { class: "tbb" }, "Fogadásépítő") : null,
+          h("div", { class: "tmatch" }, g.match), h("div", { class: "tmarket" }, `${g.competition} · ${when(g.kickoff)}`)),
+        h("b", {}, odds(g.odds))),
+      ...g.picks.map((p) => h("div", { class: "tpick" },
+        h("span", { class: "tcheck", "aria-hidden": "true" }, "✓"),
+        h("div", {}, h("div", { class: "tname" }, p.label), h("div", { class: "tmarket" }, `${p.market} - Rendes játékidő`)))),
+      h("div", { class: "tprob" }, `Esély, hogy ez a csoport bejön: ${pct(g.prob, 0)}`))),
+    h("div", { class: "tfoot" },
+      h("div", { class: "row big" }, h("span", {}, "Odds összesen"), h("b", {}, odds(v.odds))),
+      h("div", { class: "row" }, h("span", {}, "Tét"), h("span", {}, ft(v.stake))),
+      h("div", { class: "row" }, h("span", {}, "Lehetséges nyeremény"), h("b", {}, ft(v.payout))),
+      h("div", { class: "row" }, h("span", {}, "Becsült esély, hogy a szelvény nyer"), h("b", {}, pct(v.prob))),
+      h("div", { class: "muted tiny" }, `Várható érték ${signedPct(v.ev)}: ennyit visz el hosszú távon a Tippmix árrése.`),
+      h("button", { class: "primary", onclick: () => addLegs(v.groups.flatMap((g) => g.picks), { replace: true, stake: v.stake }) }, "Szelvényre")));
 }
 
 function bestView(b) {
   const nodes = [];
   for (const n of b.notes || []) nodes.push(h("div", { class: "notice" }, n));
-  if (b.noref_target) nodes.push(norefPanel(b));
+  if (b.versions && b.versions.length) nodes.push(h("div", { class: "tslips" }, ...b.versions.map(slipCard)));
   if (!b.enabled) {
-    nodes.push(h("div", { class: "panel" }, h("h2", {}, "Legalacsonyabb árrésű meccsek"),
-      h("p", { class: "muted tiny" }, "Valódi értékkereséshez (ahol a Tippmix szorzója jobb a valós esélynél) egy ingyenes The Odds API-kulcs kell; addig ezeken a meccseken veszi el a Tippmix a legkevesebbet."),
-      ...b.low_margin.map((r) => h("div", { class: "pick" },
-        h("div", {}, h("div", { class: "t" }, r.match), h("div", { class: "s" }, `${r.competition} · ${fmtShort.format(new Date(r.kickoff))} ${fmtTime.format(new Date(r.kickoff))}`)),
-        h("div", { class: "r" }, h("b", {}, pct(r.margin)), h("div", { class: "s" }, "árrés"))))));
+    nodes.push(h("p", { class: "muted tiny" }, "Az esélyeket most a TippmixPro saját szorzóiból számolom (árrés nélkül). Egy ingyenes The Odds API-kulccsal a Pinnacle árait használná, és azt is megmutatná, melyik Tippmix-szorzó ér többet a valós esélynél."));
     return h("div", {}, ...nodes);
   }
   nodes.push(h("div", { class: "panel" }, h("h2", {}, `Értékes tippek (${b.picks.length})`),
     b.picks.length ? null : h("p", { class: "muted" }, "Most egyetlen TippmixPro-szorzó sem éri el a valós esélyből számolt minimumot. Ilyenkor a kihagyás a nyerő döntés."),
     ...b.picks.slice(0, 40).map((p) => h("div", { class: "pick" },
-      h("div", {}, h("div", { class: "t" }, `${p.market}: ${p.pick}`), h("div", { class: "s" }, `${p.match} · ${p.competition} · ${fmtShort.format(new Date(p.kickoff))} ${fmtTime.format(new Date(p.kickoff))}`),
+      h("div", {}, h("div", { class: "t" }, p.label || `${p.market}: ${p.pick}`), h("div", { class: "s" }, `${p.match} · ${p.competition} · ${fmtShort.format(new Date(p.kickoff))} ${fmtTime.format(new Date(p.kickoff))}`),
         h("div", { class: "s" }, `valós esély ${pct(p.prob)} · fair ${odds(p.fair)} · min. ${odds(p.min_odds)}${p.source === "modell" ? " · gólmodell" : ""}`)),
       h("div", { class: "r" }, h("b", {}, odds(p.odds)), h("div", { class: "ok" }, signedPct(p.ev)),
         h("button", { class: "ghost small", onclick: () => addLegs([p]) }, "+ szelvény"))))));
@@ -372,7 +408,7 @@ function bestView(b) {
       h("div", { class: "row" }, h("span", {}, `Tét ${ft(x.stake)} · szorzó ${odds(x.odds)}`), h("b", { class: "ok" }, signedPct(x.ev))),
       h("div", { class: "muted tiny" }, `nyerési esély ${pct(x.prob)} · lehetséges nyeremény ${ft(x.payout)}${x.note ? " · " + x.note : ""}`),
       h("ul", {}, ...x.legs.map((l) => h("li", {}, `${l.match} — ${l.label} @ ${odds(l.odds)}`))),
-      h("button", { class: "ghost small", onclick: () => addLegs(x.legs) }, "Szelvényre"))));
+      h("button", { class: "ghost small", onclick: () => addLegs(x.legs, { replace: true, stake: x.stake }) }, "Szelvényre"))));
   nodes.push(betBlock("A terv — egyesek (ajánlott)", b.singles));
   nodes.push(betBlock("B terv — kötések (TippmixPro által ellenőrizve)", b.combos));
   nodes.push(h("p", { class: "muted tiny" }, "Az A és a B terv ugyanazokból a tippekből áll: az egyiket érdemes megjátszani, nem mindkettőt. Tétméret: negyed Kelly, fogadásonként max. a keret 2%-a, összesen max. 5%."));

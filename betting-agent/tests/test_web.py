@@ -1,5 +1,4 @@
 """A webes réteg hálózat nélkül: TippmixPro-rekordok, névegyeztetés, valós esély, munkamenet, gyorsítótár."""
-import math
 import os
 import sys
 import time
@@ -195,51 +194,74 @@ def test_forced_refresh_is_throttled():
     assert lim.allow("all") and not lim.allow("all")
 
 
-# --- célszorzós szelvény valós esély nélkül ---
+# --- Fogadásépítős szelvények ---
 
-import target as target_mod  # noqa: E402
-
-
-def _state(matches):
-    return {"competitions": [{"key": "x", "name": "X", "matches": matches}]}
+import builder  # noqa: E402
+import poisson  # noqa: E402
 
 
-def _m(mid, o1, ox, o2, over=None, under=None):
+def _bmatch(mid, xh, xa, with_btts=True):
+    m = poisson.outcome_probs(poisson.score_matrix(xh, xa))
     mk = [{"key": "1x2", "name": "1X2", "line": None, "outcomes": [
-        {"id": f"{mid}1", "pick": "1", "odds": o1}, {"id": f"{mid}X", "pick": "X", "odds": ox},
-        {"id": f"{mid}2", "pick": "2", "odds": o2}]},
-        {"key": "dc", "name": "Kétesély", "line": None, "outcomes": [{"id": f"{mid}d", "pick": "1X", "odds": 1.2}]},
-        {"key": "dnb", "name": "DNB", "line": None, "outcomes": [{"id": f"{mid}n", "pick": "1", "odds": 1.3}]}]
-    if over:
-        mk.append({"key": "ou", "name": "Gólszám 2,5", "line": 2.5, "outcomes": [
-            {"id": f"{mid}o", "pick": "Több", "odds": over}, {"id": f"{mid}u", "pick": "Kevesebb", "odds": under}]})
-    return {"id": mid, "home": f"H{mid}", "away": f"A{mid}", "markets": mk}
+        {"id": f"{mid}1", "pick": "1", "odds": 1.5, "label": "Hazai"},
+        {"id": f"{mid}X", "pick": "X", "odds": 4.0, "label": "Döntetlen"},
+        {"id": f"{mid}2", "pick": "2", "odds": 6.0, "label": "Vendég"}]},
+        {"key": "ou", "name": "Gólszám 2,5", "line": 2.5, "outcomes": [
+            {"id": f"{mid}o", "pick": "Több", "odds": 1.7, "label": "Több, mint 2,5"},
+            {"id": f"{mid}u", "pick": "Kevesebb", "odds": 2.1, "label": "Kevesebb, mint 2,5"}]}]
+    if with_btts:
+        mk.append({"key": "btts", "name": "Mindkét csapat szerez gólt", "line": None, "outcomes": [
+            {"id": f"{mid}y", "pick": "Igen", "odds": 1.8, "label": "Igen"},
+            {"id": f"{mid}n", "pick": "Nem", "odds": 1.9, "label": "Nem"}]})
+    return {"id": mid, "home": f"H{mid}", "away": f"A{mid}", "kickoff": "2026-10-24T13:30:00+00:00", "markets": mk,
+            "analysis": {"p_home": m["home"], "p_draw": m["draw"], "p_away": m["away"], "xg_home": xh, "xg_away": xa}}
 
 
-def test_candidates_devig_own_odds_skip_dnb_and_derive_double_chance():
-    cands = target_mod.candidates(_state([_m("a", 2.0, 3.4, 3.8, 1.9, 1.9)]), max_odds=10)
-    ids = {c.id for c in cands}
-    assert "an" not in ids                      # DNB kimarad
-    assert all(c.ratio <= 1.0 + 1e-9 for c in cands)
-    assert len([c for c in cands if c.match_id == "a"]) <= target_mod.PER_MATCH
+def test_joint_prob_matches_marginals_and_is_never_larger():
+    mat = poisson.score_matrix(1.8, 0.9)
+    m = poisson.outcome_probs(mat)
+    assert builder.joint_prob(mat, [("1x2", "1", None)]) == pytest.approx(m["home"])
+    both = builder.joint_prob(mat, [("1x2", "1", None), ("ou", "Több", 2.5)])
+    assert both <= m["home"] and both <= poisson.over_prob(m["by_total"], 2.5)
+    assert builder.joint_prob(mat, [("1x2", "1", None), ("1x2", "2", None)]) == 0
 
 
-def test_search_hits_target_window_one_leg_per_match():
-    ms = [_m(str(i), 1.9 + i * 0.05, 3.5, 4.0, 1.85, 1.95) for i in range(8)]
-    cands = target_mod.candidates(_state(ms), max_odds=8 * 1.35)
-    found = target_mod.search(cands, 8.0)
-    assert found
-    for ratio, _, odds, legs in found:
-        assert 8.0 <= odds <= 8.0 * 1.35 + 1e-9
-        assert len({l.match_id for l in legs}) == len(legs)
-        assert ratio == pytest.approx(math.prod(l.ratio for l in legs))
-    # a legjobb elöl
-    assert found[0][0] == max(f[0] for f in found)
-    picked = target_mod.pick_disjoint(found, 3)
-    seen = [l.match_id for f in picked for l in f[3]]
-    assert len(seen) == len(set(seen))
+def test_options_pick_favourite_then_most_likely_companions():
+    opts = builder.options(_bmatch("a", 2.6, 0.7))
+    picks1, p1 = opts[1]
+    assert [p["pick"] for p in picks1] == ["1"]
+    picks3, p3 = opts[3]
+    assert [p["market"] for p in picks3] == ["1x2", "ou", "btts"]
+    assert p3 <= opts[2][1] <= p1
+    # a harmadik tipp az, amelyik az első kettővel EGYÜTT a legvalószínűbb
+    mat = poisson.score_matrix(2.6, 0.7)
+    base = [("1x2", "1", None), ("ou", picks3[1]["pick"], 2.5)]
+    want = max(("Igen", "Nem"), key=lambda b: builder.joint_prob(mat, base + [("btts", b, None)]))
+    assert picks3[2]["pick"] == want
+    assert 3 not in builder.options(_bmatch("b", 1.5, 1.2, with_btts=False))
 
 
-def test_search_returns_nothing_for_unreachable_target():
-    cands = target_mod.candidates(_state([_m("a", 1.5, 4.0, 6.0)]), max_odds=1000)
-    assert target_mod.search(cands, 500.0) == []
+def test_ranked_and_assemble_respect_target_and_skip_unpriced():
+    state = {"competitions": [{"name": "X", "matches": [_bmatch(str(i), 1.5 + i * 0.2, 0.9) for i in range(5)]}]}
+    groups = builder.ranked(state, 2)
+    assert [g.prob for g in groups] == sorted((g.prob for g in groups), reverse=True)
+    for g in groups:
+        g.odds = 1.6
+    groups[0].odds = None  # a TippmixPro nem árazta
+    v = builder.assemble("x", "", groups, 2, None)
+    assert len(v.groups) == 2 and groups[0] not in v.groups
+    v = builder.assemble("x", "", groups, 2, 4.0)
+    assert v.odds >= 4.0 and len(v.groups) == 3
+    assert builder.assemble("x", "", groups, 2, 1000.0) is None
+
+
+def test_assemble_never_uses_the_same_team_twice():
+    a = _bmatch("a", 2.4, 0.8)
+    b = _bmatch("b", 2.2, 0.8)
+    b["home"] = a["home"]  # ugyanaz a csapat egy másik fordulóban
+    c = _bmatch("c", 2.0, 0.8)
+    state = {"competitions": [{"name": "X", "matches": [a, b, c]}]}
+    groups = builder.ranked(state, 1)
+    v = builder.assemble("x", "", groups, 3, None)
+    teams = [t for g in v.groups for t in g.teams]
+    assert len(teams) == len(set(teams)) and len(v.groups) == 2

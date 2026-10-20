@@ -34,8 +34,10 @@ import espn
 import markets
 import names
 import odds_api
+import builder
+import insight
+import labels
 import slip
-import target as target_mod
 import tippmix
 import value
 from config import DEFAULT_BOOKMAKERS, load_rules, load_strategy
@@ -194,7 +196,9 @@ def build_state() -> dict:
             for g in _group(m.outcomes):
                 outs = []
                 for o in g["outcomes"]:
-                    item = {"id": o.offer_id, "pick": o.pick, "odds": o.odds}
+                    item = {"id": o.offer_id, "pick": o.pick, "odds": o.odds,
+                            "label": labels.short(o.market, o.pick, m.home, m.away, o.line),
+                            "text": labels.sentence(o.market, o.pick, m.home, m.away, o.line)}
                     if a:
                         ev = value.evaluate(o, a, STRATEGY)
                         if ev:
@@ -202,6 +206,7 @@ def build_state() -> dict:
                     outs.append(item)
                 mk.append({"key": g["key"], "name": g["name"], "line": g["line"], "outcomes": outs})
             one_x_two = [o.odds for o in m.outcomes if o.market == "1x2"]
+            an = insight.from_sharp(a) if a else insight.from_tippmix(m)
             entry["matches"].append({
                 "id": m.id, "home": m.home, "away": m.away, "kickoff": m.kickoff.isoformat(),
                 "margin": round(sum(1 / x for x in one_x_two) - 1, 4) if len(one_x_two) == 3 else None,
@@ -209,6 +214,7 @@ def build_state() -> dict:
                          "away": fx["away"]["id"] if fx else None,
                          "home_logo": fx["home"]["logo"] if fx else "", "away_logo": fx["away"]["logo"] if fx else ""},
                 "markets": mk,
+                "analysis": {k: (round(v, 4) if isinstance(v, float) else v) for k, v in an.items()} if an else None,
                 "sharp": {"sources": a.sources, "confidence": a.confidence, "xg": [round(a.lam_home, 2), round(a.lam_away, 2)],
                           "top_scores": [[s, round(p, 4)] for s, p in a.top_scores[:3]]} if a else None,
             })
@@ -250,6 +256,7 @@ def check(ids: list, stake: int) -> dict:
         return res
     for m, mk, o, c in legs:
         res["legs"].append({"id": o["id"], "match": f"{m['home']} – {m['away']}", "kickoff": m["kickoff"],
+                            "label": o.get("label"), "text": o.get("text"),
                             "competition": c["name"], "market": mk["name"], "pick": o["pick"], "odds": o["odds"],
                             "prob": o.get("prob"), "ev": o.get("ev"), "fair": o.get("fair"), "match_id": m["id"],
                             "market_key": mk["key"]})
@@ -291,48 +298,77 @@ def check(ids: list, stake: int) -> dict:
     return res
 
 
-def _noref_slips(state: dict, bankroll: int, target: float | None, notes: list) -> tuple[list, float]:
-    """Kész szelvények célszorzóra a TippmixPro saját árrésmentesített szorzóiból (lásd target.py)."""
-    goal = target or 3.0
-    cands = target_mod.candidates(state, max_odds=goal * 1.35)
-    found = target_mod.search(cands, goal)
-    stake = max(RULES.min_stake, int(bankroll * STRATEGY.max_bet_share // RULES.stake_step * RULES.stake_step))
-    out, used, checks = [], set(), 0
+def _bb_odds(session, picks: list) -> float | None:
+    """A TippmixPro Fogadásépítő-szorzója egy meccs tippjeire (None, ha nem köthetők)."""
+    ids = tuple(p["id"] for p in picks)
+
+    def load():
+        chk = tippmix.check_slip(session, [(p["id"], p["odds"]) for p in picks])
+        if chk["forbidden"] or not chk["bet_builder"]:
+            return 0.0
+        return float(chk["bet_builder"][0]["odds"] or 0.0)
+
+    val, _, _ = CACHE.get(("bb",) + ids, TIPPMIX_TTL, load)
+    return val or None
+
+
+def _versions(state: dict, stake: int, target: float | None, notes: list) -> list:
+    """A három változat (builder.VERSIONS), a TippmixPro Fogadásépítő-szorzóival és végső ellenőrzésével."""
+    out = []
     try:
         with tippmix.Session() as s:
-            for ratio, _, odds, legs in found:
-                ms = {l.match_id for l in legs}
-                if ms & used:
+            for name, level, n_default, desc in builder.VERSIONS:
+                groups = builder.ranked(state, level)[:builder.CANDIDATES]
+                for g in groups:
+                    if len(g.picks) > 1:
+                        g.odds = _bb_odds(s, g.picks)
+                excluded, v, chk = set(), None, None
+                for _ in range(4):
+                    v = builder.assemble(name, desc, [g for g in groups if g.match_id not in excluded],
+                                         n_default, target)
+                    if not v:
+                        break
+                    # Végső ellenőrzés a teljes szelvényre: kötéstiltás és a TippmixPro saját csoportszorzói.
+                    legs = [p for g in v.groups for p in g.picks]
+                    chk = tippmix.check_slip(s, [(p["id"], p["odds"]) for p in legs])
+                    if not chk["forbidden"]:
+                        break
+                    # Tiltott pár: a gyengébb csoportot kivesszük, a helyére a következő legesélyesebb jön.
+                    owner = {p["id"]: g for g in v.groups for p in g.picks}
+                    bad = [owner[i] for pair in chk["forbidden"] for i in pair if i in owner]
+                    excluded.add(min(bad, key=lambda g: g.prob).match_id if bad else v.groups[-1].match_id)
+                    v = None
+                if not v:
+                    if target:
+                        notes.append(f"A „{name}” változat legfeljebb {builder.MAX_MATCHES} meccsel sem éri el "
+                                     f"a {str(target).replace('.', ',')}-es célszorzót.")
                     continue
-                if checks >= 12:  # ne terheljük a TippmixPro-t: ennyi ellenőrzésből már kijön 3 szelvény
-                    break
-                checks += 1
-                chk = tippmix.check_slip(s, [(l.id, l.odds) for l in legs])
-                if chk["forbidden"] or chk["bet_builder"]:
-                    continue
-                prob = 1.0
-                for l in legs:
-                    prob *= l.prob
+                bb = {tuple(b["ids"]): b["odds"] for b in chk["bet_builder"]}
+                groups_json = []
+                for g in v.groups:
+                    ids = tuple(p["id"] for p in g.picks)
+                    if len(ids) > 1:
+                        g.odds = bb.get(ids, g.odds)
+                    groups_json.append({
+                        "match": g.match, "competition": g.competition, "kickoff": g.kickoff,
+                        "builder": len(ids) > 1, "odds": round(g.odds, 4), "prob": round(g.prob, 4),
+                        "picks": [{"id": p["id"], "label": p["label"], "market": p["market_name"], "odds": p["odds"]}
+                                  for p in g.picks]})
                 st = max(stake, int(chk.get("min_stake") or RULES.min_stake))
-                out.append({"legs": [{"id": l.id, "match": l.match, "label": l.label, "odds": l.odds,
-                                      "prob": round(l.prob, 4)} for l in legs],
-                            "odds": round(odds, 4), "prob": round(prob, 4), "ev": round(ratio - 1, 4),
-                            "stake": st, "payout": int(st * odds)})
-                used |= ms
-                if len(out) >= 3:
-                    break
+                out.append({"name": v.name, "desc": v.desc, "groups": groups_json, "odds": round(v.odds, 4),
+                            "prob": round(v.prob, 4), "ev": round(v.prob * v.odds - 1, 4), "stake": st,
+                            "payout": int(st * v.odds)})
     except tippmix.TippmixError as e:
-        notes.append(f"A szelvényeket a TippmixPro most nem tudta ellenőrizni, ezért nem ajánlok kötést: {e}")
-        return [], goal
+        notes.append(f"A TippmixPro most nem tudta beárazni a szelvényeket: {e}")
     if not out:
-        notes.append(f"Nem találtam köthető szelvényt {str(goal).replace('.', ',')}-es célszorzóra.")
-    return out, goal
+        notes.append("Nem találtam szelvényt" + (f" {str(target).replace('.', ',')}-es célszorzóra." if target else "."))
+    return out
 
 
-def best(bankroll: int, target: float | None) -> dict:
+def best(bankroll: int, target: float | None, stake: int = 1000) -> dict:
     state = build_state()
     out = {"enabled": state["fair"]["enabled"], "picks": [], "singles": [], "combos": [], "low_margin": [],
-           "notes": list(state["fair"]["status"]), "noref": [], "noref_target": None}
+           "notes": list(state["fair"]["status"]), "versions": []}
     rows = []
     for c in state["competitions"]:
         for m in c["matches"]:
@@ -349,13 +385,14 @@ def best(bankroll: int, target: float | None) -> dict:
     for c, m, mk, o in rows:
         out["picks"].append({"id": o["id"], "competition": c["name"], "match": f"{m['home']} – {m['away']}",
                              "kickoff": m["kickoff"], "market": mk["name"], "pick": o["pick"], "odds": o["odds"],
+                             "label": o.get("text"),
                              "fair": o["fair"], "prob": o["prob"], "ev": o["ev"], "min_odds": o["min_odds"],
                              "source": o["source"]})
+    out["versions"] = _versions(state, stake, target, out["notes"])
     if not out["enabled"] or not rows:
-        out["noref"], out["noref_target"] = _noref_slips(state, bankroll, target, out["notes"])
         return out
     legs = [slip.Leg(id=o["id"], match_id=m["id"], match=f"{m['home']} – {m['away']}",
-                     label=f"{mk['name']}: {o['pick']}", prob=o["prob"], odds=o["odds"], source=o["source"],
+                     label=o.get("text") or f"{mk['name']}: {o['pick']}", prob=o["prob"], odds=o["odds"], source=o["source"],
                      min_odds=o["min_odds"])
             for c, m, mk, o in rows if mk["key"] != "dnb"]
     singles, _ = slip.singles(legs, bankroll, RULES, STRATEGY)
@@ -556,7 +593,10 @@ class Handler(BaseHTTPRequestHandler):
                 target = float(q["cel"].replace(",", ".")) if q.get("cel") else None
                 if target is not None and not 1.01 < target <= 1000:
                     return self._err(400, "A célszorzó 1,01 és 1000 között legyen.")
-                return self._json(200, best(bankroll, target))
+                stake = int(q.get("tet", "1000"))
+                if not 0 < stake <= 10_000_000:
+                    return self._err(400, "Hibás tét.")
+                return self._json(200, best(bankroll, target, stake))
             if url.path == "/api/team":
                 return self._json(200, team(q.get("id"), q.get("name"), q.get("league")))
         except (ValueError, LookupError) as e:

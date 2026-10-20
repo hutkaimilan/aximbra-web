@@ -116,13 +116,9 @@ input:focus { border-color: var(--accent); }
 .pill { background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 0 8px; font-weight: 800; font-size: 13px; }
 .slip-odds { margin-left: auto; font-weight: 800; }
 .slip-body { padding: 0 14px 14px; }
-.slip-legs { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.leg { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: grid; grid-template-columns: 1fr auto auto;
-  gap: 8px; align-items: center; background: var(--panel-2); }
-.leg.forbidden { border-color: var(--bad); background: var(--bad-bg); }
-.leg.builder { border-color: var(--warn); }
-.leg .m { font-size: 12px; color: var(--muted); }
-.leg .x { background: none; border: 0; color: var(--muted); font-size: 16px; }
+.slip-legs { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.slip-legs > li.muted { padding: 4px 0; }
+.leg .x, .tpick .x { background: none; border: 0; color: var(--muted); font-size: 16px; }
 .slip-stake { margin: 10px 0; display: grid; gap: 4px; }
 .slip-result { display: grid; gap: 6px; margin-bottom: 10px; font-size: 14px; }
 .row { display: flex; justify-content: space-between; gap: 8px; }
@@ -165,3 +161,43 @@ dialog.team::backdrop { background: rgba(0, 0, 0, .55); }
 .result .c { font-size: 11px; color: var(--muted); }
 .result .sc { font-weight: 800; font-variant-numeric: tabular-nums; }
 .spinner { padding: 24px; text-align: center; color: var(--muted); }
+
+/* meccselemzés */
+.insight { margin-top: 10px; padding: 8px 10px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line);
+  font-size: 13px; display: grid; gap: 3px; }
+.insight b { font-weight: 700; }
+.insight .src { font-size: 11px; color: var(--muted); }
+.odd .p { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; }
+.form-row.three { grid-template-columns: 1fr 1fr 1fr auto; }
+@media (max-width: 640px) { .form-row, .form-row.three { grid-template-columns: 1fr 1fr; } .form-row button { grid-column: 1 / -1; } }
+
+/* TippmixPro-szerű szelvény */
+.tslips { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); margin-bottom: 14px; }
+.tslip { --t-bg: #23272f; --t-panel: #2c313b; --t-line: #3a404c; --t-text: #eef0f3; --t-muted: #a3aab6; --t-yellow: #f5b800;
+  background: var(--t-bg); color: var(--t-text); border-radius: 14px; overflow: hidden; border: 1px solid var(--t-line);
+  display: flex; flex-direction: column; }
+.tslip .muted, .tslip .tmarket { color: var(--t-muted); }
+.tslip-head { padding: 12px 14px; display: grid; gap: 2px; border-bottom: 1px solid var(--t-line); }
+.tgroup { border-left: 3px solid transparent; padding: 10px 14px; border-bottom: 1px solid var(--t-line); }
+.tgroup.bb { border-left-color: var(--t-yellow, #f5b800); background: rgba(245, 184, 0, .05); }
+.thead { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; margin-bottom: 6px; }
+.thead b { font-size: 16px; }
+.tbb { font-size: 13px; color: var(--t-muted, var(--muted)); }
+.tbb::after { content: " 🔗"; }
+.tmatch { font-weight: 700; }
+.tmarket { font-size: 12px; color: var(--muted); }
+.tpick { display: grid; grid-template-columns: 22px 1fr auto auto; gap: 8px; align-items: center; padding: 6px 0; }
+.tslip .tpick { grid-template-columns: 22px 1fr; }
+.tcheck { width: 20px; height: 20px; border-radius: 5px; background: #f5b800; color: #1a1400; display: grid;
+  place-items: center; font-size: 13px; font-weight: 900; }
+.tname { font-weight: 700; }
+.todd { font-weight: 700; }
+.tprob { font-size: 12px; color: var(--good); margin-top: 2px; }
+.tfoot { padding: 12px 14px; display: grid; gap: 6px; margin-top: auto; }
+.tfoot .primary { margin-top: 6px; }
+.row.big span { font-weight: 600; }
+.row.big b { font-size: 18px; }
+/* a jobb oldali szelvény ugyanígy csoportosít */
+.slip .tgroup { border: 1px solid var(--line); border-left-width: 3px; border-radius: 10px; background: var(--panel-2); }
+.slip .tgroup.bb { border-left-color: var(--accent); }
+.slip .tgroup.forbidden, .slip .tpick.forbidden { border-color: var(--bad); background: var(--bad-bg); }

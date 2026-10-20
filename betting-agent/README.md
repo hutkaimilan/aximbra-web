@@ -4,8 +4,9 @@ Bajnokok Ligája, Európa-liga, Premier League, La Liga, Bundesliga és portugá
 bajnokság. Két felülete van:
 
 - **Weboldal** (`web.py`): a TippmixPro aktuális szorzói sorozatonként külön,
-  szelvényépítő a TippmixPro saját kötéstiltás-ellenőrzésével, értékkereső,
-  és kattintható csapatok a korábbi eredményeikkel.
+  meccsenként magyar elemzéssel (ki nyer, várható gólok, lő-e mindkét csapat),
+  szelvénykészítő Fogadásépítős változatokkal, szelvény a TippmixPro saját
+  kötéstiltás-ellenőrzésével, és kattintható csapatok a korábbi eredményeikkel.
 - **Parancssor** (`agent.py`): ugyanaz a számolás, kézzel kitöltött táblázattal.
 
 ## Weboldal
@@ -16,6 +17,26 @@ bajnokság. Két felülete van:
 | Kötéstiltás, Fogadásépítő-szorzó egy meccsen belül, minimális tét | a TippmixPro szelvény-ellenőrzője (`bettingOptionsV2`) |
 | Csapatok korábbi meccsei minden sorozatból | ESPN nyilvános JSON |
 | Valós esély, várható érték, értékkereső | The Odds API (Pinnacle, Betfair-tőzsde) — opcionális |
+
+### Szelvénykészítő
+
+Három változat, mindegyik a legesélyesebb meccsekből (`builder.py`):
+
+| Változat | Meccsenként |
+|---|---|
+| Győztesek | a favorit győzelme |
+| Győztes + gólok | győztes + a vele együtt legvalószínűbb gólszám (Fogadásépítő) |
+| Teljes Fogadásépítő | győztes + gólszám + „mindkét csapat szerez gólt” |
+
+Az egy meccsen belüli tippek együttes esélyét a meccs gólmodelljének
+eredménymátrixából számolja (a tippek összefüggenek), a csoport szorzóját a
+TippmixPro Fogadásépítője adja. Célszorzóval addig vesz hozzá meccset, amíg el
+nem éri (legfeljebb 6). Egy csapat egy szelvényen csak egyszer szerepel, és
+minden szelvényt a TippmixPro kötéstiltás-ellenőrzése jóváhagy; tiltott pár
+esetén a gyengébb csoportot a következő legesélyesebbel cseréli.
+
+Kulcs nélkül az esélyek a TippmixPro saját szorzóiból jönnek (árrés nélkül),
+ezért a várható érték a Tippmix árrése miatt negatív — a felület ki is írja.
 
 **Fontos:** a TippmixPro-csatorna nem dokumentált, nyilvános API. Bármikor
 megváltozhat; ilyenkor az oldal a legutóbbi sikeres adatot mutatja „elavult"
