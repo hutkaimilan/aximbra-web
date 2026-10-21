@@ -93,6 +93,18 @@ FOLLOW_UP = {
     "fr": "Bonjour,\n\nJe vous écris une dernière fois, au cas où mon précédent message se serait perdu. Si ce n’est pas d’actualité, un simple « non » suffit et je ne vous écrirai plus.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/fr",
 }
 
+# Az utánkövetésbe kerülő demólink mondata (az első levélben soha nincs link:
+# az rontja a kézbesíthetőséget). A link elé, az aláírás fölé kerül.
+DEMO_LINE = {
+    "hu": "Közben összeraktam nektek egy rövid oldalt arról, mit csinálna nálatok egy AI agent, a weboldalatok alapján: {url}",
+    "sk": "Medzitým som pre vás pripravil krátku stránku o tom, čo by u vás robil AI agent, na základe vášho webu: {url}",
+    "ro": "Între timp v-am pregătit o pagină scurtă despre ce ar face un agent AI la dumneavoastră, pe baza site-ului dumneavoastră: {url}",
+    "hr": "U međuvremenu sam vam pripremio kratku stranicu o tome što bi AI agent radio kod vas, na temelju vaše web stranice: {url}",
+    "sl": "Medtem sem vam pripravil kratko stran o tem, kaj bi AI agent počel pri vas, na podlagi vaše spletne strani: {url}",
+    "en": "Meanwhile I put together a short page on what an AI agent would do for you, based on your website: {url}",
+    "fr": "Entre-temps, j’ai préparé une courte page sur ce qu’un agent IA ferait chez vous, à partir de votre site : {url}",
+}
+
 MAX_WORDS = 110  # a törzs + aláírás + ui. + leiratkozás együtt; maga az üzenet 75 alatt
 
 # Iparági tudás: mi fáj nekik valójában, milyen jel mutatja, hogy most fáj,

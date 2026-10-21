@@ -253,6 +253,7 @@ details summary{cursor:pointer}
       <button id="scan">Válaszok ellenőrzése most</button>
     </div>
     <div id="follow"></div>
+    <div id="demopages"></div>
   </section>
 
   <section id="tab-new" class="hide">
@@ -457,8 +458,21 @@ function render() {
   const fu = L.filter((l) => l.followup_status === "draft");
   $("#follow").innerHTML = fu.length ? fu.map((l) => `<div class="card" data-fid="${l.id}">${leadHead(l)}
     <pre style="white-space:pre-wrap;font:inherit">${esc(l.followup_body)}</pre>
-    <div class="row"><button class="pri fgm">1. Megnyitás Gmailben</button><button class="fdone">2. Kiment ✓</button><button class="warn fdrop">Nem küldöm</button></div>
+    <div class="row"><button class="pri fgm">1. Megnyitás Gmailben</button><button class="fdone">2. Kiment ✓</button><button class="warn fdrop">Nem küldöm</button>
+      ${(l.followup_body || "").includes("aximbra.hu/neked/") ? "" : `<button class="fdemo" title="Megnézi a cég weboldalát, és személyre szabott demóoldalt készít; a link bekerül ebbe a levélbe">Demóoldal + link</button>`}</div>
     <p class="mute">Tipp: a Gmailben a korábbi levélre válaszként is elküldheted, akkor egy szálban marad.</p></div>`).join("") : `<div class="card mute">Nincs esedékes utánkövetés.</div>`;
+
+  const D = S.demo_pages || [];
+  if (!(document.activeElement && document.activeElement.closest && document.activeElement.closest("#demopages")))
+  $("#demopages").innerHTML = `<div class="card"><b>Demóoldalak</b>
+    <p class="mute" style="margin-top:4px">A reggeli kör minden esedékes utánkövetéshez elkészíti a cég oldalát (aximbra.hu/neked/…), és a linket csak az utánkövetésbe teszi. Az első megnyitásról és a „Beszéljünk” kattintásról azonnal e-mailt kapsz. A saját megnézésed (előnézet) nem számít megnyitásnak.</p>
+    ${D.length ? `<table><tr><th>cég</th><th>megnyitás</th><th>demó</th><th>beszéljünk</th><th></th></tr>${D.map((p) => `<tr>
+      <td>${esc(p.company || p.domain)}${p.generic ? ` <span class="tag n" title="az oldalukat nem tudta elolvasni">általános</span>` : ""}<div class="mute">${esc(p.domain)}</div></td>
+      <td class="n">${p.opens || 0}${p.last_open ? `<div class="mute">${esc(p.last_open.slice(0,16).replace("T"," "))}</div>` : ""}</td>
+      <td class="n">${p.demo_clicks || 0}</td>
+      <td class="n">${p.cta_clicks ? `<span class="tag i">${p.cta_clicks}</span>` : 0}</td>
+      <td><a href="${esc(p.page_url)}?preview=1" target="_blank" rel="noopener">előnézet</a></td></tr>`).join("")}</table>` : `<p class="mute">Még nincs demóoldal.</p>`}
+    <div class="row" style="margin-top:10px"><input id="demoUrl" placeholder="weboldal, pl. cegnev.hu" style="flex:1;min-width:180px"><button id="demoMake">Demóoldal készítése</button></div></div>`;
 
   const T = S.stats.total, pct = (a, b) => b ? Math.round(100 * a / b) + "%" : "–";
   const tbl = (rows, name, map) => `<div class="card"><b>${name}</b><table><tr><th></th><th>kiment</th><th>válasz</th><th>érdeklődik</th><th>nem</th></tr>${
@@ -569,6 +583,14 @@ document.addEventListener("click", async (e) => {
         await api(`/api/followups/${id}/mark-sent`, {}); flash("Utánkövetés elküldöttnek jelölve.");
       }
       if (e.target.classList.contains("fdrop")) { await api(`/api/followups/${id}/drop`, {}); }
+      if (e.target.classList.contains("fdemo")) {
+        e.target.disabled = true; e.target.textContent = "Készül… (fél-egy perc)";
+        try {
+          const r = await api(`/api/leads/${id}/demo-page`, {});
+          flash(r.generic ? "Az oldalukat nem sikerült elolvasni, ezért nem került link a levélbe."
+            : r.followup_updated ? "Kész, a link bekerült a levélbe." : "Kész: " + r.page_url);
+        } finally { e.target.disabled = false; }
+      }
       await refresh();
     }
   } catch (err) { flash(err.message); }
@@ -609,6 +631,19 @@ $("#go").onclick = async () => {
   const plan = {}; document.querySelectorAll("#plan input").forEach((i) => { if (+i.value > 0) plan[i.dataset.c] = +i.value; });
   try { await api("/api/research", {plan}); flash("A keresés elindult. Pár perc."); refresh(); } catch (e) { flash(e.message); }
 };
+document.addEventListener("click", async (e) => {
+  if (e.target.id !== "demoMake") return;
+  const url = $("#demoUrl").value.trim();
+  if (!url) return;
+  e.target.disabled = true; e.target.textContent = "Készül…";
+  try {
+    const r = await api("/api/demo-pages", {url});
+    flash((r.existing ? "Már volt oldala: " : "Kész: ") + r.page_url + (r.generic ? " (általános: az oldalukat nem tudta elolvasni)" : ""));
+    window.open(r.page_url + "?preview=1", "_blank");
+    await refresh();
+  } catch (err) { flash(err.message); }
+  finally { e.target.disabled = false; e.target.textContent = "Demóoldal készítése"; }
+});
 $("#prepFollow").onclick = async () => { try { const r = await api("/api/followups/prepare", {}); flash(`${r.prepared} utánkövetés előkészítve.`); refresh(); } catch (e) { flash(e.message); } };
 $("#dScan").onclick = () => $("#scan").click();
 $("#scan").onclick = async () => { try { await api("/api/replies/scan", {}); flash("Válaszok ellenőrzése elindult."); refresh(); } catch (e) { flash(e.message); } };

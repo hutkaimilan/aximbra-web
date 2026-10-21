@@ -191,6 +191,7 @@ def state():
                        rules=verify.rule_violations(l) if l["status"] in ("draft", "failed") else [])
                   for l in store.list()],
         "blocked": store.blocked_keys()[:300],
+        "demo_pages": [dict(p, page_url=_demo_link(p["slug"])) for p in store.demo_list()[:200]],
         "sent_today": store.sent_today(),
         "stats": store.stats(),
         "focus": store.best_sectors(),
@@ -477,16 +478,54 @@ def demo_delete(slug: str):
     return {"ok": True}
 
 
+def _lead_site(lead: dict) -> str:
+    return lead.get("website") or (f"https://{lead['domain']}" if lead.get("domain") else "")
+
+
 @app.post("/api/leads/{lead_id}/demo-page", dependencies=[Depends(auth)])
 def demo_for_lead(lead_id: int):
     lead = store.get(lead_id)
     if not lead:
         raise HTTPException(404, "Nincs ilyen lead.")
-    site = lead.get("website") or (f"https://{lead['domain']}" if lead.get("domain") else "")
+    site = _lead_site(lead)
     if not site:
         raise HTTPException(400, "Ennél a leadnél nincs weboldal.")
     res = _make_demo(site, lead.get("lang") or "", lead.get("company") or "", lead_id=lead_id)
+    # Ha már vár egy utánkövetés, a link bekerül; általános oldalt nem küldünk.
+    res["followup_updated"] = bool(
+        not res["generic"] and lead.get("followup_status") == "draft"
+        and store.update_followup_draft(lead_id, pipeline.followup_body(lead, res["page_url"])))
     return res
+
+
+# Egy reggeli körben legfeljebb ennyi új demóoldal készül (két modellhívás
+# oldalanként az ingyenes Gemini-keretből); a többi utánkövetés link nélkül megy.
+DEMO_PER_RUN = int(os.environ.get("DEMO_PER_RUN", "8"))
+
+
+def _followup_demo_url(create: bool):
+    """A prepare_followups-nak: a lead cégének (nem általános) demóoldala.
+    create=False: csak a meglévőt adja; True: ha nincs, legfeljebb DEMO_PER_RUN
+    újat készít ebben a körben."""
+    made = [0]
+
+    def get(lead: dict) -> str | None:
+        site = _lead_site(lead)
+        if not site:
+            return None
+        old = store.demo_by_domain(demopage.domain_of(demopage.normalize_url(site)))
+        if old:
+            return None if old["generic"] else _demo_link(old["slug"])
+        if not create or made[0] >= DEMO_PER_RUN:
+            return None
+        made[0] += 1
+        try:
+            res = _make_demo(site, lead.get("lang") or "", lead.get("company") or "", lead_id=lead["id"])
+        except HTTPException as e:
+            logger.warning("demóoldal %s: %s", lead.get("domain"), e.detail)
+            return None
+        return None if res["generic"] else res["page_url"]
+    return get
 
 
 _event_hits: dict[str, list[float]] = {}
@@ -597,7 +636,9 @@ def skip(lead_id: int):
 
 @app.post("/api/followups/prepare", dependencies=[Depends(auth)])
 def followups_prepare():
-    return {"prepared": pipeline.prepare_followups(store)}
+    # Kézi előkészítés: csak a már meglévő demóoldalakat linkeli, hogy a kérés
+    # ne várjon percekig; új oldalt a lead „Demóoldal” gombja készít.
+    return {"prepared": pipeline.prepare_followups(store, demo_url=_followup_demo_url(create=False))}
 
 
 @app.post("/api/followups/{lead_id}/send", dependencies=[Depends(auth)])
@@ -806,7 +847,7 @@ def _morning(log):
         pipeline.scan_replies(store, log)
     except (AuthError, MailError) as e:
         log.say(f"Válaszfigyelés kimaradt: {e}")
-    n = pipeline.prepare_followups(store)
+    n = pipeline.prepare_followups(store, demo_url=_followup_demo_url(create=True))
     log.say(f"{n} utánkövetés vár jóváhagyásra.")
     auto_sent: list[dict] = []
     try:

@@ -534,3 +534,46 @@ def test_event_rate_limit(api):
     c, *_ = api
     codes = [c.post("/public/neked/nincs/event", json={"type": "open"}).status_code for _ in range(121)]
     assert codes[:120] == [404] * 120 and codes[120] == 429
+
+
+# ---- utánkövetés --------------------------------------------------------------
+
+def test_followup_body_puts_link_above_signature_in_every_language():
+    import pipeline
+    from playbook import DEMO_LINE, FOLLOW_UP
+    assert set(FOLLOW_UP) <= set(DEMO_LINE)
+    lead = {"lang": "hu", "lang2": "sk"}
+    body = pipeline.followup_body(lead, "https://aximbra.hu/neked/kert-1")
+    sk, hu = body.split("— — —")  # a második nyelv áll elöl, mint az első levélben
+    for part, sig in ((hu, "Hutkai Milán"), (sk, "Milán Hutkai")):
+        assert "https://aximbra.hu/neked/kert-1" in part
+        assert part.index("aximbra.hu/neked/") < part.index(sig)
+    assert "neked" not in pipeline.followup_body({"lang": "en"})
+
+
+def test_morning_followup_gets_demo_link_but_generic_page_does_not(api, monkeypatch):
+    c, app_mod, calls, _ = api
+    import pipeline
+    s = app_mod.store
+    old = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
+    ids = []
+    for dom in ("kertbisztro.hu", "zarva.hu"):
+        lid = s.add_lead({"company": dom, "country": "HU", "website": f"https://{dom}", "email": f"info@{dom}",
+                          "lang": "hu", "pain": "inbox", "subject": "Tárgy", "body": "b"})
+        s.mark_sent_manual(lid)
+        with s._conn() as conn:
+            conn.execute("UPDATE leads SET sent_at = ? WHERE id = ?", (old, lid))
+        ids.append(lid)
+
+    def gen(url, **kw):
+        calls.append(kw)
+        page = _page()
+        if "zarva" in url:
+            page = dict(page, generic=True, domain="zarva.hu", url=url)
+        return page
+    monkeypatch.setattr(app_mod.demopage, "generate", gen)
+    n = pipeline.prepare_followups(s, demo_url=app_mod._followup_demo_url(create=True))
+    assert n == 2
+    kert, zarva = (s.get(i) for i in ids)
+    assert "aximbra.hu/neked/" in kert["followup_body"]
+    assert "neked" not in zarva["followup_body"]

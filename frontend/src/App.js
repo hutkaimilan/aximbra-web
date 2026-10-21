@@ -30,6 +30,7 @@ import EmailAgent from "@/demos/EmailAgent";
 import Impresszum from "@/pages/Impresszum";
 import Adatkezeles from "@/pages/Adatkezeles";
 import Weboldal from "@/pages/Weboldal";
+import Neked from "@/pages/Neked";
 
 function Site() {
   const { t, lang } = useLang();
@@ -164,6 +165,9 @@ export default function App() {
               <Route key={`${code}/${p.path}`} path={`/${code}/${p.path}`} element={p.element} />
             ))
           )}
+          {/* Egy cégnek készült demóoldal. Nyelvi előtag nélkül: a nyelvét a cég
+              oldala dönti el, nem az URL. */}
+          <Route path="/neked/:slug" element={<Neked />} />
           {/* Unknown path: hand it to the homepage rather than a blank screen. */}
           {/* Ismeretlen cim: sajat lap, `noindex`-szel. Eddig a fooldal jott vissza
               200-as valasszal, amit a Google "soft 404"-kent bunteti. */}

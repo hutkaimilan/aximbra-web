@@ -18,7 +18,7 @@ import calendar_slots
 import llm as llm_mod
 import mailer as mailer_mod
 import verify
-from playbook import COUNTRIES, FOLLOW_UP, OPT_OUT, SECTORS, SIGNAL_TYPES
+from playbook import COUNTRIES, DEMO_LINE, FOLLOW_UP, OPT_OUT, SECTORS, SIGNAL_TYPES
 from store import Store, domain_of
 
 logger = logging.getLogger(__name__)
@@ -365,7 +365,23 @@ def workdays_between(start: datetime, end: datetime) -> int:
     return n
 
 
-def prepare_followups(store: Store, now: datetime | None = None) -> int:
+def followup_body(lead: dict, demo_url: str | None = None) -> str:
+    """Az utánkövető levél a lead nyelvén (kétnyelvű leadnél mindkettőn). Ha van
+    a cégnek demóoldala, a link az aláírás fölé kerül."""
+    langs = [lead["lang2"], lead["lang"]] if lead.get("lang2") else [lead["lang"]]
+    parts = []
+    for lang in langs:
+        text = FOLLOW_UP[lang]
+        if demo_url:
+            head, sig = text.rsplit("\n\n", 1)
+            line = DEMO_LINE.get(lang, DEMO_LINE["en"]).format(url=demo_url)
+            text = f"{head}\n\n{line}\n\n{sig}"
+        parts.append(text)
+    return f"\n\n{verify.SEPARATOR}\n\n".join(parts)
+
+
+def prepare_followups(store: Store, now: datetime | None = None, demo_url=None) -> int:
+    """demo_url(lead) -> link vagy None: a cég demóoldala, ha van (vagy most készül)."""
     now = now or datetime.now(timezone.utc)
     n = 0
     for lead in store.list("sent"):
@@ -374,8 +390,13 @@ def prepare_followups(store: Store, now: datetime | None = None) -> int:
         if store.is_blocked(lead["email"]):
             continue
         if workdays_between(datetime.fromisoformat(lead["sent_at"]), now) >= FOLLOWUP_AFTER_WORKDAYS:
-            langs = [lead["lang2"], lead["lang"]] if lead.get("lang2") else [lead["lang"]]
-            store.set_followup_draft(lead["id"], f"\n\n{verify.SEPARATOR}\n\n".join(FOLLOW_UP[l] for l in langs))
+            url = None
+            if demo_url:
+                try:
+                    url = demo_url(lead)
+                except Exception as e:  # noqa: BLE001 - link nélkül is mehet az utánkövetés
+                    logger.warning("demóoldal az utánkövetéshez nem készült el: %s", type(e).__name__)
+            store.set_followup_draft(lead["id"], followup_body(lead, url))
             n += 1
     return n
 

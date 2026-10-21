@@ -448,6 +448,12 @@ class Store:
             c.execute("UPDATE leads SET followup_status = 'draft', followup_body = ? "
                       "WHERE id = ? AND followup_status = 'none'", (body, lead_id))
 
+    def update_followup_draft(self, lead_id: int, body: str) -> bool:
+        """Még el nem küldött utánkövetés szövegének cseréje (pl. bekerül a demólink)."""
+        with self._conn() as c:
+            return c.execute("UPDATE leads SET followup_body = ? WHERE id = ? AND followup_status = 'draft'",
+                             (body, lead_id)).rowcount > 0
+
     def claim_followup(self, lead_id: int) -> bool:
         with self._conn() as c:
             cur = c.execute("UPDATE leads SET followup_status = 'sending' "
