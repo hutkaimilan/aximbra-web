@@ -14,13 +14,15 @@ import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
 import advisor
 import content
+import demopage
 import gmail_api
 import llm
 import outreach
@@ -36,6 +38,12 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger("sales")
 
 app = FastAPI(title="AXIMBRA értékesítő", docs_url=None, redoc_url=None, openapi_url=None)
+# A demóoldal az aximbra.hu-n jelenik meg, és innen kéri az adatát: csak onnan
+# engedjük. Hitelesítő adatot (jelszót) böngészőből idegen oldalról nem fogadunk.
+DEMO_ORIGINS = [o.strip() for o in os.environ.get(
+    "DEMO_ORIGINS", "https://aximbra.hu,https://www.aximbra.hu").split(",") if o.strip()]
+app.add_middleware(CORSMiddleware, allow_origins=DEMO_ORIGINS, allow_methods=["GET", "POST"],
+                   allow_headers=["Content-Type"], allow_credentials=False)
 security = HTTPBasic()
 store = Store()
 
@@ -63,12 +71,47 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 TZ = ZoneInfo("Europe/Budapest")
 
 
-def auth(creds: HTTPBasicCredentials = Depends(security)):
+# Rossz jelszó IP-nként: 15 percen belül 5 után 429. Egy jelszó védi az összes
+# leadet és demóoldalt, ezért a próbálgatást nem elég lassítani, meg kell állítani.
+AUTH_FAIL_LIMIT = 5
+AUTH_FAIL_WINDOW = 15 * 60
+_auth_fails: dict[str, list[float]] = {}
+_auth_lock = threading.Lock()
+
+
+def _client_ip(request: Request) -> str:
+    """A látogató IP-je a Railway proxy mögött. Az X-Forwarded-For első elemét
+    a kliens maga is beírhatja, ezért a proxy által tett X-Real-IP-t, ennek
+    hiányában az utolsó elemet használjuk; különben a korlát megkerülhető."""
+    real = request.headers.get("x-real-ip", "").strip()
+    if real:
+        return real
+    fwd = [x.strip() for x in request.headers.get("x-forwarded-for", "").split(",") if x.strip()]
+    return (fwd[-1] if fwd else (request.client.host if request.client else "")) or "?"
+
+
+def _prune(hits: dict[str, list[float]], window: float, now: float) -> None:
+    """Régi IP-k kidobása, hogy a számláló ne nőjön a végtelenségig."""
+    if len(hits) > 5000:
+        for k in [k for k, v in hits.items() if not v or now - v[-1] > window]:
+            del hits[k]
+
+
+def auth(request: Request, creds: HTTPBasicCredentials = Depends(security)):
     pw = os.environ.get("ADMIN_PASSWORD", "")
     if len(pw) < 8:
         raise HTTPException(503, "Nincs beállítva elég hosszú ADMIN_PASSWORD.")
+    ip, t = _client_ip(request), time.time()
+    with _auth_lock:
+        _prune(_auth_fails, AUTH_FAIL_WINDOW, t)
+        recent = [x for x in _auth_fails.get(ip, []) if t - x < AUTH_FAIL_WINDOW]
+        _auth_fails[ip] = recent
+        if len(recent) >= AUTH_FAIL_LIMIT:
+            raise HTTPException(429, "Túl sok hibás jelszó. Próbáld újra 15 perc múlva.")
     ok = secrets.compare_digest(creds.password.encode(), pw.encode())
     if not ok:
+        with _auth_lock:
+            _auth_fails.setdefault(ip, []).append(t)
         time.sleep(1)  # a jelszópróbálgatás lassítása
         raise HTTPException(401, "Hibás jelszó.", headers={"WWW-Authenticate": "Basic"})
 
@@ -333,6 +376,184 @@ def organizer_run(body: OrganizerRunIn, x_notify_secret: str = Header(default=""
     except Exception as e:  # noqa: BLE001
         logger.warning("rendező-értesítés hiba: %s", e)
         raise HTTPException(502, "nem sikerült elküldeni")
+    return {"ok": True}
+
+
+# ---- demóoldalak ----------------------------------------------------------
+
+class DemoIn(BaseModel):
+    url: str = Field(max_length=500)
+    lang: str = Field(default="", max_length=5)
+    company: str = Field(default="", max_length=120)
+
+
+def _demo_link(slug: str) -> str:
+    return f"{demopage.PUBLIC_BASE}/{slug}"
+
+
+def _demo_result(slug: str, page: dict, existing: bool) -> dict:
+    return {"slug": slug, "page_url": _demo_link(slug), "agent": page["main"]["name"],
+            "observation": (page.get("quote") or {}).get("text", ""), "generic": page["generic"],
+            "existing": existing}
+
+
+_demo_locks: dict[str, threading.Lock] = {}
+_demo_locks_guard = threading.Lock()
+
+
+def _make_demo(url: str, lang: str = "", company: str = "", lead_id: int | None = None,
+               slug: str | None = None, rechoose: bool = False) -> dict:
+    """Új oldal, vagy (slug-gal) a meglévő újragenerálása. Ugyanarra a domainre
+    nem gyártunk másodikat: a meglévőt adjuk vissza. Domainenként egyszerre
+    egy készülhet, így két gyors kattintásból sem lesz két oldal."""
+    try:
+        target = demopage.normalize_url(url)
+    except demopage.DemoError as e:
+        raise HTTPException(400, str(e))
+    dom = demopage.domain_of(target)
+    with _demo_locks_guard:
+        lock = _demo_locks.setdefault(dom, threading.Lock())
+    if not lock.acquire(timeout=240):
+        raise HTTPException(409, "Ehhez a céghez már készül egy oldal, várj egy kicsit.")
+    try:
+        return _make_demo_locked(target, dom, lang, company, lead_id, slug, rechoose)
+    finally:
+        lock.release()
+
+
+def _make_demo_locked(target: str, dom: str, lang: str, company: str, lead_id: int | None,
+                      slug: str | None, rechoose: bool) -> dict:
+    if not slug:
+        old = store.demo_by_domain(dom)
+        if old:
+            return _demo_result(old["slug"], json.loads(old["data"]), True)
+    if rechoose:
+        store.demo_forget(dom)
+    decision = store.demo_decision(dom)
+    try:
+        page = demopage.generate(target, ask=llm._ask, extract_json=llm.extract_json,
+                                 lang=lang or None, company=company or None, decision=decision)
+    except demopage.ModelError as e:
+        raise HTTPException(503, str(e))
+    except demopage.DemoError as e:
+        raise HTTPException(400, str(e))
+    except llm.LLMError as e:
+        # A modell nem elérhető: nem gyártunk helyette általános oldalt, és a
+        # meglévő jó oldalt sem írjuk felül vele.
+        logger.warning("demóoldal: modellhiba: %s", e)
+        raise HTTPException(503, "A nyelvi modell most nem elérhető, próbáld újra pár perc múlva.")
+    if not page["generic"] and not decision:
+        store.demo_decide(dom, page["main"]["id"], [e["id"] for e in page["extras"]])
+    if slug:
+        store.demo_replace(slug, page)
+    else:
+        slug = demopage.make_slug(page["company"], dom)
+        store.demo_add(slug, page, lead_id, demopage.expires_at())
+    return _demo_result(slug, page, False)
+
+
+@app.post("/api/demo-pages", dependencies=[Depends(auth)])
+def demo_create(body: DemoIn):
+    return _make_demo(body.url, body.lang, body.company)
+
+
+@app.get("/api/demo-pages", dependencies=[Depends(auth)])
+def demo_list():
+    return {"pages": [dict(p, page_url=_demo_link(p["slug"])) for p in store.demo_list()]}
+
+
+@app.post("/api/demo-pages/{slug}/regenerate", dependencies=[Depends(auth)])
+def demo_regenerate(slug: str, rechoose: bool = False):
+    row = store.demo_get(slug)
+    if not row:
+        raise HTTPException(404, "Nincs ilyen oldal.")
+    return _make_demo(row["url"], row["lang"] or "", row["company"] or "", slug=slug, rechoose=rechoose)
+
+
+@app.delete("/api/demo-pages/{slug}", dependencies=[Depends(auth)])
+def demo_delete(slug: str):
+    if not store.demo_delete(slug):
+        raise HTTPException(404, "Nincs ilyen oldal.")
+    return {"ok": True}
+
+
+@app.post("/api/leads/{lead_id}/demo-page", dependencies=[Depends(auth)])
+def demo_for_lead(lead_id: int):
+    lead = store.get(lead_id)
+    if not lead:
+        raise HTTPException(404, "Nincs ilyen lead.")
+    site = lead.get("website") or (f"https://{lead['domain']}" if lead.get("domain") else "")
+    if not site:
+        raise HTTPException(400, "Ennél a leadnél nincs weboldal.")
+    res = _make_demo(site, lead.get("lang") or "", lead.get("company") or "", lead_id=lead_id)
+    return res
+
+
+_event_hits: dict[str, list[float]] = {}
+_event_lock = threading.Lock()
+
+
+def _demo_notify(row: dict, event: str) -> None:
+    """Első megnyitás / első „Beszéljünk” kattintás: azonnal szólunk, mert ilyenkor
+    érdemes felhívni. E-mail a NOTIFY_TO címre, és ha be van állítva, webhook."""
+    company = row.get("company") or row["domain"]
+    lead = store.get(row["lead_id"]) if row.get("lead_id") else None
+    when = datetime.now(TZ).strftime("%Y.%m.%d. %H:%M")
+    if event == "first_cta":
+        subject = f"Beszélni akar: {company} — rákattintott a „Beszéljünk” gombra"
+    else:
+        subject = f"Megnyitotta a demóoldalát: {company}"
+    lines = [subject, "", f"Időpont: {when}", f"Cég: {company} ({row['domain']})",
+             f"Demóoldal: {_demo_link(row['slug'])}"]
+    if lead:
+        lines.append(f"Lead: {lead.get('email', '')} — most érdemes felhívni vagy írni neki.")
+    to = os.environ.get("NOTIFY_TO", "").strip()
+    if to:
+        try:
+            mailer.send(mailer.build_message(to, subject, "\n".join(lines)))
+        except Exception as e:  # noqa: BLE001
+            logger.warning("demó-értesítés hiba: %s", e)
+    hook = os.environ.get("NOTIFY_WEBHOOK_URL", "").strip()
+    if hook:
+        try:
+            import httpx
+            httpx.post(hook, json={"event": event, "slug": row["slug"], "company": company,
+                                   "domain": row["domain"], "page_url": _demo_link(row["slug"]),
+                                   "lead_id": row.get("lead_id"), "at": when}, timeout=10)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("demó-webhook hiba: %s", type(e).__name__)
+
+
+class DemoEventIn(BaseModel):
+    type: str = Field(max_length=10)
+
+
+@app.get("/public/neked/{slug}")
+def demo_public(slug: str):
+    row = store.demo_get(slug)
+    if not row:
+        raise HTTPException(404, "not_found")
+    return Response(json.dumps(demopage.public_view(row), ensure_ascii=False), media_type="application/json",
+                    headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"})
+
+
+@app.post("/public/neked/{slug}/event")
+def demo_event(slug: str, body: DemoEventIn, request: Request):
+    if body.type not in ("open", "demo", "live", "cta"):
+        raise HTTPException(400, "bad_event")
+    ip, t = _client_ip(request), time.time()
+    with _event_lock:
+        _prune(_event_hits, 600, t)
+        hits = [x for x in _event_hits.get(ip, []) if t - x < 600]
+        if len(hits) >= 120:
+            raise HTTPException(429, "slow_down")
+        _event_hits[ip] = hits + [t]
+    row = store.demo_get(slug)
+    if not row:
+        raise HTTPException(404, "not_found")
+    first = store.demo_event(slug, body.type)
+    if first:
+        threading.Thread(target=_demo_notify, args=(row, first), daemon=True).start()
     return {"ok": True}
 
 

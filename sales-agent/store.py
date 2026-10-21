@@ -7,6 +7,7 @@ UPDATE, így két párhuzamos kérés sem tud ugyanarra a levélre kétszer
 """
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 import threading
@@ -62,6 +63,32 @@ CREATE TABLE IF NOT EXISTS blocked (
   key TEXT PRIMARY KEY,           -- e-mail cím vagy domain, kisbetűvel
   reason TEXT,
   created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS demo_pages (
+  slug TEXT PRIMARY KEY,
+  domain TEXT NOT NULL,
+  url TEXT NOT NULL,
+  company TEXT,
+  lang TEXT,
+  generic INTEGER NOT NULL DEFAULT 0,
+  data TEXT NOT NULL,             -- a nyilvános oldal JSON-ja
+  lead_id INTEGER,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  opens INTEGER NOT NULL DEFAULT 0,
+  first_open TEXT,
+  last_open TEXT,
+  demo_clicks INTEGER NOT NULL DEFAULT 0,
+  live_clicks INTEGER NOT NULL DEFAULT 0,
+  cta_clicks INTEGER NOT NULL DEFAULT 0,
+  first_cta TEXT
+);
+CREATE INDEX IF NOT EXISTS demo_pages_domain ON demo_pages(domain);
+CREATE TABLE IF NOT EXISTS demo_decisions (
+  domain TEXT PRIMARY KEY,        -- a cégre egyszer választott agent, hogy ne ugráljon
+  main TEXT NOT NULL,
+  extras TEXT NOT NULL,           -- JSON lista
+  decided_at TEXT NOT NULL
 );
 """
 
@@ -143,6 +170,80 @@ class Store:
     def advisor_clear(self) -> None:
         with self._conn() as c:
             c.execute("DELETE FROM advisor")
+
+    # ---- demóoldalak ---------------------------------------------------
+
+    def demo_add(self, slug: str, page: dict, lead_id: int | None, expires: str) -> None:
+        with self._conn() as c:
+            c.execute("INSERT INTO demo_pages (slug, domain, url, company, lang, generic, data, lead_id, "
+                      "created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                      (slug, page["domain"], page["url"], page["company"], page["lang"], int(page["generic"]),
+                       json.dumps(page, ensure_ascii=False), lead_id, now(), expires))
+
+    def demo_replace(self, slug: str, page: dict) -> None:
+        """Újragenerálás: ugyanaz a cím, új tartalom, a számlálók maradnak."""
+        with self._conn() as c:
+            c.execute("UPDATE demo_pages SET data = ?, company = ?, lang = ?, generic = ? WHERE slug = ?",
+                      (json.dumps(page, ensure_ascii=False), page["company"], page["lang"],
+                       int(page["generic"]), slug))
+
+    def demo_get(self, slug: str) -> dict | None:
+        with self._conn() as c:
+            r = c.execute("SELECT * FROM demo_pages WHERE slug = ? AND expires_at > ?", (slug, now())).fetchone()
+            return dict(r) if r else None
+
+    def demo_by_domain(self, domain: str) -> dict | None:
+        with self._conn() as c:
+            r = c.execute("SELECT * FROM demo_pages WHERE domain = ? AND expires_at > ? "
+                          "ORDER BY created_at DESC LIMIT 1", (domain, now())).fetchone()
+            return dict(r) if r else None
+
+    def demo_list(self) -> list[dict]:
+        with self._conn() as c:
+            c.execute("DELETE FROM demo_pages WHERE expires_at <= ?", (now(),))
+            rows = c.execute("SELECT slug, domain, url, company, lang, generic, lead_id, created_at, expires_at, "
+                             "opens, first_open, last_open, demo_clicks, live_clicks, cta_clicks, first_cta "
+                             "FROM demo_pages ORDER BY COALESCE(last_open, created_at) DESC").fetchall()
+        return [dict(r) for r in rows]
+
+    def demo_delete(self, slug: str) -> bool:
+        with self._conn() as c:
+            return c.execute("DELETE FROM demo_pages WHERE slug = ?", (slug,)).rowcount > 0
+
+    def demo_event(self, slug: str, kind: str) -> str | None:
+        """Megnyitás vagy kattintás rögzítése. Visszaadja, ha ez volt az első
+        megnyitás ('first_open') vagy az első „Beszéljünk” ('first_cta'): az
+        egyszeriséget maga az UPDATE feltétele biztosítja, párhuzamosan is."""
+        t = now()
+        col = {"demo": "demo_clicks", "live": "live_clicks", "cta": "cta_clicks"}.get(kind)
+        with self._conn() as c:
+            if kind == "open":
+                c.execute("UPDATE demo_pages SET opens = opens + 1, last_open = ? WHERE slug = ?", (t, slug))
+                n = c.execute("UPDATE demo_pages SET first_open = ? WHERE slug = ? AND first_open IS NULL",
+                              (t, slug)).rowcount
+                return "first_open" if n else None
+            if col:
+                c.execute(f"UPDATE demo_pages SET {col} = {col} + 1 WHERE slug = ?", (slug,))
+                if kind == "cta":
+                    n = c.execute("UPDATE demo_pages SET first_cta = ? WHERE slug = ? AND first_cta IS NULL",
+                                  (t, slug)).rowcount
+                    return "first_cta" if n else None
+        return None
+
+    def demo_decision(self, domain: str) -> dict | None:
+        with self._conn() as c:
+            r = c.execute("SELECT main, extras FROM demo_decisions WHERE domain = ?", (domain,)).fetchone()
+        return {"main": r["main"], "extras": json.loads(r["extras"])} if r else None
+
+    def demo_decide(self, domain: str, main: str, extras: list[str]) -> None:
+        with self._conn() as c:
+            c.execute("INSERT INTO demo_decisions (domain, main, extras, decided_at) VALUES (?, ?, ?, ?) "
+                      "ON CONFLICT(domain) DO UPDATE SET main = excluded.main, extras = excluded.extras, "
+                      "decided_at = excluded.decided_at", (domain, main, json.dumps(extras), now()))
+
+    def demo_forget(self, domain: str) -> None:
+        with self._conn() as c:
+            c.execute("DELETE FROM demo_decisions WHERE domain = ?", (domain,))
 
     # ---- tiltólista ----------------------------------------------------
 
