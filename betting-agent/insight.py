@@ -49,6 +49,7 @@ def from_tippmix(match) -> dict | None:
         "p_home": target[0], "p_draw": target[1], "p_away": target[2],
         "xg_home": lh, "xg_away": la,
         "btts": pbt["Igen"] if pbt else mp["btts"],
+        "btts_source": "piaci" if pbt else "modell",
         "over25": pou["Több"] if pou else poisson.over_prob(mp["by_total"], 2.5),
         "top_scores": poisson.top_scores(lh, la, 3),
         "source": "a TippmixPro szorzóiból",

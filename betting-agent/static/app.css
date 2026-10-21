@@ -223,3 +223,15 @@ select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid
 
 .pchip { background: var(--good); color: #04130b; border-radius: 999px; padding: 2px 10px; font-weight: 800; font-size: 13px; }
 .pchip.low { background: var(--warn); color: #1a1000; }
+
+/* Mennyire pontos? */
+.acc-list { display: grid; gap: 10px; margin-bottom: 14px; }
+.acc-row { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+.acc-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.acc-stats { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); margin-top: 6px; }
+.acc-stats b { color: var(--text); }
+.acc-more { margin-top: 8px; font-size: 13px; }
+.acc-more summary { cursor: pointer; color: var(--muted); }
+.acc-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.acc-table th, .acc-table td { text-align: right; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.acc-table th:first-child, .acc-table td:first-child { text-align: left; }

@@ -102,7 +102,8 @@ function renderStatus() {
 }
 
 function renderTabs() {
-  const tabs = [{ key: "best", name: "Szelvénykészítő" }, ...S.state.competitions.map((c) => ({ key: c.key, name: c.name, n: c.matches.length }))];
+  const tabs = [{ key: "best", name: "Szelvénykészítő" }, ...S.state.competitions.map((c) => ({ key: c.key, name: c.name, n: c.matches.length })),
+    { key: "accuracy", name: "Mennyire pontos?" }];
   if (!tabs.some((t) => t.key === S.tab)) S.tab = "best";
   $("#tabs").replaceChildren(...tabs.map((t) => h("button", {
     class: "tab", role: "tab", "aria-selected": String(t.key === S.tab),
@@ -134,6 +135,7 @@ function renderContent() {
   const root = $("#content");
   if (S.query.trim()) return renderList(root, matchesFor("search"), true);
   if (S.tab === "best") return renderBest(root);
+  if (S.tab === "accuracy") return renderAccuracy(root);
   renderList(root, matchesFor(S.tab), false);
   const comp = S.state.competitions.find((c) => c.key === S.tab);
   if (comp && comp.matches.length) root.prepend(slipMaker({ key: comp.key, fixed: comp.key, auto: false }));
@@ -340,6 +342,43 @@ $("#slip-clear").addEventListener("click", () => { S.slip = []; S.check = null; 
 $("#slip-head").addEventListener("click", (e) => { if (window.innerWidth < 980) $("#slip").classList.toggle("open"); });
 
 // --- értékkereső -----------------------------------------------------------------------------
+const season = (s) => (s && s.length === 4 ? `20${s.slice(0, 2)}/${s.slice(2)}` : s || "");
+
+async function renderAccuracy(root) {
+  root.replaceChildren(h("div", { class: "spinner" }, "Visszamérés betöltése…"));
+  try {
+    if (!S.accuracy) S.accuracy = await api("/api/accuracy");
+  } catch (e) { root.replaceChildren(h("p", { class: "err" }, e.message)); return; }
+  const a = S.accuracy;
+  const ms = Object.entries(a.markets || {});
+  if (!ms.length) { root.replaceChildren(h("div", { class: "empty" }, "Még nincs visszamérés (calibration.json).")); return; }
+  const rows = ms.map(([key, m]) => {
+    const gain = m.brier_base ? (m.brier_base - (m.use_map ? m.brier : m.brier_raw)) / m.brier_base : 0;
+    const details = h("details", { class: "acc-more" },
+      h("summary", {}, "Megbízhatósági tábla"),
+      h("table", { class: "acc-table" },
+        h("thead", {}, h("tr", {}, h("th", {}, "Kiírt esély"), h("th", {}, "Átlagosan kiírt"), h("th", {}, "Valóban bejött"), h("th", {}, "Tippek"))),
+        h("tbody", {}, ...m.curve.map(([lo, hi, pred, obs, n]) => h("tr", {},
+          h("td", {}, `${Math.round(lo * 100)}–${Math.round(hi * 100)}%`), h("td", {}, pct(pred)),
+          h("td", { class: Math.abs(obs - pred) > 0.05 && n >= 50 ? "bad" : "" }, pct(obs)), h("td", {}, n))))));
+    return h("div", { class: "acc-row" },
+      h("div", { class: "acc-head" },
+        h("b", {}, m.name || key),
+        h("span", { class: "pchip" + (m.ok ? "" : " low") }, m.ok ? "✓ ajánlja" : "✗ kikapcsolva")),
+      h("div", { class: "acc-stats" },
+        h("span", {}, `Átlagos eltérés: `, h("b", {}, pct(m.ece_used ?? m.ece)), m.use_map ? " (korrigálva)" : ""),
+        h("span", {}, `${m.n_test} tipp a mérési évadban`),
+        h("span", {}, gain > 0.01 ? `${pct(gain, 0)}-kal pontosabb, mint a puszta alapgyakoriság` : "alig pontosabb a puszta alapgyakoriságnál")),
+      details);
+  });
+  root.replaceChildren(
+    h("div", { class: "panel" },
+      h("h2", {}, "Mennyire pontos?"),
+      h("p", { class: "muted tiny" }, `Visszamérés régi meccseken: ${(a.leagues || []).join(", ")}. A korrekciót a ${season(a.fit_season)} évadon állítottam be, és a ${season(a.test_season)} évadon mértem, hogy ne a saját adatán mérje magát. Egy piac akkor ajánlható, ha az átlagos eltérés legfeljebb ${pct(a.max_ece || 0.03, 0)}. Forrás: ${a.source || "football-data.co.uk"}.`),
+      h("p", { class: "muted tiny" }, "A mérés a záró piaci átlagszorzókból készült, élesben viszont a TippmixPro korábbi szorzóiból számolunk, ezért élesben az eltérés valamivel nagyobb is lehet. Az átlagos eltérés azt mutatja, mennyivel tér el átlagosan a kiírt esély a valóságtól; a pontosság (Brier) azt, mennyivel jobb a tipp a puszta alapgyakoriságnál.")),
+    h("div", { class: "acc-list" }, ...rows));
+}
+
 function renderBest(root) {
   root.replaceChildren(slipMaker({ key: "best", fixed: null, auto: true }));
 }

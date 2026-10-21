@@ -28,6 +28,8 @@ VERSIONS = (
     ("Teljes Fogadásépítő", "full", 2, "Győztes, gólszám és „mindkét csapat szerez gólt”, Fogadásépítőben."),
 )
 KINDS = {v[1] for v in VERSIONS}
+# stratégia → a calibration.json piackulcsa (a „safe" kétesély, a „win" 1X2-tipp)
+CAL_KEY = {"safe": "dc", "win": "1x2", "win_goals": "win_goals", "goals": "goals", "full": "full"}
 MAX_MATCHES = 6
 MIN_GROUP_ODDS = 1.10  # ennél kisebb szorzójú csoport alig ad szorzót, csak egy újabb helyet, ahol a szelvény elbukhat
 CANDIDATES = 10  # változatonként ennyi legesélyesebb meccsből válogatunk (a csapatismétlés kiszűr néhányat)
@@ -132,8 +134,11 @@ def options(match: dict) -> dict:
     return res
 
 
-def ranked(state: dict, kind: str) -> list[Group]:
-    """Az adott stratégia csoportjai minden meccsre, a legesélyesebb elöl."""
+def ranked(state: dict, kind: str, cal=None) -> list[Group]:
+    """Az adott stratégia csoportjai minden meccsre, a legesélyesebb elöl.
+
+    cal(piackulcs, esély) → visszamért esély (calibration.Calibration.apply); nélküle a nyers esély.
+    """
     out = []
     for c in state["competitions"]:
         for match in c["matches"]:
@@ -141,6 +146,8 @@ def ranked(state: dict, kind: str) -> list[Group]:
             if not opt:
                 continue
             picks, prob = opt
+            if cal is not None:
+                prob = cal(CAL_KEY[kind], prob)
             out.append(Group(match_id=match["id"], match=f"{match['home']} – {match['away']}",
                              competition=c["name"], kickoff=match["kickoff"], picks=picks, prob=prob,
                              odds=picks[0]["odds"] if len(picks) == 1 else None,

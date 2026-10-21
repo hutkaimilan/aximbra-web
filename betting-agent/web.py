@@ -36,6 +36,7 @@ import markets
 import names
 import odds_api
 import builder
+import calibration
 import insight
 import labels
 import slip
@@ -102,6 +103,7 @@ class Cache:
 
 
 CACHE = Cache()
+CAL = calibration.get(HERE / "calibration.json")
 RULES = load_rules()
 STRATEGY = load_strategy()
 
@@ -162,6 +164,17 @@ def _market_name(market: str, line) -> str:
     return f"{base} {str(line).replace('.', ',')}" if line is not None else base
 
 
+def _calibrated(an: dict) -> dict:
+    """A meccskártya esélyei a visszamérés szerint (calibration.json); ahol nincs javító leképezés, változatlan."""
+    ps = [CAL.apply("1x2", an["p_home"]), CAL.apply("1x2", an["p_draw"]), CAL.apply("1x2", an["p_away"])]
+    tot = sum(ps)  # a három kimenetel külön-külön korrigált: újra 100%-ra kell hozni
+    out = {**an, "p_home": ps[0] / tot, "p_draw": ps[1] / tot, "p_away": ps[2] / tot,
+           "over25": CAL.apply("ou", an["over25"])}
+    if an.get("btts_source") != "piaci":
+        out["btts"] = CAL.apply("btts", an["btts"])
+    return out
+
+
 def build_state() -> dict:
     tm, ts, err = CACHE.get("tippmix", TIPPMIX_TTL, _load_tippmix)
     has_key = bool(os.environ.get("ODDS_API_KEY", "").strip())
@@ -211,6 +224,8 @@ def build_state() -> dict:
                 mk.append({"key": g["key"], "name": g["name"], "line": g["line"], "outcomes": outs})
             one_x_two = [o.odds for o in m.outcomes if o.market == "1x2"]
             an = insight.from_sharp(a) if a else insight.from_tippmix(m)
+            if an:
+                an = _calibrated(an)
             entry["matches"].append({
                 "id": m.id, "home": m.home, "away": m.away, "kickoff": m.kickoff.isoformat(),
                 "margin": round(sum(1 / x for x in one_x_two) - 1, 4) if len(one_x_two) == 3 else None,
@@ -322,7 +337,11 @@ def _versions(state: dict, stake: int, target: float | None, notes: list, min_pr
     try:
         with tippmix.Session() as s:
             for name, kind, n_default, desc in builder.VERSIONS:
-                groups = builder.ranked(state, kind)[:builder.CANDIDATES]
+                key = builder.CAL_KEY[kind]
+                if CAL.available and not CAL.ok(key):
+                    notes.append(f"A „{name}” változat ki van kapcsolva: a visszamérés szerint nem elég pontos.")
+                    continue
+                groups = builder.ranked(state, kind, cal=CAL.apply)[:builder.CANDIDATES]
                 for g in groups:
                     if len(g.picks) > 1:
                         g.odds = _bb_odds(s, g.picks)
@@ -672,6 +691,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self._err(400, "Ismeretlen sorozat.")
                 min_prob = resolve_min_prob(q.get("esely", "auto"), target)
                 return self._json(200, best(bankroll, target, stake, start, days, comps or None, min_prob))
+            if url.path == "/api/accuracy":
+                return self._json(200, CAL.data or {"markets": {}})
             if url.path == "/api/team":
                 return self._json(200, team(q.get("id"), q.get("name"), q.get("league")))
         except (ValueError, LookupError) as e:

@@ -57,6 +57,20 @@ esetén a gyengébb csoportot a következő legesélyesebbel cseréli.
 Kulcs nélkül az esélyek a TippmixPro saját szorzóiból jönnek (árrés nélkül),
 ezért a várható érték a Tippmix árrése miatt negatív — a felület ki is írja.
 
+### Visszamérés és kalibráció („Mennyire pontos?” fül)
+
+`calibrate.py` a football-data.co.uk ingyenes táblázataiból (PL, La Liga, Bundesliga, portugál
+liga; záró piaci átlagszorzók és eredmények) minden régi meccsre ugyanazt számolja, mint élesben
+az oldal, és összeveti a valós eredménnyel. A korrekciót (isotonic regresszió) a 2024/25-ös
+évadon illeszti, a 2025/26-oson méri; csak ott használja, ahol a külön évadon valóban javít.
+Egy piac (és a hozzá tartozó szelvénystratégia) akkor ajánlható, ha a mérési évadon az átlagos
+eltérés legfeljebb 3% — különben a szelvénykészítő kikapcsolja. Az eredmény a `calibration.json`,
+amit évadonként egyszer újra kell futtatni:
+
+```bash
+python3 calibrate.py   # ~30 s, a CSV-ket az out/football-data/ alá menti
+```
+
 **Fontos:** a TippmixPro-csatorna nem dokumentált, nyilvános API. Bármikor
 megváltozhat; ilyenkor az oldal a legutóbbi sikeres adatot mutatja „elavult"
 jelzéssel és kiírja a hibát. Csak kérésre és 3 perces gyorsítótárral kérdez,
