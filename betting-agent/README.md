@@ -32,6 +32,12 @@ napra szóljon (budapesti idő szerint); alapból az első olyan nap, ahol legal
 | Győztes + gólok | győztes + a vele együtt legvalószínűbb gólszám (Fogadásépítő) |
 | Gólos szelvény | győztes nélkül: a legvalószínűbb gólszám + „mindkét csapat szerez gólt” pár |
 | Teljes Fogadásépítő | győztes + gólszám + „mindkét csapat szerez gólt” |
+| Bármiből a legbiztosabb | a legnagyobb (visszamért) esélyű tipp bármelyik ellenőrzött piacból — kétesély, gólszám, hendikep, 1. félidő… —, legalább 1,20-as szorzóval |
+
+Piacok a TippmixPro-ról: 1X2, kétesély, gólszám, mindkét csapat szerez gólt, DNB, háromesélyes
+hendikep (a vonal mindig a hazai kimenetelből: a döntetlen paramétere a vendég vonala), 1X2 és
+gólszám az 1. félidőre (a félidős gólvárható érték a visszamért félidős aránnyal). Szöglet és lap
+még nincs: ezek csak a meccsnapon nyílnak meg, és csapatszintű modellt igényelnek (lásd sample/README.md).
 
 Esély-mód (`resolve_min_prob`):
 

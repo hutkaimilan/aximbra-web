@@ -36,7 +36,9 @@ NAMES = {
     "1x2": "Ki nyer? (1X2)", "dc": "Kétesély", "ou": "Gólszám 2,5", "btts": "Mindkét csapat szerez gólt",
     "win_goals": "Fogadásépítő: győztes + gólszám", "goals": "Fogadásépítő: gólszám + mindkét csapat gólja",
     "full": "Fogadásépítő: győztes + gólszám + mindkét csapat gólja",
+    "hcp": "Hendikep (háromesélyes, ±1)", "ht1x2": "1X2 - 1. félidő", "htou": "Gólszám - 1. félidő (0,5 és 1,5)",
 }
+DEFAULT_HT_RATIO = (0.44, 0.44)
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +68,21 @@ def _num(row: dict, *keys) -> float | None:
     return None
 
 
-def match_events(row: dict) -> dict:
+def ht_ratio(rows: list[dict]) -> tuple[float, float]:
+    """A gólok mekkora része esik az 1. félidőre, hazai és vendég oldalon külön (a félidős modellhez)."""
+    tot = [0, 0, 0, 0]
+    for r in rows:
+        try:
+            vals = [int(r["HTHG"]), int(r["FTHG"]), int(r["HTAG"]), int(r["FTAG"])]
+        except (KeyError, ValueError):
+            continue
+        tot = [a + b for a, b in zip(tot, vals)]
+    if not tot[1] or not tot[3]:
+        return DEFAULT_HT_RATIO
+    return tot[0] / tot[1], tot[2] / tot[3]
+
+
+def match_events(row: dict, ratio: tuple = DEFAULT_HT_RATIO) -> dict:
     """Egy régi meccs → {piac kulcsa: [(becsült esély, bejött-e)]}. Hiányos sornál üres."""
     try:
         hg, ag = int(row["FTHG"]), int(row["FTAG"])
@@ -87,6 +103,21 @@ def match_events(row: dict) -> dict:
           "btts": [(mp["btts"], int(hg > 0 and ag > 0)), (1 - mp["btts"], int(hg == 0 or ag == 0))]}
     if p_over is not None:
         ev["ou"] = [(p_over, int(hg + ag > 2.5)), (1 - p_over, int(hg + ag < 2.5))]
+    # Háromesélyes hendikep a TippmixPro tipikus vonalain (a hazai −1 vagy +1).
+    for h in (-1.0, 1.0):
+        ev.setdefault("hcp", []).extend(
+            (builder.joint_prob(mat, [("hcp", pk, h)]), int(builder._cond("hcp", pk, h)(hg, ag))) for pk in ("1", "X", "2"))
+    # 1. félidő: a gólvárható érték a félidős aránnyal, a valós félidős eredménnyel összevetve.
+    try:
+        hhg, hag = int(row["HTHG"]), int(row["HTAG"])
+    except (KeyError, ValueError):
+        hhg = hag = None
+    if hhg is not None:
+        ht = poisson.score_matrix(lh * ratio[0], la * ratio[1])
+        ev["ht1x2"] = [(builder.joint_prob(ht, [("1x2", pk, None)]), int(builder._cond("1x2", pk, None)(hhg, hag)))
+                       for pk in ("1", "X", "2")]
+        ev["htou"] = [(builder.joint_prob(ht, [("ou", pk, ln)]), int(builder._cond("ou", pk, ln)(hhg, hag)))
+                      for ln in (0.5, 1.5) for pk in ("Több", "Kevesebb")]
 
     # A szelvénykészítő tippválasztása ugyanazzal a kóddal, mint élesben.
     outs = [("1x2", k) for k in ("1", "X", "2")] + [("dc", k) for k in ("1X", "X2", "12")] + \
@@ -106,18 +137,21 @@ def match_events(row: dict) -> dict:
     return ev
 
 
-def collect(season: str) -> dict:
+def collect(season: str, ratio: tuple) -> dict:
     out: dict = {}
     for league in LEAGUES:
         for row in download(season, league):
-            for k, pts in match_events(row).items():
+            for k, pts in match_events(row, ratio).items():
                 out.setdefault(k, []).extend(pts)
     return out
 
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    fit, test = collect(FIT), collect(TEST)
+    # A félidős arányt csak az illesztő évadból számoljuk, hogy a mérési évad tényleg külön maradjon.
+    ratio = ht_ratio([r for lg in LEAGUES for r in download(FIT, lg)])
+    logger.info("félidős gólarány: hazai %.3f, vendég %.3f", *ratio)
+    fit, test = collect(FIT, ratio), collect(TEST, ratio)
     markets = {}
     for key in NAMES:
         if key not in fit or key not in test:
@@ -132,7 +166,7 @@ def main() -> int:
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "source": "football-data.co.uk (záró piaci átlagszorzók és eredmények)",
         "leagues": list(LEAGUES.values()), "fit_season": FIT, "test_season": TEST,
-        "max_ece": calibration.MAX_ECE, "markets": markets,
+        "max_ece": calibration.MAX_ECE, "ht_ratio": [round(ratio[0], 4), round(ratio[1], 4)], "markets": markets,
     }, ensure_ascii=False, indent=1), "utf-8")
     logger.info("kiírva: %s", OUT)
     return 0

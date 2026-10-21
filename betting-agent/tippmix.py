@@ -33,29 +33,39 @@ ORIGIN = "https://sports2.tippmixpro.hu"
 TOPIC = "/sports/2901/hu"
 FOOTBALL = "1"
 REGULAR_TIME = "3"  # „Rendes játékidő": a hosszabbítás nem számít
-# 1X2, gólszám, mindkét csapat gólt szerez, kétesély, döntetlennél a tét visszajár
-MARKET_GROUPS = "1380,1381,1382,1383,1385"
+FIRST_HALF = "5"
+# 1X2, gólszám, mindkét csapat gólt szerez, kétesély, hendikep, DNB, 1X2 és gólszám 1. félidő
+MARKET_GROUPS = "1380,1381,1382,1383,1384,1385,1389,1390"
 TIMEOUT = 20
 HELLO = [1, "www.tippmixpro.hu", {"agent": "Wampy.js v6.2.2",
                                   "roles": {"caller": {"features": {}}, "subscriber": {"features": {}}}}]
 
-# fogadási típus azonosító → (kulcs, név)
+# (fogadási típus, játékrész) → (kulcs, név). A rendes játékidő és az 1. félidő piacai külön kulcsot kapnak.
 MARKETS = {
-    "69": ("1x2", "1X2"),
-    "9": ("dc", "Kétesély"),
-    "47": ("ou", "Gólszám"),
-    "76": ("btts", "Mindkét csapat szerez gólt"),
-    "112": ("dnb", "Döntetlennél a tét visszajár"),
+    ("69", REGULAR_TIME): ("1x2", "1X2"),
+    ("9", REGULAR_TIME): ("dc", "Kétesély"),
+    ("47", REGULAR_TIME): ("ou", "Gólszám"),
+    ("76", REGULAR_TIME): ("btts", "Mindkét csapat szerez gólt"),
+    ("112", REGULAR_TIME): ("dnb", "Döntetlennél a tét visszajár"),
+    ("8", REGULAR_TIME): ("hcp", "Hendikep"),           # háromesélyes (európai) hendikep
+    ("69", FIRST_HALF): ("ht1x2", "1X2 - 1. félidő"),
+    ("47", FIRST_HALF): ("htou", "Gólszám - 1. félidő"),
 }
+MARKET_ORDER = ["1x2", "dc", "ou", "btts", "dnb", "hcp", "ht1x2", "htou"]
 PICKS = {
     "1x2": {"home": "1", "draw": "X", "away": "2"},
     "dc": {"home_draw": "1X", "away_draw": "X2", "home_away": "12"},
     "ou": {"over": "Több", "under": "Kevesebb"},
     "btts": {"yes": "Igen", "no": "Nem"},
     "dnb": {"home": "1", "away": "2"},
+    "hcp": {"home": "1", "draw": "X", "away": "2"},
+    "ht1x2": {"home": "1", "draw": "X", "away": "2"},
+    "htou": {"over": "Több", "under": "Kevesebb"},
 }
 ORDER = {"1x2": ["1", "X", "2"], "dc": ["1X", "X2", "12"], "ou": ["Több", "Kevesebb"],
-         "btts": ["Igen", "Nem"], "dnb": ["1", "2"]}
+         "btts": ["Igen", "Nem"], "dnb": ["1", "2"], "hcp": ["1", "X", "2"], "ht1x2": ["1", "X", "2"],
+         "htou": ["Több", "Kevesebb"]}
+LINE_MARKETS = {"ou", "htou"}  # x,5-ös gólvonal
 
 
 @dataclass(frozen=True)
@@ -88,10 +98,10 @@ class TippmixError(RuntimeError):
 @dataclass
 class Outcome:
     offer_id: str
-    market: str      # 1x2 | dc | ou | btts | dnb
+    market: str      # 1x2 | dc | ou | btts | dnb | hcp | ht1x2 | htou
     pick: str        # "1", "X2", "Több", "Igen" …
     odds: float
-    line: float | None = None
+    line: float | None = None   # gólvonal (ou, htou), vagy a HAZAI csapat hendikepje (hcp) mindhárom kimenetelnél
 
 
 @dataclass
@@ -181,35 +191,46 @@ def parse_matches(records: list, comp_key: str, now: datetime | None = None) -> 
         if kickoff <= now or str(m.get("statusId", "1")) != "1":
             continue
         matches[m["id"]] = TMMatch(id=m["id"], competition=comp_key, home=home, away=away, kickoff=kickoff)
+    # Hendikep: a vonal a hazai kimenetelből jön. A döntetlen kimenetel paramétere a VENDÉG vonala
+    # („Döntetlen - (Manchester Utd. +2)" → +2, miközben a hazai −2), ezért abból nem szabad venni.
+    hcp_line = {}
+    for rel in by_type.get("MARKET_OUTCOME_RELATION", []):
+        o = outcomes.get(rel["outcomeId"])
+        if o and o.get("headerNameKey") in ("home", "away") and isinstance(o.get("paramFloat1"), (int, float)):
+            v = float(o["paramFloat1"])
+            hcp_line.setdefault(rel["marketId"], v if o["headerNameKey"] == "home" else -v)
     for b in by_type.get("BETTING_OFFER", []):
         if b.get("isAvailable") is False or str(b.get("statusId", "1")) != "1" or b.get("isLive"):
             continue
         o = outcomes.get(b.get("outcomeId"))
-        mk = markets.get(market_of.get(b.get("outcomeId"), ""))
-        if not o or not mk or mk.get("eventPartId") != REGULAR_TIME:
+        mid = market_of.get(b.get("outcomeId"), "")
+        mk = markets.get(mid)
+        if not o or not mk:
             continue
         match = matches.get(o.get("eventId"))
-        kind = MARKETS.get(str(mk.get("bettingTypeId")))
+        kind = MARKETS.get((str(mk.get("bettingTypeId")), str(mk.get("eventPartId"))))
         if not match or not kind:
             continue
         pick = PICKS[kind[0]].get(o.get("headerNameKey"))
         odds = b.get("odds")
         if not pick or not isinstance(odds, (int, float)) or not 1.0 < odds < 1000:
             continue
-        line = o.get("paramFloat1") if kind[0] == "ou" else None
-        if kind[0] == "ou" and (not isinstance(line, (int, float)) or (line * 2) % 2 != 1):
-            continue
+        line = None
+        if kind[0] in LINE_MARKETS:
+            line = o.get("paramFloat1")
+            if not isinstance(line, (int, float)) or (line * 2) % 2 != 1:
+                continue
+        elif kind[0] == "hcp":
+            line = hcp_line.get(mid)
+            # csak egész vonal: a háromesélyes hendikep mindig egész; 0 pedig maga az 1X2
+            if line is None or line != int(line) or line == 0:
+                continue
         match.outcomes.append(Outcome(offer_id=str(b["id"]), market=kind[0], pick=pick, odds=float(odds),
                                       line=float(line) if line is not None else None))
     out = [m for m in matches.values() if m.outcomes]
     for m in out:
-        m.outcomes.sort(key=lambda o: (list(MARKETS).index(_type_of(o.market)), o.line or 0,
-                                       ORDER[o.market].index(o.pick)))
+        m.outcomes.sort(key=lambda o: (MARKET_ORDER.index(o.market), o.line or 0, ORDER[o.market].index(o.pick)))
     return sorted(out, key=lambda m: m.kickoff)
-
-
-def _type_of(market_key: str) -> str:
-    return next(k for k, v in MARKETS.items() if v[0] == market_key)
 
 
 def fetch_competition(session: Session, comp: Competition) -> list[TMMatch]:

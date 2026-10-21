@@ -160,16 +160,27 @@ def _group(outcomes) -> list:
 
 
 def _market_name(market: str, line) -> str:
+    """A TippmixPro piacneve: „Gólszám 2,5", „Hendikep -1", „Gólszám 0,5 - 1. félidő"."""
     base = {v[0]: v[1] for v in tippmix.MARKETS.values()}[market]
-    return f"{base} {str(line).replace('.', ',')}" if line is not None else base
+    if line is None:
+        return base
+    ln = f"{line:g}".replace(".", ",")
+    if market == "htou":
+        return f"Gólszám {ln} - 1. félidő"
+    if market == "hcp":
+        return f"{base} {line:+g}"  # a hazai csapat vonala előjellel: „Hendikep -1", „Hendikep +1"
+    return f"{base} {ln}"
 
 
 def _calibrated(an: dict) -> dict:
     """A meccskártya esélyei a visszamérés szerint (calibration.json); ahol nincs javító leképezés, változatlan."""
     ps = [CAL.apply("1x2", an["p_home"]), CAL.apply("1x2", an["p_draw"]), CAL.apply("1x2", an["p_away"])]
     tot = sum(ps)  # a három kimenetel külön-külön korrigált: újra 100%-ra kell hozni
+    rh, ra = (CAL.data.get("ht_ratio") or [0.44, 0.44])[:2]
     out = {**an, "p_home": ps[0] / tot, "p_draw": ps[1] / tot, "p_away": ps[2] / tot,
-           "over25": CAL.apply("ou", an["over25"])}
+           "over25": CAL.apply("ou", an["over25"]),
+           # az 1. félidő gólvárható értéke a visszamért félidős aránnyal (a félidős piacokhoz)
+           "xg_ht_home": an["xg_home"] * rh, "xg_ht_away": an["xg_away"] * ra}
     if an.get("btts_source") != "piaci":
         out["btts"] = CAL.apply("btts", an["btts"])
     return out
@@ -338,10 +349,12 @@ def _versions(state: dict, stake: int, target: float | None, notes: list, min_pr
         with tippmix.Session() as s:
             for name, kind, n_default, desc in builder.VERSIONS:
                 key = builder.CAL_KEY[kind]
-                if CAL.available and not CAL.ok(key):
+                if key is not None and CAL.available and not CAL.ok(key):
                     notes.append(f"A „{name}” változat ki van kapcsolva: a visszamérés szerint nem elég pontos.")
                     continue
-                groups = builder.ranked(state, kind, cal=CAL.apply)[:builder.CANDIDATES]
+                # Az „any" csak a visszamérés szerint pontos piacokból választhat; visszamérés nélkül bármiből.
+                allowed = {k for k in CAL.markets if CAL.ok(k)} if CAL.available else None
+                groups = builder.ranked(state, kind, cal=CAL.apply, allowed=allowed)[:builder.CANDIDATES]
                 for g in groups:
                     if len(g.picks) > 1:
                         g.odds = _bb_odds(s, g.picks)

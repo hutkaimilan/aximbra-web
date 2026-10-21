@@ -359,3 +359,10 @@ def test_min_prob_without_target_maximises_odds():
     import itertools
     ok = [c for k in range(1, 5) for c in itertools.combinations(gs, k) if math.prod(g.prob for g in c) >= 0.6]
     assert v.odds == pytest.approx(max(math.prod(g.odds for g in c) for c in ok))
+
+
+def test_market_names_keep_handicap_sign():
+    assert web._market_name("hcp", -1.0) == "Hendikep -1"
+    assert web._market_name("hcp", 1.0) == "Hendikep +1"
+    assert web._market_name("htou", 0.5) == "Gólszám 0,5 - 1. félidő"
+    assert web._market_name("ou", 2.5) == "Gólszám 2,5"

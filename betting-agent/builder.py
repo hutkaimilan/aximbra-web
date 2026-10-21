@@ -26,10 +26,16 @@ VERSIONS = (
     ("Győztes + gólok", "win_goals", 3, "Győztes és a vele együtt legvalószínűbb gólszám, Fogadásépítőben."),
     ("Gólos szelvény", "goals", 3, "Győztes nélkül: a legvalószínűbb gólszám és „mindkét csapat szerez gólt” együtt."),
     ("Teljes Fogadásépítő", "full", 2, "Győztes, gólszám és „mindkét csapat szerez gólt”, Fogadásépítőben."),
+    ("Bármiből a legbiztosabb", "any", 3,
+     "Meccsenként a legvalószínűbb tipp bármelyik ellenőrzött piacból (kétesély, gólszám, hendikep, félidő…), "
+     "legalább 1,20-as szorzóval."),
 )
+ANY_MIN_ODDS = 1.20  # a „Bármiből" stratégiában: 1,20 alatt a tipp alig ad szorzót
+HT_MARKETS = {"ht1x2": "1x2", "htou": "ou"}  # 1. félidős piac → ugyanaz a feltétel, a félidős mátrixon
 KINDS = {v[1] for v in VERSIONS}
-# stratégia → a calibration.json piackulcsa (a „safe" kétesély, a „win" 1X2-tipp)
-CAL_KEY = {"safe": "dc", "win": "1x2", "win_goals": "win_goals", "goals": "goals", "full": "full"}
+# stratégia → a calibration.json piackulcsa (a „safe" kétesély, a „win" 1X2-tipp). Az „any" tippenként a
+# saját piaca szerint kalibrál, ezért nincs egyetlen kulcsa.
+CAL_KEY = {"safe": "dc", "win": "1x2", "win_goals": "win_goals", "goals": "goals", "full": "full", "any": None}
 MAX_MATCHES = 6
 MIN_GROUP_ODDS = 1.10  # ennél kisebb szorzójú csoport alig ad szorzót, csak egy újabb helyet, ahol a szelvény elbukhat
 CANDIDATES = 10  # változatonként ennyi legesélyesebb meccsből válogatunk (a csapatismétlés kiszűr néhányat)
@@ -69,6 +75,12 @@ class Version:
 
 
 def _cond(market: str, pick: str, line):
+    if market in HT_MARKETS:
+        return _cond(HT_MARKETS[market], pick, line)  # a félidős mátrixon kell kiértékelni
+    if market == "hcp":
+        h = line or 0.0  # a hazai csapat hendikepje: hazai nyer, ha gólkülönbség + h > 0
+        return {"1": lambda i, j: i - j + h > 0, "X": lambda i, j: i - j + h == 0,
+                "2": lambda i, j: i - j + h < 0}[pick]
     if market == "1x2":
         return {"1": lambda i, j: i > j, "X": lambda i, j: i == j, "2": lambda i, j: i < j}[pick]
     if market == "dc":
@@ -134,19 +146,54 @@ def options(match: dict) -> dict:
     return res
 
 
-def ranked(state: dict, kind: str, cal=None) -> list[Group]:
+def single_probs(match: dict) -> list[tuple[dict, float]]:
+    """Minden egyes tipp esélye a meccs gólmodelljéből (a félidős piacok a félidős mátrixból).
+
+    A DNB kimarad: döntetlennél visszajár a tét, nem kétkimenetelű fogadás.
+    """
+    a = match.get("analysis")
+    if not a:
+        return []
+    ft = poisson.score_matrix(a["xg_home"], a["xg_away"])
+    ht = poisson.score_matrix(a["xg_ht_home"], a["xg_ht_away"]) if "xg_ht_home" in a else None
+    out = []
+    for o in _outcomes(match).values():
+        if o["market"] == "dnb" or (o["market"] in HT_MARKETS and ht is None):
+            continue
+        mat = ht if o["market"] in HT_MARKETS else ft
+        out.append((o, joint_prob(mat, [(o["market"], o["pick"], o["line"])])))
+    return out
+
+
+def _any_option(match: dict, cal, allowed) -> tuple | None:
+    """A „Bármiből a legbiztosabb": a legnagyobb (visszamért) esélyű tipp az engedélyezett piacokból, ≥ 1,20-as szorzóval."""
+    best = None
+    for o, p in single_probs(match):
+        if o["odds"] < ANY_MIN_ODDS or (allowed is not None and o["market"] not in allowed):
+            continue
+        q = cal(o["market"], p) if cal is not None else p
+        if best is None or q > best[1]:
+            best = ([o], q)
+    return best
+
+
+def ranked(state: dict, kind: str, cal=None, allowed=None) -> list[Group]:
     """Az adott stratégia csoportjai minden meccsre, a legesélyesebb elöl.
 
     cal(piackulcs, esély) → visszamért esély (calibration.Calibration.apply); nélküle a nyers esély.
+    allowed: az „any" stratégiában használható piacok (a visszamérés szerint pontosak); None = mind.
     """
     out = []
     for c in state["competitions"]:
         for match in c["matches"]:
-            opt = options(match).get(kind)
+            if kind == "any":
+                opt = _any_option(match, cal, allowed)
+            else:
+                opt = options(match).get(kind)
             if not opt:
                 continue
             picks, prob = opt
-            if cal is not None:
+            if cal is not None and kind != "any":
                 prob = cal(CAL_KEY[kind], prob)
             out.append(Group(match_id=match["id"], match=f"{match['home']} – {match['away']}",
                              competition=c["name"], kickoff=match["kickoff"], picks=picks, prob=prob,
