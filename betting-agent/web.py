@@ -36,6 +36,7 @@ import footballdata
 import markets
 import names
 import odds_api
+import settle
 import builder
 import calibration
 import insight
@@ -62,6 +63,7 @@ STAT_SPAN = {"corners": 2.5, "cards": 2.0}  # a kártyán csak a várható ért�
 SESSION_DAYS = 30
 MAX_BODY = 64 * 1024
 MAX_SLIP = 20
+MAX_SETTLE = 200              # egy kiértékelő kérésben ennyi tipp (a kliens kötegel)
 BUDAPEST = ZoneInfo("Europe/Budapest")
 MAX_DAYS = 7
 MIN_SLIP_PROB = 0.60  # automatikus mód: célszorzó nélkül a szelvény becsült esélye legalább ennyi (≥ 60%)
@@ -508,8 +510,10 @@ def _versions(state: dict, stake: int, target: float | None, notes: list, min_pr
                         g.odds = bb.get(ids, g.odds)
                     groups_json.append({
                         "match": g.match, "competition": g.competition, "kickoff": g.kickoff,
+                        "comp": g.comp_key, "home": g.home, "away": g.away,
                         "builder": len(ids) > 1, "odds": round(g.odds, 4), "prob": round(g.prob, 4),
-                        "picks": [{"id": p["id"], "label": p["label"], "market": p["market_name"], "odds": p["odds"]}
+                        "picks": [{"id": p["id"], "label": p["label"], "market": p["market_name"], "odds": p["odds"],
+                                   "mk": p["market"], "pick": p["pick"], "line": p["line"]}
                                   for p in g.picks]})
                 st = max(stake, int(chk.get("min_stake") or RULES.min_stake))
                 out.append({"name": v.name, "desc": v.desc, "groups": groups_json, "odds": round(v.odds, 4),
@@ -632,6 +636,36 @@ def best(bankroll: int, target: float | None, stake: int = 1000, start: date | N
     return out
 
 
+LEAGUES = {c.key: c.espn for c in tippmix.COMPETITIONS}
+
+
+def _day_events(league: str, day: str) -> list:
+    """Egy liga egy napjának ESPN-eredményei: lezárt napnál 24 órás, különben 10 perces gyorsítótárral."""
+    key = ("espn-day", league, day)
+    hit = CACHE.peek(key)
+    done = bool(hit) and all(((ev.get("status") or {}).get("type") or {}).get("completed")
+                             for ev in hit[0]) and bool(hit[0])
+    try:
+        val, _, _ = CACHE.get(key, 24 * 3600 if done else 600, lambda: espn.scoreboard_day(league, day))
+        return val
+    except espn.EspnError as e:
+        logger.info("ESPN-eredmények (%s %s): %s", league, day, e)
+        return []
+
+
+def settle_legs(raw: list) -> dict:
+    """/api/settle: a mentett tippek állapota (won/lost/void/pending/unknown) a sorrendjükben."""
+    legs, out = [], []
+    for r in raw:
+        try:
+            legs.append(settle.parse_leg(r, LEAGUES))
+            out.append(None)
+        except ValueError as e:
+            out.append({"status": "unknown", "note": str(e)})
+    res = iter(settle.settle(legs, _day_events))
+    return {"results": [o or next(res) for o in out]}
+
+
 def team(team_id: str | None, name: str | None, league: str | None) -> dict:
     if not team_id and name and league:
         if league not in {c.espn for c in tippmix.COMPETITIONS}:
@@ -699,6 +733,7 @@ LOGIN_LIMIT = Limiter(8, 15 * 60)
 LOGIN_GLOBAL = Limiter(40, 15 * 60)
 CHECK_LIMIT = Limiter(40, 60)
 REFRESH_LIMIT = Limiter(1, 30)
+SETTLE_LIMIT = Limiter(20, 60)
 
 
 # --- HTTP ----------------------------------------------------------------------------------------
@@ -873,6 +908,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self._err(502, f"TippmixPro: {e}")
             except Exception:  # noqa: BLE001
                 logger.exception("váratlan hiba: check")
+                return self._err(500, "Váratlan hiba történt.")
+        if url.path == "/api/settle":
+            if not SETTLE_LIMIT.allow(self.address_string()):
+                return self._err(429, "Lassíts egy kicsit: percenként legfeljebb 20 kiértékelés.")
+            legs = body.get("legs")
+            if not isinstance(legs, list) or len(legs) > MAX_SETTLE:
+                return self._err(400, f"Hibás tipplista (legfeljebb {MAX_SETTLE} tipp egyszerre).")
+            try:
+                return self._json(200, settle_legs(legs))
+            except Exception:  # noqa: BLE001
+                logger.exception("váratlan hiba: settle")
                 return self._err(500, "Váratlan hiba történt.")
         return self._err(404, "nincs ilyen végpont")
 

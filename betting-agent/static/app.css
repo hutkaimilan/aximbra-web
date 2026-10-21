@@ -235,3 +235,22 @@ select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid
 .acc-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-variant-numeric: tabular-nums; }
 .acc-table th, .acc-table td { text-align: right; padding: 4px 6px; border-bottom: 1px solid var(--line); }
 .acc-table th:first-child, .acc-table td:first-child { text-align: left; }
+
+/* szelvénynapló */
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn-row .primary { flex: 1; margin-top: 0; }
+.tfoot .btn-row { margin-top: 6px; }
+.slip-result .save { margin-top: 8px; width: 100%; }
+.tslip .ghost { color: var(--t-text); border-color: var(--t-line); }
+.jstats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 10px 0; }
+.jstats div { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: grid; gap: 2px; }
+.jstats span { font-size: 12px; color: var(--muted); }
+.jslip { margin-bottom: 12px; }
+.jslip.won { border-color: var(--good); }
+.jslip.lost { border-color: var(--bad); }
+.jstatus { font-size: 13px; font-weight: 800; border-radius: 999px; padding: 2px 10px; background: var(--t-panel); }
+.jstatus.won { background: var(--good); color: #04130b; }
+.jstatus.lost { background: var(--bad); color: #1a0505; }
+.tpick.j-won .tcheck { background: var(--good); color: #04130b; }
+.tpick.j-lost .tcheck { background: var(--bad); color: #1a0505; }
+.tpick.j-pending .tcheck, .tpick.j-unknown .tcheck, .tpick.j-void .tcheck { background: var(--t-line); color: var(--t-text); }

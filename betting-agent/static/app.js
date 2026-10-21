@@ -103,7 +103,7 @@ function renderStatus() {
 
 function renderTabs() {
   const tabs = [{ key: "best", name: "Szelvénykészítő" }, ...S.state.competitions.map((c) => ({ key: c.key, name: c.name, n: c.matches.length })),
-    { key: "accuracy", name: "Mennyire pontos?" }];
+    { key: "journal", name: "Napló", n: journal.list().length || null }, { key: "accuracy", name: "Mennyire pontos?" }];
   if (!tabs.some((t) => t.key === S.tab)) S.tab = "best";
   $("#tabs").replaceChildren(...tabs.map((t) => h("button", {
     class: "tab", role: "tab", "aria-selected": String(t.key === S.tab),
@@ -136,6 +136,7 @@ function renderContent() {
   if (S.query.trim()) return renderList(root, matchesFor("search"), true);
   if (S.tab === "best") return renderBest(root);
   if (S.tab === "accuracy") return renderAccuracy(root);
+  if (S.tab === "journal") return renderJournal(root);
   renderList(root, matchesFor(S.tab), false);
   const comp = S.state.competitions.find((c) => c.key === S.tab);
   if (comp && comp.matches.length) root.prepend(slipMaker({ key: comp.key, fixed: comp.key, auto: false }));
@@ -253,10 +254,20 @@ function toggleLeg(m, mk, o) {
   if (i >= 0) S.slip.splice(i, 1);
   else {
     if (S.slip.length >= 20) { alert("Egy szelvényen legfeljebb 20 esemény lehet."); return; }
-    S.slip.push({ id: o.id, match: `${m.home} – ${m.away}`, market: mk.name, pick: o.label || o.pick, odds: o.odds, matchId: m.id });
+    S.slip.push(slipLeg(m, mk, o, m.comp || compOf(m.id)));
   }
   store.set("slip", S.slip);
   renderContent(); renderSlip(); runCheck();
+}
+
+// A szelvény egy tippje, a naplóhoz szükséges meccsazonosítással (sorozat, csapatok, kezdés, piac, vonal).
+function slipLeg(m, mk, o, c) {
+  return { id: o.id, match: `${m.home} – ${m.away}`, market: mk.name, pick: o.label || o.pick, odds: o.odds, matchId: m.id,
+    home: m.home, away: m.away, kickoff: m.kickoff, comp: c ? c.key : null, mk: mk.key, rawPick: o.pick, line: mk.line };
+}
+
+function compOf(matchId) {
+  return S.state.competitions.find((c) => c.matches.some((m) => m.id === matchId)) || null;
 }
 
 function addLegs(legs, opts = {}) {
@@ -266,7 +277,7 @@ function addLegs(legs, opts = {}) {
   for (const l of legs) {
     if (S.slip.some((s) => s.id === l.id)) continue;
     const hit = idx.get(l.id);
-    if (hit) S.slip.push({ id: l.id, match: `${hit.m.home} – ${hit.m.away}`, market: hit.mk.name, pick: hit.o.label || hit.o.pick, odds: hit.o.odds, matchId: hit.m.id });
+    if (hit) S.slip.push(slipLeg(hit.m, hit.mk, hit.o, hit.c));
   }
   store.set("slip", S.slip);
   renderContent(); renderSlip(); runCheck();
@@ -339,6 +350,7 @@ function renderSlip() {
       out.push(h("div", { class: "row" }, h("span", {}, "Várható érték"), h("b", { class: c.ev >= 0 ? "ok" : "bad" }, signedPct(c.ev))));
     }
     for (const w of c.warnings) out.push(h("div", { class: "warn" }, w));
+    if (!c.forbidden.length) out.push(saveButton(() => journalFromSlip(c)));
   }
   $("#slip-result").replaceChildren(...out);
 }
@@ -474,7 +486,7 @@ function slipMaker({ key, fixed, auto }) {
       h("h2", {}, fixed ? `Szelvénykészítő — ${compName}` : "Szelvénykészítő"),
       h("p", { class: "muted tiny" }, fixed
         ? `Csak ${compName}-meccsekből: hat stratégia, a legesélyesebb tippekkel, a TippmixPro szorzóival és kötéstiltás-ellenőrzésével.`
-        : "Válaszd ki a sorozatokat és a napokat: öt stratégiát rak össze a legesélyesebb tippekből (Fogadásépítővel, ahol kell), a TippmixPro szorzóival és kötéstiltás-ellenőrzésével."),
+        : "Válaszd ki a sorozatokat és a napokat: hat stratégiát rak össze a legesélyesebb tippekből (Fogadásépítővel, ahol kell), a TippmixPro szorzóival és kötéstiltás-ellenőrzésével."),
       fixed ? null : h("div", { class: "field" }, h("span", { class: "flabel" }, "Sorozatok"), chips),
       h("div", { class: "day-row" },
         h("label", {}, "Melyik naptól", dayIn),
@@ -513,7 +525,9 @@ function slipCard(v, i) {
       h("div", { class: "row" }, h("span", {}, "Lehetséges nyeremény"), h("b", {}, ft(v.payout))),
       h("div", { class: "row" }, h("span", {}, "Becsült esély, hogy a szelvény nyer"), h("b", {}, pct(v.prob))),
       h("div", { class: "muted tiny" }, `Várható érték ${signedPct(v.ev)}: ennyit visz el hosszú távon a Tippmix árrése.`),
-      h("button", { class: "primary", onclick: () => addLegs(v.groups.flatMap((g) => g.picks), { replace: true, stake: v.stake }) }, "Szelvényre")));
+      h("div", { class: "btn-row" },
+        h("button", { class: "primary", onclick: () => addLegs(v.groups.flatMap((g) => g.picks), { replace: true, stake: v.stake }) }, "Szelvényre"),
+        saveButton(() => journalFromVersion(v)))));
 }
 
 function bestView(b) {
@@ -542,6 +556,222 @@ function bestView(b) {
   nodes.push(betBlock("B terv — kötések (TippmixPro által ellenőrizve)", b.combos));
   nodes.push(h("p", { class: "muted tiny" }, "Az A és a B terv ugyanazokból a tippekből áll: az egyiket érdemes megjátszani, nem mindkettőt. Tétméret: negyed Kelly, fogadásonként max. a keret 2%-a, összesen max. 5%."));
   return h("div", {}, ...nodes);
+}
+
+// --- szelvénynapló ---------------------------------------------------------------------------
+// A böngészőben tárolódik (a szerveren nincs adatbázis, a Railway fájlrendszere ideiglenes).
+// Kiértékelés: /api/settle, az ESPN-eredményekből; a tippek állapota: won | lost | void | pending | unknown.
+const JOURNAL_MAX = 300;
+const FINAL = new Set(["won", "lost", "void", "unknown"]);
+const SETTLE_AFTER_MS = (2 * 60 + 15) * 60 * 1000;
+const journal = {
+  list() { const v = store.get("naplo", []); return Array.isArray(v) ? v : []; },
+  save(list) {
+    // A legrégebbi lezártak esnek ki először, ha betelik.
+    while (list.length > JOURNAL_MAX) {
+      const i = list.map((r) => slipStatus(r) !== "pending").lastIndexOf(true);
+      list.splice(i >= 0 ? i : list.length - 1, 1);
+    }
+    store.set("naplo", list);
+  },
+  add(rec) {
+    const list = journal.list();
+    if (list.some((r) => r.sig === rec.sig)) return false;
+    list.unshift(rec);
+    journal.save(list);
+    return true;
+  },
+};
+
+const legSig = (p, g) => JSON.stringify([g.comp, g.home, g.away, g.kickoff, p.mk, p.pick, p.line ?? null]);
+const recSig = (groups, stake) => groups.flatMap((g) => g.picks.map((p) => legSig(p, g))).sort().join("|") + "#" + stake;
+
+function journalFromVersion(v) {
+  const groups = v.groups.map((g) => ({ match: g.match, competition: g.competition, comp: g.comp, home: g.home, away: g.away,
+    kickoff: g.kickoff, odds: g.odds, prob: g.prob, builder: g.builder,
+    picks: g.picks.map((p) => ({ label: p.label, market: p.market, mk: p.mk, pick: p.pick, line: p.line, odds: p.odds })) }));
+  return { name: v.name, stake: v.stake, odds: v.odds, prob: v.prob, groups };
+}
+
+function journalFromSlip(c) {
+  const bb = new Map();
+  for (const b of c.bet_builder || []) for (const id of b.ids) bb.set(id, b.odds);
+  const byMatch = new Map();
+  for (const l of S.slip) { if (!byMatch.has(l.matchId)) byMatch.set(l.matchId, []); byMatch.get(l.matchId).push(l); }
+  const groups = [...byMatch.values()].map((legs) => ({
+    match: legs[0].match, competition: (S.state.competitions.find((x) => x.key === legs[0].comp) || {}).name || "",
+    comp: legs[0].comp, home: legs[0].home, away: legs[0].away, kickoff: legs[0].kickoff,
+    odds: legs.length > 1 ? bb.get(legs[0].id) ?? null : legs[0].odds, prob: null, builder: legs.length > 1,
+    picks: legs.map((l) => ({ label: l.pick, market: l.market, mk: l.mk, pick: l.rawPick, line: l.line, odds: l.odds })) }));
+  if (groups.some((g) => !g.comp || !g.home)) return null;  // régi, azonosítás nélküli tipp a szelvényen
+  return { name: "Saját szelvény", stake: Math.max(Number(S.stake) || 0, c.min_stake || 0), odds: c.odds, prob: c.prob ?? null, groups };
+}
+
+function saveButton(make) {
+  const btn = h("button", { class: "ghost small save" }, "Mentés a naplóba");
+  btn.addEventListener("click", () => {
+    const rec = make();
+    if (!rec) { btn.textContent = "Ez a szelvény nem menthető (töröld és rakd össze újra)"; return; }
+    rec.sig = recSig(rec.groups, rec.stake);
+    rec.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    rec.saved = new Date().toISOString();
+    btn.textContent = journal.add(rec) ? "✓ Mentve a naplóba" : "✓ Már a naplóban van";
+    btn.disabled = true;
+    renderTabs();
+  });
+  return btn;
+}
+
+// Csoport: minden (nem visszajáró) tipp nyer → nyer; bármelyik veszít → veszít; csak visszajáró → visszajár.
+function groupStatus(g) {
+  const st = g.picks.map((p) => (p.res && p.res.status) || "pending");
+  if (st.includes("lost")) return "lost";
+  if (st.some((x) => x === "pending")) return "pending";
+  if (st.includes("unknown")) return "unknown";
+  if (st.every((x) => x === "void")) return "void";
+  return "won";
+}
+function slipStatus(r) {
+  const st = r.groups.map(groupStatus);
+  if (st.includes("lost")) return "lost";
+  if (st.includes("pending")) return "pending";
+  if (st.includes("unknown")) return "unknown";
+  return st.every((x) => x === "void") ? "void" : "won";
+}
+// Visszajáró csoport 1,00-s szorzóval számít (a Fogadásépítő részleges visszajárását a TippmixPro újraárazza: közelítés).
+function slipReturn(r) {
+  const st = slipStatus(r);
+  if (st === "lost") return 0;
+  if (st === "void") return r.stake;
+  if (st !== "won") return null;
+  return r.stake * r.groups.reduce((a, g) => a * (groupStatus(g) === "void" ? 1 : (g.odds || 1)), 1);
+}
+
+let settling = null;
+async function settleJournal(force) {
+  if (settling) return settling;
+  const list = journal.list(), now = Date.now();
+  const want = new Map();
+  for (const r of list) for (const g of r.groups) for (const p of g.picks) {
+    if (p.res && FINAL.has(p.res.status)) continue;
+    if (!force && now < new Date(g.kickoff).getTime() + SETTLE_AFTER_MS) continue;
+    const k = legSig(p, g);
+    if (!want.has(k)) want.set(k, { comp: g.comp, home: g.home, away: g.away, kickoff: g.kickoff, mk: p.mk, pick: p.pick, line: p.line ?? null });
+  }
+  if (!want.size) return 0;
+  settling = (async () => {
+    const keys = [...want.keys()], got = new Map();
+    for (let i = 0; i < keys.length; i += 200) {
+      const chunk = keys.slice(i, i + 200);
+      const r = await api("/api/settle", { method: "POST", body: JSON.stringify({ legs: chunk.map((k) => want.get(k)) }) });
+      chunk.forEach((k, j) => got.set(k, r.results[j]));
+    }
+    // Közben a felhasználó törölhetett vagy menthetett: a friss listán frissítünk.
+    const fresh = journal.list();
+    let changed = 0;
+    for (const r of fresh) for (const g of r.groups) for (const p of g.picks) {
+      const res = got.get(legSig(p, g));
+      if (res && (!p.res || p.res.status !== res.status)) { p.res = res; changed++; } else if (res) p.res = res;
+    }
+    journal.save(fresh);
+    return changed;
+  })();
+  try { return await settling; } finally { settling = null; }
+}
+
+const STATUS_TXT = { won: "✓ Nyert", lost: "✗ Vesztett", void: "↺ Visszajár", pending: "⏳ Folyamatban", unknown: "? Nem értékelhető" };
+
+function journalStats(list) {
+  const settled = list.filter((r) => ["won", "lost"].includes(slipStatus(r)));
+  const won = settled.filter((r) => slipStatus(r) === "won");
+  const staked = settled.reduce((a, r) => a + r.stake, 0);
+  const returned = settled.reduce((a, r) => a + (slipReturn(r) || 0), 0);
+  const withProb = settled.filter((r) => r.prob != null);
+  // Esélysávok csoportonként (több minta, mint szelvényenként): a kiírt esély átlaga vs. a valós találati arány.
+  const BANDS = [[0, 0.6], [0.6, 0.7], [0.7, 0.8], [0.8, 0.9], [0.9, 1.01]];
+  const bands = BANDS.map(([lo, hi]) => ({ lo, hi, n: 0, hit: 0, pred: 0 }));
+  for (const r of list) for (const g of r.groups) {
+    const st = groupStatus(g);
+    if (g.prob == null || !["won", "lost"].includes(st)) continue;
+    const b = bands.find((x) => g.prob >= x.lo && g.prob < x.hi);
+    b.n++; b.pred += g.prob; if (st === "won") b.hit++;
+  }
+  return { n: list.length, settled: settled.length, won: won.length, staked, returned,
+    predicted: withProb.length ? withProb.reduce((a, r) => a + r.prob, 0) / withProb.length : null,
+    actual: withProb.length ? withProb.filter((r) => slipStatus(r) === "won").length / withProb.length : null,
+    bands: bands.filter((b) => b.n) };
+}
+
+async function renderJournal(root) {
+  const draw = (msg) => {
+    const list = journal.list();
+    const st = journalStats(list);
+    const profit = st.returned - st.staked;
+    const nodes = [h("div", { class: "panel" },
+      h("h2", {}, "Szelvénynapló"),
+      h("p", { class: "muted tiny" }, "A mentett szelvényeket a meccsek után magától kiértékeli (ESPN-eredmények: végeredmény, félidő, szöglet, lap). A napló csak ebben a böngészőben tárolódik."),
+      msg ? h("div", { class: "muted tiny" }, msg) : null,
+      list.length ? h("div", { class: "jstats" },
+        h("div", {}, h("span", {}, "Lezárt szelvény"), h("b", {}, `${st.won} / ${st.settled} nyert`)),
+        h("div", {}, h("span", {}, "Megtett tét"), h("b", {}, ft(st.staked))),
+        h("div", {}, h("span", {}, "Visszakapott"), h("b", {}, ft(st.returned))),
+        h("div", {}, h("span", {}, "Eredmény"), h("b", { class: profit >= 0 ? "ok" : "bad" }, (profit >= 0 ? "+" : "") + ft(profit))),
+        st.predicted != null ? h("div", {}, h("span", {}, "Kiírt esély átlaga → valóban nyert"), h("b", {}, `${pct(st.predicted, 0)} → ${pct(st.actual, 0)}`)) : null) : null,
+      st.bands.length ? h("table", { class: "acc-table" },
+        h("thead", {}, h("tr", {}, h("th", {}, "Csoport kiírt esélye"), h("th", {}, "Átlag"), h("th", {}, "Valóban bejött"), h("th", {}, "Csoport"))),
+        h("tbody", {}, ...st.bands.map((b) => h("tr", {},
+          h("td", {}, b.lo === 0 ? "60% alatt" : `${Math.round(b.lo * 100)}–${Math.min(100, Math.round(b.hi * 100))}%`),
+          h("td", {}, pct(b.pred / b.n, 0)),
+          h("td", { class: b.n >= 20 && Math.abs(b.hit / b.n - b.pred / b.n) > 0.1 ? "bad" : "" }, pct(b.hit / b.n, 0)),
+          h("td", {}, b.n))))) : null,
+      st.bands.length && st.bands.reduce((a, b) => a + b.n, 0) < 50 ? h("p", { class: "muted tiny" }, "Kevés még a lezárt tipp: legalább 50–100 kell, hogy a találati arány többet mutasson a véletlennél.") : null,
+      h("div", { class: "btn-row" },
+        h("button", { class: "ghost small", onclick: async (e) => { e.target.disabled = true; await run(true); } }, "Kiértékelés most"),
+        list.length ? h("button", { class: "ghost small", onclick: () => { if (confirm("Biztosan törlöd a teljes naplót?")) { journal.save([]); renderTabs(); draw(); } } }, "Napló törlése") : null))];
+    if (!list.length) nodes.push(h("div", { class: "empty" }, "Még nincs mentett szelvény. A szelvénykészítőben vagy a jobb oldali szelvényen a „Mentés a naplóba” gombbal kerül ide."));
+    for (const r of list) nodes.push(journalCard(r, () => { journal.save(journal.list().filter((x) => x.id !== r.id)); renderTabs(); draw(); }));
+    root.replaceChildren(...nodes);
+  };
+  const run = async (force) => {
+    try {
+      const n = await settleJournal(force);
+      if (S.tab === "journal") draw(n ? `${n} tipp eredménye frissült.` : (force ? "Nincs új eredmény." : ""));
+    } catch (e) { if (S.tab === "journal") draw(`A kiértékelés most nem sikerült: ${e.message}`); }
+  };
+  draw();
+  run(false);
+}
+
+function journalCard(r, onDelete) {
+  const when = (k) => `${fmtShort.format(new Date(k))} ${fmtTime.format(new Date(k))}`;
+  const st = slipStatus(r), ret = slipReturn(r);
+  return h("div", { class: "tslip jslip " + st },
+    h("div", { class: "tslip-head" },
+      h("div", { class: "row" }, h("b", {}, r.name), h("span", { class: "jstatus " + st }, STATUS_TXT[st])),
+      h("span", { class: "muted tiny" }, `Mentve ${when(r.saved)} · szorzó ${odds(r.odds)} · tét ${ft(r.stake)}${r.prob != null ? ` · kiírt esély ${pct(r.prob, 0)}` : ""}`)),
+    ...r.groups.map((g) => h("div", { class: "tgroup" + (g.builder ? " bb" : "") },
+      h("div", { class: "thead" },
+        h("div", {}, h("div", { class: "tmatch" }, g.match), h("div", { class: "tmarket" }, `${g.competition} · ${when(g.kickoff)}`
+          + (resLine(g) ? ` · ${resLine(g)}` : ""))),
+        h("b", {}, odds(g.odds))),
+      ...g.picks.map((p) => {
+        const s = (p.res && p.res.status) || "pending";
+        return h("div", { class: "tpick j-" + s },
+          h("span", { class: "tcheck", "aria-hidden": "true" }, { won: "✓", lost: "✗", void: "↺", unknown: "?", pending: "…" }[s]),
+          h("div", {}, h("div", { class: "tname" }, p.label), h("div", { class: "tmarket" }, p.market + (p.res && p.res.note ? ` · ${p.res.note}` : ""))));
+      }))),
+    h("div", { class: "tfoot" },
+      h("div", { class: "row" }, h("span", {}, st === "won" ? "Nyeremény" : "Lehetséges nyeremény"),
+        h("b", {}, ft(ret != null && st !== "lost" ? ret : r.stake * r.odds))),
+      h("button", { class: "ghost small", onclick: onDelete }, "Törlés")));
+}
+
+// Az első kiértékelt tipp eredménye a meccsről: „1–1 (félidő 0–1) · 16 szöglet · 10 lap".
+function resLine(g) {
+  const res = g.picks.map((p) => p.res).find((x) => x && x.score);
+  if (!res) return "";
+  return [res.score + (res.ht ? ` (félidő ${res.ht})` : ""), res.corners != null ? `${res.corners} szöglet` : "",
+    res.cards != null ? `${res.cards} lap` : ""].filter(Boolean).join(" · ");
 }
 
 boot();

@@ -54,6 +54,9 @@ class Group:
     prob: float            # a csoport együttes esélye
     odds: float | None = None   # a TippmixPro szorzója (egy tippnél a tipp szorzója)
     teams: tuple = ()      # normalizált csapatnevek: egy csapat egy szelvényen csak egyszer
+    comp_key: str = ""     # a szelvénynapló kiértékeléséhez: sorozat és a TippmixPro-csapatnevek
+    home: str = ""
+    away: str = ""
 
 
 @dataclass
@@ -208,7 +211,8 @@ def ranked(state: dict, kind: str, cal=None, allowed=None) -> list[Group]:
             out.append(Group(match_id=match["id"], match=f"{match['home']} – {match['away']}",
                              competition=c["name"], kickoff=match["kickoff"], picks=picks, prob=prob,
                              odds=picks[0]["odds"] if len(picks) == 1 else None,
-                             teams=(names.norm(match["home"]), names.norm(match["away"]))))
+                             teams=(names.norm(match["home"]), names.norm(match["away"])),
+                             comp_key=c.get("key", ""), home=match["home"], away=match["away"]))
     out.sort(key=lambda g: -g.prob)
     return out
 

@@ -72,6 +72,24 @@ esetén a gyengébb csoportot a következő legesélyesebbel cseréli.
 Kulcs nélkül az esélyek a TippmixPro saját szorzóiból jönnek (árrés nélkül),
 ezért a várható érték a Tippmix árrése miatt negatív — a felület ki is írja.
 
+### Szelvénynapló („Napló” fül)
+
+Minden kész szelvényen és a jobb oldali saját szelvényen „Mentés a naplóba” gomb. A napló a
+böngészőben tárolódik (`localStorage`, legfeljebb 300 szelvény): a szerveren nincs adatbázis, a
+Railway fájlrendszere pedig minden telepítésnél törlődik. Másik böngészőben vagy eszközön nem látszik.
+
+A Napló fül megnyitásakor a már lefutott meccsek tippjeit kiértékeli (`/api/settle`, `settle.py`):
+az ESPN napi eredménylistájából jön a végeredmény, az 1. félidő (a gólok perce alapján, csak ha a
+gólok listája kiadja a végeredményt), a szögletek és a lapok (minden sárga és piros esemény). A
+párosítás a kezdési idő és a két csapatnév alapján, mint máshol. Állapotok: nyert, vesztett,
+visszajár (elmaradt meccs; DNB döntetlennél), folyamatban, nem értékelhető (hosszabbítás, hiányzó
+vagy önellentmondó adat — inkább nem értékel, mint rosszul). Egy liga egy napját lezárt napnál
+24 órás, különben 10 perces gyorsítótárral kérdezi.
+
+A fül tetején: lezárt szelvények, megtett tét, visszakapott összeg, és a csoportok kiírt esélye
+sávonként a valóban bejött aránnyal — ez az élesben mért pontosság, a visszamérés párja. 50–100
+lezárt tipp alatt a véletlen még túl nagy.
+
 ### Visszamérés és kalibráció („Mennyire pontos?” fül)
 
 `calibrate.py` a football-data.co.uk ingyenes táblázataiból (PL, La Liga, Bundesliga, portugál

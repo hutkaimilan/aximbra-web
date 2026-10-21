@@ -132,3 +132,10 @@ def team_results(team_id: str, want: int = 15, now: datetime | None = None) -> d
     return {"id": team_id, "name": team.get("displayName") or "", "logo": (team.get("logos") or [{}])[0].get("href", "")
             if team.get("logos") else team.get("logo", ""), "results": uniq,
             "form": "".join(r["result"][0] for r in uniq[:5])}
+
+
+def scoreboard_day(league: str, day: str) -> list[dict]:
+    """Egy nap (ÉÉÉÉHHNN, az ESPN amerikai keleti ideje szerint) meccsei nyersen, állapottal, gólokkal, lapokkal."""
+    if not (len(day) == 8 and day.isdigit()):
+        raise ValueError("hibás nap")
+    return _get(f"{BASE}/{league}/scoreboard?dates={day}").get("events") or []

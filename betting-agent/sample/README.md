@@ -36,3 +36,10 @@ kap lapot” (859), kiállítás (136). Szöglet- vagy lapszelvény ezért csak 
 - Ázsiai (`bettingTypeId` 48, `Handicap Winner With Money Back On Draw`): negyedes vonalak is
   (pl. −0,75, +1,25). Ezeknél a tét fele az egyik, fele a szomszédos vonalra megy (fél nyerés /
   fél visszajár), ezt a várható érték számításánál külön kell kezelni.
+
+## ESPN
+
+`espn_scoreboard_esp1_20261019.json`: valódi ESPN napi eredménylista (La Liga, 2026-10-19, Getafe –
+Rayo Vallecano 1–1), a kiértékelő tesztjéhez; a meccsrekordból csak az állapot, a csapatok, az
+eredmény, a statisztika (`wonCorners`) és az események (`details`: gólok perccel, sárga és piros
+lapok) maradt meg.
