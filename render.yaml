@@ -1,0 +1,17 @@
+# Render Blueprint: a TippmixPro-szelvényépítő (betting-agent) ingyenes webszolgáltatásként.
+# Render: New → Blueprint → ez a repó, ez a branch. Az ingyenes példány 15 perc tétlenség után
+# elalszik, az első kérés ~1 perc alatt ébreszti. APP_PASSWORD nélkül az oldal jelszó nélkül nyitott.
+services:
+  - type: web
+    name: tippmix-szelvenyepito
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: claude/magical-volta-cnhrij
+    dockerContext: ./betting-agent
+    dockerfilePath: ./betting-agent/Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - betting-agent/**
