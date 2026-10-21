@@ -13,6 +13,7 @@ import csv
 import io
 import json
 import logging
+import math
 import sys
 import urllib.error
 import urllib.request
@@ -23,9 +24,11 @@ import builder
 import calibration
 import fair
 import poisson
+import teamstats
 
 LEAGUES = {"E0": "Premier League", "SP1": "La Liga", "D1": "Bundesliga", "P1": "Portugál bajnokság"}
 FIT, TEST = "2425", "2526"
+PREV = {"2425": "2324", "2526": "2425"}  # a szöglet/lap modell az előző évadot is használja (fél súllyal)
 URL = "https://www.football-data.co.uk/mmz4281/{season}/{league}.csv"
 HERE = Path(__file__).resolve().parent
 CACHE = HERE / "out" / "football-data"
@@ -37,6 +40,7 @@ NAMES = {
     "win_goals": "Fogadásépítő: győztes + gólszám", "goals": "Fogadásépítő: gólszám + mindkét csapat gólja",
     "full": "Fogadásépítő: győztes + gólszám + mindkét csapat gólja",
     "hcp": "Hendikep (háromesélyes, ±1)", "ht1x2": "1X2 - 1. félidő", "htou": "Gólszám - 1. félidő (0,5 és 1,5)",
+    "corners": "Szögletszám (több/kevesebb)", "cards": "Büntetőlap-szám (több/kevesebb)",
 }
 DEFAULT_HT_RATIO = (0.44, 0.44)
 
@@ -137,6 +141,52 @@ def match_events(row: dict, ratio: tuple = DEFAULT_HT_RATIO) -> dict:
     return ev
 
 
+def _date_key(row: dict):
+    try:
+        d, m, y = row["Date"].split("/")
+        y = int(y) + (2000 if len(y) == 2 else 0)
+        return (y, int(m), int(d), row.get("Time") or "")
+    except (KeyError, ValueError):
+        return (0, 0, 0, "")
+
+
+def stat_pairs(season: str) -> dict:
+    """Szöglet és lap, időben előre haladva: {kulcs: [(várható összeg, valós összeg)]}.
+
+    Minden meccshez csak a korábbi meccsek adata (az előző évad fél súllyal + az aktuális évad
+    addigi meccsei) — a meccs saját eredménye vagy későbbi meccsek nem szivároghatnak be.
+    """
+    out = {k: [] for k in teamstats.STATS}
+    for league in LEAGUES:
+        stats = teamstats.build([], download(PREV[season], league))
+        for row in sorted(download(season, league), key=_date_key):
+            home, away = row.get("HomeTeam"), row.get("AwayTeam")
+            for key, st in stats.items():
+                exp = st.expected(home, away)
+                y = teamstats.actual(row, key)
+                if exp is not None and y is not None:
+                    out[key].append((exp[0] + exp[1], y))
+            # a meccs utána kerül a statisztikába
+            for key, (hc, ac) in teamstats.STATS.items():
+                h, a = teamstats._val(row, hc), teamstats._val(row, ac)
+                if h is not None and a is not None and home and away:
+                    stats[key].add(home, away, h, a, 1.0)
+    return out
+
+
+def stat_events(pairs: list, r: float) -> list:
+    """(várható, valós) párokból több/kevesebb tippek a várható érték körüli három x,5-ös vonalon."""
+    ev = []
+    for mu, y in pairs:
+        base = math.floor(mu) + 0.5
+        for line in (base - 1, base, base + 1):
+            if line < 0.5:
+                continue
+            p = teamstats.over_prob(mu, r, line)
+            ev += [(p, int(y > line)), (1 - p, int(y < line))]
+    return ev
+
+
 def collect(season: str, ratio: tuple) -> dict:
     out: dict = {}
     for league in LEAGUES:
@@ -152,6 +202,13 @@ def main() -> int:
     ratio = ht_ratio([r for lg in LEAGUES for r in download(FIT, lg)])
     logger.info("félidős gólarány: hazai %.3f, vendég %.3f", *ratio)
     fit, test = collect(FIT, ratio), collect(TEST, ratio)
+    # Szöglet és lap: a diszperziót az illesztő évadon becsüljük, a vonalakat mindkét évadon abból számoljuk.
+    disp = {}
+    fit_pairs, test_pairs = stat_pairs(FIT), stat_pairs(TEST)
+    for key in teamstats.STATS:
+        disp[key] = teamstats.fit_dispersion(fit_pairs[key])
+        fit[key], test[key] = stat_events(fit_pairs[key], disp[key]), stat_events(test_pairs[key], disp[key])
+        logger.info("%s: %d/%d meccs, diszperzió r=%.1f", key, len(fit_pairs[key]), len(test_pairs[key]), disp[key])
     markets = {}
     for key in NAMES:
         if key not in fit or key not in test:
@@ -166,7 +223,8 @@ def main() -> int:
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "source": "football-data.co.uk (záró piaci átlagszorzók és eredmények)",
         "leagues": list(LEAGUES.values()), "fit_season": FIT, "test_season": TEST,
-        "max_ece": calibration.MAX_ECE, "ht_ratio": [round(ratio[0], 4), round(ratio[1], 4)], "markets": markets,
+        "max_ece": calibration.MAX_ECE, "ht_ratio": [round(ratio[0], 4), round(ratio[1], 4)],
+        "dispersion": {k: round(v, 2) for k, v in disp.items()}, "markets": markets,
     }, ensure_ascii=False, indent=1), "utf-8")
     logger.info("kiírva: %s", OUT)
     return 0

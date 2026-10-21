@@ -197,7 +197,13 @@ function analysisBlock(m) {
     h("div", {}, h("b", {}, "Várható gólok: "), `${m.home} ${n(a.xg_home)}, ${m.away} ${n(a.xg_away)} (összesen ${n(a.xg_home + a.xg_away)})`),
     h("div", {}, h("b", {}, "Mindkét csapat lő gólt: "), pct(a.btts, 0), " · ", h("b", {}, "Legalább 3 gól: "), pct(a.over25, 0)),
     h("div", {}, h("b", {}, "Legvalószínűbb eredmény: "), a.top_scores.map(([sc, p]) => `${sc.replace("-", "–")} (${pct(p, 0)})`).join(", ")),
-    h("div", { class: "src" }, "Forrás: ", a.source));
+    a.corners_mu != null || a.cards_mu != null ? h("div", {},
+      a.corners_mu != null ? [h("b", {}, "Várható szöglet: "), n(a.corners_mu)] : null,
+      a.corners_mu != null && a.cards_mu != null ? " · " : null,
+      a.cards_mu != null ? [h("b", {}, "Várható lap: "), n(a.cards_mu),
+        h("span", { class: "src", title: "A becslés minden sárga és piros lapot egynek számol; a TippmixPro szabálya a második sárgánál eltérhet." }, " (minden lap 1-nek számít)")] : null) : null,
+    h("div", { class: "src" }, "Forrás: ", a.source,
+      a.corners_mu != null ? " · szöglet/lap: csapatátlagok (football-data.co.uk)" : ""));
 }
 
 function oddButton(m, mk, o) {
@@ -467,7 +473,7 @@ function slipMaker({ key, fixed, auto }) {
     h("div", { class: "panel" },
       h("h2", {}, fixed ? `Szelvénykészítő — ${compName}` : "Szelvénykészítő"),
       h("p", { class: "muted tiny" }, fixed
-        ? `Csak ${compName}-meccsekből: öt stratégia, a legesélyesebb tippekkel, a TippmixPro szorzóival és kötéstiltás-ellenőrzésével.`
+        ? `Csak ${compName}-meccsekből: hat stratégia, a legesélyesebb tippekkel, a TippmixPro szorzóival és kötéstiltás-ellenőrzésével.`
         : "Válaszd ki a sorozatokat és a napokat: öt stratégiát rak össze a legesélyesebb tippekből (Fogadásépítővel, ahol kell), a TippmixPro szorzóival és kötéstiltás-ellenőrzésével."),
       fixed ? null : h("div", { class: "field" }, h("span", { class: "flabel" }, "Sorozatok"), chips),
       h("div", { class: "day-row" },

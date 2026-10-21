@@ -23,7 +23,7 @@ bajnokság. Két felülete van:
 A fő fülön tetszőleges sorozatokból (egy, több vagy mind), minden sorozat
 fülén csak abból a sorozatból. Kiválasztható a kezdőnap és hogy 1, 2 vagy 3
 napra szóljon (budapesti idő szerint); alapból az első olyan nap, ahol legalább
-3 meccs van. Öt stratégia, mindegyik a legesélyesebb meccsekből (`builder.py`):
+3 meccs van. Hat stratégia, mindegyik a legesélyesebb meccsekből (`builder.py`):
 
 | Változat | Meccsenként |
 |---|---|
@@ -32,12 +32,21 @@ napra szóljon (budapesti idő szerint); alapból az első olyan nap, ahol legal
 | Győztes + gólok | győztes + a vele együtt legvalószínűbb gólszám (Fogadásépítő) |
 | Gólos szelvény | győztes nélkül: a legvalószínűbb gólszám + „mindkét csapat szerez gólt” pár |
 | Teljes Fogadásépítő | győztes + gólszám + „mindkét csapat szerez gólt” |
-| Bármiből a legbiztosabb | a legnagyobb (visszamért) esélyű tipp bármelyik ellenőrzött piacból — kétesély, gólszám, hendikep, 1. félidő… —, legalább 1,20-as szorzóval |
+| Bármiből a legbiztosabb | a legnagyobb (visszamért) esélyű tipp bármelyik ellenőrzött piacból — kétesély, gólszám, hendikep, 1. félidő, szöglet, lap —, legalább 1,20-as szorzóval |
 
 Piacok a TippmixPro-ról: 1X2, kétesély, gólszám, mindkét csapat szerez gólt, DNB, háromesélyes
 hendikep (a vonal mindig a hazai kimenetelből: a döntetlen paramétere a vendég vonala), 1X2 és
-gólszám az 1. félidőre (a félidős gólvárható érték a visszamért félidős aránnyal). Szöglet és lap
-még nincs: ezek csak a meccsnapon nyílnak meg, és csapatszintű modellt igényelnek (lásd sample/README.md).
+gólszám az 1. félidőre (a félidős gólvárható érték a visszamért félidős aránnyal).
+
+**Szöglet és lap** (`teamstats.py`, `footballdata.py`): a TippmixPro csak a meccsnap körül írja ki
+őket, a meccs saját oldalán (`tippmix.fetch_extras`), ezért csak a 36 órán belül kezdődő meccsekre
+kérdezzük, 10 perces gyorsítótárral, a háttérben (az oldal nem vár rá). A várható érték csapatszintű:
+a football-data.co.uk aktuális + előző (fél súlyú) évadának szöglet- és lapadataiból, hazai/vendég
+támadó és engedő szorzókkal; az eloszlás negatív binomiális (a szóródást a visszamérés becsüli).
+Csak akkor van becslés, ha mindkét csapat ugyanabból a négy bajnokságból (PL, La Liga, Bundesliga,
+portugál) ismert — BL/EL-ben két különböző bajnokság csapatánál, vagy más ligás csapatnál nincs, és
+a tipp nem kerül a „Bármiből" stratégiába. Minden lap egynek számít (sárga és piros); a TippmixPro
+lapszabálya a második sárgánál eltérhet. Fogadásépítő-kombinációba nem kerül (nem a gólmátrixból jön).
 
 Esély-mód (`resolve_min_prob`):
 
@@ -70,7 +79,9 @@ liga; záró piaci átlagszorzók és eredmények) minden régi meccsre ugyanazt
 az oldal, és összeveti a valós eredménnyel. A korrekciót (isotonic regresszió) a 2024/25-ös
 évadon illeszti, a 2025/26-oson méri; csak ott használja, ahol a külön évadon valóban javít.
 Egy piac (és a hozzá tartozó szelvénystratégia) akkor ajánlható, ha a mérési évadon az átlagos
-eltérés legfeljebb 3% — különben a szelvénykészítő kikapcsolja. Az eredmény a `calibration.json`,
+eltérés legfeljebb 3% — különben a szelvénykészítő kikapcsolja. A szöglet- és lapmodellt időben
+előre haladva méri: minden meccset csak az addigi meccsekből becsül (a 2025/26-os mérésnél szöglet
+1,0%, lap 1,8% átlagos eltérés). Az eredmény a `calibration.json`,
 amit évadonként egyszer újra kell futtatni:
 
 ```bash

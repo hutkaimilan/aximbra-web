@@ -50,8 +50,12 @@ MARKETS = {
     ("8", REGULAR_TIME): ("hcp", "Hendikep"),           # háromesélyes (európai) hendikep
     ("69", FIRST_HALF): ("ht1x2", "1X2 - 1. félidő"),
     ("47", FIRST_HALF): ("htou", "Gólszám - 1. félidő"),
+    # csak a meccs saját oldalán (fetch_extras), és csak a meccsnap körül
+    ("118", REGULAR_TIME): ("corners", "Szögletszám"),
+    ("185", REGULAR_TIME): ("cards", "Büntetőlap-szám"),
 }
-MARKET_ORDER = ["1x2", "dc", "ou", "btts", "dnb", "hcp", "ht1x2", "htou"]
+MARKET_ORDER = ["1x2", "dc", "ou", "btts", "dnb", "hcp", "ht1x2", "htou", "corners", "cards"]
+EXTRA_GROUPS = ("Szogletek", "Lapok")
 PICKS = {
     "1x2": {"home": "1", "draw": "X", "away": "2"},
     "dc": {"home_draw": "1X", "away_draw": "X2", "home_away": "12"},
@@ -61,11 +65,13 @@ PICKS = {
     "hcp": {"home": "1", "draw": "X", "away": "2"},
     "ht1x2": {"home": "1", "draw": "X", "away": "2"},
     "htou": {"over": "Több", "under": "Kevesebb"},
+    "corners": {"over": "Több", "under": "Kevesebb"},
+    "cards": {"over": "Több", "under": "Kevesebb"},
 }
 ORDER = {"1x2": ["1", "X", "2"], "dc": ["1X", "X2", "12"], "ou": ["Több", "Kevesebb"],
          "btts": ["Igen", "Nem"], "dnb": ["1", "2"], "hcp": ["1", "X", "2"], "ht1x2": ["1", "X", "2"],
-         "htou": ["Több", "Kevesebb"]}
-LINE_MARKETS = {"ou", "htou"}  # x,5-ös gólvonal
+         "htou": ["Több", "Kevesebb"], "corners": ["Több", "Kevesebb"], "cards": ["Több", "Kevesebb"]}
+LINE_MARKETS = {"ou", "htou", "corners", "cards"}  # x,5-ös vonal
 
 
 @dataclass(frozen=True)
@@ -231,6 +237,27 @@ def parse_matches(records: list, comp_key: str, now: datetime | None = None) -> 
     for m in out:
         m.outcomes.sort(key=lambda o: (MARKET_ORDER.index(o.market), o.line or 0, ORDER[o.market].index(o.pick)))
     return sorted(out, key=lambda m: m.kickoff)
+
+
+def fetch_extras(session: Session, match_id: str, now: datetime | None = None) -> list[Outcome]:
+    """Szöglet- és lappiacok egy meccs saját oldaláról (event/<id>/market-groups → match-odds/market-group/<kulcs>).
+
+    A bajnokság-áttekintőben nincsenek benne, és a TippmixPro csak a meccsnap körül írja ki őket.
+    """
+    if not match_id.isdigit():
+        raise ValueError("hibás meccsazonosító")
+    groups = {g.get("groupKey") for g in session.dump(f"{TOPIC}/event/{match_id}/market-groups")}
+    records = []
+    for key in EXTRA_GROUPS:
+        if key in groups:
+            records += session.dump(f"{TOPIC}/{match_id}/match-odds/market-group/{key}")
+    # A meccsrekord a csoportválaszokban is benne van, így ugyanaz a feldolgozás használható.
+    ms = parse_matches(records, "", now=now)
+    out = []
+    for m in ms:
+        if m.id == match_id:
+            out = [o for o in m.outcomes if o.market in ("corners", "cards")]
+    return out
 
 
 def fetch_competition(session: Session, comp: Competition) -> list[TMMatch]:

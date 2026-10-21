@@ -32,6 +32,7 @@ from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
 
 import espn
+import footballdata
 import markets
 import names
 import odds_api
@@ -40,6 +41,7 @@ import calibration
 import insight
 import labels
 import slip
+import teamstats
 import tippmix
 import value
 from config import DEFAULT_BOOKMAKERS, load_rules, load_strategy
@@ -53,6 +55,10 @@ TIPPMIX_TTL = int(os.environ.get("TIPPMIX_CACHE_SECONDS", "180"))
 ODDS_TTL = int(os.environ.get("ODDS_CACHE_MINUTES", "120")) * 60
 FIXTURES_TTL = 30 * 60
 TEAM_TTL = 6 * 3600
+EXTRAS_TTL = 10 * 60          # szöglet/lap szorzók: a meccsnapon mozognak, de nem percenként
+EXTRAS_HOURS = 36             # a TippmixPro csak a meccsnap körül írja ki őket; korábban fölösleges kérdezni
+FD_TTL = 12 * 3600            # football-data: hetente frissül
+STAT_SPAN = {"corners": 2.5, "cards": 2.0}  # a kártyán csak a várható érték ± ennyi körüli vonalak
 SESSION_DAYS = 30
 MAX_BODY = 64 * 1024
 MAX_SLIP = 20
@@ -96,6 +102,11 @@ class Cache:
                     self._data.pop(oldest, None)
                 self._data[key] = (time.time(), val)
             return val, self._data[key][0], None
+
+    def peek(self, key):
+        """(érték, időbélyeg) töltés nélkül, akár elavultan is; vagy None."""
+        hit = self._data.get(key)
+        return (hit[1], hit[0]) if hit else None
 
     def drop(self, key):
         with self._guard:
@@ -148,6 +159,100 @@ def _load_sharp(comp: tippmix.Competition) -> tuple[list, str]:
     return analyses, status
 
 
+def _load_extras(match_ids: tuple) -> dict:
+    """{meccsazonosító: [Outcome]} a szöglet- és lappiacokkal, 3 szálon, szálanként egy kapcsolattal.
+
+    Egy-egy meccs hibája csak azt a meccset hagyja ki; ha mind hibás, kivétel — a gyorsítótár
+    ilyenkor a legutóbbi sikeres eredményt adja vissza.
+    """
+    chunks = [match_ids[i::3] for i in range(3)]
+
+    def run(ids):
+        res, errs = {}, 0
+        with tippmix.Session() as s:
+            for mid in ids:
+                try:
+                    res[mid] = tippmix.fetch_extras(s, mid)
+                except (tippmix.TippmixError, ValueError) as e:
+                    errs += 1
+                    logger.info("szöglet/lap (%s): %s", mid, e)
+        return res, errs
+
+    out, errors = {}, 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
+        for f in [ex.submit(run, c) for c in chunks if c]:
+            try:
+                res, errs = f.result()
+            except tippmix.TippmixError as e:  # a kapcsolat sem jött létre
+                logger.info("szöglet/lap kapcsolat: %s", e)
+                errors += 1
+                continue
+            out.update(res)
+            errors += errs
+    if match_ids and not out and errors:
+        raise tippmix.TippmixError("a szöglet/lap piacok nem tölthetők")
+    return out
+
+
+_BG_LOADING: set = set()
+_BG_GUARD = threading.Lock()
+
+
+def _background(key, ttl: float, loader):
+    """A gyorsítótárazott érték (akár elavultan) várakozás nélkül; ha nincs vagy lejárt, a háttérben tölti.
+
+    A szöglet/lap kiegészítők lassúak (meccsenként 2–3 lekérés, football-data ~10 s), és nélkülük is
+    teljes az oldal: ébredés utáni első kérésnél így nem vár a felhasználó, a következő frissítéstől látszanak.
+    """
+    hit = CACHE.peek(key)
+    if hit is None or time.time() - hit[1] >= ttl:
+        with _BG_GUARD:
+            start = key not in _BG_LOADING
+            _BG_LOADING.add(key)
+        if start:
+            def run():
+                try:
+                    CACHE.get(key, ttl, loader)
+                except Exception as e:  # noqa: BLE001 — háttérszál: a hiba csak naplóba megy, a kiegészítő kimarad
+                    logger.info("háttérbetöltés (%s): %s", key, e)
+                finally:
+                    with _BG_GUARD:
+                        _BG_LOADING.discard(key)
+            threading.Thread(target=run, daemon=True).start()
+    return hit[0] if hit else None
+
+
+def _extras_for(tm: dict) -> dict:
+    """A következő EXTRAS_HOURS órában kezdődő meccsek szöglet/lap piacai."""
+    now = datetime.now(timezone.utc)
+    ids = tuple(sorted(m.id for ms in tm["matches"].values() for m in ms
+                       if now - timedelta(hours=2) <= m.kickoff <= now + timedelta(hours=EXTRAS_HOURS)))
+    if not ids:
+        return {}
+    # Egy kulcs a teljes listára: új meccs belépésekor (ritka) az egész újratölt, közben a régi lista szolgál.
+    val = _background("extras", EXTRAS_TTL, lambda: _load_extras(ids))
+    return {k: v for k, v in (val or {}).items() if k in ids}
+
+
+def _football_data():
+    return _background("fd", FD_TTL, footballdata.load)
+
+
+def _stat_lines(outcomes: list, mu: dict | None) -> list:
+    """Szöglet/lap: csak a várható érték körüli vonalak (becslés nélkül a kínálat középső vonalai)."""
+    out = []
+    for key, span in STAT_SPAN.items():
+        os_ = [o for o in outcomes if o.market == key]
+        if not os_:
+            continue
+        center = (mu or {}).get(key)
+        if center is None:
+            lines = sorted({o.line for o in os_})
+            center = lines[len(lines) // 2]
+        out += [o for o in os_ if abs(o.line - center) <= span]
+    return out
+
+
 def _group(outcomes) -> list:
     groups = []
     for o in outcomes:
@@ -192,6 +297,9 @@ def build_state() -> dict:
     fair_status, errors = [], []
     if err:
         errors.append(f"A TippmixPro-adat nem frissült ({err}); a legutóbbi sikeres lekérdezést látod.")
+    extras = _extras_for(tm)
+    fd = _football_data() if extras else None  # szöglet/lap modell csak akkor kell, ha van ilyen piac
+    disp = CAL.data.get("dispersion") or {}
     comps = []
     for comp in tippmix.COMPETITIONS:
         ms = tm["matches"].get(comp.key, [])
@@ -220,8 +328,9 @@ def build_state() -> dict:
         for m in ms:
             fx = espn_map.get(m.id)
             a = fair_map.get(m.id)
+            mu = footballdata.expected(fd, m.home, m.away, comp.key) if fd and m.id in extras else None
             mk = []
-            for g in _group(m.outcomes):
+            for g in _group(list(m.outcomes) + _stat_lines(extras.get(m.id, []), mu)):
                 outs = []
                 for o in g["outcomes"]:
                     item = {"id": o.offer_id, "pick": o.pick, "odds": o.odds,
@@ -237,6 +346,10 @@ def build_state() -> dict:
             an = insight.from_sharp(a) if a else insight.from_tippmix(m)
             if an:
                 an = _calibrated(an)
+                for key in teamstats.STATS:
+                    if mu and mu.get(key):
+                        an[f"{key}_mu"] = mu[key]
+                        an[f"disp_{key}"] = float(disp.get(key) or 1e6)
             entry["matches"].append({
                 "id": m.id, "home": m.home, "away": m.away, "kickoff": m.kickoff.isoformat(),
                 "margin": round(sum(1 / x for x in one_x_two) - 1, 4) if len(one_x_two) == 3 else None,

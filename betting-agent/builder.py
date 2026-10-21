@@ -1,6 +1,6 @@
 """Fogadásépítős szelvények a legesélyesebb tippekből, a TippmixPro szelvényének mintájára.
 
-Öt stratégia (VERSIONS). A Fogadásépítős változatoknál meccsenként egy csoport:
+Hat stratégia (VERSIONS). A Fogadásépítős változatoknál meccsenként egy csoport:
 előbb a győztes, aztán az a gólszám-oldal, amelyik a győztessel EGYÜTT a
 legvalószínűbb, végül az a „mindkét csapat szerez gólt" válasz, amelyik
 mindezzel együtt a legvalószínűbb. Az
@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 
 import names
 import poisson
+import teamstats
 
 # (név, stratégia, meccsek száma célszorzó nélkül, leírás)
 VERSIONS = (
@@ -27,11 +28,13 @@ VERSIONS = (
     ("Gólos szelvény", "goals", 3, "Győztes nélkül: a legvalószínűbb gólszám és „mindkét csapat szerez gólt” együtt."),
     ("Teljes Fogadásépítő", "full", 2, "Győztes, gólszám és „mindkét csapat szerez gólt”, Fogadásépítőben."),
     ("Bármiből a legbiztosabb", "any", 3,
-     "Meccsenként a legvalószínűbb tipp bármelyik ellenőrzött piacból (kétesély, gólszám, hendikep, félidő…), "
+     "Meccsenként a legvalószínűbb tipp bármelyik ellenőrzött piacból (kétesély, gólszám, hendikep, félidő, "
+     "szöglet, lap…), "
      "legalább 1,20-as szorzóval."),
 )
 ANY_MIN_ODDS = 1.20  # a „Bármiből" stratégiában: 1,20 alatt a tipp alig ad szorzót
-HT_MARKETS = {"ht1x2": "1x2", "htou": "ou"}  # 1. félidős piac → ugyanaz a feltétel, a félidős mátrixon
+HT_MARKETS = {"ht1x2": "1x2", "htou": "ou"}
+STAT_MARKETS = tuple(teamstats.STATS)  # szöglet, lap: nem a gólmátrixból, hanem a csapatstatisztikából  # 1. félidős piac → ugyanaz a feltétel, a félidős mátrixon
 KINDS = {v[1] for v in VERSIONS}
 # stratégia → a calibration.json piackulcsa (a „safe" kétesély, a „win" 1X2-tipp). Az „any" tippenként a
 # saját piaca szerint kalibrál, ezért nincs egyetlen kulcsa.
@@ -149,7 +152,8 @@ def options(match: dict) -> dict:
 def single_probs(match: dict) -> list[tuple[dict, float]]:
     """Minden egyes tipp esélye a meccs gólmodelljéből (a félidős piacok a félidős mátrixból).
 
-    A DNB kimarad: döntetlennél visszajár a tét, nem kétkimenetelű fogadás.
+    A DNB kimarad: döntetlennél visszajár a tét, nem kétkimenetelű fogadás. A szöglet és a lap a
+    csapatstatisztika várható értékéből, negatív binomiálissal (csak ha van becslés a meccsre).
     """
     a = match.get("analysis")
     if not a:
@@ -158,6 +162,12 @@ def single_probs(match: dict) -> list[tuple[dict, float]]:
     ht = poisson.score_matrix(a["xg_ht_home"], a["xg_ht_away"]) if "xg_ht_home" in a else None
     out = []
     for o in _outcomes(match).values():
+        if o["market"] in STAT_MARKETS:
+            mu = a.get(f"{o['market']}_mu")
+            if mu and o["line"] is not None:
+                over = teamstats.over_prob(mu, a.get(f"disp_{o['market']}", 1e6), o["line"])
+                out.append((o, over if o["pick"] == "Több" else 1.0 - over))
+            continue
         if o["market"] == "dnb" or (o["market"] in HT_MARKETS and ht is None):
             continue
         mat = ht if o["market"] in HT_MARKETS else ft

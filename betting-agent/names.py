@@ -38,6 +38,8 @@ ALIASES = {
     "e frankfurt": "eintracht frankfurt",
     "monchengladbach": "borussia monchengladbach",
     "gladbach": "borussia monchengladbach",
+    "m gladbach": "borussia monchengladbach",   # football-data: „M'gladbach"
+    "sp lisbon": "sporting cp",                 # football-data: „Sp Lisbon"
     "sp lisszabon": "sporting cp",
     "sporting": "sporting cp",
     "sp braga": "braga",

@@ -10,6 +10,9 @@ def _ln(x: float) -> str:
     return f"{x:+g}".replace(".", ",")
 
 
+STAT_NOUN = {"corners": "szöglet", "cards": "lap"}
+
+
 def short(market: str, pick: str, home: str, away: str, line: float | None = None) -> str:
     """A tipp neve úgy, ahogy a TippmixPro szelvényén áll („Real Madrid", „Több, mint 2,5", „Igen")."""
     if market in ("1x2", "dnb", "ht1x2"):
@@ -22,7 +25,7 @@ def short(market: str, pick: str, home: str, away: str, line: float | None = Non
         return f"Több, mint {ln}" if pick == "Több" else f"Kevesebb, mint {ln}"
     if market == "dc":
         return {"1X": f"{home} vagy döntetlen", "X2": f"{away} vagy döntetlen", "12": f"{home} vagy {away}"}[pick]
-    if market == "ou":
+    if market in ("ou", "corners", "cards"):
         ln = str(line or 2.5).replace(".", ",")
         return f"Több, mint {ln}" if pick == "Több" else f"Kevesebb, mint {ln}"
     if market == "btts":
@@ -42,6 +45,10 @@ def sentence(market: str, pick: str, home: str, away: str, line: float | None = 
                 "12": "Nem lesz döntetlen (valamelyik csapat nyer)"}[pick]
     if market == "ou":
         return _goals(line or 2.5, pick == "Több") + " lesz a meccsen"
+    if market in STAT_NOUN:
+        n = int((line or 0.5) + 0.5)  # 9,5 → 10
+        what = STAT_NOUN[market]
+        return f"Legalább {n} {what} lesz a meccsen" if pick == "Több" else f"Legfeljebb {n - 1} {what} lesz a meccsen"
     if market == "btts":
         return "Mindkét csapat lő gólt" if pick == "Igen" else "Legalább az egyik csapat nem lő gólt"
     if market == "ht1x2":
