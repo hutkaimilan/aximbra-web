@@ -32,21 +32,30 @@ export const CONTROLLER_ADDRESS_DE =
   `${CONTROLLER.addressLine}, ${CONTROLLER.postcode} ${CONTROLLER.city}, Ungarn`;
 
 /** A tájékoztató hatálybalépése. Frissítsd, ha érdemi változás történik. */
-export const LEGAL_UPDATED = "2026. október 16.";
-export const LEGAL_UPDATED_EN = "16 October 2026";
-export const LEGAL_UPDATED_DE = "16. Oktober 2026";
+export const LEGAL_UPDATED = "2026. október 21.";
+export const LEGAL_UPDATED_EN = "21 October 2026";
+export const LEGAL_UPDATED_DE = "21. Oktober 2026";
 
 /** Adatfeldolgozók — mind a kódból, nem emlékezetből. Az angol oszlopok az
  *  angol fordításhoz kellenek; a két nyelv egy sorban áll, hogy ne csússzon el. */
 export const PROCESSORS = [
   {
     name: "Railway Corp.",
-    role: "Tárhely és futtatókörnyezet (a weboldal és az API)",
+    role: "Futtatókörnyezet: az API és az agentek (bemutatók, telefon, űrlapok)",
     where: "Amszterdam, Hollandia (EU)",
-    roleEn: "Hosting and runtime (the website and the API)",
+    roleEn: "Runtime: the API and the agents (demos, phone, forms)",
     whereEn: "Amsterdam, the Netherlands (EU)",
-    roleDe: "Hosting und Laufzeitumgebung (Website und API)",
+    roleDe: "Laufzeitumgebung: API und Agenten (Demos, Telefon, Formulare)",
     whereDe: "Amsterdam, Niederlande (EU)",
+  },
+  {
+    name: "Cloudflare, Inc.",
+    role: "A weboldal kiszolgálása és a domain névfeloldása (DNS)",
+    where: "Egyesült Államok; a kiszolgálás a látogatóhoz legközelebbi adatközpontból",
+    roleEn: "Serving the website and the domain's name resolution (DNS)",
+    whereEn: "United States; served from the data centre nearest the visitor",
+    roleDe: "Auslieferung der Website und Namensauflösung der Domain (DNS)",
+    whereDe: "Vereinigte Staaten; Auslieferung aus dem nächstgelegenen Rechenzentrum",
   },
   {
     name: "Google LLC (Gemini API)",

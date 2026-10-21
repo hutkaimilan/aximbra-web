@@ -109,11 +109,12 @@ function AdatkezelesHu({ lang }) {
             nem kerül, és egy óra után nyom nélkül elévül.
           </p>
           <p>
-            Ettől függetlenül a <b>tárhelyszolgáltató</b> (Railway) minden kéréshez
-            saját üzemeltetési naplót vezet: ebben szerepel a kérés ideje, a hívott
-            cím, a válasz kódja, a böngésző azonosítója és a kérés IP-címe. Ezt a
-            naplót a szolgáltató kezeli a saját megőrzési ideje szerint; mi olvasni
-            tudjuk hibakereséskor, törölni nem.
+            Ettől függetlenül a <b>tárhelyszolgáltatók</b> (a weboldalnál a Cloudflare,
+            az API-nál és az agenteknél a Railway) minden kéréshez saját üzemeltetési
+            naplót vezetnek: ebben szerepel a kérés ideje, a hívott cím, a válasz
+            kódja, a böngésző azonosítója és a kérés IP-címe. Ezt a naplót a
+            szolgáltatók kezelik a saját megőrzési idejük szerint; mi olvasni tudjuk
+            hibakereséskor, törölni nem.
             Jogalap: jogos érdek (GDPR 6. cikk (1) f) — a szolgáltatás működőképesen
             tartása és a visszaélés megakadályozása.
           </p>

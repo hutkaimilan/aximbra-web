@@ -99,11 +99,12 @@ export default function PrivacyEn({ lang }) {
             after one hour.
           </p>
           <p>
-            Separately, the <b>hosting provider</b> (Railway) keeps its own operational log
-            of every request: the time of the request, the address called, the response
-            code, the browser identifier and the request's IP address. The provider keeps
-            this log under its own retention period; we can read it when debugging, but
-            cannot delete it.
+            Separately, the <b>hosting providers</b> (Cloudflare for the website, Railway
+            for the API and the agents) keep their own operational log of every request:
+            the time of the request, the address called, the response code, the browser
+            identifier and the request's IP address. The providers keep this log under
+            their own retention periods; we can read it when debugging, but cannot
+            delete it.
             Legal basis: legitimate interest (GDPR Art. 6(1)(f)) — keeping the service
             running and preventing abuse.
           </p>

@@ -93,10 +93,11 @@ export default function PrivacyDe({ lang }) {
             geschrieben und verfällt nach einer Stunde spurlos.
           </p>
           <p>
-            Unabhängig davon führt der <b>Hosting-Anbieter</b> (Railway) ein eigenes
-            Betriebsprotokoll jeder Anfrage: Zeitpunkt, aufgerufene Adresse, Antwortcode,
-            Browserkennung und IP-Adresse. Der Anbieter bewahrt dieses Protokoll nach seiner
-            eigenen Frist auf; wir können es bei der Fehlersuche lesen, aber nicht löschen.
+            Unabhängig davon führen die <b>Hosting-Anbieter</b> (Cloudflare für die Website,
+            Railway für API und Agenten) ein eigenes Betriebsprotokoll jeder Anfrage:
+            Zeitpunkt, aufgerufene Adresse, Antwortcode, Browserkennung und IP-Adresse. Die
+            Anbieter bewahren dieses Protokoll nach ihren eigenen Fristen auf; wir können es
+            bei der Fehlersuche lesen, aber nicht löschen.
             Rechtsgrundlage: berechtigtes Interesse (Art. 6 Abs. 1 lit. f DSGVO) — Betrieb des
             Dienstes und Schutz vor Missbrauch.
           </p>

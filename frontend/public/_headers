@@ -1,0 +1,15 @@
+# Cloudflare Pages fejlécek. A Railway-es `serve` nem olvassa, ott hatástalan.
+#
+# A /static/ alatti fájlok nevében benne van a tartalom lenyomata
+# (main.45666c53.js), ezért örökre gyorsítótárazhatók: új build új nevet ad.
+# Az index.html-t a Pages magától újraellenőrizteti, így egy telepítés után a
+# látogató azonnal az új verziót kapja.
+/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/media/*
+  Cache-Control: public, max-age=86400
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
