@@ -61,6 +61,7 @@ import {
   type Lang,
 } from './routing.js';
 import { escapeXml } from './xml.js';
+import { MarkerFilter, hangupDelayMs, stripMarker } from './hangup.js';
 
 const cfg = env();
 
@@ -709,6 +710,8 @@ interface Session {
   /** Amit az aktualis fordulobol mar kikuldtunk a Twilionak. */
   streamed: string;
   timer: NodeJS.Timeout | null;
+  /** Elkoszones utan a bontas idozitoje; uj hivoi mondat leallitja. */
+  hangup: NodeJS.Timeout | null;
   closed: boolean;
   /** Amit a hivas soran mar megtudtunk a hivorol. */
   facts: CallFacts;
@@ -763,6 +766,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     abort: null,
     streamed: '',
     timer: null,
+    hangup: null,
     closed: false,
     facts: emptyFacts(),
     extracting: false,
@@ -851,6 +855,29 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     })();
   };
 
+  /**
+   * Bontas, miutan az elkoszones elhangzott.
+   *
+   * A Twilio a szoveget menet kozben olvassa fel, igy a stream vege nem a
+   * felolvasas vege: kivarjuk, amig a bucsu becslesunk szerint elhangzik.
+   * A socket bezarasa lezarja a ConversationRelay-t, a TwiML-ben utana nincs
+   * tobb utasitas, igy a Twilio leteszi a hivast - ugyanugy, mint az
+   * idokorlatnal.
+   *
+   * Ha a hivo kozben meg mond valamit, a bontas elmarad (lasd 'prompt').
+   */
+  const scheduleHangup = (spoken: string): void => {
+    if (s.hangup) clearTimeout(s.hangup);
+    const wait = hangupDelayMs(spoken);
+    console.log(`[ws] elkoszones, bontas ${wait}ms mulva callSid=${s.callSid}`);
+    s.hangup = setTimeout(() => {
+      s.hangup = null;
+      if (s.closed || ws.readyState !== ws.OPEN) return;
+      console.log(`[ws] bontas elkoszones utan callSid=${s.callSid}`);
+      ws.close(1000, 'goodbye');
+    }, wait);
+  };
+
   /** Egy fordulo kimondasa, tokenenkent tovabbitva. */
   const speakReply = async (): Promise<void> => {
     const ac = new AbortController();
@@ -858,18 +885,29 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     s.streamed = '';
     s.speaking = true;
 
+    // A bontas jele (END_CALL_MARKER) nem hangozhat el: a szuro kiveszi.
+    const filter = new MarkerFilter();
     try {
       const full = await replyStream(
         s.history,
         buildSystemPrompt(cfg.currentProjects, s.facts, s.from, s.lang, s.history),
         (delta) => {
-          s.streamed += delta;
-          send(delta, false);
+          const out = filter.push(delta);
+          if (!out) return;
+          s.streamed += out;
+          send(out, false);
         },
         { signal: ac.signal, maxTokens: 200, temperature: 0.3, timeoutMs: 12_000 },
       );
+      const rest = filter.flush();
+      if (rest) {
+        s.streamed += rest;
+        send(rest, false);
+      }
       send('', true);
-      s.history.push({ role: 'assistant', content: full });
+      const spoken = stripMarker(full);
+      s.history.push({ role: 'assistant', content: spoken });
+      if (filter.found) scheduleHangup(spoken);
     } catch (err) {
       if (ac.signal.aborted) {
         // Felbeszakitottak. Amit tenylegesen kimondtunk, az kerul a
@@ -1056,6 +1094,14 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
       const text = typeof msg['voicePrompt'] === 'string' ? msg['voicePrompt'].trim() : '';
       if (!text) return;
 
+      // Elkoszontunk, de a hivo meg mond valamit: nem bontunk ra. Ha csak
+      // visszakoszont, a modell ujra elkoszon, es akkor bontunk.
+      if (s.hangup) {
+        clearTimeout(s.hangup);
+        s.hangup = null;
+        console.log(`[ws] bontas elhalasztva, a hivo meg beszel callSid=${s.callSid}`);
+      }
+
       s.queue.push(text);
       await drain();
     })();
@@ -1069,6 +1115,10 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     if (s.timer) {
       clearTimeout(s.timer);
       s.timer = null;
+    }
+    if (s.hangup) {
+      clearTimeout(s.hangup);
+      s.hangup = null;
     }
     callEnded();
 

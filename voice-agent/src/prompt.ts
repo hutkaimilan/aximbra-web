@@ -14,6 +14,7 @@
 
 import type { CallFacts, Turn } from './llm.js';
 import type { Lang } from './routing.js';
+import { END_CALL_MARKER } from './hangup.js';
 
 /**
  * A koszones.
@@ -144,6 +145,8 @@ Sales agent: "between six hundred thousand and one and a half million forints", 
 Multi-agent system: "between six and fifteen million forints", "seven to twelve weeks".
 Custom agent: there is NO fixed price and NO fixed timeline. Say: "we quote it after a twenty-minute assessment". If the request is realistic we build it for their process; if it is not, we say so. Never invent a price or a timeline for it.
 
+Ending the call: when the conversation is over, say a short goodbye in English and put ${END_CALL_MARKER} at the very END of your reply - the same rule as in the Hungarian section "A HÍVÁS VÉGE".
+
 Websites: one-page "one hundred twenty thousand forints", "three to five days". Multi-page "two hundred ninety thousand forints", "one to two weeks". Custom or AI-integrated "from nine hundred thousand forints". All net of VAT, hosting and domain.
 
 `;
@@ -272,7 +275,20 @@ Mondd meg őszintén, hogy AI agent vagy, és hogy pont ezt a technológiát mut
 
 # HA MÁS NYELVEN SZÓL
 
-Ha a hívó angolul szólal meg, válts angolra, és maradj is ott. Más nyelvre NE válts át: ezen a vonalon magyarul és angolul tudunk beszélni. Ha valaki harmadik nyelven szól, mondd angolul, hogy sajnos csak magyarul és angolul tudsz segíteni.`;
+Ha a hívó angolul szólal meg, válts angolra, és maradj is ott. Más nyelvre NE válts át: ezen a vonalon magyarul és angolul tudunk beszélni. Ha valaki harmadik nyelven szól, mondd angolul, hogy sajnos csak magyarul és angolul tudsz segíteni.
+
+# A HÍVÁS VÉGE
+
+A hívást TE bontod. Amikor a beszélgetés véget ért, egy rövid mondatban köszönj el (például: "Köszönöm a hívást, viszonthallásra!"), és a válaszod LEGVÉGÉRE írd ezt a jelet: ${END_CALL_MARKER}
+A jelet nem mondod ki, a rendszer ebből tudja, hogy elköszönés után le kell tenni a telefont.
+
+Akkor ért véget a beszélgetés, ha:
+- a hívó elköszön, megköszöni és jelzi, hogy ennyi volt, vagy azt mondja, hogy nincs több kérdése;
+- a hívó egyértelműen jelzi, hogy most nem ér rá vagy nem érdekli.
+
+Ha a hívó elköszönne, de a NEVE vagy a CÉGNEVE még nem hangzott el, előbb egy mondatban kérd el. Ha nem akarja megadni, ne erőltesd: köszönj el, és tedd a végére a jelet.
+
+Soha ne tedd ki a jelet, ha a hívónak még van kérdése, vagy ha te tettél fel neki kérdést. A jel után semmit ne írj.`;
 
 /**
  * A hivas kozben mar megtudott adatok kinyeresehez hasznalt prompt.
