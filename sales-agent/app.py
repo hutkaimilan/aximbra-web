@@ -393,8 +393,8 @@ def _demo_link(slug: str) -> str:
 
 
 def _demo_result(slug: str, page: dict, existing: bool) -> dict:
-    return {"slug": slug, "page_url": _demo_link(slug), "agent": page["main"]["name"],
-            "observation": (page.get("quote") or {}).get("text", ""), "generic": page["generic"],
+    return {"slug": slug, "page_url": _demo_link(slug), "agent": page["agent"]["name"],
+            "observation": (page.get("observation") or {}).get("quote", ""), "generic": page["generic"],
             "existing": existing}
 
 
@@ -444,7 +444,7 @@ def _make_demo_locked(target: str, dom: str, lang: str, company: str, lead_id: i
         logger.warning("demóoldal: modellhiba: %s", e)
         raise HTTPException(503, "A nyelvi modell most nem elérhető, próbáld újra pár perc múlva.")
     if not page["generic"] and not decision:
-        store.demo_decide(dom, page["main"]["id"], [e["id"] for e in page["extras"]])
+        store.demo_decide(dom, page["agent"]["id"], [e["id"] for e in page["secondary"]])
     if slug:
         store.demo_replace(slug, page)
     else:

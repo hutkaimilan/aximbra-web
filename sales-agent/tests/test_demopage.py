@@ -46,42 +46,47 @@ class FakeFetcher:
 GOOD_QUOTE = "Asztalfoglalást hétköznap délután négy óráig telefonon fogadunk, hétvégén csak e-mailben."
 
 ANALYSIS = {
-    "company": "Kert Bisztró", "site_language": "hu",
-    "summary": "Szegedi bisztró, asztalfoglalással és rendezvényekkel.",
-    "work": [{"task": "Foglalások felvétele telefonon", "evidence": "telefonon fogadunk"},
-             {"task": "Kitalált feladat", "evidence": "ilyen mondat nincs az oldalon"}],
-    "main": "phone", "main_reason": "A foglalás telefonon jön.",
-    "support_evidence": "",
-    "extras": [{"id": "email", "reason": "Hétvégén e-mailben foglalnak."},
-               {"id": "phone", "reason": "ugyanaz, mint a fő"}, {"id": "nincs-ilyen", "reason": "x"}],
-    "custom_idea": "", "quote": GOOD_QUOTE, "quote_paragraph": None,
+    "language": "hu", "company_name": "Kert Bisztró",
+    "what_they_do": "Szegedi bisztró, asztalfoglalással és rendezvényekkel.",
+    "audience": "szegedi vendégek", "repetitive_work": ["Foglalások felvétele telefonon"],
+    "observation": {"quote": GOOD_QUOTE, "page_url": "https://kertbisztro.hu/",
+                    "insight": "A foglalás nagy része telefonon jön."},
+    "support_evidence": None,
+    "main_agent": {"id": "phone", "reason": "A foglalás telefonon jön.",
+                   "what_it_does": "Felveszi a foglalási hívásokat, és összefoglalót küld."},
+    "secondary_agents": [{"id": "email", "reason": "Hétvégén e-mailben foglalnak."},
+                         {"id": "phone", "reason": "ugyanaz, mint a fő"}, {"id": "nincs-ilyen", "reason": "x"}],
+    "custom_agent_idea": None,
 }
 
-CALL_DEMO = {"steps": ["Felveszi", "Rögzíti", "Elküldi"],
-             "demo": {"lines": [{"who": "caller", "text": "Jó napot, asztalt foglalnék."},
-                                {"who": "agent", "text": "Hány főre és mikorra?"},
-                                {"who": "caller", "text": "Négy főre, péntek este hétre."},
-                                {"who": "agent", "text": "Rögzítettem, visszaigazolást küldök."}],
-                      "summary": "Foglalás: 4 fő, péntek 19:00."}}
+CONTENT = {
+    "hero_subtitle": "Egy AI-recepciós felveszi a foglalási hívásokat.",
+    "agent_pitch": "Felveszi a telefont, és rögzíti a foglalást.",
+    "agent_steps": ["Felveszi", "Rögzíti", "Elküldi"],
+    "demo": {"title": "Egy foglalási hívás", "intro": "Hallgasd meg.", "summary": "Foglalás: 4 fő, péntek 19:00.",
+             "items": [{"subtitle": "caller", "body": "Jó napot, asztalt foglalnék."},
+                       {"subtitle": "agent", "body": "Hány főre és mikorra?"},
+                       {"subtitle": "caller", "body": "Négy főre, péntek este hétre, a számom +36 30 123 4567."},
+                       {"subtitle": "agent", "body": "Rögzítettem, visszaigazolást küldök."}]},
+    "roi": {"hours_per_month": 25, "hourly_rate_huf": 7000, "assumptions": ["Havi 300 hívás", "2 perc hívásonként"]},
+    "price_text": "", "lead_text": "",
+    "quote_check": {"full_sentence": True, "has_verb": True},
+}
 
 
-def fake_llm(analysis=None, demo=CALL_DEMO, analyses=None):
-    """ask(): az elemző és a demó-prompt alapján más-más választ ad."""
+def fake_llm(analysis=None, content=CONTENT, analyses=None, contents=None):
+    """ask(): az elemző és a tartalomíró prompt alapján más-más választ ad."""
     seen = []
-    queue = list(analyses) if analyses else None
+    aq = list(analyses) if analyses else None
+    cq = list(contents) if contents else None
 
     def ask(prompt):
         seen.append(prompt)
-        if prompt.startswith("You analyse"):
-            a = queue.pop(0) if queue else analysis
-            if isinstance(a, str):
-                return a
-            a = dict(a)
-            if a.get("quote_paragraph") is None:
-                _, paras = demopage._site_digest(demopage.crawl("https://kertbisztro.hu/", FakeFetcher()))
-                a["quote_paragraph"] = next((i for i, p in enumerate(paras) if GOOD_QUOTE in p), -1)
-            return json.dumps(a, ensure_ascii=False)
-        return json.dumps(demo, ensure_ascii=False)
+        if prompt.startswith("You are a senior AI-automation consultant"):
+            a = aq.pop(0) if aq else analysis
+        else:
+            a = cq.pop(0) if cq else content
+        return a if isinstance(a, str) else json.dumps(a, ensure_ascii=False)
     return ask, seen
 
 
@@ -91,9 +96,9 @@ def public_hosts(monkeypatch):
 
 
 def build(analysis=ANALYSIS, **kw):
-    ask, seen = fake_llm(analysis, **{k: kw.pop(k) for k in ("demo", "analyses") if k in kw})
+    ask, seen = fake_llm(analysis, **{k: kw.pop(k) for k in ("content", "analyses", "contents") if k in kw})
     page = demopage.build_page("kertbisztro.hu", ask=ask, extract_json=llm.extract_json,
-                               fetcher=FakeFetcher(), **kw)
+                               fetcher=FakeFetcher(kw.pop("site", SITE)), **kw)
     return page, seen
 
 
@@ -276,25 +281,31 @@ def test_invalid_certificate_retries_without_verification(monkeypatch):
     assert g._one("https://masik.hu/") is None and calls == [True]
 
 
-# ---- demóadat -----------------------------------------------------------------
+# ---- katalógus és felület -----------------------------------------------------
 
-def test_clean_demo_shapes():
-    inbox = {"items": [{"from": "vevő", "subject": f"Tárgy {i}", "snippet": "x", "category": "c",
-                        "urgency": 9, "reply": "r"} for i in range(5)]}
-    assert all(i["urgency"] == 5 for i in demopage.clean_demo("inbox", inbox)["items"])
-    leads = {"items": [{"name": "A", "need": "n", "score": s, "grade": "z", "next": "x"} for s in (10, 90, 50)]}
-    out = demopage.clean_demo("leads", leads)["items"]
-    assert [x["score"] for x in out] == [90, 50, 10] and out[0]["grade"] == "C"
-    assert demopage.clean_demo("chat", {"messages": [{"role": "agent", "text": "x"}]}) is None
-    assert demopage.clean_demo("report", "nem dict") is None
-    assert demopage.clean_demo("inbox", {"items": [{"subject": "a", "urgency": "sok"}] * 3}) is None
-    doc = {"title": "t", "clauses": [{"text": "a", "risk": "weird"}] * 3}
-    assert {c["risk"] for c in demopage.clean_demo("document", doc)["clauses"]} == {"none"}
+def test_every_catalog_kind_has_a_demo_spec_and_the_ui_is_complete():
+    assert {a["kind"] for a in demopage.CATALOG.values()} <= set(demopage.KIND_SPEC)
+    assert set(demopage.HU_UI) == set(demopage.EN_UI)
+    assert set(demopage.FALLBACK) == {"hu", "en"}
+    for k, a in demopage.CATALOG.items():
+        assert a["name_en"] and a["price_en"] and a["lead_en"], k
 
 
-def test_every_catalog_kind_has_a_demo_shape():
-    assert {a["kind"] for a in demopage.CATALOG.values()} <= set(demopage.DEMO_SHAPES)
-    assert set(demopage.FALLBACK) == set(demopage.LANGS)
+def test_untranslated_names_fall_back_to_english_not_hungarian():
+    page, _ = build(lang="fr")
+    assert page["agent"]["name"] == "AI phone receptionist" and page["agent"]["lead_text"] == "on quote"
+    assert page["secondary"][0]["name"] == "Email triage agent"
+
+
+@pytest.mark.parametrize("name,title", [
+    ("Kert Bisztró", "Ezt csinálná egy AI agent a Kert Bisztró-nál"),
+    ("Optika Bt.", "Ezt csinálná egy AI agent az Optika Bt.-nél"),
+    ("123 Szerviz", "Ezt csinálná egy AI agent a(z) 123 Szerviz-nél"),
+    ("Kovács Kft.", "Ezt csinálná egy AI agent a Kovács Kft.-nél"),
+    ("Ablak Zrt", "Ezt csinálná egy AI agent az Ablak Zrt-nél"),
+])
+def test_hungarian_title_grammar(name, title):
+    assert demopage.title_and_footer(name, "hu", demopage.HU_UI, False)[0] == title
 
 
 # ---- összeállítás -------------------------------------------------------------
@@ -302,60 +313,89 @@ def test_every_catalog_kind_has_a_demo_shape():
 def test_build_page_keeps_only_verified_claims():
     page, _ = build()
     assert page["generic"] is False and page["company"] == "Kert Bisztró" and page["lang"] == "hu"
-    assert page["quote"] == {"text": GOOD_QUOTE, "url": "https://kertbisztro.hu/"}
-    assert page["work"] == ["Foglalások felvétele telefonon"]
-    assert page["main"]["id"] == "phone" and page["main"]["live"].startswith("tel:")
-    assert [e["id"] for e in page["extras"]] == ["email"]
-    assert page["demo"]["kind"] == "call" and len(page["demo"]["lines"]) == 4
-    assert page["main"]["steps"] == ["Felveszi", "Rögzíti", "Elküldi"]
+    assert page["title"] == "Ezt csinálná egy AI agent a Kert Bisztró-nál"
+    assert page["observation"]["quote"] == GOOD_QUOTE
+    assert page["observation"]["page_url"] == "https://kertbisztro.hu/"
+    assert page["agent"]["id"] == "phone" and page["agent"]["demo_url"].startswith("tel:")
+    assert [e["id"] for e in page["secondary"]] == ["email"]
+    assert page["demo"]["kind"] == "call" and len(page["demo"]["items"]) == 4
+    assert page["agent"]["steps"] == ["Felveszi", "Rögzíti", "Elküldi"]
+    assert page["roi"] == {"hours_per_month": 25, "hourly_rate_huf": 7000,
+                           "assumptions": ["Havi 300 hívás", "2 perc hívásonként"]}
+    assert page["ui"] == demopage.HU_UI and page["contact_email"] == "aximbra@gmail.com"
+    # Elérhetőség a kitalált példaadatban sem maradhat.
+    assert "123 4567" not in json.dumps(page, ensure_ascii=False)
 
 
 def test_invented_quote_is_dropped():
-    page, _ = build(dict(ANALYSIS, quote="Nálunk minden vendég ingyen kap desszertet a vacsorához."))
-    assert page["quote"] is None
+    a = dict(ANALYSIS, observation={"quote": "Nálunk minden vendég ingyen kap desszertet a vacsorához.",
+                                    "page_url": "https://kertbisztro.hu/", "insight": "x"})
+    assert build(a)[0]["observation"] is None
 
 
 def test_quote_from_menu_is_impossible():
-    a = dict(ANALYSIS, quote="Ez a menüben lévő mondat sosem lehet idézet, mert a fejlécben van.",
-             quote_paragraph=0)
-    page, _ = build(a)
-    assert page["quote"] is None
+    a = dict(ANALYSIS, observation={"quote": "Ez a menüben lévő mondat sosem lehet idézet, mert a fejlécben van.",
+                                    "page_url": "https://kertbisztro.hu/", "insight": "x"})
+    assert build(a)[0]["observation"] is None
+
+
+def test_quote_rejected_by_the_second_check_is_dropped():
+    page, _ = build(content=dict(CONTENT, quote_check={"full_sentence": False, "has_verb": True}))
+    assert page["observation"] is None
 
 
 def test_support_without_evidence_is_rechosen():
-    first = dict(ANALYSIS, main="support", support_evidence="Ügyfélszolgálatunk 0-24 elérhető")
-    second = dict(ANALYSIS, main="email")
-    page, seen = build(analyses=[first, second], demo={"steps": [], "demo": {}})
-    assert page["main"]["id"] == "email"
-    assert "Do NOT choose 'support'" in seen[1]
+    first = dict(ANALYSIS, main_agent={"id": "support", "reason": "r", "what_it_does": "w"},
+                 support_evidence={"quote": "Ügyfélszolgálatunk 0-24 elérhető", "page_url": ""})
+    second = dict(ANALYSIS, main_agent={"id": "email", "reason": "r", "what_it_does": "w"})
+    page, seen = build(analyses=[first, second])
+    assert page["agent"]["id"] == "email"
+    assert "must NOT be the main agent" in seen[1]
+
+
+def test_support_twice_falls_back_to_a_secondary_agent():
+    sup = dict(ANALYSIS, main_agent={"id": "support", "reason": "r", "what_it_does": "w"})
+    page, _ = build(analyses=[sup, sup])
+    assert page["agent"]["id"] == "email" and "support" not in [s["id"] for s in page["secondary"]]
 
 
 def test_support_with_evidence_is_kept():
-    a = dict(ANALYSIS, main="support", support_evidence="telefonon fogadunk")
-    page, _ = build(a, demo={"steps": [], "demo": {}})
-    assert page["main"]["id"] == "support"
+    a = dict(ANALYSIS, main_agent={"id": "support", "reason": "r", "what_it_does": "w"},
+             support_evidence={"quote": "telefonon fogadunk", "page_url": ""})
+    content = dict(CONTENT, demo={"title": "t", "intro": "i", "items": [{"title": "a", "body": "b", "output": "c"}] * 3})
+    assert build(a, content=content)[0]["agent"]["id"] == "support"
 
 
 def test_saved_decision_wins():
-    page, _ = build(decision={"main": "lead", "extras": ["docs", "lead", "rossz"]})
-    assert page["main"]["id"] == "lead" and [e["id"] for e in page["extras"]] == ["docs"]
-    assert page["main"]["reason"] == ""  # a modell indoklása másik agentre szólt
+    page, seen = build(decision={"main": "lead", "extras": ["docs", "lead", "rossz"]})
+    assert page["agent"]["id"] == "lead" and [e["id"] for e in page["secondary"]] == ["docs"]
+    assert page["agent"]["reason"] == ""  # a modell indoklása másik agentre szólt
+    assert "ALREADY DECIDED" in seen[0]
 
 
-def test_bad_demo_falls_back_to_timeline_in_page_language():
-    page, _ = build(lang="de", demo={"steps": ["a"], "demo": {"lines": []}})
-    assert page["demo"]["kind"] == "timeline" and page["lang"] == "de"
-    assert page["demo"]["before"] == demopage.FALLBACK["de"]["before"]
+def test_other_language_gets_translated_ui_and_names():
+    content = dict(CONTENT, ui={"cta": "Sprechen wir 20 Minuten", "title": "Was ein KI-Agent bei Kert Bisztró tun würde"},
+                   agent_names={"phone": "KI-Telefonrezeption"}, price_text="Preis: nach Angebot", lead_text="nach Angebot")
+    page, seen = build(lang="de", content=content)
+    assert page["lang"] == "de" and "UI_SOURCE" in seen[1]
+    assert page["ui"]["cta"] == "Sprechen wir 20 Minuten" and page["ui"]["months"] == "months"
+    assert page["title"] == "Was ein KI-Agent bei Kert Bisztró tun würde"
+    assert page["agent"]["name"] == "KI-Telefonrezeption" and page["agent"]["price_text"] == "nach Angebot"
 
 
-def test_unsupported_language_becomes_english():
-    page, seen = build(lang="ja")
-    assert page["lang"] == "en" and "in English" in seen[0]
+def test_invalid_answer_is_sent_back_once_for_correction():
+    page, seen = build(analyses=["nem json", ANALYSIS])
+    assert page["agent"]["id"] == "phone" and "previous answer was invalid" in seen[1]
 
 
-def test_garbage_model_answer_raises_instead_of_generic_page():
+def test_garbage_analysis_raises_instead_of_generic_page():
     with pytest.raises(demopage.ModelError):
         build(analyses=["nem json", "megint nem"])
+
+
+def test_garbage_content_for_a_read_site_raises():
+    with pytest.raises(demopage.ModelError):
+        build(contents=["{}", "{}"])
 
 
 def test_model_outage_propagates():
@@ -366,18 +406,22 @@ def test_model_outage_propagates():
 
 
 def test_unreachable_site_gives_generic_page_without_claims():
-    ask, seen = fake_llm(ANALYSIS)
-    page = demopage.build_page("kertbisztro.hu", ask=ask, extract_json=llm.extract_json,
-                               fetcher=FakeFetcher({}), company="Kert Bisztró")
-    assert page["generic"] and page["quote"] is None and page["work"] == [] and not seen
-    assert page["company"] == "Kert Bisztró" and page["demo"]["kind"] == "timeline"
+    page, seen = build(site={}, company="Kert Bisztró")
+    assert page["generic"] and page["observation"] is None and page["company"] == "Kert Bisztró"
+    assert len(seen) == 1 and "NO website could be read" in seen[0]
+    assert page["footer"].startswith("Ez a bemutató a Kert Bisztró számára készült")
+
+
+def test_generic_page_falls_back_to_fixed_content_when_the_model_fails():
+    page, _ = build(site={}, company="Kert Bisztró", contents=["{}", "{}"])
+    assert page["generic"] and page["agent"]["id"] == "email" and page["demo"]["kind"] == "inbox"
+    assert page["demo"]["items"][0]["title"] == "Árajánlatot kérnék"
 
 
 def test_javascript_only_site_gives_generic_page():
-    ask, seen = fake_llm(ANALYSIS)
-    site = {"https://kertbisztro.hu/": '<html lang="hu"><body><div id="root"></div><script>app()</script></body></html>'}
-    page = demopage.build_page("kertbisztro.hu", ask=ask, extract_json=llm.extract_json, fetcher=FakeFetcher(site))
-    assert page["generic"] and page["lang"] == "hu" and not seen
+    site = {"https://kertbisztro.hu/": '<html lang="de"><body><div id="root"></div><script>app()</script></body></html>'}
+    page, seen = build(site=site)
+    assert page["generic"] and page["lang"] == "de" and "NO website could be read" in seen[0]
 
 
 def test_internal_address_refused():

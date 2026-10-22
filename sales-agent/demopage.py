@@ -35,11 +35,11 @@ FETCH_TIMEOUT = 10
 MAX_BYTES = 1_500_000
 MAX_REDIRECTS = 5
 MAX_PAGES = 6
-SITE_TEXT_CHARS = 14_000
+SITE_TEXT_CHARS = 40_000
 MIN_SITE_CHARS = 300
-MAX_PARAGRAPHS = 70
 PAGE_DAYS = 90
 PUBLIC_BASE = "https://aximbra.hu/neked"
+CONTACT_EMAIL = "aximbra@gmail.com"
 
 # Egyszerre ennyi oldal készülhet: két modellhívás + hat letöltés oldalanként,
 # az ingyenes Gemini-keret percenkénti korlátja ennél többet nem bír.
@@ -54,88 +54,80 @@ class ModelError(DemoError):
     """A modell kétszer egymás után sem adott használható elemzést."""
 
 
-# Az oldal felülete ezeken a nyelveken van meg (az aximbra.hu nyelvei); más
-# nyelvű cégnek angolul írunk, hogy a tartalom és a felület egy nyelven legyen.
-LANGS = ("hu", "en", "de", "es", "fr", "it", "ro", "sk", "zh")
-
 
 # ---------------------------------------------------------------- katalógus
+# Az Emergent-féle katalógus: magyar név, ár- és átfutás-szöveg, mire jó.
 # A díjak és átfutások az aximbra.hu-val egyeznek (frontend/src/i18n/*.js).
-# kind = a demó formája; hours = havi megspórolt órák kiinduló becslése,
-# a látogató a csúszkán átírhatja.
+# kind = a demó formája az oldalon (frontend/src/neked/demos/).
 CATALOG = {
-    "email":    {"hu": "E-mail rendező", "en": "Email triage agent", "de": "E-Mail-Sortierer",
-                 "price": (150_000, 400_000), "weeks": (2, 3), "kind": "inbox", "hours": 30,
-                 "live": "https://aximbra.hu/demo/email-agent"},
-    "lead":     {"hu": "Érdeklődő-minősítő", "en": "Lead qualifier", "de": "Anfragen-Qualifizierer",
-                 "price": (400_000, 1_200_000), "weeks": (2, 3), "kind": "leads", "hours": 20,
-                 "live": "https://aximbra.hu/agent/erdeklodo-minosito?demo=1"},
-    "admin":    {"hu": "Belső admin agent", "en": "Internal admin agent", "de": "Interner Admin-Agent",
-                 "price": (150_000, 400_000), "weeks": (2, 3), "kind": "timeline", "hours": 25},
-    "research": {"hu": "Kutatási monitor", "en": "Research monitor", "de": "Recherche-Monitor",
-                 "price": (150_000, 400_000), "weeks": (2, 3), "kind": "report", "hours": 12},
-    "content":  {"hu": "Tartalom-agent", "en": "Content agent", "de": "Content-Agent",
-                 "price": (400_000, 1_200_000), "weeks": (2, 2), "kind": "content", "hours": 20},
-    "webshop":  {"hu": "Webshop-asszisztens", "en": "Webshop assistant", "de": "Webshop-Assistent",
-                 "price": (600_000, 1_500_000), "weeks": (2, 4), "kind": "inbox", "hours": 35,
-                 "live": "https://aximbra.hu/demo/webshop#ugyfelszolgalat"},
-    "sales":    {"hu": "Értékesítő agent", "en": "Sales agent", "de": "Vertriebs-Agent",
-                 "price": (600_000, 1_500_000), "weeks": (2, 4), "kind": "content", "hours": 25},
-    "it":       {"hu": "IT-üzemeltető agent", "en": "IT operations agent", "de": "IT-Betriebs-Agent",
-                 "price": (600_000, 2_000_000), "weeks": (3, 5), "kind": "report", "hours": 25},
-    "nis2":     {"hu": "NIS2-megfelelési agent", "en": "NIS2 compliance agent", "de": "NIS2-Compliance-Agent",
-                 "price": (600_000, 2_000_000), "weeks": (3, 6), "kind": "report", "hours": 15},
-    "recruit":  {"hu": "Toborzási agent", "en": "Recruitment agent", "de": "Recruiting-Agent",
-                 "price": (1_700_000, 3_900_000), "weeks": (3, 4), "kind": "leads", "hours": 30, "legal": True},
-    "docs":     {"hu": "Dokumentum-elemző", "en": "Document analyser", "de": "Dokumentenanalyse",
-                 "price": (2_000_000, 4_000_000), "weeks": (4, 5), "kind": "document", "hours": 30,
-                 "live": "https://aximbra.hu/agent/dokumentum-elemzo?demo=1"},
-    "finance":  {"hu": "Pénzügyi asszisztens", "en": "Finance assistant", "de": "Finanz-Assistent",
-                 "price": (2_000_000, 4_000_000), "weeks": (4, 6), "kind": "report", "hours": 30},
-    "support":  {"hu": "Ügyfélszolgálati agent", "en": "Customer support agent", "de": "Kundenservice-Agent",
-                 "price": (1_500_000, 4_000_000), "weeks": (4, 7), "kind": "chat", "hours": 40},
-    "multi":    {"hu": "Multi-agent rendszer", "en": "Multi-agent system", "de": "Multi-Agenten-System",
-                 "price": (6_000_000, 15_000_000), "weeks": (7, 12), "kind": "timeline", "hours": 80},
-    "phone":    {"hu": "Telefonos AI-recepciós", "en": "AI phone receptionist", "de": "KI-Telefonrezeption",
-                 "price": None, "weeks": None, "kind": "call", "hours": 30, "live": "tel:+18024249852"},
-    "custom":   {"hu": "Egyedi agent", "en": "Custom agent", "de": "Individueller Agent",
-                 "price": None, "weeks": None, "kind": "timeline", "hours": 25},
+    "email": {"name": "E-mail rendező", "name_en": "Email triage agent", "price_en": "HUF 150–400k", "lead_en": "2–3 weeks", "price": "150–400 ezer Ft", "price_min": 150_000, "price_max": 400_000,
+              "lead": "2–3 hét", "demo": "https://aximbra.hu/demo/email-agent", "kind": "inbox",
+              "does": "Beérkező leveleket kategorizál, sürgősséget állapít meg, továbbít és válaszvázlatot ír."},
+    "lead": {"name": "Érdeklődő-minősítő", "name_en": "Lead qualifier", "price_en": "HUF 400k–1.2M", "lead_en": "2–3 weeks", "price": "400 ezer–1,2 millió Ft", "price_min": 400_000,
+             "price_max": 1_200_000, "lead": "2–3 hét", "demo": "https://aximbra.hu/agent/erdeklodo-minosito?demo=1",
+             "kind": "leads",
+             "does": "Beérkező érdeklődőket/ajánlatkéréseket pontoz, minősít, kiegészíti adatokkal és a megfelelő "
+                     "emberhez irányítja."},
+    "admin": {"name": "Belső admin agent", "name_en": "Internal admin agent", "price_en": "HUF 150–400k", "lead_en": "2–3 weeks", "price": "150–400 ezer Ft", "price_min": 150_000, "price_max": 400_000,
+              "lead": "2–3 hét", "demo": None, "kind": "timeline",
+              "does": "Ismétlődő belső adminisztrációt végez: táblázatok, nyilvántartások, időpontok, emlékeztetők, "
+                      "adatrögzítés."},
+    "research": {"name": "Kutatási monitor", "name_en": "Research monitor", "price_en": "HUF 150–400k", "lead_en": "2–3 weeks", "price": "150–400 ezer Ft", "price_min": 150_000, "price_max": 400_000,
+                 "lead": "2–3 hét", "demo": None, "kind": "report",
+                 "does": "Folyamatosan figyel forrásokat (piac, versenytársak, pályázatok, jogszabályok, hírek) és "
+                         "összefoglalót küld."},
+    "content": {"name": "Tartalom-agent", "name_en": "Content agent", "price_en": "HUF 400k–1.2M", "lead_en": "2 weeks", "price": "400 ezer–1,2 millió Ft", "price_min": 400_000,
+                "price_max": 1_200_000, "lead": "2 hét", "demo": None, "kind": "drafts",
+                "does": "Tartalmat készít: posztok, hírlevelek, termékleírások, blogcikkek vázlatai a cég hangján."},
+    "webshop": {"name": "Webshop-asszisztens", "name_en": "Webshop assistant", "price_en": "HUF 600k–1.5M", "lead_en": "2–4 weeks", "price": "600 ezer–1,5 millió Ft", "price_min": 600_000,
+                "price_max": 1_500_000, "lead": "2–4 hét", "demo": "https://aximbra.hu/demo/webshop#ugyfelszolgalat",
+                "kind": "chat",
+                "does": "Online áruházban válaszol a vásárlói kérdésekre, terméket ajánl, rendelésállapotot ad, "
+                        "visszáruzást kezel."},
+    "sales": {"name": "Értékesítő agent", "name_en": "Sales agent", "price_en": "HUF 600k–1.5M", "lead_en": "2–4 weeks", "price": "600 ezer–1,5 millió Ft", "price_min": 600_000,
+              "price_max": 1_500_000, "lead": "2–4 hét", "demo": None, "kind": "leads",
+              "does": "Ajánlatot készít, utánkövet, személyre szabott megkereséseket ír, kezeli az értékesítési "
+                      "folyamat lépéseit."},
+    "it": {"name": "IT-üzemeltető agent", "name_en": "IT operations agent", "price_en": "HUF 600k–2M", "lead_en": "3–5 weeks", "price": "600 ezer–2 millió Ft", "price_min": 600_000,
+           "price_max": 2_000_000, "lead": "3–5 hét", "demo": None, "kind": "inbox",
+           "does": "IT-jegyeket kezel, rendszereket monitoroz, riaszt, rutinszerű üzemeltetési feladatokat végez."},
+    "nis2": {"name": "NIS2-megfelelési agent", "name_en": "NIS2 compliance agent", "price_en": "HUF 600k–2M", "lead_en": "3–6 weeks", "price": "600 ezer–2 millió Ft", "price_min": 600_000,
+             "price_max": 2_000_000, "lead": "3–6 hét", "demo": None, "kind": "report",
+             "does": "Bizonyítékot gyűjt a NIS2-audithoz, nyilvántartja a kontrollokat és hiányosságokat "
+                     "(támadás ellen nem véd)."},
+    "recruit": {"name": "Toborzási agent", "name_en": "Recruitment agent", "price_en": "HUF 1.7–3.9M", "lead_en": "3–4 weeks + legal review", "price": "1,7–3,9 millió Ft", "price_min": 1_700_000,
+                "price_max": 3_900_000, "lead": "3–4 hét + jogi átnézés", "demo": None, "kind": "leads",
+                "does": "Önéletrajzokat előszűr, jelölteket rangsorol, interjúidőpontot egyeztet, álláshirdetést "
+                        "fogalmaz."},
+    "docs": {"name": "Dokumentum-elemző", "name_en": "Document analyser", "price_en": "HUF 2–4M", "lead_en": "4–5 weeks", "price": "2–4 millió Ft", "price_min": 2_000_000, "price_max": 4_000_000,
+             "lead": "4–5 hét", "demo": "https://aximbra.hu/agent/dokumentum-elemzo?demo=1", "kind": "document",
+             "does": "Szerződéseket, ajánlatokat, műszaki vagy jogi dokumentumokat olvas, kiemeli a kockázatos "
+                     "pontokat, adatot kinyer."},
+    "finance": {"name": "Pénzügyi asszisztens", "name_en": "Finance assistant", "price_en": "HUF 2–4M", "lead_en": "4–6 weeks", "price": "2–4 millió Ft", "price_min": 2_000_000,
+                "price_max": 4_000_000, "lead": "4–6 hét", "demo": None, "kind": "report",
+                "does": "Számlákat dolgoz fel, egyeztet, kintlévőséget követ, pénzügyi riportot készít."},
+    "support": {"name": "Ügyfélszolgálati agent", "name_en": "Customer support agent", "price_en": "HUF 1.5–4M", "lead_en": "4–7 weeks", "price": "1,5–4 millió Ft", "price_min": 1_500_000,
+                "price_max": 4_000_000, "lead": "4–7 hét", "demo": None, "kind": "chat",
+                "does": "Ügyfélkérdésekre válaszol több csatornán (chat, e-mail), jegyet nyit, eszkalál emberhez."},
+    "multi": {"name": "Multi-agent rendszer", "name_en": "Multi-agent system", "price_en": "HUF 6–15M", "lead_en": "7–12 weeks", "price": "6–15 millió Ft", "price_min": 6_000_000,
+              "price_max": 15_000_000, "lead": "7–12 hét", "demo": None, "kind": "timeline",
+              "does": "Több együttműködő agent egy összetett, több lépéses folyamat végigviteléhez."},
+    "phone": {"name": "Telefonos AI-recepciós", "name_en": "AI phone receptionist", "price_en": "on quote (with a website from HUF 900k)", "lead_en": "on quote", "price": "ajánlat alapján (weboldallal együtt 900 ezer Ft-tól)",
+              "price_min": 900_000, "price_max": None, "lead": "ajánlat alapján", "demo": "tel:+18024249852",
+              "demo_label": "+1 802 424 9852", "kind": "call",
+              "does": "Felveszi a telefont, válaszol a kérdésekre, időpontot foglal, üzenetet rögzít, leiratot "
+                      "készít."},
+    "custom": {"name": "Egyedi agent", "name_en": "Custom agent", "price_en": "on quote, after an assessment", "lead_en": "after an assessment", "price": "ajánlat alapján, felmérés után", "price_min": None,
+               "price_max": None, "lead": "felmérés után", "demo": None, "kind": "timeline",
+               "does": "A cég egy speciális folyamatára szabott agent, ha a fentiek egyike sem illik jól."},
 }
-
-# Mire való az egyes agent — a modell ebből választ, ezért pontos és rövid.
-PURPOSE = {
-    "email": "sorts a shared inbox: category, urgency, who handles it, reply draft for approval",
-    "lead": "scores incoming enquiries/quote requests and says whom to call back first",
-    "admin": "moves data between systems, fills forms, compiles routine reports",
-    "research": "watches competitors, tenders, regulation or the market and reports only real changes",
-    "content": "drafts newsletters, product texts, social posts in the company's voice, for approval",
-    "webshop": "answers webshop customer emails (where is my parcel, returns, invoices) from order data",
-    "sales": "finds fitting prospects, writes short personal outreach, follows up, sorts replies",
-    "it": "watches logs and alerts, classifies them, runs approved fixes, escalates unknowns",
-    "nis2": "collects and maintains the evidence a NIS2 audit asks for (access, backups, MFA); it does not protect",
-    "recruit": "pre-screens CVs against structured criteria, with audit log and human override",
-    "docs": "reads contracts, invoices, offers; extracts key data and flags risky clauses",
-    "finance": "categorises costs, flags anomalies, writes monthly reports with source lines",
-    "support": "answers customer questions from the company's own documents with sources; hands over the rest",
-    "multi": "several agents on one complex cross-department process, with checkpoints",
-    "phone": "answers the phone when staff can't, takes bookings/requests, sends a summary",
-    "custom": "a custom agent for a specific repetitive task not covered above",
-}
-
-KINDS = ("inbox", "chat", "leads", "document", "report", "call", "content", "timeline")
 
 
 def monthly_fee(agent_id: str) -> int | None:
-    price = CATALOG[agent_id]["price"]
-    if not price:
+    hi = CATALOG[agent_id]["price_max"]
+    if hi is None:
         return None
-    hi = price[1]
     return 25_000 if hi <= 400_000 else 50_000 if hi <= 2_000_000 else 90_000
-
-
-def agent_name(agent_id: str, lang: str) -> str:
-    a = CATALOG[agent_id]
-    return a.get(lang) or a["en"]
 
 
 # ------------------------------------------------------------ biztonságos letöltés
@@ -501,180 +493,389 @@ def evidence_on_pages(ev: str, pages: list[dict]) -> bool:
 
 
 # ------------------------------------------------------------ modellhívások
+# Az elemző és a tartalomíró prompt, a demóformák és a felület szövegei az
+# Emergent-féle generátorból jönnek (hutkaimilan/aximbra-demooldalak); a
+# letöltés, az ellenőrzések és a mentés a miénk.
 
-LANG_NAMES = {"hu": "Hungarian", "en": "English", "de": "German", "ro": "Romanian", "sk": "Slovak",
-              "cs": "Czech", "pl": "Polish", "hr": "Croatian", "sr": "Serbian", "sl": "Slovenian",
-              "fr": "French", "it": "Italian", "es": "Spanish", "pt": "Portuguese", "nl": "Dutch",
-              "zh": "Simplified Chinese"}
-
-
-def _site_digest(pages: list[dict]) -> tuple[str, list[str]]:
-    """A modellnek: oldalanként a szöveg (levágva), és a számozott bekezdések,
-    amelyekből idézni lehet."""
-    budget = SITE_TEXT_CHARS
-    parts = []
-    for p in pages:
-        chunk = p["text"][: max(800, budget // max(1, len(pages)))]
-        parts.append(f"=== {p['url']} ===\n{p['title']}\n{p.get('description', '')}\n{chunk}")
-    paras: list[str] = []
-    for p in pages:
-        for s in p["paras"]:
-            if len(re.findall(r"\w+", s)) >= 8 and s not in paras:
-                paras.append(s)
-    return "\n\n".join(parts)[:SITE_TEXT_CHARS], paras[:MAX_PARAGRAPHS]
+_EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+_PHONE = re.compile(r"\+?\d[\d \-/()]{8,}\d")
 
 
-def _catalog_text() -> str:
-    return "\n".join(f"- {k}: {PURPOSE[k]}" for k in CATALOG)
-
-
-def analyze_prompt(pages: list[dict], lang: str | None, company: str | None, avoid_support: bool = False) -> str:
-    digest, paras = _site_digest(pages)
-    numbered = "\n".join(f"[{i}] {s}" for i, s in enumerate(paras))
-    out_lang = f"in {LANG_NAMES.get(lang, lang)}" if lang else "in the main language of the website"
-    support_rule = ("Do NOT choose 'support' as main." if avoid_support else
-                    "Choose 'support' as main ONLY if the site shows real customer-question volume (FAQ, help "
-                    "centre, support/customer service contact) and give that text word for word in "
-                    "support_evidence; otherwise pick the agent that fits their actual repetitive work.")
-    return f"""You analyse ONE company's public website for AXIMBRA, an AI agent studio, to show them what an AI agent could do for THEM. Any industry, size or country is possible; never assume an industry.
-
-Website text:
-{digest}
-
-Numbered paragraphs (the only text you may quote):
-{numbered or '(none)'}
-
-AXIMBRA agents (id: purpose):
-{_catalog_text()}
-
-Reply with a VALID JSON object only:
-{{"company": "the company's own name as written on the site{(' (given: ' + company + ')') if company else ''}",
-"site_language": "ISO 639-1 code of the website's main language",
-"summary": "1-2 plain sentences {out_lang}: what they do and for whom, only what the site states",
-"work": [{{"task": "a repetitive manual task they likely have, {out_lang}", "evidence": "short text copied WORD FOR WORD from the website that shows it"}}],
-"main": "agent id", "main_reason": "1-2 sentences {out_lang}: why this agent fits THEM, citing what the site shows",
-"support_evidence": "word-for-word text or empty",
-"extras": [{{"id": "agent id", "reason": "one sentence {out_lang}"}}],
-"custom_idea": "if main is custom: the concrete agent idea {out_lang}, else empty",
-"quote": "ONE complete sentence copied word for word from ONE numbered paragraph that best shows something an agent could help with; empty if none fits",
-"quote_paragraph": paragraph number or -1}}
-
-Rules: at most 2 extras, different from main. {support_rule} Prefer the agent tied to the most frequent, most time-consuming work the site reveals (bookings, orders, enquiries, quotes, documents, applications, reports...). If nothing in the catalogue fits well, choose 'custom' with a concrete idea. Never invent facts about the company: every claim must be supported by the website text."""
-
-
-DEMO_SHAPES = {
-    "inbox": '{"items": [{"from": "a role, e.g. a customer or supplier, no real names", "subject": "...", "snippet": "first line of the email", "category": "...", "urgency": 1-5, "reply": "short reply draft"}]} with exactly 5 items',
-    "chat": '{"messages": [{"role": "customer|agent", "text": "..."}], "handoff": "when and how the agent hands over to a human"} with 6-8 messages',
-    "leads": '{"items": [{"name": "an invented first name or invented company", "need": "what they asked", "score": 0-100, "grade": "A|B|C|D", "next": "suggested next step"}]} with exactly 5 items',
-    "document": '{"title": "an invented document typical for them", "clauses": [{"text": "clause text", "risk": "high|medium|none", "note": "why"}]} with exactly 5 clauses',
-    "report": '{"title": "...", "period": "...", "metrics": [{"label": "...", "value": "...", "change": "..."}], "findings": ["..."], "actions": ["..."]} with 3 metrics, 3 findings, 2 actions',
-    "call": '{"lines": [{"who": "caller|agent", "text": "..."}], "summary": "what the agent records and sends after the call"} with 6-8 lines',
-    "content": '{"items": [{"channel": "e.g. newsletter, product page, social post, outreach email", "title": "...", "text": "40-80 words"}]} with exactly 3 items',
-    "timeline": '{"before": [{"time": "e.g. 08:30", "task": "..."}], "after": [{"time": "...", "task": "..."}]} with 4 entries each',
-}
-
-
-def demo_prompt(company: str, summary: str, agent_id: str, reason: str, lang: str) -> str:
-    kind = CATALOG[agent_id]["kind"]
-    return f"""Create SAMPLE DATA for an interactive demo page showing what AXIMBRA's "{CATALOG[agent_id]['en']}" ({PURPOSE[agent_id]}) would do at {company}.
-What the company does (from its website): {summary}
-Why this agent fits: {reason}
-
-Write everything in {LANG_NAMES.get(lang, lang)}. The data is clearly fictional sample data: use invented customer names or roles only, no real people, no prices or facts about {company} that are not in the description above, no claims about their customers or results. Make it specific to their kind of work so they recognise their own day.
-
-Reply with a VALID JSON object only:
-{{"steps": ["3 short steps: how the agent would work at them"], "demo": {DEMO_SHAPES[kind]}}}"""
+def _scrub(s):
+    """Elérhetőség nem kerülhet a generált szövegbe: se e-mail, se telefonszám."""
+    return _EMAIL.sub("[e-mail]", _PHONE.sub("[…]", s)) if isinstance(s, str) else s
 
 
 def _str(v, n: int = 400) -> str:
     return re.sub(r"\s+", " ", str(v or "")).strip()[:n]
 
 
-def clean_demo(kind: str, d) -> dict | None:
-    """A modell demóadata, alakra ellenőrizve és levágva. None, ha használhatatlan."""
-    if not isinstance(d, dict):
-        return None
-    try:
-        if kind in ("inbox",):
-            items = [{"from": _str(i.get("from"), 60), "subject": _str(i.get("subject"), 120),
-                      "snippet": _str(i.get("snippet"), 240), "category": _str(i.get("category"), 40),
-                      "urgency": max(1, min(5, int(i.get("urgency") or 3))), "reply": _str(i.get("reply"), 600)}
-                     for i in d.get("items", [])[:6] if isinstance(i, dict) and i.get("subject")]
-            return {"items": items} if len(items) >= 3 else None
-        if kind == "chat":
-            msgs = [{"role": "agent" if m.get("role") == "agent" else "customer", "text": _str(m.get("text"), 400)}
-                    for m in d.get("messages", [])[:10] if isinstance(m, dict) and m.get("text")]
-            return {"messages": msgs, "handoff": _str(d.get("handoff"), 300)} if len(msgs) >= 4 else None
-        if kind == "leads":
-            items = [{"name": _str(i.get("name"), 60), "need": _str(i.get("need"), 240),
-                      "score": max(0, min(100, int(i.get("score") or 0))),
-                      "grade": (_str(i.get("grade"), 1).upper() or "C") if _str(i.get("grade"), 1).upper() in "ABCD" else "C",
-                      "next": _str(i.get("next"), 200)}
-                     for i in d.get("items", [])[:6] if isinstance(i, dict) and i.get("need")]
-            return {"items": sorted(items, key=lambda x: -x["score"])} if len(items) >= 3 else None
-        if kind == "document":
-            cl = [{"text": _str(c.get("text"), 400), "risk": c.get("risk") if c.get("risk") in ("high", "medium") else "none",
-                   "note": _str(c.get("note"), 240)}
-                  for c in d.get("clauses", [])[:6] if isinstance(c, dict) and c.get("text")]
-            return {"title": _str(d.get("title"), 120), "clauses": cl} if len(cl) >= 3 else None
-        if kind == "report":
-            m = [{"label": _str(x.get("label"), 60), "value": _str(x.get("value"), 30), "change": _str(x.get("change"), 30)}
-                 for x in d.get("metrics", [])[:4] if isinstance(x, dict) and x.get("label")]
-            f = [_str(x, 240) for x in d.get("findings", [])[:4] if x]
-            a = [_str(x, 240) for x in d.get("actions", [])[:3] if x]
-            return {"title": _str(d.get("title"), 120), "period": _str(d.get("period"), 60),
-                    "metrics": m, "findings": f, "actions": a} if m and f else None
-        if kind == "call":
-            ln = [{"who": "agent" if x.get("who") == "agent" else "caller", "text": _str(x.get("text"), 300)}
-                  for x in d.get("lines", [])[:10] if isinstance(x, dict) and x.get("text")]
-            return {"lines": ln, "summary": _str(d.get("summary"), 400)} if len(ln) >= 4 else None
-        if kind == "content":
-            it = [{"channel": _str(x.get("channel"), 60), "title": _str(x.get("title"), 120), "text": _str(x.get("text"), 700)}
-                  for x in d.get("items", [])[:4] if isinstance(x, dict) and x.get("text")]
-            return {"items": it} if len(it) >= 2 else None
-        if kind == "timeline":
-            b = [{"time": _str(x.get("time"), 12), "task": _str(x.get("task"), 160)}
-                 for x in d.get("before", [])[:6] if isinstance(x, dict) and x.get("task")]
-            a = [{"time": _str(x.get("time"), 12), "task": _str(x.get("task"), 160)}
-                 for x in d.get("after", [])[:6] if isinstance(x, dict) and x.get("task")]
-            return {"before": b, "after": a} if len(b) >= 2 and len(a) >= 2 else None
-    except (TypeError, ValueError, AttributeError):
-        return None
+def _catalog_text() -> str:
+    return "\n".join(f'{k}: {a["name"]}: {a["does"]}' for k, a in CATALOG.items())
+
+
+ANALYSIS_SYSTEM = f"""You are a senior AI-automation consultant at AXIMBRA, an AI agency. You analyse a company's PUBLIC website
+text and decide which AXIMBRA AI agent would help them most. Work for ANY company: any industry, size, country,
+language or business model. Derive everything ONLY from the provided website text.
+
+HARD RULES:
+- NEVER invent facts about the company. Only state what the website text supports. If unsure, be general.
+- Never output personal data: no names of people, no e-mail addresses, no phone numbers.
+- observation.quote MUST be copied VERBATIM (exact characters) from ONE item of a page's "PROSE" list (running text),
+  never from menus, buttons, link texts, headings or bullet lists. It must be ONE complete, meaningful sentence of at
+  least 8 words that contains a verb, 30-250 chars, and hint at repetitive manual work or a process an agent could
+  take over (e.g. how they take requests, bookings, quotes, support, orders, documents, applications). It must not
+  contain a person's name, e-mail or phone number. page_url = that page's URL exactly.
+  If no such sentence exists, set "observation": null. Never paraphrase inside "quote".
+- Pick exactly 1 main agent and at most 2 secondary agents from the catalog by id. Weigh ALL catalog entries and
+  choose the one with the clearest, highest-value fit to the company's ACTUAL repetitive work evidenced on the site
+  (what comes in to them repeatedly: calls, e-mails, enquiries, orders, documents, applications, invoices, tickets,
+  content needs, compliance). Explain the choice in "reason" with reference to that evidence.
+- The customer service agent ("support") may be the MAIN agent ONLY if the site really shows an FAQ, a support/help
+  section or a customer-service contact. In that case fill "support_evidence" with a VERBATIM snippet from the page
+  text that proves it (e.g. the FAQ heading or customer-service sentence) and its page_url. Otherwise set
+  "support_evidence": null and do not choose "support" as main. If they sell through their own online store,
+  "webshop" fits better than "support"; if phone is their main channel, consider "phone". If nothing fits well, use
+  "custom" as main and fill custom_agent_idea with a concrete idea tailored to this company.
+- what_it_does: 2-4 sentences, concrete, tailored to THEIR activity (what comes in, what the agent does, what a human approves).
+- All text fields must be written in the output language given by the user message.
+
+AXIMBRA catalog (id: name: what it does):
+{_catalog_text()}
+
+Return JSON:
+{{"language": "ISO 639-1 code of the output language", "company_name": "...", "what_they_do": "1-2 sentences",
+ "audience": "who they serve", "repetitive_work": ["2-5 short items"],
+ "observation": {{"quote": "verbatim", "page_url": "...", "insight": "1-2 sentences why this matters for an agent"}} | null,
+ "support_evidence": {{"quote": "verbatim", "page_url": "..."}} | null,
+ "main_agent": {{"id": "email", "reason": "...", "what_it_does": "..."}},
+ "secondary_agents": [{{"id": "lead", "reason": "..."}}],
+ "custom_agent_idea": "..." | null}}"""
+
+
+HU_UI = {
+    "observation_label": "Amit a weboldalukon láttunk",
+    "observation_source": "Forrás",
+    "agent_label": "A javasolt agent",
+    "why_label": "Miért ez",
+    "steps_label": "Így dolgozna nálatok",
+    "secondary_label": "Kiegészítésként",
+    "custom_label": "Az egyedi ötlet",
+    "demo_label": "Kattintható demó",
+    "sample_badge": "Példaadatok",
+    "live_demo": "Élő demó kipróbálása",
+    "live_demo_phone": "Hívd fel az élő AI-recepcióst",
+    "roi_title": "Mennyit hozhat?",
+    "roi_hours": "Megspórolt óra havonta",
+    "roi_rate": "Óradíj (Ft)",
+    "roi_savings_month": "Havi megtakarítás",
+    "roi_savings_year": "Éves megtakarítás",
+    "roi_assumptions": "Feltételezések (módosítható)",
+    "price_label": "Bevezetés ára (nettó)",
+    "lead_label": "Átfutás",
+    "fee_label": "Havidíj (felügyelet és javítás)",
+    "payback_label": "Megtérülés",
+    "months": "hónap",
+    "per_month": "/ hó",
+    "on_quote": "ajánlat alapján",
+    "approval_note": "Minden agent-kimenetet ember hagy jóvá, mielőtt kimenne.",
+    "cta": "Beszéljünk 20 percet",
+    "cta_sub": "Megnézzük, hol hozná a legtöbbet nálatok, és kapsz egy konkrét ajánlatot.",
+    "label_category": "Kategória",
+    "label_urgency": "Sürgősség",
+    "label_draft": "Válaszvázlat",
+    "label_score": "Pontszám",
+    "label_next_step": "Javasolt következő lépés",
+    "label_risk": "Kockázat",
+    "label_comment": "Agent megjegyzése",
+    "label_before": "Előtte",
+    "label_after": "Utána",
+    "label_caller": "Hívó",
+    "label_agent": "AI agent",
+    "label_summary": "Összefoglaló",
+    "label_customer": "Ügyfél",
+    "label_answer": "Agent válasza",
+    "label_play": "Lejátszás",
+    "label_replay": "Újra",
+    "label_approve": "Jóváhagyom",
+    "label_approved": "Jóváhagyva",
+    "label_select": "Válassz egy elemet a részletekhez",
+    "label_brief": "Bemenet",
+    "level_high": "Magas",
+    "level_medium": "Közepes",
+    "level_low": "Alacsony",
+}
+
+EN_UI = {
+    "observation_label": "What we noticed on your website", "observation_source": "Source",
+    "agent_label": "The recommended agent", "why_label": "Why this one", "steps_label": "How it would work for you",
+    "secondary_label": "As a complement", "custom_label": "The custom idea", "demo_label": "Clickable demo",
+    "sample_badge": "Sample data", "live_demo": "Try the live demo", "live_demo_phone": "Call the live AI receptionist",
+    "roi_title": "What could it bring?", "roi_hours": "Hours saved per month", "roi_rate": "Hourly cost (HUF)",
+    "roi_savings_month": "Monthly saving", "roi_savings_year": "Yearly saving",
+    "roi_assumptions": "Assumptions (editable)", "price_label": "Implementation price (net)", "lead_label": "Lead time",
+    "fee_label": "Monthly fee (monitoring and fixes)", "payback_label": "Payback", "months": "months",
+    "per_month": "/ month", "on_quote": "on quote",
+    "approval_note": "Every agent output is approved by a human before it goes out.",
+    "cta": "Let's talk for 20 minutes",
+    "cta_sub": "We'll look at where it would help you most, and you get a concrete proposal.",
+    "label_category": "Category", "label_urgency": "Urgency", "label_draft": "Draft reply", "label_score": "Score",
+    "label_next_step": "Suggested next step", "label_risk": "Risk", "label_comment": "Agent comment",
+    "label_before": "Before", "label_after": "After", "label_caller": "Caller", "label_agent": "AI agent",
+    "label_summary": "Summary", "label_customer": "Customer", "label_answer": "Agent reply", "label_play": "Play",
+    "label_replay": "Replay", "label_approve": "Approve", "label_approved": "Approved",
+    "label_select": "Pick an item to see the details", "label_brief": "Brief", "level_high": "High",
+    "level_medium": "Medium", "level_low": "Low",
+}
+
+KIND_SPEC = {
+    "inbox": "6 incoming e-mails/requests typical for THIS company. title=subject, subtitle=sender role (e.g. 'new "
+             "customer', never a name), tag=category, level=urgency, body=the message (2-4 sentences), "
+             "output=the agent's draft reply (2-4 sentences).",
+    "leads": "6 incoming enquiries/leads (or job applicants if the agent is recruitment). title=short description, "
+             "subtitle=source channel, score=0-100, tag=classification, body=the request text (2-3 sentences), "
+             "output=recommended next step with short reasoning.",
+    "document": "one typical document they handle (contract, offer, specification, application...). demo.title=document "
+                "name. 6 items = clauses: title=clause heading, body=clause text (1-3 sentences), level=risk, "
+                "output=agent comment (what to check / change).",
+    "call": "one phone call to them. 8-10 items alternating between the caller and the AI receptionist: "
+            "subtitle='caller' or 'agent' (literally these two values), body=the spoken line. demo.summary=what the "
+            "agent captured and the next step.",
+    "report": "a report the agent delivers to them. 5 items: title=section or KPI, tag=headline figure, level=importance, "
+              "body=finding (1-2 sentences), output=recommended action.",
+    "timeline": "a typical working day. 6 items: title=time (e.g. 08:30), subtitle=task, body=how it goes today by hand, "
+                "output=how it goes with the agent.",
+    "chat": "3 customer conversations. title=topic, body=the customer's message, output=the agent's answer, "
+            "tag=outcome (e.g. answered / handed to a human).",
+    "drafts": "4 content pieces the agent drafts for them. title=piece title, subtitle=channel, tag=format, "
+              "body=the brief/input, output=the draft (3-5 sentences).",
+}
+
+CONTENT_SYSTEM = """You write the content of a personalised demo page for AXIMBRA, an AI agency, showing a company what one
+specific AI agent would do for THEM. Output language is given; write every text field in it.
+RULES:
+- Never claim facts about the company beyond the provided analysis. Sample data is clearly fictional but realistic for
+  their activity (their kind of customers, products/services, requests). No real people's names, no e-mail addresses,
+  no phone numbers, no real customer names; use roles ("a new customer", "a supplier").
+- Keep texts short and concrete. Every agent output is approved by a human.
+- roi.hours_per_month: realistic hours/month this agent saves for a company like this (5-120).
+  roi.hourly_rate_huf: realistic loaded hourly labour cost in Hungarian forints for staff doing this work in their
+  country (e.g. Hungary ~6000-12000 HUF). roi.assumptions: 3-4 short assumptions behind the numbers
+  (e.g. volumes per month and minutes per item), clearly as estimates.
+- quote_check: judge the given website quote (if any): full_sentence = is it one complete, meaningful sentence
+  (not a menu, button, link text or list)? has_verb = does it contain a finite verb?
+Return JSON only."""
+
+
+def _content_schema(kind: str, need_ui: bool, names: dict) -> str:
+    ui = ', "ui": {same keys as UI_SOURCE plus "title" ("What an AI agent would do at <Company>"), "footer" ' \
+         '("This demo is based on <Company>\'s public website; the sample data is fictional.") and "footer_generic" ' \
+         '("This demo was prepared for <Company>; their website could not be read, and the sample data is fictional."),' \
+         ' all translated}' if need_ui else ""
+    if names:
+        ui += ', "agent_names": {"<id>": "agent name translated into the output language"} for ' + \
+              json.dumps(names, ensure_ascii=False)
+    return ('{"hero_subtitle": "1 sentence", "agent_pitch": "2-3 sentences, what the agent does for them", '
+            '"agent_steps": ["3-4 short steps: what comes in -> what the agent does -> what a human approves"], '
+            '"demo": {"title": "...", "intro": "1 sentence", "summary": "", "items": [{"title": "", "subtitle": "", '
+            '"tag": "", "level": "high|medium|low|", "score": null, "body": "", "output": ""}]}, '
+            '"roi": {"hours_per_month": 30, "hourly_rate_huf": 8000, "assumptions": ["..."]}, '
+            '"price_text": "price translated, numbers unchanged", "lead_text": "only the duration translated, no label", '
+            '"quote_check": {"full_sentence": true, "has_verb": true} | null' + ui + "}"
+            f"\nDEMO ({kind}): {KIND_SPEC[kind]}")
+
+
+# ---- a modell válaszainak ellenőrzése ---------------------------------------
+
+def _ask_json(ask, extract_json, system: str, user: str, check):
+    """Modellhívás JSON-válasszal; `check(dict)` visszaadja a tiszta adatot, vagy
+    ValueError-t dob. Egyszer visszaküldjük a hibát javításra, utána None.
+    A modell elérhetetlensége (LLMError) nem itt dől el: továbbmegy a hívóhoz."""
+    prompt = f"{system}\n\n{user}"
+    for attempt in range(2):
+        raw = ask(prompt)  # elérhetetlen modell: a hiba innen továbbmegy
+        try:
+            data = extract_json(raw)
+            if not isinstance(data, dict):
+                raise ValueError("not a JSON object")
+            return check(data)
+        except Exception as e:  # noqa: BLE001 - hibás JSON vagy alak: egyszer javíttatjuk
+            logger.warning("demo: invalid model answer (attempt %s): %s", attempt + 1, str(e)[:200])
+            prompt = (f"{system}\n\n{user}\n\nYour previous answer was invalid: {str(e)[:300]}. "
+                      "Return ONLY valid JSON matching the schema.")
     return None
 
 
-# Ha a modell nem ad használható demót: egyszerű, általános idővonal.
+def _check_analysis(d: dict) -> dict:
+    main = d.get("main_agent") or {}
+    if not isinstance(main, dict) or main.get("id") not in CATALOG:
+        raise ValueError("main_agent.id must be a catalog id")
+    sec = []
+    for s in d.get("secondary_agents") or []:
+        if isinstance(s, dict) and s.get("id") in CATALOG and s["id"] != main["id"] \
+                and s["id"] not in [x["id"] for x in sec]:
+            sec.append({"id": s["id"], "reason": _scrub(_str(s.get("reason"), 300))})
+    obs = d.get("observation") if isinstance(d.get("observation"), dict) else None
+    ev = d.get("support_evidence") if isinstance(d.get("support_evidence"), dict) else None
+    return {
+        "language": _str(d.get("language"), 12).lower(),
+        "company_name": _str(d.get("company_name"), 80),
+        "what_they_do": _scrub(_str(d.get("what_they_do"), 400)),
+        "audience": _scrub(_str(d.get("audience"), 200)),
+        "repetitive_work": [_scrub(_str(x, 160)) for x in (d.get("repetitive_work") or [])[:5] if x],
+        "observation": {"quote": _str(obs.get("quote"), 400), "page_url": _str(obs.get("page_url"), 500),
+                        "insight": _scrub(_str(obs.get("insight"), 400))} if obs else None,
+        "support_evidence": _str(ev.get("quote"), 300) if ev else "",
+        "main": main["id"],
+        "reason": _scrub(_str(main.get("reason"), 600)),
+        "what_it_does": _scrub(_str(main.get("what_it_does"), 800)),
+        "secondary": sec[:2],
+        "custom_idea": _scrub(_str(d.get("custom_agent_idea"), 400)),
+    }
+
+
+_LEVELS = ("high", "medium", "low")
+
+
+def _check_content(d: dict) -> dict:
+    demo = d.get("demo") or {}
+    items = []
+    for it in (demo.get("items") or [])[:10]:
+        if not isinstance(it, dict):
+            continue
+        score = it.get("score")
+        try:
+            score = max(0, min(100, int(score))) if score is not None else None
+        except (TypeError, ValueError):
+            score = None
+        items.append({"title": _scrub(_str(it.get("title"), 160)), "subtitle": _scrub(_str(it.get("subtitle"), 80)),
+                      "tag": _scrub(_str(it.get("tag"), 60)),
+                      "level": it.get("level") if it.get("level") in _LEVELS else "",
+                      "score": score, "body": _scrub(_str(it.get("body"), 900)),
+                      "output": _scrub(_str(it.get("output"), 1200))})
+    if len(items) < 3:
+        raise ValueError("need at least 3 demo items")
+    roi = d.get("roi") or {}
+    try:
+        hours = max(1, min(200, int(roi.get("hours_per_month"))))
+        rate = max(1000, min(60_000, int(roi.get("hourly_rate_huf"))))
+    except (TypeError, ValueError):
+        raise ValueError("roi.hours_per_month and roi.hourly_rate_huf must be numbers")
+    qc = d.get("quote_check") if isinstance(d.get("quote_check"), dict) else None
+    ui = d.get("ui") if isinstance(d.get("ui"), dict) else None
+    names = d.get("agent_names") if isinstance(d.get("agent_names"), dict) else {}
+    return {
+        "hero_subtitle": _scrub(_str(d.get("hero_subtitle"), 300)),
+        "agent_pitch": _scrub(_str(d.get("agent_pitch"), 600)),
+        "agent_steps": [_scrub(_str(x, 200)) for x in (d.get("agent_steps") or [])[:4] if x],
+        "demo": {"title": _scrub(_str(demo.get("title"), 160)), "intro": _scrub(_str(demo.get("intro"), 300)),
+                 "summary": _scrub(_str(demo.get("summary"), 600)), "items": items},
+        "roi": {"hours_per_month": hours, "hourly_rate_huf": rate,
+                "assumptions": [_scrub(_str(x, 200)) for x in (roi.get("assumptions") or [])[:4] if x]},
+        "price_text": _str(d.get("price_text"), 120),
+        "lead_text": _str(d.get("lead_text"), 80),
+        "quote_ok": None if not qc else bool(qc.get("full_sentence")) and bool(qc.get("has_verb")),
+        "ui": {k: _str(v, 200) for k, v in ui.items() if isinstance(v, str)} if ui else None,
+        "agent_names": {str(k): _str(v, 80) for k, v in names.items() if isinstance(v, str)},
+    }
+
+
+# ---- magyar nyelvtan a címhez -------------------------------------------------
+
+_VOWELS = "aáeéiíoóöőuúüű"
+
+
+def hu_article(name: str) -> str:
+    first = name.strip()[:1].lower()
+    if not first.isalpha():
+        return "a(z)"
+    return "az" if first in _VOWELS else "a"
+
+
+# A cégforma rövidítését betűzve mondjuk ("bé-té", "ká-ef-té"), ezért -nél.
+_LEGAL_FORM = re.compile(r"\b(kft|bt|zrt|nyrt|kkt|ev|e\.v)\.?$", re.I)
+
+
+def hu_suffix(name: str) -> str:
+    if _LEGAL_FORM.search(name.strip()):
+        return "nél"
+    vowels = [c for c in name.lower() if c in _VOWELS]
+    return "nál" if vowels and vowels[-1] in "aáoóuú" else "nél"
+
+
+def title_and_footer(company: str, lang: str, ui: dict, generic: bool) -> tuple[str, str]:
+    if lang.startswith("hu"):
+        art = hu_article(company)
+        footer = (f"Ez a bemutató {art} {company} számára készült; a weboldaluk nem volt olvasható, a példaadatok "
+                  "kitaláltak.") if generic else \
+            f"Ez a bemutató {art} {company} nyilvános weboldala alapján készült; a példaadatok kitaláltak."
+        return f"Ezt csinálná egy AI agent {art} {company}-{hu_suffix(company)}", footer
+    if generic:
+        footer = ui.get("footer_generic") or (f"This demo was prepared for {company}; their website could not be "
+                                              "read, and the sample data is fictional.")
+    else:
+        footer = ui.get("footer") or f"This demo is based on {company}'s public website; the sample data is fictional."
+    return ui.get("title") or f"What an AI agent would do at {company}", footer
+
+
+# Ha a modell a nyelv nélküli (olvashatatlan) oldalhoz sem ad tartalmat:
+# általános, semmit nem állító e-mail-rendező demó.
 FALLBACK = {
-    "hu": {"before": [{"time": "08:30", "task": "Beérkezett levelek, kérések kézi átnézése"},
-                      {"time": "10:00", "task": "Ugyanazok a válaszok újra és újra begépelve"},
-                      {"time": "14:00", "task": "Adatok átmásolása egyik rendszerből a másikba"},
-                      {"time": "17:30", "task": "Ami kimaradt, az holnapra csúszik"}],
-           "after": [{"time": "08:30", "task": "Az agent már besorolta és rangsorolta, ami éjjel jött"},
-                     {"time": "09:00", "task": "Te csak jóváhagyod az elkészült vázlatokat"},
-                     {"time": "13:00", "task": "Az adatmozgatás magától lefut, eltérésnél szól"},
-                     {"time": "16:00", "task": "Marad idő arra, amihez tényleg ember kell"}]},
-    "en": {"before": [{"time": "08:30", "task": "Going through incoming emails and requests by hand"},
-                      {"time": "10:00", "task": "Typing the same answers again and again"},
-                      {"time": "14:00", "task": "Copying data from one system to another"},
-                      {"time": "17:30", "task": "Whatever is left slips to tomorrow"}],
-           "after": [{"time": "08:30", "task": "The agent has already sorted and ranked last night's requests"},
-                     {"time": "09:00", "task": "You only approve the prepared drafts"},
-                     {"time": "13:00", "task": "Data moves by itself, it flags any mismatch"},
-                     {"time": "16:00", "task": "Time is left for the work that needs a person"}]},
-    "de": {"before": [{"time": "08:30", "task": "Eingehende E-Mails und Anfragen von Hand durchgehen"}, {"time": "10:00", "task": "Immer wieder dieselben Antworten tippen"}, {"time": "14:00", "task": "Daten von einem System ins andere kopieren"}, {"time": "17:30", "task": "Was liegen bleibt, rutscht auf morgen"}],
-           "after": [{"time": "08:30", "task": "Der Agent hat die Anfragen der Nacht schon sortiert und priorisiert"}, {"time": "09:00", "task": "Sie geben die fertigen Entwürfe nur noch frei"}, {"time": "13:00", "task": "Die Daten wandern von selbst, Abweichungen meldet er"}, {"time": "16:00", "task": "Es bleibt Zeit für die Arbeit, die einen Menschen braucht"}]},
-    "es": {"before": [{"time": "08:30", "task": "Revisar a mano los correos y solicitudes entrantes"}, {"time": "10:00", "task": "Escribir las mismas respuestas una y otra vez"}, {"time": "14:00", "task": "Copiar datos de un sistema a otro"}, {"time": "17:30", "task": "Lo que queda pendiente pasa a mañana"}],
-           "after": [{"time": "08:30", "task": "El agente ya ha clasificado y priorizado las solicitudes de la noche"}, {"time": "09:00", "task": "Usted solo aprueba los borradores preparados"}, {"time": "13:00", "task": "Los datos se mueven solos y avisa de cualquier diferencia"}, {"time": "16:00", "task": "Queda tiempo para el trabajo que necesita a una persona"}]},
-    "fr": {"before": [{"time": "08:30", "task": "Trier à la main les e-mails et demandes reçus"}, {"time": "10:00", "task": "Retaper sans cesse les mêmes réponses"}, {"time": "14:00", "task": "Copier des données d'un système à l'autre"}, {"time": "17:30", "task": "Ce qui reste est repoussé au lendemain"}],
-           "after": [{"time": "08:30", "task": "L'agent a déjà trié et priorisé les demandes de la nuit"}, {"time": "09:00", "task": "Vous validez seulement les brouillons préparés"}, {"time": "13:00", "task": "Les données circulent seules, il signale tout écart"}, {"time": "16:00", "task": "Il reste du temps pour le travail qui demande une personne"}]},
-    "it": {"before": [{"time": "08:30", "task": "Controllare a mano email e richieste in arrivo"}, {"time": "10:00", "task": "Riscrivere sempre le stesse risposte"}, {"time": "14:00", "task": "Copiare dati da un sistema all'altro"}, {"time": "17:30", "task": "Quello che resta slitta a domani"}],
-           "after": [{"time": "08:30", "task": "L'agente ha già ordinato e classificato le richieste della notte"}, {"time": "09:00", "task": "Lei approva solo le bozze già pronte"}, {"time": "13:00", "task": "I dati si spostano da soli, segnala ogni differenza"}, {"time": "16:00", "task": "Resta tempo per il lavoro che richiede una persona"}]},
-    "ro": {"before": [{"time": "08:30", "task": "Parcurgerea manuală a e-mailurilor și cererilor primite"}, {"time": "10:00", "task": "Aceleași răspunsuri tastate din nou și din nou"}, {"time": "14:00", "task": "Copierea datelor dintr-un sistem în altul"}, {"time": "17:30", "task": "Ce rămâne nefăcut se mută pe mâine"}],
-           "after": [{"time": "08:30", "task": "Agentul a sortat și prioritizat deja cererile din timpul nopții"}, {"time": "09:00", "task": "Dumneavoastră doar aprobați ciornele pregătite"}, {"time": "13:00", "task": "Datele se mută singure, iar diferențele sunt semnalate"}, {"time": "16:00", "task": "Rămâne timp pentru munca ce are nevoie de un om"}]},
-    "sk": {"before": [{"time": "08:30", "task": "Ručné prechádzanie prichádzajúcich e-mailov a požiadaviek"}, {"time": "10:00", "task": "Stále dokola písanie tých istých odpovedí"}, {"time": "14:00", "task": "Kopírovanie údajov z jedného systému do druhého"}, {"time": "17:30", "task": "Čo zostane, presunie sa na zajtra"}],
-           "after": [{"time": "08:30", "task": "Agent už roztriedil a zoradil požiadavky z noci"}, {"time": "09:00", "task": "Vy len schválite pripravené koncepty"}, {"time": "13:00", "task": "Údaje sa presúvajú samy, pri rozdiele upozorní"}, {"time": "16:00", "task": "Zostane čas na prácu, ktorá potrebuje človeka"}]},
-    "zh": {"before": [{"time": "08:30", "task": "手动查看收到的邮件和请求"}, {"time": "10:00", "task": "一遍又一遍地输入相同的回复"}, {"time": "14:00", "task": "把数据从一个系统复制到另一个系统"}, {"time": "17:30", "task": "没做完的工作推到明天"}],
-           "after": [{"time": "08:30", "task": "智能体已将夜间收到的请求分类并排好优先级"}, {"time": "09:00", "task": "您只需审批已准备好的草稿"}, {"time": "13:00", "task": "数据自动流转，发现差异会提醒"}, {"time": "16:00", "task": "把时间留给真正需要人来做的工作"}]},
+    "hu": {
+        "hero_subtitle": "Egy AI agent átveszi a beérkező levelek rendezését, ti csak jóváhagytok.",
+        "agent_pitch": "Az E-mail rendező minden beérkező levelet elolvas, kategorizál, megjelöli a sürgőseket, "
+                       "és válaszvázlatot ír. A végső szót mindig egy kollégátok mondja ki.",
+        "agent_steps": ["Beérkezik egy levél", "Az agent kategorizál és sürgősséget állapít meg",
+                        "Válaszvázlatot ír", "Egy kolléga jóváhagyja és elküldi"],
+        "demo": {"title": "Beérkező levelek", "intro": "Kattints egy levélre a kategóriáért és a válaszvázlatért.",
+                 "summary": "", "items": [
+                     {"title": "Árajánlatot kérnék", "subtitle": "Új érdeklődő", "tag": "Ajánlatkérés",
+                      "level": "high", "score": None,
+                      "body": "Jó napot! Szeretnénk árajánlatot kérni a szolgáltatásukra a jövő hónapra. Mikor "
+                              "tudnának válaszolni?",
+                      "output": "Köszönjük megkeresését! Az ajánlathoz pár adatot kérnénk: mekkora mennyiségről és "
+                                "milyen határidőről van szó? Két munkanapon belül küldjük az ajánlatot."},
+                     {"title": "Számla másolat", "subtitle": "Meglévő ügyfél", "tag": "Pénzügy", "level": "medium",
+                      "score": None, "body": "Kérem, küldjék el újra a múlt havi számlát, mert nem találom.",
+                      "output": "Természetesen, mellékelten küldjük a múlt havi számla másolatát."},
+                     {"title": "Időpont módosítás", "subtitle": "Meglévő ügyfél", "tag": "Ügyintézés",
+                      "level": "medium", "score": None, "body": "A csütörtöki egyeztetést át tudnánk tenni péntekre?",
+                      "output": "Köszönjük a jelzést! Pénteken 10 és 14 óra között van szabad időpontunk, melyik "
+                                "lenne megfelelő?"},
+                     {"title": "Hírlevél ajánlat", "subtitle": "Külső partner", "tag": "Egyéb", "level": "low",
+                      "score": None, "body": "Hirdetési lehetőséget kínálunk a hírlevelünkben.",
+                      "output": "Köszönjük, jelenleg nem tervezünk ilyen együttműködést."}]},
+        "roi": {"hours_per_month": 20, "hourly_rate_huf": 8000,
+                "assumptions": ["Havi kb. 400 beérkező levél", "Levelenként átlag 3 perc kézi munka",
+                                "Az agent ennek kb. 70%-át átveszi"]},
+    },
+    "en": {
+        "hero_subtitle": "An AI agent sorts your incoming e-mail, you just approve.",
+        "agent_pitch": "The E-mail sorter reads every incoming message, categorises it, flags urgent ones and drafts a "
+                       "reply. A member of your team always has the final word.",
+        "agent_steps": ["An e-mail arrives", "The agent categorises it and sets urgency", "It drafts a reply",
+                        "A colleague approves and sends"],
+        "demo": {"title": "Incoming e-mail", "intro": "Click a message to see its category and draft reply.",
+                 "summary": "", "items": [
+                     {"title": "Request for a quote", "subtitle": "New prospect", "tag": "Quote", "level": "high",
+                      "score": None,
+                      "body": "Hello, we would like a quote for your services next month. When could you reply?",
+                      "output": "Thank you for reaching out! Could you tell us the volume and deadline? We'll send the "
+                                "quote within two working days."},
+                     {"title": "Invoice copy", "subtitle": "Existing customer", "tag": "Finance", "level": "medium",
+                      "score": None, "body": "Could you resend last month's invoice? I can't find it.",
+                      "output": "Of course, please find last month's invoice attached."},
+                     {"title": "Reschedule meeting", "subtitle": "Existing customer", "tag": "Admin",
+                      "level": "medium", "score": None, "body": "Could we move Thursday's meeting to Friday?",
+                      "output": "Thanks for letting us know! We are free on Friday between 10:00 and 14:00 — which "
+                                "suits you?"},
+                     {"title": "Newsletter offer", "subtitle": "External vendor", "tag": "Other", "level": "low",
+                      "score": None, "body": "We offer advertising space in our newsletter.",
+                      "output": "Thank you, we are not planning such a collaboration at the moment."}]},
+        "roi": {"hours_per_month": 20, "hourly_rate_huf": 8000,
+                "assumptions": ["About 400 incoming e-mails a month", "About 3 minutes of manual work each",
+                                "The agent takes over about 70% of it"]},
+    },
 }
 
 
@@ -686,8 +887,105 @@ def make_slug(company: str, domain: str) -> str:
     return f"{base}-{secrets.token_hex(3)}"
 
 
-def _valid_agent(a) -> str | None:
-    return a if isinstance(a, str) and a in CATALOG else None
+def _site_text(pages: list[dict]) -> str:
+    """A modellnek: oldalanként a szöveg és a folyó szöveges bekezdések
+    (PROSE), csak ezekből lehet idézni."""
+    parts = []
+    for p in pages:
+        prose = "\n".join(f"- {b}" for b in p["paras"][:25])
+        parts.append(f"=== PAGE: {p['url']}\nTITLE: {p['title']}\nTEXT:\n{p['text'][:5000]}\n"
+                     f"PROSE (allowed quote sources):\n{prose}")
+    return "\n\n".join(parts)[:SITE_TEXT_CHARS]
+
+
+def verify_observation(obs: dict | None, pages: list[dict]) -> dict | None:
+    """Az idézet csak akkor marad, ha egy letöltött oldal folyó szövegében szó
+    szerint ott van, teljes mondat, és nincs benne elérhetőség vagy felsorolásjel."""
+    if not obs or re.search(r"[|•»›·]", obs["quote"]):
+        return None
+    ordered = sorted(pages, key=lambda p: p["url"] != obs["page_url"])
+    for p in ordered:
+        for para in p["paras"]:
+            if good_quote(obs["quote"], para):
+                return {"quote": obs["quote"].strip().strip("„“”\"' "), "page_url": p["url"],
+                        "insight": obs["insight"]}
+    return None
+
+
+def _generic_analysis(company: str, lang: str, decision: dict | None) -> dict:
+    main = (decision or {}).get("main") if (decision or {}).get("main") in CATALOG else "email"
+    sec = [e for e in (decision or {}).get("extras", []) if e in CATALOG and e != main][:2] \
+        if decision else ["admin", "support"]
+    return {"language": lang, "company_name": company, "what_they_do": "", "audience": "", "repetitive_work": [],
+            "observation": None, "support_evidence": "", "main": main, "reason": "", "what_it_does": "",
+            "secondary": [{"id": s, "reason": ""} for s in sec], "custom_idea": "", "generic": True}
+
+
+def _analyze(pages, ask, extract_json, lang, company, decision) -> dict:
+    site_lang = pages[0].get("lang") or guess_lang(" ".join(p["text"] for p in pages)) or ""
+    lang_rule = f"Output language: {lang}." if lang else (
+        f"Output language: the main language of the website text (html lang attribute hint: '{site_lang}'). "
+        "Detect it from the text itself.")
+    name_rule = f"Company name (given): {company}." if company else (
+        f"Company name: derive the brand name from the website (title hint: '{pages[0]['title'][:80]}', "
+        f"domain: {domain_of(pages[0]['url'])}).")
+    user = f"{lang_rule}\n{name_rule}\n\nWEBSITE:\n{_site_text(pages)}"
+    if decision:
+        user += (f"\n\nTHE AGENT CHOICE IS ALREADY DECIDED: main agent id {decision['main']}, secondary agent ids "
+                 f"{decision.get('extras', [])}. Use exactly these ids and write the reasons/what_it_does for them.")
+    a = _ask_json(ask, extract_json, ANALYSIS_SYSTEM, user, _check_analysis)
+    if a is None:
+        raise ModelError("A modell nem adott használható elemzést, próbáld újra.")
+    if decision:
+        if a["main"] != decision["main"]:
+            a.update(main=decision["main"], reason="", what_it_does="")
+        reasons = {s["id"]: s["reason"] for s in a["secondary"]}
+        a["secondary"] = [{"id": e, "reason": reasons.get(e, "")} for e in decision.get("extras", [])
+                          if e in CATALOG and e != a["main"]][:2]
+    elif a["main"] == "support" and not evidence_on_pages(a["support_evidence"], pages):
+        retry = _ask_json(ask, extract_json, ANALYSIS_SYSTEM, user + (
+            "\n\nIMPORTANT: no FAQ/support/customer-service evidence could be verified on this site, so \"support\" "
+            "must NOT be the main agent. Choose the agent that fits their actual repetitive work."), _check_analysis)
+        if retry and retry["main"] != "support":
+            a = retry
+        else:
+            alt = next((s for s in a["secondary"] if s["id"] != "support"), None)
+            if alt is None:
+                a.update(main="custom", reason="", what_it_does="")
+            else:
+                a.update(main=alt["id"], reason=alt["reason"], what_it_does="")
+            a["secondary"] = [s for s in a["secondary"] if s["id"] not in ("support", a["main"])]
+    if company:
+        a["company_name"] = _str(company, 80)
+    if a["main"] != "custom":
+        a["custom_idea"] = ""
+    a["observation"] = verify_observation(a["observation"], pages)
+    a["generic"] = False
+    return a
+
+
+def _content(a: dict, lang: str, ask, extract_json) -> dict | None:
+    agent = CATALOG[a["main"]]
+    kind = agent["kind"]
+    is_hu, is_en = lang.startswith("hu"), lang.startswith("en")
+    need_ui = not (is_hu or is_en)
+    names = {} if is_hu else {k: CATALOG[k]["name"] for k in [a["main"], *[s["id"] for s in a["secondary"]]]}
+    facts = ("NO website could be read: write a general page for this company name only, assume nothing about "
+             "their activity, keep sample data neutral.") if a["generic"] else json.dumps({
+        "what_they_do": a["what_they_do"], "audience": a["audience"], "repetitive_work": a["repetitive_work"],
+        "agent_reason": a["reason"], "agent_what_it_does": a["what_it_does"],
+        "custom_agent_idea": a["custom_idea"]}, ensure_ascii=False)
+    quote = a["observation"]["quote"] if a["observation"] else None
+    user = (f"Output language: {lang}\nCompany: {a['company_name']}\nAgent: {agent['name']} — {agent['does']}\n"
+            f"Price: {agent['price']}; lead time: {agent['lead']}\nAnalysis: {facts}\n"
+            f"Website quote to judge: {json.dumps(quote, ensure_ascii=False)}\n"
+            + (f"UI_SOURCE (translate values): {json.dumps(EN_UI, ensure_ascii=False)}\n" if need_ui else "")
+            + f"JSON schema:\n{_content_schema(kind, need_ui, names)}")
+    return _ask_json(ask, extract_json, CONTENT_SYSTEM, user, _check_content)
+
+
+def _strip_label(s: str) -> str:
+    return re.sub(r"^[^:\d]{1,30}:\s*", "", s or "").strip()
 
 
 def build_page(url: str, *, ask, extract_json, lang: str | None = None, company: str | None = None,
@@ -699,108 +997,59 @@ def build_page(url: str, *, ask, extract_json, lang: str | None = None, company:
     if not host_ok(urlparse(url).hostname or ""):
         raise DemoError("Ez a cím nem nyilvános weboldal.")
     dom = domain_of(url)
+    lang = (lang or "").strip().lower() or None
     pages = crawl(url, fetcher)
     # Csak JavaScriptből felépülő oldalnál szinte üres a letöltött szöveg: abból
-    # a modell csak találgatna, ezért ilyenkor is az általános oldal jön.
-    if sum(len(p["text"]) for p in pages) < MIN_SITE_CHARS:
-        return _generic(url, dom, lang or (pages[0]["lang"] if pages else "") or "hu", company, decision)
-
-    site_lang = pages[0].get("lang") or guess_lang(" ".join(p["text"] for p in pages))
-    out_lang = (lang or site_lang or "en")[:2].lower()
-    if out_lang not in LANGS:
-        out_lang = "en"
-    data = None
-    for avoid_support in (False, True):
-        raw = ask(analyze_prompt(pages, out_lang, company, avoid_support))
-        try:
-            data = extract_json(raw)
-        except Exception:  # noqa - egyszer újrapróbáljuk
-            data = None
-        if not isinstance(data, dict):
-            data = None
-            continue
-        main = _valid_agent(data.get("main"))
-        if main == "support" and not decision and not evidence_on_pages(data.get("support_evidence") or "", pages):
-            data = None  # nincs valódi ügyfélszolgálati jel: válasszon mást
-            continue
-        break
-    if not data:
-        # Az oldalt elolvastuk, csak a modell válasza volt rossz: általános oldal
-        # helyett hiba, hogy újra lehessen próbálni.
-        raise ModelError("A modell nem adott használható elemzést, próbáld újra.")
-
-    if decision and _valid_agent(decision.get("main")):
-        main = decision["main"]
-        extras = [e for e in decision.get("extras", []) if _valid_agent(e) and e != main][:2]
-        reasons = {e.get("id"): e.get("reason") for e in data.get("extras", []) if isinstance(e, dict)}
-        main_reason = _str(data.get("main_reason"), 500) if data.get("main") == main else ""
+    # a modell csak találgatna, ezért ilyenkor általános oldal készül.
+    readable = sum(len(p["text"]) for p in pages) >= MIN_SITE_CHARS
+    if readable:
+        a = _analyze(pages, ask, extract_json, lang, company, decision)
     else:
-        main = _valid_agent(data.get("main")) or "custom"
-        extras = []
-        for e in data.get("extras", []) or []:
-            if isinstance(e, dict) and _valid_agent(e.get("id")) and e["id"] != main and e["id"] not in extras:
-                extras.append(e["id"])
-        extras = extras[:2]
-        reasons = {e.get("id"): e.get("reason") for e in data.get("extras", []) if isinstance(e, dict)}
-        main_reason = _str(data.get("main_reason"), 500)
+        page_lang = lang or (pages[0]["lang"] if pages else "") or "hu"
+        a = _generic_analysis(_str(company, 80) or dom, page_lang, decision)
+    out_lang = (lang or a["language"] or (pages[0]["lang"] if pages else "") or "hu")[:12]
 
-    name = _str(company or data.get("company"), 80) or dom
-    summary = _str(data.get("summary"), 500)
+    c = _content(a, out_lang, ask, extract_json)
+    if c is None:
+        if not a["generic"]:
+            # Az oldalt elolvastuk, csak a tartalom nem lett jó: nem mentünk
+            # hozzá nem illő általános demót, inkább újra lehet próbálni.
+            raise ModelError("A modell nem adott használható demótartalmat, próbáld újra.")
+        fb = FALLBACK["hu" if out_lang.startswith("hu") else "en"]
+        c = {**fb, "price_text": "", "lead_text": "", "quote_ok": None, "ui": None, "agent_names": {}}
+        a["main"], a["secondary"] = "email", [s for s in a["secondary"] if s["id"] != "email"]
+        if not out_lang.startswith("hu"):
+            out_lang = "en"
 
-    # Idézet: csak ha szó szerint ott van a megjelölt bekezdésben, és teljes mondat.
-    _, paras = _site_digest(pages)
-    quote = None
-    qi = data.get("quote_paragraph")
-    q = _str(data.get("quote"), 400)
-    if isinstance(qi, int) and 0 <= qi < len(paras) and good_quote(q, paras[qi]):
-        src_url = next((p["url"] for p in pages if paras[qi] in p["paras"]), pages[0]["url"])
-        quote = {"text": q.strip("„“”\"' "), "url": src_url}
-
-    work = []
-    for w in data.get("work", []) or []:
-        if isinstance(w, dict) and w.get("task") and evidence_on_pages(w.get("evidence") or "", pages):
-            work.append(_str(w["task"], 160))
-    work = work[:3]
-
-    demo, steps = None, []
-    kind = CATALOG[main]["kind"]
-    reason_for_demo = main_reason or summary
-    try:
-        dd = extract_json(ask(demo_prompt(name, summary, main, reason_for_demo, out_lang)))
-        demo = clean_demo(kind, dd.get("demo") if isinstance(dd, dict) else None)
-        steps = [_str(s, 200) for s in (dd.get("steps") or [])[:3]] if isinstance(dd, dict) else []
-    except Exception as e:  # noqa - a demó nélkül is van oldal
-        logger.warning("demo content failed: %s", type(e).__name__)
-    if demo is None:
-        kind, demo = "timeline", FALLBACK[out_lang]
-
-    return _page(url, dom, out_lang, name, summary, main, main_reason, extras, reasons, kind, demo,
-                 steps, quote, work, _str(data.get("custom_idea"), 300) if main == "custom" else "",
-                 generic=False)
-
-
-def _page(url, dom, lang, name, summary, main, main_reason, extras, reasons, kind, demo, steps, quote,
-          work, custom_idea, generic) -> dict:
-    a = CATALOG[main]
+    is_hu = out_lang.startswith("hu")
+    ui = HU_UI if is_hu else {**EN_UI, **{k: v for k, v in (c["ui"] or {}).items() if v}}
+    company_name = a["company_name"] or dom
+    title, footer = title_and_footer(company_name, out_lang, ui, a["generic"])
+    obs = a["observation"]
+    if obs and c["quote_ok"] is False:
+        obs = None
+    agent = CATALOG[a["main"]]
+    names = c["agent_names"]
     return {
-        "url": url, "domain": dom, "lang": lang, "company": name, "summary": summary, "generic": generic,
-        "quote": quote, "work": work,
-        "main": {"id": main, "name": agent_name(main, lang), "reason": main_reason, "steps": steps,
-                 "custom_idea": custom_idea, "price": list(a["price"]) if a["price"] else None,
-                 "weeks": list(a["weeks"]) if a["weeks"] else None, "legal": bool(a.get("legal")),
-                 "monthly": monthly_fee(main), "live": a.get("live"), "hours": a["hours"]},
-        "extras": [{"id": e, "name": agent_name(e, lang), "reason": _str(reasons.get(e), 240),
-                    "live": CATALOG[e].get("live")} for e in extras],
-        "demo": {"kind": kind, **demo},
+        "url": url, "domain": dom, "company": company_name, "lang": out_lang, "generic": a["generic"],
+        "title": title, "footer": footer, "ui": ui, "hero_subtitle": c["hero_subtitle"],
+        "observation": obs,
+        "agent": {
+            "id": a["main"], "name": names.get(a["main"]) or agent["name" if is_hu else "name_en"],
+            "demo_url": agent["demo"], "demo_label": agent.get("demo_label"),
+            "price_text": agent["price"] if is_hu else _strip_label(c["price_text"]) or agent["price_en"],
+            "lead_text": agent["lead"] if is_hu else _strip_label(c["lead_text"]) or agent["lead_en"],
+            "price_min": agent["price_min"], "price_max": agent["price_max"], "monthly_fee": monthly_fee(a["main"]),
+            "reason": a["reason"],
+            "what_it_does": a["what_it_does"] or c["agent_pitch"] or agent["does"],
+            "steps": c["agent_steps"], "custom_idea": a["custom_idea"] or None,
+        },
+        "secondary": [{"id": s["id"], "name": names.get(s["id"]) or CATALOG[s["id"]]["name" if is_hu else "name_en"],
+                       "reason": s["reason"]} for s in a["secondary"]],
+        "demo": {"kind": agent["kind"], **c["demo"]},
+        "roi": c["roi"],
+        "contact_email": CONTACT_EMAIL,
     }
-
-
-def _generic(url, dom, lang, company, decision) -> dict:
-    main = _valid_agent((decision or {}).get("main")) or "email"
-    lang = (lang or "")[:2].lower()
-    lang = lang if lang in LANGS else "en"
-    return _page(url, dom, lang, _str(company, 80) or dom, "", main, "", [], {}, "timeline",
-                 FALLBACK[lang], [], None, [], "", generic=True)
 
 
 def generate(url: str, **kw) -> dict:
