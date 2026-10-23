@@ -22,7 +22,7 @@ Agentek, nettó ár, átfutás:
 - NIS2 megfelelőségi agent: 600 ezer–2 millió Ft, 3–6 hét (bizonyítékot gyűjt az audithoz, támadás ellen NEM véd)
 - Értékesítő agent: 600 ezer–1,5 millió Ft, 2–4 hét
 - Több agentes rendszer: 6–15 millió Ft, 7–12 hét
-- Egyedi agent: nincs fix ár, 20 perces felmérés után árazzuk
+- Egyedi agent: nincs fix ár, rövid felmérés után árazzuk
 - Weboldal: egyoldalas 120 ezer Ft (3–5 nap), többoldalas 290 ezer Ft (1–2 hét), egyedi/AI-integrált 900 ezer Ft-tól
 Jelenlegi helyzet: induló vállalkozás, még nincs fizető referencia-ügyfél, a marketingköltség most minimális."""
 

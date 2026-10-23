@@ -115,7 +115,7 @@ const en = {
       { q: "\"This is expensive. I can hire someone for less.\"",
         a: "For a single task, yes — and sometimes that is the right answer. The maths tips over when the task is daily, dull and easy to get wrong; there a salary is not a one-off cost but a monthly one. That is why the last step of the process is a re-measurement: believing it was worth it is not enough." },
       { q: "\"We have no time as it is, let alone for a project.\"",
-        a: "The assessment takes twenty minutes, and not from you — from whoever does the task. The building happens on our side, and if the first step shows you have no capacity right now, that is an answer too. I won't call back three times." },
+        a: "The assessment is one short conversation, and not with you — with whoever does the task. The building happens on our side, and if the first step shows you have no capacity right now, that is an answer too. I won't call back three times." },
       { q: "\"What happens to our data?\"",
         a: "What the code does is what the privacy notice describes — no more and no less. The demos store nothing; the email agent asks for read-only access and forgets you after half an hour. In live systems the data stays with you, because the system runs with you. The model call goes to the United States, and that is stated — if that rules it out for you, better to find out early than late." },
     ],
@@ -149,7 +149,7 @@ const en = {
   },
   firstStep: {
     tag: "The first step",
-    heading: "Twenty minutes, and not a presentation",
+    heading: "A short conversation, and not a presentation",
     body: "I don't send a quote first. We look together at which task repeats most often at your company, and I tell you how much of it can be automated — including when the answer is: not much. This is the one step that costs nothing and commits you to nothing.",
     points: [
       "No slide deck and no package offer in the first conversation.",

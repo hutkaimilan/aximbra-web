@@ -461,8 +461,8 @@ Their reply:
 {reply[:3000]}
 ---
 Rules:
-- Answer exactly what they asked, briefly and honestly. If they ask about price: e-mail rendező 150 000–400 000 Ft; érdeklődő-minősítő 400 000–1 200 000 Ft; the telephone AI and anything custom is priced after a 20-minute assessment. Never invent other prices, clients or results.
-- Propose a 20-minute call and offer exactly these times (convert the date format naturally into their language):{tz_note}
+- Answer exactly what they asked, briefly and honestly. If they ask about price: e-mail rendező 150 000–400 000 Ft; érdeklődő-minősítő 400 000–1 200 000 Ft; the telephone AI and anything custom is priced after a short assessment. Never invent other prices, clients or results.
+- Propose a short call (never state its length in minutes) and offer exactly these times (convert the date format naturally into their language):{tz_note}
 {slot_lines}
 - Ask them to reply with the one that suits them, or suggest another.
 - Under 110 words, warm but not salesy, no emojis. Sign "Hutkai Milán · AXIMBRA · aximbra.hu".
@@ -608,7 +608,7 @@ Agentek, nettó ár, átfutás:
 - NIS2 megfelelőségi agent: 600 ezer–2 millió Ft, 3–6 hét (bizonyítékot gyűjt az audithoz, támadás ellen NEM véd)
 - Értékesítő agent: 600 ezer–1,5 millió Ft, 2–4 hét
 - Több agentes rendszer: 6–15 millió Ft, 7–12 hét
-- Egyedi agent: nincs fix ár, 20 perces felmérés után árazzuk
+- Egyedi agent: nincs fix ár, rövid felmérés után árazzuk
 - Weboldal: egyoldalas 120 ezer Ft (3–5 nap), többoldalas 290 ezer Ft (1–2 hét), egyedi/AI-integrált 900 ezer Ft-tól
 Jelenlegi helyzet: induló vállalkozás, még nincs fizető referencia-ügyfél, a marketingköltség most minimális."""
 

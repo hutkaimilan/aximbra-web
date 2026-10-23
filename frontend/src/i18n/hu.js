@@ -115,7 +115,7 @@ const hu = {
       { q: "„Ez drága. Egy embert olcsóbban felveszek.”",
         a: "Egy részfeladatra igen, és néha tényleg az a jó válasz. A számolás akkor billen át, ha a feladat napi, unalmas és hibázni lehet benne — ott egy ember bére nem egyszeri költség, hanem havi. A folyamat utolsó lépése ezért visszamérés: nem elég elhinni, hogy megérte." },
       { q: "„Most sincs időnk. Egy projektre pláne nincs.”",
-        a: "A felméréshez húsz perc kell, és nem tőled, hanem attól, aki a feladatot csinálja. Az építés a mi oldalunkon megy, és ha az első lépésnél az jön ki, hogy most nincs rá kapacitásotok, az is egy válasz — nem fogok háromszor visszahívni." },
+        a: "A felméréshez egy rövid beszélgetés kell, és nem veled, hanem azzal, aki a feladatot csinálja. Az építés a mi oldalunkon megy, és ha az első lépésnél az jön ki, hogy most nincs rá kapacitásotok, az is egy válasz — nem fogok háromszor visszahívni." },
       { q: "„Mi lesz az adatainkkal?”",
         a: "Amit a kód csinál, azt írja le az adatkezelési tájékoztató — nem többet és nem kevesebbet. A demók nem tárolnak semmit; az e-mail agent csak olvasási jogot kér, és fél óra múlva elfelejt. Az éles rendszereknél az adat nálad marad, mert a rendszer is nálad fut. A modellhívás az Egyesült Államokba megy, és ez ki van írva — ha ez nálatok kizáró ok, azt előbb derítsük ki, mint később." },
     ],
@@ -149,7 +149,7 @@ const hu = {
   },
   firstStep: {
     tag: "Az első lépés",
-    heading: "Húsz perc, és nem prezentáció",
+    heading: "Egy rövid beszélgetés, és nem prezentáció",
     body: "Nem ajánlatot küldök elsőre. Megnézzük együtt, melyik feladat ismétlődik nálatok a legtöbbször, és megmondom, mennyi belőle automatizálható — meg azt is, ha kevés. Ez az egyetlen lépés, ami nem kerül semmibe és nem köt semmire.",
     points: [
       "Nincs prezentáció és nincs csomagajánlat az első beszélgetésen.",

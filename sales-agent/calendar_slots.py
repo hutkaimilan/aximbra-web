@@ -1,4 +1,4 @@
-"""Szabad időpontok a 20 perces beszélgetésre, a tulajdonos naptárából.
+"""Szabad időpontok a rövid beszélgetésre, a tulajdonos naptárából.
 
 A Google Naptár "titkos iCal-címéről" olvas (CALENDAR_ICS_URL): csak
 olvasás, nincs belépés. Ha nincs beállítva, a munkaidőből ajánl, és ezt
@@ -122,7 +122,7 @@ def calendar_link(dt: datetime, company: str, guest: str) -> str:
     fmt = "%Y%m%dT%H%M%SZ"
     q = {
         "action": "TEMPLATE",
-        "text": f"AXIMBRA – 20 perces beszélgetés ({company})",
+        "text": f"AXIMBRA – beszélgetés ({company})",
         "dates": f"{dt.astimezone(UTC):{fmt}}/{end.astimezone(UTC):{fmt}}",
         "details": "Rövid felmérés: melyik feladat ismétlődik a legtöbbször, és mennyi automatizálható belőle.\n"
                    "Hutkai Milán · AXIMBRA · aximbra.hu",

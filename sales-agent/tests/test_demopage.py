@@ -297,6 +297,27 @@ def test_untranslated_names_fall_back_to_english_not_hungarian():
     assert page["secondary"][0]["name"] == "Email triage agent"
 
 
+def test_no_twenty_minute_offer_anywhere_in_the_repo():
+    # A tulajdonos kérése (2026-10-23): "20 perc" / "Beszéljünk 20 percet" sehol,
+    # egyik nyelven sem: se a weboldalon, se a leveleken, se a telefonon.
+    import re as _re
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    bad = _re.compile(r"húsz ?perc|20 ?perc|twenty.minute|20.min(?:ute|ut)|zwanzig minut|veinte minut|vingt minut|"
+                      r"venti minut|douăzeci de minut|dvadsať minút|二十分钟|20 ?分钟", _re.I)
+    hits = []
+    for sub in ("frontend/src", "frontend/public", "sales-agent", "voice-agent/src", "video-agent", "backend",
+                "webshop-agent"):
+        for dirpath, dirs, files in os.walk(os.path.join(root, sub)):
+            dirs[:] = [d for d in dirs if d not in ("node_modules", "build", "dist", "__pycache__", "tests")]
+            for f in files:
+                if f.endswith((".py", ".js", ".jsx", ".ts", ".html", ".json")) and not f.endswith(".test.ts"):
+                    with open(os.path.join(dirpath, f), encoding="utf-8", errors="ignore") as fh:
+                        for n, line in enumerate(fh, 1):
+                            if bad.search(line):
+                                hits.append(f"{sub}/{f}:{n}")
+    assert not hits, hits
+
+
 def test_no_twenty_minute_call_offer_on_the_page():
     # A tulajdonos kérése (2026-10-23): a "Beszéljünk 20 percet" felhívás soha
     # többé nem kerülhet az oldalra, egyik nyelven sem.

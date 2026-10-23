@@ -118,7 +118,7 @@ const de = {
       { q: "„Das ist teuer. Dafür stelle ich jemanden ein.“",
         a: "Für eine einzelne Aufgabe stimmt das manchmal — und dann ist es die richtige Antwort. Bei täglicher, eintöniger, fehleranfälliger Arbeit kippt die Rechnung: Gehalt ist keine einmalige, sondern eine monatliche Ausgabe, und eine passende Fachkraft muss man erst einmal finden. Rechnen Sie es unten mit deutschen Löhnen nach." },
       { q: "„Wir haben schon jetzt keine Zeit, geschweige denn für ein Projekt.“",
-        a: "Die Analyse dauert zwanzig Minuten, und nicht Ihre — sondern die der Person, die die Aufgabe heute erledigt. Gebaut wird bei uns. Zeigt der erste Schritt, dass Sie gerade keine Kapazität haben, ist das auch eine Antwort. Ich rufe nicht dreimal nach." },
+        a: "Die Analyse ist ein kurzes Gespräch, und nicht mit Ihnen — sondern mit der Person, die die Aufgabe heute erledigt. Gebaut wird bei uns. Zeigt der erste Schritt, dass Sie gerade keine Kapazität haben, ist das auch eine Antwort. Ich rufe nicht dreimal nach." },
       { q: "„Was passiert mit unseren Daten? Stichwort DSGVO.“",
         a: "Die Demos speichern nichts; der E-Mail-Agent fragt nur Leserechte an und vergisst Sie nach einer halben Stunde. In Ihren Systemen bleiben die Daten bei Ihnen, weil das System bei Ihnen läuft. Wo wir Daten in Ihrem Auftrag verarbeiten, schließen wir einen Auftragsverarbeitungsvertrag nach Art. 28 DSGVO. Der Modellaufruf kann in die USA gehen — das sagen wir offen, und wenn das für Sie ein Ausschlussgrund ist, prüfen wir gemeinsam ein in der EU gehostetes Modell." },
     ],
@@ -152,7 +152,7 @@ const de = {
   },
   firstStep: {
     tag: "Der erste Schritt",
-    heading: "Zwanzig Minuten, und keine Präsentation",
+    heading: "Ein kurzes Gespräch, und keine Präsentation",
     body: "Ich schicke zuerst kein Angebot. Wir schauen gemeinsam, welche Aufgabe sich bei Ihnen am häufigsten wiederholt, und ich sage Ihnen, wie viel davon automatisierbar ist — auch wenn die Antwort lautet: nicht viel. Dieser Schritt kostet nichts und verpflichtet zu nichts.",
     points: [
       "Kein Foliensatz und kein Paketangebot im ersten Gespräch.",

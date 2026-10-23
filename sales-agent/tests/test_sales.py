@@ -45,7 +45,7 @@ class FakeLLM:
         return "no" if "nem" in reply.lower() else "interested"
 
     def draft_reply(self, original, reply, slots, lang):
-        return "Köszönöm! Mikor beszélhetnénk 20 percet? " + " / ".join(slots)
+        return "Köszönöm! Mikor beszélhetnénk? " + " / ".join(slots)
 
 
 def FAKE_SLOTS(company, guest):
@@ -250,7 +250,7 @@ def test_interested_reply_gets_suggestion(store):
                           "in_reply_to": "", "references": "", "message_id": "<r2>", "subject": "Re", "date": ""}]
     pipeline.scan_replies(store, pipeline.RunLog(), llm=FakeLLM([]), mailbox_factory=FakeMailbox, slots_fn=FAKE_SLOTS)
     lead = store.get(lid)
-    assert lead["reply_kind"] == "interested" and "20 percet" in lead["reply_suggestion"]
+    assert lead["reply_kind"] == "interested" and "beszélhetnénk" in lead["reply_suggestion"]
     assert "szeptember 29. (kedd) 10:00" in lead["reply_suggestion"] and "calendar.google.com" in lead["slots"]
     assert "régi levél" not in lead["reply_text"]
 

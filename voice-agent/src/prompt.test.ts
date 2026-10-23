@@ -279,12 +279,15 @@ test('az egyedi agentre nem mond arat', () => {
   // Egyedi munkara minden szam kitalalt lenne: az agent a felmeresre mutat.
   const hu = buildSystemPrompt(0, facts(), '');
   assert.match(hu, /EGYEDI AGENT[^\n]*NINCS fix ára/);
-  assert.match(hu, /húszperces felmérés után adunk rá ajánlatot/);
+  assert.match(hu, /egy rövid felmérés után adunk rá ajánlatot/);
+  // A tulajdonos kérése (2026-10-23): a felmérés hosszát percben soha nem mondjuk.
+  assert.doesNotMatch(hu, /húsz ?perc|20 ?perc/i);
   assert.match(hu, /Árat vagy határidőt SOHA ne találj ki rá/);
 
   const en = buildSystemPrompt(0, facts(), '', 'en');
   assert.match(en, /Custom agent: there is NO fixed price/);
   assert.match(en, /Never invent a price or a timeline for it/);
+  assert.doesNotMatch(en, /twenty.minute|20.minute/i);
 });
 
 test('az SMS-t egyszer ajanlja fel, utana nem kinalja ujra', () => {

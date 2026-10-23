@@ -97,7 +97,7 @@ const docdemo = {
       demo_paused: "Die Demo pausiert gerade. Schauen Sie später wieder vorbei oder schreiben Sie an aximbra@gmail.com",
       generic: "Das hat gerade nicht geklappt. Bitte etwas später erneut versuchen.",
     },
-    cta: "Für Ihre eigenen Dokumente? Buchen Sie ein 20-minütiges Gespräch",
+    cta: "Für Ihre eigenen Dokumente? Schreiben Sie uns",
     severity: { high: "Hoch", medium: "Mittel", low: "Niedrig" },
     recsNote: "Vorschläge auf Basis der obigen Klauseln — keine Rechtsberatung.",
     truncated: "Das Dokument ist sehr lang: nur die ersten ca. 30.000 Zeichen wurden analysiert.",
