@@ -591,8 +591,9 @@ HU_UI = {
     "per_month": "/ hó",
     "on_quote": "ajánlat alapján",
     "approval_note": "Minden agent-kimenetet ember hagy jóvá, mielőtt kimenne.",
-    "cta": "Beszéljünk 20 percet",
-    "cta_sub": "Megnézzük, hol hozná a legtöbbet nálatok, és kapsz egy konkrét ajánlatot.",
+    "cta": "Írj nekünk",
+    "cta_sub": "Írd le egy mondatban, mi visz el nálatok sok időt: két munkanapon belül megmondjuk, megéri-e rá "
+               "agentet építeni, és ha nem, azt is.",
     "label_category": "Kategória",
     "label_urgency": "Sürgősség",
     "label_draft": "Válaszvázlat",
@@ -629,8 +630,9 @@ EN_UI = {
     "fee_label": "Monthly fee (monitoring and fixes)", "payback_label": "Payback", "months": "months",
     "per_month": "/ month", "on_quote": "on quote",
     "approval_note": "Every agent output is approved by a human before it goes out.",
-    "cta": "Let's talk for 20 minutes",
-    "cta_sub": "We'll look at where it would help you most, and you get a concrete proposal.",
+    "cta": "Write to us",
+    "cta_sub": "Describe in one sentence what takes up a lot of your time: within two working days we tell you "
+               "whether an agent is worth building for it, and if not, we say so too.",
     "label_category": "Category", "label_urgency": "Urgency", "label_draft": "Draft reply", "label_score": "Score",
     "label_next_step": "Suggested next step", "label_risk": "Risk", "label_comment": "Agent comment",
     "label_before": "Before", "label_after": "After", "label_caller": "Caller", "label_agent": "AI agent",

@@ -7,6 +7,11 @@ Premium, dark, neon-lit single-page marketing site for AXIMBRA, a Budapest AI ag
 - **Frontend:** React 19 (CRA), custom raw-WebGL plasma shader (6-octave fBm) with CSS radial fallback, Lenis smooth scroll, IntersectionObserver scroll-reveals, framer-motion available. Fonts: Chakra Petch / Sora / JetBrains Mono.
 - **Backend:** FastAPI, two endpoints `/api/demo/email` + `/api/demo/lead` calling OpenAI (`gpt-5.4-mini`) via emergentintegrations with the user's own `OPENAI_API_KEY`. Strict Pydantic Literal schemas, up to 3 attempts, Hungarian fallback. In-memory guardrails: 4 USD/day, 8 runs/session, 20 req/IP/hour, 4000-char input cap. **No database used.**
 
+## Owner rules (never break)
+- **No "Beszéljünk 20 percet" / "Let's talk for 20 minutes" call-to-action, in any language, anywhere the owner
+  did not explicitly ask for it** (owner's instruction, 2026-10-23). Demo pages and the document demo say
+  "Írj nekünk" / "Write to us" instead. Guarded by `sales-agent/tests/test_demopage.py::test_no_twenty_minute_call_offer_on_the_page`.
+
 ## User personas
 - Hungarian SME owners/managers evaluating whether to commission an AI agent for a repetitive task.
 

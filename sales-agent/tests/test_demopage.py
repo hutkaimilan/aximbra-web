@@ -297,6 +297,14 @@ def test_untranslated_names_fall_back_to_english_not_hungarian():
     assert page["secondary"][0]["name"] == "Email triage agent"
 
 
+def test_no_twenty_minute_call_offer_on_the_page():
+    # A tulajdonos kérése (2026-10-23): a "Beszéljünk 20 percet" felhívás soha
+    # többé nem kerülhet az oldalra, egyik nyelven sem.
+    for ui in (demopage.HU_UI, demopage.EN_UI):
+        text = " ".join(ui.values()).lower()
+        assert "20" not in text and "húsz" not in text and "twenty" not in text
+
+
 @pytest.mark.parametrize("name,title", [
     ("Kert Bisztró", "Ezt csinálná egy AI agent a Kert Bisztrónál"),
     ("Bortársaság", "Ezt csinálná egy AI agent a Bortársaságnál"),
@@ -388,11 +396,11 @@ def test_saved_decision_wins():
 
 
 def test_other_language_gets_translated_ui_and_names():
-    content = dict(CONTENT, ui={"cta": "Sprechen wir 20 Minuten", "title": "Was ein KI-Agent bei Kert Bisztró tun würde"},
+    content = dict(CONTENT, ui={"cta": "Schreiben Sie uns", "title": "Was ein KI-Agent bei Kert Bisztró tun würde"},
                    agent_names={"phone": "KI-Telefonrezeption"}, price_text="Preis: nach Angebot", lead_text="nach Angebot")
     page, seen = build(lang="de", content=content)
     assert page["lang"] == "de" and "UI_SOURCE" in seen[1]
-    assert page["ui"]["cta"] == "Sprechen wir 20 Minuten" and page["ui"]["months"] == "months"
+    assert page["ui"]["cta"] == "Schreiben Sie uns" and page["ui"]["months"] == "months"
     assert page["title"] == "Was ein KI-Agent bei Kert Bisztró tun würde"
     assert page["agent"]["name"] == "KI-Telefonrezeption" and page["agent"]["price_text"] == "nach Angebot"
 
