@@ -10,9 +10,10 @@ ki ezt a felületet, és az `/emergent/api/*` kéréseket továbbítja az `EMERG
 A szerver „Győztesek" és „Gólok" szelvénye helyett **négy „Papírforma szelvény"** (`src/lib/combo.js`),
 mindegyik más meccsekből, meccsenként egy (Fogadásépítő-)csoporttal:
 
-- **Papírforma-favorit** (TippmixPro-szorzója ≤ 1,70): ő nyer.
-- Mellé (favorit nélkül győztes helyett) **minden egyértelmű esemény**, legfeljebb 4 tipp meccsenként:
-  gólszám (0,5–7,5 bármelyik vonal), mindkét csapat lő gólt, 1. és 2. félidő gólszáma, szöglet, lap.
+- **Alap:** a papírforma-favorit győzelme (TippmixPro-szorzója ≤ 1,70), a gólszám (0,5–7,5 bármelyik vonal)
+  és a „mindkét csapat lő gólt", ha egyértelmű.
+- **Minden más** (1. és 2. félidő gólszáma, szöglet, lap) csak szinte biztosan: a modell szerint legalább 85%,
+  és mindkét csapat utolsó meccseinek legalább 80%-án bejött; csak alaptipp mellé, meccsenként egy.
 - **Egyértelmű:** „több mint L", ha a várható érték (az Emergent-modell és a két csapat utolsó 10 meccse
   közül a kisebb) legalább L + ráhagyás (gól 0,4; félidő 0,3; szöglet 1,0; lap 0,7), és mindkét csapat
   meccseinek legalább 60%-án L fölött volt; „kevesebb mint L" hasonlóan (gól 0,6; félidő 0,5; szöglet 1,5;

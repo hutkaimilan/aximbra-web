@@ -22,9 +22,8 @@ const own = {
 };
 
 export const COMBO_NAME = "Papírforma szelvény";
-const DESC = "Papírforma-favoritnál (szorzó ≤ 1,70) ő nyer; mellé (favorit nélkül helyette) minden, ami egyértelmű: "
-  + "gólszám, mindkét csapat lő gólt, félidők gólszáma, szöglet, lap — a két csapat utolsó 10 meccse és a várható "
-  + "érték alapján.";
+const DESC = "Alap: a papírforma-favorit győzelme (szorzó ≤ 1,70), a gólszám és a „mindkét csapat lő gólt\", ha a két "
+  + "csapat utolsó 10 meccse és a várható gól egyértelmű. Félidő, szöglet, lap csak akkor, ha szinte biztos.";
 
 const FAV_ODDS = 1.7;
 const FORM_N = 10;
@@ -35,6 +34,11 @@ const CANDIDATES = 16;
 const SLIPS = 4;             // ennyi szelvény, mindegyik más meccsekből
 const MAX_MATCHES = 6;
 const MAX_PICKS = 4;         // egy meccsen legfeljebb ennyi tipp
+// A nem alapvető események (félidők, szöglet, lap) csak „szinte biztosan": a modell szerint legalább
+// STRONG_PROB, és mindkét csapat utolsó meccseinek legalább STRONG_SHARE részén bejött. Meccsenként egy.
+const STRONG_PROB = 0.85;
+const STRONG_SHARE = 0.8;
+const STRONG_MIN_ODDS = 1.1;
 const MIN_GROUP_ODDS = 1.1;
 const MIN_PICK_ODDS = 1.25;  // ennél kisebb szorzójú tipp (pl. „kevesebb mint 4,5" 1,16-on) alig ad hozzá
 const AUTO_MIN_PROB = 0.6;
@@ -206,6 +210,41 @@ function lineRule(markets, key, model, fh, fa, a) {
   return null;
 }
 
+// Nem alapvető esemény (félidő, szöglet, lap) csak szinte biztosan: a legnagyobb szorzójú ilyen vonal, vagy null.
+function strongRule(markets, key, a, fh, fa) {
+  const rule = RULES[key];
+  const sh = fh.series(key), sa = fa.series(key);
+  if (sh.length < MIN_FORM || sa.length < MIN_FORM) return null;
+  const xgTot = a.xg_home + a.xg_away;
+  let best = null;
+  for (const L of linesOf(markets, key)) {
+    for (const over of [true, false]) {
+      const okH = cnt(sh, (x) => (over ? x > L : x < L)), okA = cnt(sa, (x) => (over ? x > L : x < L));
+      if (okH < STRONG_SHARE * sh.length || okA < STRONG_SHARE * sa.length) continue;
+      let p, cond = null;
+      if (GOAL_COND[key]) {
+        cond = GOAL_COND[key](L, over);
+        p = jointProb(a.xg_home, a.xg_away, [cond]);
+      } else {
+        const mu = key === "corners" ? a.corners : a.cards;
+        if (mu == null) continue;
+        const po = nbOver(mu, DISPERSION[key], L);
+        p = over ? po : 1 - po;
+      }
+      if (p < STRONG_PROB) continue;
+      const mk = markets.find((m) => m.key === key && m.line === L);
+      const o = mk?.outcomes.find((x) => x.pick === (over ? "Több" : "Kevesebb"));
+      if (!o || o.odds < STRONG_MIN_ODDS) continue;
+      if (best && o.odds <= best.o.odds) continue;
+      const what = over ? `${L + 0.5}+ ${rule.what}` : `legfeljebb ${L - 0.5} ${rule.what}`;
+      best = { mk, o, cond, p: cond ? null : p, prob: p,
+        why: `szinte biztos: modell ${Math.round(p * 100)}%; ${what}: ${okH}/${sh.length} és ${okA}/${sa.length} meccsükön`
+          + (key === "htou" || key === "2hou" ? ` (várható gól ${fmt(xgTot)})` : "") };
+    }
+  }
+  return best;
+}
+
 function bttsRule(markets, a, fh, fa) {
   if (fh.scored >= 0.7 * fh.n && fa.scored >= 0.7 * fa.n && fh.conceded >= 0.6 * fh.n && fa.conceded >= 0.6 * fa.n
       && a.xg_home >= 1.1 && a.xg_away >= 1.0) {
@@ -244,13 +283,13 @@ export function matchGroup(m, compName, mm, fh, fa) {
       why: `papírforma: ${favOut.label} szorzója ${favOut.odds.toFixed(2).replace(".", ",")}` });
   }
   if (fh && fa) {
-    // fontossági sorrend: teljes gólszám, mindkét csapat lő gólt, félidők, szöglet, lap
+    // alap: gólszám és „mindkét csapat lő gólt", ha egyértelmű
     cands.push(lineRule(markets, "ou", xgTot, fh, fa, a));
     cands.push(bttsRule(markets, a, fh, fa));
-    cands.push(lineRule(markets, "htou", xgTot * FIRST_HALF_SHARE, fh, fa, a));
-    cands.push(lineRule(markets, "2hou", xgTot * (1 - FIRST_HALF_SHARE), fh, fa, a));
-    cands.push(lineRule(markets, "corners", a.corners ?? null, fh, fa, a));
-    cands.push(lineRule(markets, "cards", a.cards ?? null, fh, fa, a));
+    // minden más csak szinte biztosan, csak alaptipp mellé, és meccsenként legfeljebb egy (a legnagyobb esélyű)
+    const extra = ["htou", "2hou", "corners", "cards"].map((k) => strongRule(markets, k, a, fh, fa))
+      .filter(Boolean).sort((x, y) => y.prob - x.prob)[0];
+    if (extra && cands.some(Boolean)) cands.push(extra);
   }
   // Ellentmondó tipp kimarad: ha az eddigiekkel együtt a modell szerint jóval ritkább, mint külön.
   const picks = [];
