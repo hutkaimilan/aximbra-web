@@ -12,6 +12,7 @@ Környezeti változók:
   APP_PASSWORD      opcionális belépési jelszó; üresen vagy hiányában az oldal jelszó nélkül nyitott
   APP_SECRET        a munkamenet aláírókulcsa (alapból a jelszóból származik)
   ODDS_API_KEY      opcionális: valós esély és értékkereső (the-odds-api.com)
+  EMERGENT_URL      az Emergentben készült Szelvénymodell szervere (a /emergent/ oldal adatforrása)
   PORT              a Railway adja
 """
 import concurrent.futures
@@ -36,6 +37,9 @@ import footballdata
 import markets
 import names
 import odds_api
+import re
+import urllib.error
+import urllib.request
 import settle
 import builder
 import calibration
@@ -739,6 +743,17 @@ SETTLE_LIMIT = Limiter(20, 60)
 # --- HTTP ----------------------------------------------------------------------------------------
 
 STATIC_FILES = {"/": "index.html", "/app.js": "app.js", "/app.css": "app.css", "/icon.svg": "icon.svg"}
+# Az Emergentben készült Szelvénymodell: a felülete itt van (static/emergent, az emergent-ui/ buildje),
+# az adatait az Emergent-szerver adja; a böngésző csak ezt az oldalt látja, a kéréseket mi továbbítjuk.
+EMERGENT_URL = os.environ.get("EMERGENT_URL", "https://elo-szorzo-tipp.preview.emergentagent.com").rstrip("/")
+EMERGENT_DIR = STATIC / "emergent"
+EMERGENT_TIMEOUT = 150  # az előnézet alvásból 1–2 perc alatt ébred
+EMERGENT_API = re.compile(r"^/emergent/api/(state|slips|check|accuracy|log|health|team/[A-Za-z0-9._-]{1,40})$")
+EMERGENT_ASSET = re.compile(r"^/emergent/assets/[A-Za-z0-9._-]{1,80}$")
+EMERGENT_LIMIT = Limiter(120, 60)
+CSP_EMERGENT = ("default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' "
+                "https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; "
+                "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 CSP = ("default-src 'self'; img-src 'self' https://a.espncdn.com data:; style-src 'self'; script-src 'self'; "
        "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 
@@ -762,8 +777,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
-        self.send_header("Content-Security-Policy", CSP)
-        for k, v in (extra or {}).items():
+        extra = dict(extra or {})
+        self.send_header("Content-Security-Policy", extra.pop("Content-Security-Policy", CSP))
+        for k, v in extra.items():
             self.send_header(k, v)
         self.end_headers()
 
@@ -817,6 +833,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True})
         if url.path in STATIC_FILES:
             return self._static(STATIC_FILES[url.path])
+        if url.path.startswith("/emergent"):
+            return self._emergent(url)
         if not url.path.startswith("/api/"):
             return self._err(404, "nincs ilyen oldal")
         if url.path == "/api/me":
@@ -885,6 +903,8 @@ class Handler(BaseHTTPRequestHandler):
             if not hmac.compare_digest(pw.encode(), os.environ.get("APP_PASSWORD", "").encode()):
                 return self._err(401, "Hibás jelszó.")
             return self._json(200, {"ok": True}, {"Set-Cookie": self._cookie(make_token(), SESSION_DAYS * 86400)})
+        if url.path.startswith("/emergent/api/"):
+            return self._emergent(url, body)
         if url.path == "/api/logout":
             return self._json(200, {"ok": True}, {"Set-Cookie": self._cookie("", 0)})
         if not self._authed():
@@ -922,7 +942,48 @@ class Handler(BaseHTTPRequestHandler):
                 return self._err(500, "Váratlan hiba történt.")
         return self._err(404, "nincs ilyen végpont")
 
-    def _static(self, name):
+    def _emergent(self, url, body=None):
+        """Az Emergent-féle Szelvénymodell: felület a static/emergent-ből, /emergent/api/* továbbítva."""
+        if url.path in ("/emergent", "/emergent/"):
+            return self._static("emergent/index.html", csp=CSP_EMERGENT)
+        if EMERGENT_ASSET.match(url.path):
+            # a fájlnév a tartalom hash-e: nyugodtan gyorsítótárazható
+            return self._static("emergent/" + url.path[len("/emergent/"):], csp=CSP_EMERGENT,
+                                cache="public, max-age=31536000, immutable")
+        m = EMERGENT_API.match(url.path)
+        if not m:
+            return self._err(404, "nincs ilyen oldal")
+        if not self._authed():
+            return self._json(401, {"detail": "Jelentkezz be."})
+        if not EMERGENT_LIMIT.allow(self.address_string()):
+            return self._json(429, {"detail": "Lassíts egy kicsit, percenként legfeljebb 120 kérés."})
+        if body is not None and m.group(1) != "check":
+            return self._json(405, {"detail": "Ez a végpont csak olvasható."})
+        target = f"{EMERGENT_URL}/api/{m.group(1)}" + (f"?{url.query}" if url.query else "")
+        data = json.dumps(body).encode() if body is not None else None
+        req = urllib.request.Request(target, data=data, method="POST" if data is not None else "GET",
+                                     headers={"Content-Type": "application/json", "Accept": "application/json",
+                                              "User-Agent": "aximbra-tippmix"})
+        try:
+            with urllib.request.urlopen(req, timeout=EMERGENT_TIMEOUT) as r:
+                status, ctype, raw = r.status, r.headers.get("Content-Type", ""), r.read(8 * 1024 * 1024)
+        except urllib.error.HTTPError as e:
+            status, ctype, raw = e.code, e.headers.get("Content-Type", ""), e.read(64 * 1024)
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            logger.info("Emergent-szerver nem érhető el: %s", e)
+            return self._json(502, {"detail": "Az Emergent-szerver most nem érhető el. Próbáld újra 1–2 perc múlva."})
+        if "json" not in ctype:
+            # alvó előnézetnél HTML-oldal jön: a felület ezt hibaként mutatja, érthető szöveggel
+            return self._json(503, {"detail": "Az Emergent-szerver ébred (1–2 perc). Utána frissíts."})
+        headers = {"Cache-Control": "no-store"}
+        if "gzip" in self.headers.get("Accept-Encoding", "") and len(raw) > 1024:
+            raw = gzip.compress(raw, 6)
+            headers["Content-Encoding"] = "gzip"
+            headers["Vary"] = "Accept-Encoding"
+        self._headers(status, "application/json; charset=utf-8", len(raw), headers)
+        self.wfile.write(raw)
+
+    def _static(self, name, csp=None, cache="no-cache"):
         path = STATIC / name
         try:
             data = path.read_bytes()
@@ -931,7 +992,9 @@ class Handler(BaseHTTPRequestHandler):
         ctype = mimetypes.guess_type(name)[0] or "application/octet-stream"
         if ctype.startswith("text/") or ctype in ("application/javascript", "image/svg+xml"):
             ctype += "; charset=utf-8"
-        headers = {"Cache-Control": "no-cache"}
+        headers = {"Cache-Control": cache}
+        if csp:
+            headers["Content-Security-Policy"] = csp
         if "gzip" in self.headers.get("Accept-Encoding", "") and len(data) > 1024:
             data = gzip.compress(data, 6)
             headers["Content-Encoding"] = "gzip"
