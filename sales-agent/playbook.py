@@ -93,16 +93,37 @@ FOLLOW_UP = {
     "fr": "Bonjour,\n\nJe vous écris une dernière fois, au cas où mon précédent message se serait perdu. Si ce n’est pas d’actualité, un simple « non » suffit et je ne vous écrirai plus.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/fr",
 }
 
-# Az utánkövetésbe kerülő demólink mondata (az első levélben soha nincs link:
-# az rontja a kézbesíthetőséget). A link elé, az aláírás fölé kerül.
-DEMO_LINE = {
-    "hu": "Közben összeraktam nektek egy rövid oldalt arról, mit csinálna nálatok egy AI agent, a weboldalatok alapján: {url}",
-    "sk": "Medzitým som pre vás pripravil krátku stránku o tom, čo by u vás robil AI agent, na základe vášho webu: {url}",
-    "ro": "Între timp v-am pregătit o pagină scurtă despre ce ar face un agent AI la dumneavoastră, pe baza site-ului dumneavoastră: {url}",
-    "hr": "U međuvremenu sam vam pripremio kratku stranicu o tome što bi AI agent radio kod vas, na temelju vaše web stranice: {url}",
-    "sl": "Medtem sem vam pripravil kratko stran o tem, kaj bi AI agent počel pri vas, na podlagi vaše spletne strani: {url}",
-    "en": "Meanwhile I put together a short page on what an AI agent would do for you, based on your website: {url}",
-    "fr": "Entre-temps, j’ai préparé une courte page sur ce qu’un agent IA ferait chez vous, à partir de votre site : {url}",
+# Utánkövetés, ha van a cégnek demóoldala: nem azzal kezd, hogy "hátha
+# elsikkadt", hanem azzal, amit újat ad — a nekik készült oldallal. Az első
+# levélben soha nincs link (az rontja a kézbesíthetőséget), csak itt.
+FOLLOW_UP_DEMO = {
+    "hu": "Jó napot!\n\nAz előző levelem óta összeraktam nektek egy rövid oldalt arról, mit csinálna nálatok egy AI "
+          "agent, a weboldalatok alapján: {url}\n\nHa érdekel, írjátok meg egy mondatban, mi visz el nálatok a legtöbb "
+          "időt.\n\nHa nem aktuális, egy „nem” válasz elég, és többet nem írok.\n\nHutkai Milán · AXIMBRA · aximbra.hu",
+    "sk": "Dobrý deň,\n\nod môjho posledného e-mailu som pre vás pripravil krátku stránku o tom, čo by u vás robil AI "
+          "agent, na základe vášho webu: {url}\n\nAk vás to zaujíma, napíšte mi jednou vetou, čo vám zaberá najviac "
+          "času.\n\nAk to nie je aktuálne, stačí krátke „nie“ a viac vám nenapíšem.\n\nMilán Hutkai · AXIMBRA · "
+          "aximbra.hu/sk",
+    "ro": "Bună ziua,\n\nDe la ultimul meu e-mail v-am pregătit o pagină scurtă despre ce ar face un agent AI la "
+          "dumneavoastră, pe baza site-ului dumneavoastră: {url}\n\nDacă vă interesează, scrieți-mi într-o propoziție "
+          "ce vă ocupă cel mai mult timp.\n\nDacă nu este de actualitate, un simplu „nu” este suficient și nu vă mai "
+          "scriu.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/ro",
+    "hr": "Poštovani,\n\nod moje prošle poruke pripremio sam vam kratku stranicu o tome što bi AI agent radio kod vas, "
+          "na temelju vaše web stranice: {url}\n\nAko vas zanima, napišite mi u jednoj rečenici što vam oduzima "
+          "najviše vremena.\n\nAko vam nije zanimljivo, dovoljan je kratak „ne” i neću vam više pisati.\n\nMilán "
+          "Hutkai · AXIMBRA · aximbra.hu/en",
+    "sl": "Pozdravljeni,\n\nod mojega zadnjega sporočila sem vam pripravil kratko stran o tem, kaj bi AI agent počel "
+          "pri vas, na podlagi vaše spletne strani: {url}\n\nČe vas zanima, mi v enem stavku napišite, kaj vam vzame "
+          "največ časa.\n\nČe vam ni zanimivo, zadošča kratek »ne« in vam ne bom več pisal.\n\nMilán Hutkai · "
+          "AXIMBRA · aximbra.hu/en",
+    "en": "Hello,\n\nSince my last email I have put together a short page on what an AI agent would do for you, "
+          "based on your website: {url}\n\nIf it is of interest, tell me in one sentence what takes up most of your "
+          "team's time.\n\nIf it is not relevant, a short “no” is enough and I will not write again.\n\nMilán Hutkai "
+          "· AXIMBRA · aximbra.hu/en",
+    "fr": "Bonjour,\n\nDepuis mon dernier message, j’ai préparé une courte page sur ce qu’un agent IA ferait chez "
+          "vous, à partir de votre site : {url}\n\nSi cela vous intéresse, dites-moi en une phrase ce qui prend le "
+          "plus de temps à votre équipe.\n\nSi ce n’est pas d’actualité, un simple « non » suffit et je ne vous "
+          "écrirai plus.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/fr",
 }
 
 MAX_WORDS = 110  # a törzs + aláírás + ui. + leiratkozás együtt; maga az üzenet 75 alatt

@@ -625,16 +625,19 @@ def test_event_rate_limit(api):
 
 # ---- utánkövetés --------------------------------------------------------------
 
-def test_followup_body_puts_link_above_signature_in_every_language():
+def test_followup_with_demo_leads_with_the_page_in_every_language():
     import pipeline
-    from playbook import DEMO_LINE, FOLLOW_UP
-    assert set(FOLLOW_UP) <= set(DEMO_LINE)
-    lead = {"lang": "hu", "lang2": "sk"}
-    body = pipeline.followup_body(lead, "https://aximbra.hu/neked/kert-1")
-    sk, hu = body.split("— — —")  # a második nyelv áll elöl, mint az első levélben
-    for part, sig in ((hu, "Hutkai Milán"), (sk, "Milán Hutkai")):
-        assert "https://aximbra.hu/neked/kert-1" in part
-        assert part.index("aximbra.hu/neked/") < part.index(sig)
+    from playbook import FOLLOW_UP, FOLLOW_UP_DEMO
+    assert set(FOLLOW_UP) <= set(FOLLOW_UP_DEMO)
+    for lang in FOLLOW_UP_DEMO:
+        body = pipeline.followup_body({"lang": lang}, "https://aximbra.hu/neked/kert-1")
+        assert body.count("https://aximbra.hu/neked/kert-1") == 1
+        assert "AXIMBRA" in body.rsplit("\n\n", 1)[1]           # aláírással zárul
+        assert body.index("aximbra.hu/neked/") < len(body) // 2   # a link elöl van, nem a végén
+    hu = pipeline.followup_body({"lang": "hu"}, "https://aximbra.hu/neked/kert-1")
+    assert "elsikkadt" not in hu and hu.startswith("Jó napot!\n\nAz előző levelem óta")
+    sk, hu2 = pipeline.followup_body({"lang": "hu", "lang2": "sk"}, "https://aximbra.hu/neked/x").split("— — —")
+    assert sk.startswith("Dobrý deň") and "Jó napot" in hu2
     assert "neked" not in pipeline.followup_body({"lang": "en"})
 
 

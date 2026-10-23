@@ -18,7 +18,7 @@ import calendar_slots
 import llm as llm_mod
 import mailer as mailer_mod
 import verify
-from playbook import COUNTRIES, DEMO_LINE, FOLLOW_UP, OPT_OUT, SECTORS, SIGNAL_TYPES
+from playbook import COUNTRIES, FOLLOW_UP, FOLLOW_UP_DEMO, OPT_OUT, SECTORS, SIGNAL_TYPES
 from store import Store, domain_of
 
 logger = logging.getLogger(__name__)
@@ -367,16 +367,14 @@ def workdays_between(start: datetime, end: datetime) -> int:
 
 def followup_body(lead: dict, demo_url: str | None = None) -> str:
     """Az utánkövető levél a lead nyelvén (kétnyelvű leadnél mindkettőn). Ha van
-    a cégnek demóoldala, a link az aláírás fölé kerül."""
+    a cégnek demóoldala, a levél azzal kezd: ez az új, amiért írunk."""
     langs = [lead["lang2"], lead["lang"]] if lead.get("lang2") else [lead["lang"]]
     parts = []
     for lang in langs:
-        text = FOLLOW_UP[lang]
         if demo_url:
-            head, sig = text.rsplit("\n\n", 1)
-            line = DEMO_LINE.get(lang, DEMO_LINE["en"]).format(url=demo_url)
-            text = f"{head}\n\n{line}\n\n{sig}"
-        parts.append(text)
+            parts.append(FOLLOW_UP_DEMO.get(lang, FOLLOW_UP_DEMO["en"]).format(url=demo_url))
+        else:
+            parts.append(FOLLOW_UP[lang])
     return f"\n\n{verify.SEPARATOR}\n\n".join(parts)
 
 
