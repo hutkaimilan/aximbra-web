@@ -1,17 +1,18 @@
-// „Papírforma + gólok": a szerver „Győztesek" és „Gólok" szelvénye helyett egyetlen szelvény,
-// meccsenként egy (Fogadásépítő-)csoporttal, úgy, ahogy egy rutinos fogadó rakná össze:
+// „Papírforma szelvény": a szerver „Győztesek" és „Gólok" szelvénye helyett több szelvény, meccsenként
+// egy (Fogadásépítő-)csoporttal, úgy, ahogy egy rutinos fogadó rakná össze:
 //
-// - Ha van papírforma-favorit (TippmixPro-szorzója legfeljebb FAV_ODDS): ő nyer, és mellé gólszám,
-//   ha a két csapat formája ÉS a várható gól egyértelműen egy irányba mutat.
-// - Ha nincs: győztes nélkül a meccsre várható dolgok — gólszám (bármelyik vonalon), mindkét csapat
-//   lő gólt, 2. félidős gólszám —, de csak az, amit a két csapat utolsó FORM_N meccse és a várható gól
-//   is egyértelműen alátámaszt.
+// - Ha van papírforma-favorit (TippmixPro-szorzója legfeljebb FAV_ODDS): ő nyer.
+// - Mellé (favorit nélkül győztes helyett) minden olyan esemény, amit a két csapat utolsó FORM_N meccse
+//   ÉS a várható érték is egyértelműen alátámaszt: gólszám bármelyik vonalon, mindkét csapat lő gólt,
+//   1. és 2. félidő gólszáma, szöglet, lap (az utóbbi kettőt a TippmixPro csak a meccsnap körül írja ki).
+// - Egymásnak ellentmondó tipp nem kerülhet egy csoportba (a modell szerint együtt sokkal ritkábbak).
+// - Több szelvény készül, mindegyik más meccsekből.
 //
-// Forrás: a várható gól és a győzelmi esély az Emergent-szerver modelljéből (/emergent/api/state), a
-// forma az Emergent-szerver csapatoldaláról (/emergent/api/team), a vonalak a saját TippmixPro-olvasónk
-// meccsoldal-lekéréséből (/api/match-markets: 0,5–7,5 gólvonal, félidők), a szorzó és a kötéstiltás a
-// TippmixPro-tól (/api/check). Az esély csak a szelvény összerakásához (rangsor) és tájékoztatásnak kell:
-// a tippet a forma és a várható gól választja ki.
+// Forrás: várható gól, szöglet, lap és győzelmi esély az Emergent-szerver modelljéből (/emergent/api/state),
+// forma az Emergent-szerver csapatoldaláról (/emergent/api/team: eredmény, félidő, szöglet, lap meccsenként),
+// a vonalak a saját TippmixPro-olvasónk meccsoldal-lekéréséből (/api/match-markets), a szorzó és a kötéstiltás
+// a TippmixPro-tól (/api/check). A tippet a forma és a várható érték választja; az esély csak a szelvények
+// összerakásához (rangsor) és tájékoztatásnak kell.
 import axios from "axios";
 import { api } from "./api";
 
@@ -20,30 +21,40 @@ const own = {
   check: (ids, stake) => axios.post("/api/check", { ids, stake }).then((r) => r.data),
 };
 
-export const COMBO_NAME = "Papírforma + gólok";
-const DESC = "Papírforma-favoritnál (szorzó ≤ 1,70) ő nyer, mellé gólszám, ha egyértelmű. Favorit nélkül győztes "
-  + "nélkül: gólszám, mindkét csapat lő gólt, 2. félidős gólok — csak amit a két csapat utolsó 10 meccse és a "
-  + "várható gól egyértelműen mutat.";
+export const COMBO_NAME = "Papírforma szelvény";
+const DESC = "Papírforma-favoritnál (szorzó ≤ 1,70) ő nyer; mellé (favorit nélkül helyette) minden, ami egyértelmű: "
+  + "gólszám, mindkét csapat lő gólt, félidők gólszáma, szöglet, lap — a két csapat utolsó 10 meccse és a várható "
+  + "érték alapján.";
 
 const FAV_ODDS = 1.7;
 const FORM_N = 10;
 const MIN_FORM = 6;          // ennél kevesebb ismert meccsnél nem mondunk semmit a formából
-const MAX_ANALYSED = 24;     // ennyi meccset elemzünk ablakonként (kezdés szerint)
+const MAX_ANALYSED = 30;     // ennyi meccset elemzünk ablakonként (kezdés szerint)
 const CONCURRENCY = 6;
-const CANDIDATES = 8;
+const CANDIDATES = 16;
+const SLIPS = 4;             // ennyi szelvény, mindegyik más meccsekből
 const MAX_MATCHES = 6;
+const MAX_PICKS = 4;         // egy meccsen legfeljebb ennyi tipp
 const MIN_GROUP_ODDS = 1.1;
 const MIN_PICK_ODDS = 1.25;  // ennél kisebb szorzójú tipp (pl. „kevesebb mint 4,5" 1,16-on) alig ad hozzá
 const AUTO_MIN_PROB = 0.6;
 const FIRST_HALF_SHARE = 0.45;  // a gólok kb. 45%-a esik az 1. félidőre
+const CONFLICT = 0.6;        // ha két tipp együtt a modell szerint ennyiszer ritkább, mint külön, nem kerülnek együtt
+const DISPERSION = { corners: 59.7, cards: 18.3 };  // negatív binomiális szóródás (a saját visszamérésünkből)
 const TZ = "Europe/Budapest";
 
-// Egyértelműségi küszöbök (gól):
-const OVER_MARGIN = 0.4;     // „több mint L": a várható gól (modell és forma közül a kisebb) ≥ L + 0,4
-const UNDER_MARGIN = 0.6;    // „kevesebb mint L": a várható gól (a nagyobbik) ≤ L − 0,6
-const OVER_SHARE = 0.6;      // és mindkét csapat utolsó meccseinek legalább 60%-án L fölött volt
+// Egyértelműségi szabály piaconként: „több mint L", ha a várható érték (modell és forma közül a kisebb)
+// legalább L + over, és mindkét csapat utolsó meccseinek legalább 60%-án L fölött volt; „kevesebb mint L",
+// ha a nagyobbik legfeljebb L − under, és mindkét csapat meccseinek legalább 70%-án L alatt.
+const RULES = {
+  ou: { over: 0.4, under: 0.6, what: "gól" },
+  htou: { over: 0.3, under: 0.5, what: "gól az 1. félidőben" },
+  "2hou": { over: 0.3, under: 0.5, what: "gól a 2. félidőben" },
+  corners: { over: 1.0, under: 1.5, what: "szöglet" },
+  cards: { over: 0.7, under: 1.0, what: "lap" },
+};
+const OVER_SHARE = 0.6;
 const UNDER_SHARE = 0.7;
-const H2_MARGIN = 0.3;
 
 const dayOf = (iso) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: TZ });
 const addDays = (d, n) => {
@@ -53,6 +64,9 @@ const addDays = (d, n) => {
 };
 const fmt = (x) => x.toFixed(1).replace(".", ",");
 const prod = (xs) => xs.reduce((p, x) => p * x, 1);
+const mean = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length;
+const numPair = (v) => (Array.isArray(v) && v.length === 2 && v.every((x) => x != null && Number.isFinite(Number(x)))
+  ? v.map(Number) : null);
 
 async function pool(items, n, fn) {
   const out = new Array(items.length);
@@ -77,33 +91,31 @@ function teamForm(id) {
   return teamCache.get(id);
 }
 
-// Az utolsó FORM_N meccs a csapat szemszögéből: lőtt, kapott, és a 2. félidő gólszáma (ha ismert).
+// Az utolsó FORM_N meccs a csapat szemszögéből, meccsenkénti összesítőkkel (ami ismeretlen, az null).
 export function formOf(data) {
   const id = String(data.id);
   const games = [];
   for (const r of data.results || []) {
-    const sc = String(r.score || "").split(/[–-]/).map(Number);
-    if (sc.length !== 2 || sc.some((x) => !Number.isFinite(x))) continue;
+    const sc = numPair(String(r.score || "").split(/[–-]/));
+    if (!sc) continue;
     const home = String(r.home_id) === id;
-    const ht = Array.isArray(r.ht) && r.ht.length === 2 ? r.ht.map(Number) : null;
-    games.push({ gf: home ? sc[0] : sc[1], ga: home ? sc[1] : sc[0],
-      h2: ht && ht.every(Number.isFinite) ? sc[0] + sc[1] - ht[0] - ht[1] : null });
+    const ht = numPair(r.ht), co = numPair(r.corners), ca = numPair(r.cards);
+    games.push({
+      gf: home ? sc[0] : sc[1], ga: home ? sc[1] : sc[0], ou: sc[0] + sc[1],
+      htou: ht ? ht[0] + ht[1] : null, "2hou": ht ? sc[0] + sc[1] - ht[0] - ht[1] : null,
+      corners: co ? co[0] + co[1] : null, cards: ca ? ca[0] + ca[1] : null,
+    });
     if (games.length >= FORM_N) break;
   }
   if (games.length < MIN_FORM) return null;
-  const avg = (f) => games.reduce((s, g) => s + f(g), 0) / games.length;
-  const h2 = games.filter((g) => g.h2 != null);
   return {
-    n: games.length, gf: avg((g) => g.gf), ga: avg((g) => g.ga),
-    over: (l) => games.filter((g) => g.gf + g.ga > l).length,
-    under: (l) => games.filter((g) => g.gf + g.ga < l).length,
+    n: games.length, gf: mean(games.map((g) => g.gf)), ga: mean(games.map((g) => g.ga)),
     scored: games.filter((g) => g.gf > 0).length, conceded: games.filter((g) => g.ga > 0).length,
-    h2n: h2.length, h2avg: h2.length ? h2.reduce((s, g) => s + g.h2, 0) / h2.length : null,
-    h2over: (l) => h2.filter((g) => g.h2 > l).length,
+    series: (key) => games.map((g) => g[key]).filter((x) => x != null),
   };
 }
 
-// --- modell: a két félidő gólja külön Poisson, a meccs várható góljaiból ------------------------
+// --- modell -----------------------------------------------------------------------------------
 
 const MAXG = 7;
 function poisson(lam) {
@@ -111,8 +123,9 @@ function poisson(lam) {
   for (let k = 1; k <= MAXG; k++) p.push((p[k - 1] * lam) / k);
   return p;
 }
-// cond(h1, a1, h2, a2) együttes esélye
+// A gól-feltételek (h1, a1, h2, a2 → igaz/hamis) együttes esélye: a két félidő gólja külön Poisson.
 export function jointProb(xgH, xgA, conds) {
+  if (!conds.length) return 1;
   const h1 = poisson(xgH * FIRST_HALF_SHARE), a1 = poisson(xgA * FIRST_HALF_SHARE);
   const h2 = poisson(xgH * (1 - FIRST_HALF_SHARE)), a2 = poisson(xgA * (1 - FIRST_HALF_SHARE));
   let s = 0;
@@ -125,15 +138,24 @@ export function jointProb(xgH, xgA, conds) {
   return s;
 }
 
-const COND = {
-  win1: (i, j, k, l) => i + k > j + l,
-  win2: (i, j, k, l) => i + k < j + l,
-  over: (L) => (i, j, k, l) => i + j + k + l > L,
-  under: (L) => (i, j, k, l) => i + j + k + l < L,
-  bttsY: (i, j, k, l) => i + k > 0 && j + l > 0,
-  bttsN: (i, j, k, l) => i + k === 0 || j + l === 0,
-  h2over: (L) => (i, j, k, l) => k + l > L,
+// Szöglet/lap: negatív binomiális, a gólokétól függetlennek véve.
+function nbOver(mu, r, line) {
+  let cdf = 0, p = r / (r + mu);
+  let pk = Math.pow(p, r);  // P(0)
+  for (let k = 0; k <= Math.floor(line); k++) {
+    cdf += pk;
+    pk *= ((k + r) / (k + 1)) * (1 - p);
+  }
+  return Math.max(0, Math.min(1, 1 - cdf));
+}
+
+const GOAL_COND = {
+  ou: (L, over) => (over ? (i, j, k, l) => i + j + k + l > L : (i, j, k, l) => i + j + k + l < L),
+  htou: (L, over) => (over ? (i, j) => i + j > L : (i, j) => i + j < L),
+  "2hou": (L, over) => (over ? (i, j, k, l) => k + l > L : (i, j, k, l) => k + l < L),
 };
+const WIN = { 1: (i, j, k, l) => i + k > j + l, 2: (i, j, k, l) => i + k < j + l };
+const BTTS = { Igen: (i, j, k, l) => i + k > 0 && j + l > 0, Nem: (i, j, k, l) => i + k === 0 || j + l === 0 };
 
 // --- tippválasztás --------------------------------------------------------------------------
 
@@ -143,53 +165,59 @@ const outcome = (markets, key, line, pick) => {
   return mk && o && o.odds >= MIN_PICK_ODDS ? { mk, o } : null;
 };
 const linesOf = (markets, key) => [...new Set(markets.filter((m) => m.key === key).map((m) => m.line))].sort((a, b) => a - b);
+const cnt = (xs, f) => xs.filter(f).length;
 
-// Gólszám a forma és a várható gól alapján (vagy null). Több: a legmagasabb egyértelmű vonal; kevesebb: a legalacsonyabb.
-function goalLine(markets, xgTot, formTot, fh, fa) {
-  const lines = linesOf(markets, "ou");
-  const lo = Math.min(xgTot, formTot), hi = Math.max(xgTot, formTot);
+// Egy vonalas piac (gólszám, félidők, szöglet, lap) egyértelmű tippje, vagy null.
+// Több: a legmagasabb egyértelmű vonal; kevesebb: a legalacsonyabb (ott van a nagyobb szorzó).
+function lineRule(markets, key, model, fh, fa, a) {
+  const rule = RULES[key];
+  const sh = fh.series(key), sa = fa.series(key);
+  if (sh.length < MIN_FORM || sa.length < MIN_FORM) return null;
+  const form = key === "ou" ? (fh.gf + fa.ga) / 2 + (fa.gf + fh.ga) / 2 : (mean(sh) + mean(sa)) / 2;
+  const lo = model == null ? form : Math.min(model, form), hi = model == null ? form : Math.max(model, form);
+  const exp = model == null ? `${fmt(form)} (forma)` : `${fmt(model)} (modell) / ${fmt(form)} (forma)`;
+  const lines = linesOf(markets, key);
+  const mk = (L, over) => {
+    const hit = outcome(markets, key, L, over ? "Több" : "Kevesebb");
+    if (!hit) return null;
+    const share = over ? `${L + 0.5}+ ${rule.what}: ${cnt(sh, (x) => x > L)}/${sh.length} és ${cnt(sa, (x) => x > L)}/${sa.length}`
+      : `legfeljebb ${L - 0.5} ${rule.what}: ${cnt(sh, (x) => x < L)}/${sh.length} és ${cnt(sa, (x) => x < L)}/${sa.length}`;
+    const out = { ...hit, why: `várható ${exp}; ${share} meccsükön` };
+    if (GOAL_COND[key]) out.cond = GOAL_COND[key](L, over);
+    else {
+      const mu = key === "corners" ? a.corners : a.cards;
+      const p = nbOver(mu ?? form, DISPERSION[key], L);
+      out.p = over ? p : 1 - p;
+    }
+    return out;
+  };
   for (const L of [...lines].reverse()) {
-    if (lo >= L + OVER_MARGIN && fh.over(L) >= OVER_SHARE * fh.n && fa.over(L) >= OVER_SHARE * fa.n) {
-      const hit = outcome(markets, "ou", L, "Több");
-      if (hit) return { ...hit, cond: COND.over(L), why: `várható gól ${fmt(xgTot)} (modell) / ${fmt(formTot)} (forma); `
-        + `${L + 0.5}+ gól: ${fh.over(L)}/${fh.n} és ${fa.over(L)}/${fa.n} meccsükön` };
+    if (lo >= L + rule.over && cnt(sh, (x) => x > L) >= OVER_SHARE * sh.length && cnt(sa, (x) => x > L) >= OVER_SHARE * sa.length) {
+      const hit = mk(L, true);
+      if (hit) return hit;
     }
   }
   for (const L of lines) {
-    if (hi <= L - UNDER_MARGIN && fh.under(L) >= UNDER_SHARE * fh.n && fa.under(L) >= UNDER_SHARE * fa.n) {
-      const hit = outcome(markets, "ou", L, "Kevesebb");
-      if (hit) return { ...hit, cond: COND.under(L), why: `várható gól ${fmt(xgTot)} (modell) / ${fmt(formTot)} (forma); `
-        + `legfeljebb ${L - 0.5} gól: ${fh.under(L)}/${fh.n} és ${fa.under(L)}/${fa.n} meccsükön` };
+    if (hi <= L - rule.under && cnt(sh, (x) => x < L) >= UNDER_SHARE * sh.length && cnt(sa, (x) => x < L) >= UNDER_SHARE * sa.length) {
+      const hit = mk(L, false);
+      if (hit) return hit;
     }
   }
   return null;
 }
 
-function btts(markets, a, fh, fa) {
+function bttsRule(markets, a, fh, fa) {
   if (fh.scored >= 0.7 * fh.n && fa.scored >= 0.7 * fa.n && fh.conceded >= 0.6 * fh.n && fa.conceded >= 0.6 * fa.n
       && a.xg_home >= 1.1 && a.xg_away >= 1.0) {
     const hit = outcome(markets, "btts", null, "Igen");
-    if (hit) return { ...hit, cond: COND.bttsY, why: `gólt szerzett ${fh.scored}/${fh.n} és ${fa.scored}/${fa.n}, `
-      + `kapott ${fh.conceded}/${fh.n} és ${fa.conceded}/${fa.n} meccsén` };
+    if (hit) return { ...hit, cond: BTTS.Igen, why: `gólt szerzett ${fh.scored}/${fh.n} és ${fa.scored}/${fa.n}, `
+      + `kapott ${fh.conceded}/${fh.n} és ${fa.conceded}/${fa.n} meccsén; várható gól ${fmt(a.xg_home)} – ${fmt(a.xg_away)}` };
   }
   const weak = (f, xg) => f.scored <= 0.5 * f.n && xg <= 0.9;
   if (weak(fh, a.xg_home) || weak(fa, a.xg_away)) {
     const hit = outcome(markets, "btts", null, "Nem");
-    const [f, nm] = weak(fh, a.xg_home) ? [fh, "a hazai"] : [fa, "a vendég"];
-    if (hit) return { ...hit, cond: COND.bttsN, why: `${nm} csak ${f.scored}/${f.n} meccsén lőtt gólt` };
-  }
-  return null;
-}
-
-function secondHalf(markets, xgTot, fh, fa) {
-  if (fh.h2avg == null || fa.h2avg == null || fh.h2n < MIN_FORM || fa.h2n < MIN_FORM) return null;
-  const exp = Math.min(xgTot * (1 - FIRST_HALF_SHARE), (fh.h2avg + fa.h2avg) / 2);
-  for (const L of [...linesOf(markets, "2hou")].reverse()) {
-    if (exp >= L + H2_MARGIN && fh.h2over(L) >= OVER_SHARE * fh.h2n && fa.h2over(L) >= OVER_SHARE * fa.h2n) {
-      const hit = outcome(markets, "2hou", L, "Több");
-      if (hit) return { ...hit, cond: COND.h2over(L), why: `2. félidőben ${L + 0.5}+ gól: ${fh.h2over(L)}/${fh.h2n} és `
-        + `${fa.h2over(L)}/${fa.h2n} meccsükön` };
-    }
+    const [f, nm, xg] = weak(fh, a.xg_home) ? [fh, "a hazai", a.xg_home] : [fa, "a vendég", a.xg_away];
+    if (hit) return { ...hit, cond: BTTS.Nem, why: `${nm} csak ${f.scored}/${f.n} meccsén lőtt gólt; várható gólja ${fmt(xg)}` };
   }
   return null;
 }
@@ -197,36 +225,46 @@ function secondHalf(markets, xgTot, fh, fa) {
 const leg = ({ mk, o, why }) => ({ id: o.id, label: o.label, market: why ? `${mk.name} · ${why}` : mk.name, odds: o.odds,
   market_key: mk.key, pick: o.pick, line: mk.line });
 
+// A csoport esélye a modell szerint: gól-feltételek együtt, szöglet/lap függetlenül.
+const modelProb = (a, picks) => jointProb(a.xg_home, a.xg_away, picks.filter((p) => p.cond).map((p) => p.cond))
+  * prod(picks.filter((p) => p.p != null).map((p) => p.p));
+
 // Egy meccs csoportja (szorzó nélkül), vagy null. m: az Emergent-állapot meccse, mm: a meccsoldal piacai.
 export function matchGroup(m, compName, mm, fh, fa) {
   const a = m.analysis;
   if (!a || a.xg_home == null || a.xg_away == null) return null;
   const markets = [...m.markets.filter((x) => x.key === "1x2" || x.key === "btts"), ...(mm?.markets || [])];
   const xgTot = a.xg_home + a.xg_away;
-  const picks = [];
   const x12 = m.markets.find((x) => x.key === "1x2");
   const favOut = x12?.outcomes.filter((o) => o.pick !== "X").sort((p, q) => p.odds - q.odds)[0];
   const isFav = favOut && favOut.odds <= FAV_ODDS;
+  const cands = [];
   if (isFav) {
-    picks.push({ mk: x12, o: favOut, cond: favOut.pick === "1" ? COND.win1 : COND.win2,
+    cands.push({ mk: x12, o: favOut, cond: WIN[favOut.pick],
       why: `papírforma: ${favOut.label} szorzója ${favOut.odds.toFixed(2).replace(".", ",")}` });
   }
   if (fh && fa) {
-    const formTot = (fh.gf + fa.ga) / 2 + (fa.gf + fh.ga) / 2;
-    const gl = goalLine(markets, xgTot, formTot, fh, fa);
-    if (gl) picks.push(gl);
-    if (!isFav) {
-      const bt = btts(markets, a, fh, fa);
-      if (bt && !(bt.o.pick === "Nem" && gl?.o.pick === "Több" && gl.mk.line >= 2.5)) picks.push(bt);
-      if (!(gl && gl.o.pick === "Kevesebb")) {
-        const h2 = secondHalf(markets, xgTot, fh, fa);
-        if (h2) picks.push(h2);
-      }
+    // fontossági sorrend: teljes gólszám, mindkét csapat lő gólt, félidők, szöglet, lap
+    cands.push(lineRule(markets, "ou", xgTot, fh, fa, a));
+    cands.push(bttsRule(markets, a, fh, fa));
+    cands.push(lineRule(markets, "htou", xgTot * FIRST_HALF_SHARE, fh, fa, a));
+    cands.push(lineRule(markets, "2hou", xgTot * (1 - FIRST_HALF_SHARE), fh, fa, a));
+    cands.push(lineRule(markets, "corners", a.corners ?? null, fh, fa, a));
+    cands.push(lineRule(markets, "cards", a.cards ?? null, fh, fa, a));
+  }
+  // Ellentmondó tipp kimarad: ha az eddigiekkel együtt a modell szerint jóval ritkább, mint külön.
+  const picks = [];
+  for (const c of cands) {
+    if (!c || picks.length >= MAX_PICKS) continue;
+    if (picks.length) {
+      const before = modelProb(a, picks), alone = modelProb(a, [c]), together = modelProb(a, [...picks, c]);
+      if (together < CONFLICT * before * alone) continue;
     }
+    picks.push(c);
   }
   if (!picks.length) return null;
-  // Esély (rangsorhoz): a két félidő Poisson-modelljéből; favoritnál a szerver győzelmi esélyéhez igazítva.
-  let prob = jointProb(a.xg_home, a.xg_away, picks.map((p) => p.cond));
+  // Esély (rangsorhoz): a modellből; favoritnál a szerver győzelmi esélyéhez igazítva.
+  let prob = modelProb(a, picks);
   if (isFav) {
     const pWin = favOut.pick === "1" ? a.p_home : a.p_away;
     const pWinModel = jointProb(a.xg_home, a.xg_away, [picks[0].cond]);
@@ -239,7 +277,7 @@ export function matchGroup(m, compName, mm, fh, fa) {
   };
 }
 
-// --- szelvény ---------------------------------------------------------------------------------
+// --- szelvények -------------------------------------------------------------------------------
 
 const teamsOf = (g) => [g.home, g.away];
 
@@ -248,6 +286,7 @@ function* combos(arr, k, start = 0, acc = []) {
   for (let i = start; i < arr.length; i++) yield* combos(arr, k, i + 1, [...acc, arr[i]]);
 }
 
+// A legjobb kombináció a szelvénykészítő szabályaival (a szerverével azonos).
 function choose(groups, target, floor) {
   if (!target && floor == null) {
     const out = [], used = new Set();
@@ -276,12 +315,57 @@ function choose(groups, target, floor) {
   return best;
 }
 
+// Egy szelvény a csoportokból, a TippmixPro végső ellenőrzésével (tiltott párnál a gyengébb csoport kiesik).
+async function oneSlip(groups, { target, floor, stake, allowLow, idx, notes }) {
+  let pl = groups;
+  for (let attempt = 0; attempt < 4 && pl.length; attempt++) {
+    let pick = choose(pl, target, floor);
+    let low = false;
+    if (!pick) {
+      // A beállítást egyik kombináció sem éri el: a két legesélyesebb csoport, narancssárga jelzéssel.
+      if (!allowLow) return null;
+      pick = [];
+      for (const g of pl) {
+        if (pick.flatMap(teamsOf).some((t) => teamsOf(g).includes(t))) continue;
+        pick.push(g);
+        if (pick.length >= 2) break;
+      }
+      low = true;
+      const fl = floor != null ? `${Math.round(floor * 100)}%-os` : "";
+      notes.push(target
+        ? `A papírforma-szelvények a ${String(target).replace(".", ",")}-es célszorzót ${fl ? `${fl} esély mellett ` : ""}nem érik el; a legesélyesebb csoportokból raktam össze őket (narancssárga címke).`
+        : `${fl ? `${fl} ` : ""}papírforma-szelvény nem jön ki; a legesélyesebb csoportokból raktam össze őket (narancssárga címke).`);
+    }
+    pick = [...pick].sort((x, y) => y.prob - x.prob);
+    const chk = await own.check(pick.flatMap((g) => g.picks.map((p) => p.id)), stake);
+    if (chk.forbidden?.length) {
+      const bad = new Set(chk.forbidden.flat());
+      const owner = pick.filter((g) => g.picks.some((p) => bad.has(p.id)));
+      const drop = (owner.length ? owner : pick).reduce((x, y) => (x.prob <= y.prob ? x : y));
+      pl = pl.filter((g) => g.match_id !== drop.match_id);
+      continue;
+    }
+    const bb = new Map((chk.bet_builder || []).map((b) => [b.ids.join(","), b.odds]));
+    pick = pick.map((g) => ({ ...g, odds: bb.get(g.picks.map((p) => p.id).join(",")) ?? g.odds }));
+    const prob = prod(pick.map((g) => g.prob));
+    const odds = chk.odds || prod(pick.map((g) => g.odds));
+    const st = Math.max(Number(stake) || 0, chk.min_stake || 100);
+    return {
+      name: `${COMBO_NAME} ${idx}.`, kind: `combo-${idx}`, desc: DESC, groups: pick, odds, prob, ev: prob * odds - 1,
+      stake: st, min_stake: chk.min_stake, payout: Math.floor(st * odds), low_prob: low || prob < AUTO_MIN_PROB,
+      checked: true, warnings: chk.warnings || [],
+    };
+  }
+  return null;
+}
+
 /**
- * Az összevont szelvény a szelvénykészítő beállításaival. Visszaad: { version, notes }.
+ * Papírforma-szelvények a szelvénykészítő beállításaival. Visszaad: { versions, notes }.
  */
 export async function buildCombo({ state, window, comps, stake, target, mode }) {
   const notes = [];
-  if (!window?.start) return { version: null, notes };
+  const done = (versions) => ({ versions, notes: [...new Set(notes)] });
+  if (!window?.start) return done([]);
   const end = addDays(window.start, window.days || 1);
   const now = Date.now();
   const matches = [];
@@ -295,12 +379,12 @@ export async function buildCombo({ state, window, comps, stake, target, mode }) 
   }
   matches.sort((x, y) => new Date(x.m.kickoff) - new Date(y.m.kickoff));
   if (matches.length > MAX_ANALYSED) {
-    notes.push(`A „${COMBO_NAME}” szelvényhez az ablak első ${MAX_ANALYSED} meccsét elemeztem (${matches.length}-ből).`);
+    notes.push(`A „${COMBO_NAME}”-hez az ablak első ${MAX_ANALYSED} meccsét elemeztem (${matches.length}-ből).`);
     matches.length = MAX_ANALYSED;
   }
   if (!matches.length) {
-    notes.push(`A „${COMBO_NAME}” szelvényhez nincs meccs a kiválasztott napokon.`);
-    return { version: null, notes };
+    notes.push(`A „${COMBO_NAME}”-hez nincs meccs a kiválasztott napokon.`);
+    return done([]);
   }
   const analysed = await pool(matches, CONCURRENCY, async ({ m, c }) => {
     const [mm, fh, fa] = await Promise.all([
@@ -318,8 +402,8 @@ export async function buildCombo({ state, window, comps, stake, target, mode }) 
     if (cands.length >= CANDIDATES) break;
   }
   if (!cands.length) {
-    notes.push(`A „${COMBO_NAME}” szelvényhez egyik meccsen sincs egyértelmű favorit vagy egyértelmű gól-tipp.`);
-    return { version: null, notes };
+    notes.push(`A „${COMBO_NAME}”-hez egyik meccsen sincs egyértelmű favorit vagy egyértelmű esemény.`);
+    return done([]);
   }
   // Fogadásépítő-csoport szorzója és kötéstiltása a TippmixPro-tól; tiltott csoport kimarad.
   const priced = (await pool(cands, CONCURRENCY, async (g) => {
@@ -331,51 +415,28 @@ export async function buildCombo({ state, window, comps, stake, target, mode }) 
   })).filter((g) => g && g.odds >= MIN_GROUP_ODDS).sort((x, y) => y.prob - x.prob);
   if (!priced.length) {
     notes.push(`A „${COMBO_NAME}” csoportjait a TippmixPro most nem tudta beárazni.`);
-    return { version: null, notes };
+    return done([]);
   }
 
   const floor = mode === "auto" ? (target ? null : AUTO_MIN_PROB) : mode === "0" ? null : Number(mode) / 100;
-  let pl = priced;
-  for (let attempt = 0; attempt < 4 && pl.length; attempt++) {
-    let pick = choose(pl, target, floor);
-    let low = false;
-    if (!pick) {
-      pick = [pl[0]];
-      low = true;
-      const fl = floor != null ? `${Math.round(floor * 100)}%-os` : "";
-      notes.push(target
-        ? `A „${COMBO_NAME}” szelvénnyel a ${String(target).replace(".", ",")}-es célszorzó ${fl ? `${fl} esély mellett ` : ""}nem érhető el; a legesélyesebb csoportot mutatom.`
-        : `A „${COMBO_NAME}” szelvényből nincs ${fl} esélyű; a legesélyesebb csoportot mutatom (${(pl[0].prob * 100).toFixed(0)}%).`);
-    }
-    pick = [...pick].sort((x, y) => y.prob - x.prob);
-    let chk;
+  const versions = [];
+  let rest = priced;
+  for (let k = 1; k <= SLIPS && rest.length; k++) {
+    let v;
     try {
-      chk = await own.check(pick.flatMap((g) => g.picks.map((p) => p.id)), stake);
+      v = await oneSlip(rest, { target, floor, stake, allowLow: true, idx: k, notes });
     } catch {
-      notes.push(`A „${COMBO_NAME}” szelvényt a TippmixPro most nem tudta ellenőrizni.`);
-      return { version: null, notes: [...new Set(notes)] };
+      notes.push(`A „${COMBO_NAME}” szelvényeit a TippmixPro most nem tudta ellenőrizni.`);
+      break;
     }
-    if (chk.forbidden?.length) {
-      const bad = new Set(chk.forbidden.flat());
-      const owner = pick.filter((g) => g.picks.some((p) => bad.has(p.id)));
-      const drop = (owner.length ? owner : pick).reduce((x, y) => (x.prob <= y.prob ? x : y));
-      pl = pl.filter((g) => g.match_id !== drop.match_id);
-      continue;
-    }
-    const bb = new Map((chk.bet_builder || []).map((b) => [b.ids.join(","), b.odds]));
-    pick = pick.map((g) => ({ ...g, odds: bb.get(g.picks.map((p) => p.id).join(",")) ?? g.odds }));
-    const prob = prod(pick.map((g) => g.prob));
-    const odds = chk.odds || prod(pick.map((g) => g.odds));
-    const st = Math.max(Number(stake) || 0, chk.min_stake || 100);
-    return {
-      version: {
-        name: COMBO_NAME, kind: "win_goals", desc: DESC, groups: pick, odds, prob, ev: prob * odds - 1,
-        stake: st, min_stake: chk.min_stake, payout: Math.floor(st * odds), low_prob: low || prob < AUTO_MIN_PROB,
-        checked: true, warnings: chk.warnings || [],
-      },
-      notes: [...new Set(notes)],
-    };
+    if (!v) break;
+    versions.push(v);
+    const usedIds = new Set(v.groups.map((g) => g.match_id));
+    const usedTeams = new Set(v.groups.flatMap(teamsOf));
+    rest = rest.filter((g) => !usedIds.has(g.match_id) && !teamsOf(g).some((t) => usedTeams.has(t)));
   }
-  notes.push(`A „${COMBO_NAME}” szelvényhez nem találtam köthető párosítást.`);
-  return { version: null, notes: [...new Set(notes)] };
+  if (versions.length && versions.length < SLIPS) {
+    notes.push(`${versions.length} papírforma-szelvény készült: több meccs nincs a kiválasztott napokon, amin egyértelmű esemény van.`);
+  }
+  return done(versions);
 }

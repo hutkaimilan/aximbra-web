@@ -7,23 +7,25 @@ ki ezt a felületet, és az `/emergent/api/*` kéréseket továbbítja az `EMERG
 
 ## Eltérés az eredetitől
 
-A szerver „Győztesek" és „Gólok" szelvénye helyett egyetlen **„Papírforma + gólok"** (`src/lib/combo.js`),
-meccsenként egy (Fogadásépítő-)csoporttal:
+A szerver „Győztesek" és „Gólok" szelvénye helyett **négy „Papírforma szelvény"** (`src/lib/combo.js`),
+mindegyik más meccsekből, meccsenként egy (Fogadásépítő-)csoporttal:
 
-- **Papírforma-favorit** (TippmixPro-szorzója ≤ 1,70): ő nyer, és mellé gólszám, ha a két csapat formája
-  és a várható gól egyértelműen egy irányba mutat.
-- **Favorit nélkül** győztes nélkül: gólszám (0,5–7,5 bármelyik vonal), mindkét csapat lő gólt, 2. félidős
-  gólszám — csak ami egyértelmű.
-- **Egyértelmű:** „több mint L", ha a várható gól (az Emergent-modell és a két csapat utolsó 10 meccse közül
-  a kisebb) legalább L + 0,4, és mindkét csapat meccseinek legalább 60%-án L fölött volt; „kevesebb mint L"
-  hasonlóan, 0,6-os ráhagyással és 70%-kal. Mindkét csapat lő gólt: mindkettő a meccsei 70%-án lőtt és 60%-án
-  kapott gólt, és a várható góljuk 1,1 / 1,0 fölött. 2. félidő: a 2. félidős gólátlag és a várható gól 55%-a
-  közül a kisebb legalább L + 0,3, és mindkét csapat 2. félidejeinek 60%-án L fölött volt. 1,25 alatti szorzójú
-  gól-tipp nem kerül fel. Minden tipp mellett ott az indoklás.
-- **Adatok:** várható gól és győzelmi esély az Emergent-szervertől, forma az Emergent csapatoldaláról,
-  minden gólvonal és a félidők a saját TippmixPro-olvasóból (`/api/match-markets`), szorzó és kötéstiltás a
-  TippmixPro-tól (`/api/check`). Az esély (két félidős Poisson-modell) csak a rangsorhoz és tájékoztatásnak
-  kell; az Emergent-szerver saját visszamérése szerint a Fogadásépítő-esélyek átlagosan 7%-kal térnek el.
+- **Papírforma-favorit** (TippmixPro-szorzója ≤ 1,70): ő nyer.
+- Mellé (favorit nélkül győztes helyett) **minden egyértelmű esemény**, legfeljebb 4 tipp meccsenként:
+  gólszám (0,5–7,5 bármelyik vonal), mindkét csapat lő gólt, 1. és 2. félidő gólszáma, szöglet, lap.
+- **Egyértelmű:** „több mint L", ha a várható érték (az Emergent-modell és a két csapat utolsó 10 meccse
+  közül a kisebb) legalább L + ráhagyás (gól 0,4; félidő 0,3; szöglet 1,0; lap 0,7), és mindkét csapat
+  meccseinek legalább 60%-án L fölött volt; „kevesebb mint L" hasonlóan (gól 0,6; félidő 0,5; szöglet 1,5;
+  lap 1,0 ráhagyás, 70%). Mindkét csapat lő gólt: mindkettő a meccsei 70%-án lőtt és 60%-án kapott gólt, a
+  várható góljuk 1,1 / 1,0 fölött. 1,25 alatti szorzójú tipp nem kerül fel; egymásnak ellentmondó tipp
+  (a modell szerint együtt jóval ritkább) nem kerül egy csoportba. Minden tipp mellett ott az indoklás.
+- Ha a beállított esélyt egyik kombináció sem éri el, a szelvények a legesélyesebb csoportokból állnak,
+  narancssárga címkével.
+- **Adatok:** várható gól/szöglet/lap és győzelmi esély az Emergent-szervertől, forma az Emergent
+  csapatoldaláról, minden vonal a saját TippmixPro-olvasóból (`/api/match-markets`), szorzó és kötéstiltás a
+  TippmixPro-tól (`/api/check`). Az esély (két félidős Poisson, szöglet/lap negatív binomiális) csak a
+  rangsorhoz és tájékoztatásnak kell; az Emergent-szerver saját visszamérése szerint a Fogadásépítő-esélyek
+  átlagosan 7%-kal térnek el.
 
 ## Build
 

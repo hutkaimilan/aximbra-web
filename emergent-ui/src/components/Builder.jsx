@@ -4,7 +4,7 @@ import { api, COMPS, dayLabel, errText } from "../lib/api";
 import { buildCombo, COMBO_NAME } from "../lib/combo";
 import VersionCard from "./VersionCard";
 
-// A szerver „Győztesek" és „Gólok" szelvénye helyett egy összevont „Győztes + gólok" (lib/combo.js).
+// A szerver „Győztesek" és „Gólok" szelvénye helyett több papírforma-szelvény (lib/combo.js).
 const MERGED = new Set(["win", "goals"]);
 
 const MODES = [
@@ -31,7 +31,7 @@ export default function Builder({ fixedComp, stateVersion }) {
   const [res, setRes] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [combo, setCombo] = useState(null);      // { version, notes } | null
+  const [combo, setCombo] = useState(null);      // { versions, notes } | null
   const [comboBusy, setComboBusy] = useState(false);
   const seq = useRef(0);   // egy régebbi, később beérkező számolás ne írja felül az újabbat
   const tid = fixedComp ? `builder-${fixedComp}` : "builder-main";
@@ -56,7 +56,7 @@ export default function Builder({ fixedComp, stateVersion }) {
           const state = await api.state(false);
           out = await buildCombo({ ...req, state, window: r.window });
         } catch (e) {
-          out = { version: null, notes: [`A „${COMBO_NAME}” szelvény most nem készült el: ${errText(e)}`] };
+          out = { versions: [], notes: [`A „${COMBO_NAME}” most nem készült el: ${errText(e)}`] };
         }
         if (my === seq.current) setCombo(out);
       })
@@ -64,21 +64,11 @@ export default function Builder({ fixedComp, stateVersion }) {
       .finally(() => { if (my === seq.current) { setLoading(false); setComboBusy(false); } });
   };
 
-  // A szerver változatai, a „Győztesek" és „Gólok" helyén az összevont szelvénnyel.
-  const versions = useMemo(() => {
-    const out = [];
-    let placed = false;
-    for (const v of res?.versions || []) {
-      if (MERGED.has(v.kind)) {
-        if (!placed && combo?.version) out.push(combo.version);
-        placed = true;
-        continue;
-      }
-      out.push(v);
-    }
-    if (!placed && combo?.version) out.splice(Math.min(1, out.length), 0, combo.version);
-    return out;
-  }, [res, combo]);
+  // A papírforma-szelvények elöl, utánuk a szerver többi változata („Győztesek" és „Gólok" nélkül).
+  const versions = useMemo(() => [
+    ...(combo?.versions || []),
+    ...(res?.versions || []).filter((v) => !MERGED.has(v.kind)),
+  ], [res, combo]);
   const notes = useMemo(() => [
     ...(res?.notes || []).filter((n) => !/Győztesek|Gólok/.test(n)),
     ...(combo?.notes || []),
@@ -154,7 +144,7 @@ export default function Builder({ fixedComp, stateVersion }) {
         {versions.map((v, i) => <VersionCard key={v.name} v={v} idx={i} />)}
         {comboBusy && !loading && !combo && (
           <div className="panel p-6 text-center muted text-sm" data-testid={`${tid}-combo-loading`}>
-            „{COMBO_NAME}” szelvény beárazása a TippmixPro-nál…
+            Papírforma-szelvények: forma, várható értékek és a TippmixPro szorzói…
           </div>
         )}
       </div>
