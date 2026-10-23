@@ -298,9 +298,13 @@ def test_untranslated_names_fall_back_to_english_not_hungarian():
 
 
 @pytest.mark.parametrize("name,title", [
-    ("Kert Bisztró", "Ezt csinálná egy AI agent a Kert Bisztró-nál"),
+    ("Kert Bisztró", "Ezt csinálná egy AI agent a Kert Bisztrónál"),
+    ("Bortársaság", "Ezt csinálná egy AI agent a Bortársaságnál"),
+    ("Kifli.hu", "Ezt csinálná egy AI agent a Kifli.hu-nál"),
+    ("OTP", "Ezt csinálná egy AI agent az OTP-nél"),
     ("Optika Bt.", "Ezt csinálná egy AI agent az Optika Bt.-nél"),
-    ("123 Szerviz", "Ezt csinálná egy AI agent a(z) 123 Szerviz-nél"),
+    ("123 Szerviz", "Ezt csinálná egy AI agent a(z) 123 Szerviznél"),
+    ("BKK", "Ezt csinálná egy AI agent a BKK-nál"),
     ("Kovács Kft.", "Ezt csinálná egy AI agent a Kovács Kft.-nél"),
     ("Ablak Zrt", "Ezt csinálná egy AI agent az Ablak Zrt-nél"),
 ])
@@ -313,7 +317,7 @@ def test_hungarian_title_grammar(name, title):
 def test_build_page_keeps_only_verified_claims():
     page, _ = build()
     assert page["generic"] is False and page["company"] == "Kert Bisztró" and page["lang"] == "hu"
-    assert page["title"] == "Ezt csinálná egy AI agent a Kert Bisztró-nál"
+    assert page["title"] == "Ezt csinálná egy AI agent a Kert Bisztrónál"
     assert page["observation"]["quote"] == GOOD_QUOTE
     assert page["observation"]["page_url"] == "https://kertbisztro.hu/"
     assert page["agent"]["id"] == "phone" and page["agent"]["demo_url"].startswith("tel:")
@@ -331,6 +335,12 @@ def test_invented_quote_is_dropped():
     a = dict(ANALYSIS, observation={"quote": "Nálunk minden vendég ingyen kap desszertet a vacsorához.",
                                     "page_url": "https://kertbisztro.hu/", "insight": "x"})
     assert build(a)[0]["observation"] is None
+
+
+def test_contact_data_drops_the_whole_sentence_from_analysis_text():
+    a = dict(ANALYSIS, secondary_agents=[{"id": "email", "reason": "Sok levél jön. Az info@kert.hu címre írnak."}])
+    page, _ = build(a)
+    assert page["secondary"][0]["reason"] == "Sok levél jön."
 
 
 def test_quote_from_menu_is_impossible():

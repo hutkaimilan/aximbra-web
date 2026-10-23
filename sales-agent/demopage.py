@@ -506,6 +506,16 @@ def _scrub(s):
     return _EMAIL.sub("[e-mail]", _PHONE.sub("[…]", s)) if isinstance(s, str) else s
 
 
+def _drop_contacts(s):
+    """Az elemzés szövegeiből (indoklás, leírás) az elérhetőséget tartalmazó
+    mondat egészében kimarad: egy "[e-mail]" helykitöltő egy valódi cégnek
+    írt mondatban hibának látszik."""
+    if not isinstance(s, str):
+        return s
+    parts = re.split(r"(?<=[.!?])\s+", s)
+    return " ".join(p for p in parts if not (_EMAIL.search(p) or _PHONE.search(p))).strip()
+
+
 def _str(v, n: int = 400) -> str:
     return re.sub(r"\s+", " ", str(v or "")).strip()[:n]
 
@@ -658,10 +668,11 @@ RULES:
   their activity (their kind of customers, products/services, requests). No real people's names, no e-mail addresses,
   no phone numbers, no real customer names; use roles ("a new customer", "a supplier").
 - Keep texts short and concrete. Every agent output is approved by a human.
-- roi.hours_per_month: realistic hours/month this agent saves for a company like this (5-120).
+- roi.assumptions come first: 3-4 short estimates, at least a monthly volume, the minutes of manual work per item and
+  the share the agent takes over. roi.hours_per_month MUST be the arithmetic result of those assumptions
+  (volume x minutes x share / 60, rounded), between 5 and 120; adjust the assumptions rather than the result.
   roi.hourly_rate_huf: realistic loaded hourly labour cost in Hungarian forints for staff doing this work in their
-  country (e.g. Hungary ~6000-12000 HUF). roi.assumptions: 3-4 short assumptions behind the numbers
-  (e.g. volumes per month and minutes per item), clearly as estimates.
+  country (e.g. Hungary ~6000-12000 HUF). Write the assumptions clearly as estimates.
 - quote_check: judge the given website quote (if any): full_sentence = is it one complete, meaningful sentence
   (not a menu, button, link text or list)? has_verb = does it contain a finite verb?
 Return JSON only."""
@@ -714,23 +725,23 @@ def _check_analysis(d: dict) -> dict:
     for s in d.get("secondary_agents") or []:
         if isinstance(s, dict) and s.get("id") in CATALOG and s["id"] != main["id"] \
                 and s["id"] not in [x["id"] for x in sec]:
-            sec.append({"id": s["id"], "reason": _scrub(_str(s.get("reason"), 300))})
+            sec.append({"id": s["id"], "reason": _drop_contacts(_str(s.get("reason"), 300))})
     obs = d.get("observation") if isinstance(d.get("observation"), dict) else None
     ev = d.get("support_evidence") if isinstance(d.get("support_evidence"), dict) else None
     return {
         "language": _str(d.get("language"), 12).lower(),
         "company_name": _str(d.get("company_name"), 80),
-        "what_they_do": _scrub(_str(d.get("what_they_do"), 400)),
-        "audience": _scrub(_str(d.get("audience"), 200)),
-        "repetitive_work": [_scrub(_str(x, 160)) for x in (d.get("repetitive_work") or [])[:5] if x],
+        "what_they_do": _drop_contacts(_str(d.get("what_they_do"), 400)),
+        "audience": _drop_contacts(_str(d.get("audience"), 200)),
+        "repetitive_work": [_drop_contacts(_str(x, 160)) for x in (d.get("repetitive_work") or [])[:5] if x],
         "observation": {"quote": _str(obs.get("quote"), 400), "page_url": _str(obs.get("page_url"), 500),
-                        "insight": _scrub(_str(obs.get("insight"), 400))} if obs else None,
+                        "insight": _drop_contacts(_str(obs.get("insight"), 400))} if obs else None,
         "support_evidence": _str(ev.get("quote"), 300) if ev else "",
         "main": main["id"],
-        "reason": _scrub(_str(main.get("reason"), 600)),
-        "what_it_does": _scrub(_str(main.get("what_it_does"), 800)),
+        "reason": _drop_contacts(_str(main.get("reason"), 600)),
+        "what_it_does": _drop_contacts(_str(main.get("what_it_does"), 800)),
         "secondary": sec[:2],
-        "custom_idea": _scrub(_str(d.get("custom_agent_idea"), 400)),
+        "custom_idea": _drop_contacts(_str(d.get("custom_agent_idea"), 400)),
     }
 
 
@@ -799,8 +810,24 @@ _LEGAL_FORM = re.compile(r"\b(kft|bt|zrt|nyrt|kkt|ev|e\.v)\.?$", re.I)
 def hu_suffix(name: str) -> str:
     if _LEGAL_FORM.search(name.strip()):
         return "nél"
+    last = name.split()[-1] if name.split() else name
+    if len(last) > 1 and last.isupper():
+        # Betűszó: az utolsó betű nevének hangja dönt (OTP = ó-té-pé -> -nél,
+        # MOL = em-o-el -> -nél, BKK = bé-ká-ká -> -nál).
+        return "nál" if last[-1] in "AÁHKOÓUÚ" else "nél"
     vowels = [c for c in name.lower() if c in _VOWELS]
     return "nál" if vowels and vowels[-1] in "aáoóuú" else "nél"
+
+
+def hu_with_suffix(name: str) -> str:
+    """Rag a cégnévhez: közvetlenül ("Bortársaságnál"), kötőjellel csak
+    rövidítés, betűszó, domain, szám vagy írásjel után ("Kft.-nél", "OTP-nél",
+    "Kifli.hu-nál")."""
+    name = name.strip()
+    last = name.split()[-1] if name.split() else name
+    hyphen = (not name[-1:].isalpha() or _LEGAL_FORM.search(name) or "." in last
+              or (len(last) > 1 and last.isupper()))
+    return f"{name}{'-' if hyphen else ''}{hu_suffix(name)}"
 
 
 def title_and_footer(company: str, lang: str, ui: dict, generic: bool) -> tuple[str, str]:
@@ -809,7 +836,7 @@ def title_and_footer(company: str, lang: str, ui: dict, generic: bool) -> tuple[
         footer = (f"Ez a bemutató {art} {company} számára készült; a weboldaluk nem volt olvasható, a példaadatok "
                   "kitaláltak.") if generic else \
             f"Ez a bemutató {art} {company} nyilvános weboldala alapján készült; a példaadatok kitaláltak."
-        return f"Ezt csinálná egy AI agent {art} {company}-{hu_suffix(company)}", footer
+        return f"Ezt csinálná egy AI agent {art} {hu_with_suffix(company)}", footer
     if generic:
         footer = ui.get("footer_generic") or (f"This demo was prepared for {company}; their website could not be "
                                               "read, and the sample data is fictional.")
