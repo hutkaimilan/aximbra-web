@@ -341,6 +341,10 @@ def test_contact_data_drops_the_whole_sentence_from_analysis_text():
     a = dict(ANALYSIS, secondary_agents=[{"id": "email", "reason": "Sok levél jön. Az info@kert.hu címre írnak."}])
     page, _ = build(a)
     assert page["secondary"][0]["reason"] == "Sok levél jön."
+    # Rövidítés után nem vágunk: nem marad csonka "(pl." a szövegben.
+    a = dict(ANALYSIS, secondary_agents=[{"id": "email", "reason": "Sok levél jön. A címeikre (pl. info@kert.hu) "
+                                                                    "írnak. Gyorsabb lenne."}])
+    assert build(a)[0]["secondary"][0]["reason"] == "Sok levél jön. Gyorsabb lenne."
 
 
 def test_quote_from_menu_is_impossible():

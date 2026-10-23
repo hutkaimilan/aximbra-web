@@ -512,7 +512,9 @@ def _drop_contacts(s):
     írt mondatban hibának látszik."""
     if not isinstance(s, str):
         return s
-    parts = re.split(r"(?<=[.!?])\s+", s)
+    # Új mondat csak nagybetűvel kezdődhet: a "pl. info@..." rövidítés után
+    # nem vágunk, így az elérhetőséges mondat egészében esik ki.
+    parts = re.split(r"(?<=[.!?])\s+(?=[A-ZÁÉÍÓÖŐÚÜŰ\"„(])", s)
     return " ".join(p for p in parts if not (_EMAIL.search(p) or _PHONE.search(p))).strip()
 
 
