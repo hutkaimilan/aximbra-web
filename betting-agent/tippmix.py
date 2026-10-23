@@ -34,6 +34,7 @@ TOPIC = "/sports/2901/hu"
 FOOTBALL = "1"
 REGULAR_TIME = "3"  # „Rendes játékidő": a hosszabbítás nem számít
 FIRST_HALF = "5"
+SECOND_HALF = "6"
 # 1X2, gólszám, mindkét csapat gólt szerez, kétesély, hendikep, DNB, 1X2 és gólszám 1. félidő
 MARKET_GROUPS = "1380,1381,1382,1383,1384,1385,1389,1390"
 TIMEOUT = 20
@@ -53,9 +54,13 @@ MARKETS = {
     # csak a meccs saját oldalán (fetch_extras), és csak a meccsnap körül
     ("118", REGULAR_TIME): ("corners", "Szögletszám"),
     ("185", REGULAR_TIME): ("cards", "Büntetőlap-szám"),
+    ("47", SECOND_HALF): ("2hou", "Gólszám - 2. félidő"),  # csak a meccsoldal „Felido" csoportjában
 }
-MARKET_ORDER = ["1x2", "dc", "ou", "btts", "dnb", "hcp", "ht1x2", "htou", "corners", "cards"]
+MARKET_ORDER = ["1x2", "dc", "ou", "btts", "dnb", "hcp", "ht1x2", "htou", "2hou", "corners", "cards"]
 EXTRA_GROUPS = ("Szogletek", "Lapok")
+# A meccsoldal minden vonala: gólszám 0,5–5,5 („Golok"), félidős gólszám („Felido"), szöglet, lap.
+MATCH_GROUPS = ("Golok", "Felido", "Szogletek", "Lapok")
+MATCH_MARKETS = ("ou", "btts", "htou", "2hou", "corners", "cards")
 PICKS = {
     "1x2": {"home": "1", "draw": "X", "away": "2"},
     "dc": {"home_draw": "1X", "away_draw": "X2", "home_away": "12"},
@@ -67,11 +72,13 @@ PICKS = {
     "htou": {"over": "Több", "under": "Kevesebb"},
     "corners": {"over": "Több", "under": "Kevesebb"},
     "cards": {"over": "Több", "under": "Kevesebb"},
+    "2hou": {"over": "Több", "under": "Kevesebb"},
 }
 ORDER = {"1x2": ["1", "X", "2"], "dc": ["1X", "X2", "12"], "ou": ["Több", "Kevesebb"],
          "btts": ["Igen", "Nem"], "dnb": ["1", "2"], "hcp": ["1", "X", "2"], "ht1x2": ["1", "X", "2"],
-         "htou": ["Több", "Kevesebb"], "corners": ["Több", "Kevesebb"], "cards": ["Több", "Kevesebb"]}
-LINE_MARKETS = {"ou", "htou", "corners", "cards"}  # x,5-ös vonal
+         "htou": ["Több", "Kevesebb"], "corners": ["Több", "Kevesebb"], "cards": ["Több", "Kevesebb"],
+         "2hou": ["Több", "Kevesebb"]}
+LINE_MARKETS = {"ou", "htou", "2hou", "corners", "cards"}  # x,5-ös vonal
 
 
 @dataclass(frozen=True)
@@ -239,16 +246,18 @@ def parse_matches(records: list, comp_key: str, now: datetime | None = None) -> 
     return sorted(out, key=lambda m: m.kickoff)
 
 
-def fetch_extras(session: Session, match_id: str, now: datetime | None = None) -> list[Outcome]:
-    """Szöglet- és lappiacok egy meccs saját oldaláról (event/<id>/market-groups → match-odds/market-group/<kulcs>).
+def fetch_extras(session: Session, match_id: str, now: datetime | None = None,
+                 groups_wanted=EXTRA_GROUPS, markets=("corners", "cards")) -> list[Outcome]:
+    """Piacok egy meccs saját oldaláról (event/<id>/market-groups → match-odds/market-group/<kulcs>).
 
-    A bajnokság-áttekintőben nincsenek benne, és a TippmixPro csak a meccsnap körül írja ki őket.
+    Alapból a szöglet és a lap: a bajnokság-áttekintőben nincsenek benne, és a TippmixPro csak a
+    meccsnap körül írja ki őket. MATCH_GROUPS/MATCH_MARKETS-szel a gólszám minden vonala és a félidők is.
     """
     if not match_id.isdigit():
         raise ValueError("hibás meccsazonosító")
     groups = {g.get("groupKey") for g in session.dump(f"{TOPIC}/event/{match_id}/market-groups")}
     records = []
-    for key in EXTRA_GROUPS:
+    for key in groups_wanted:
         if key in groups:
             records += session.dump(f"{TOPIC}/{match_id}/match-odds/market-group/{key}")
     # A meccsrekord a csoportválaszokban is benne van, így ugyanaz a feldolgozás használható.
@@ -256,7 +265,7 @@ def fetch_extras(session: Session, match_id: str, now: datetime | None = None) -
     out = []
     for m in ms:
         if m.id == match_id:
-            out = [o for o in m.outcomes if o.market in ("corners", "cards")]
+            out = [o for o in m.outcomes if o.market in markets]
     return out
 
 

@@ -20,7 +20,7 @@ def short(market: str, pick: str, home: str, away: str, line: float | None = Non
     if market == "hcp":
         h = line or 0.0
         return {"1": f"{home} ({_ln(h)})", "X": f"Döntetlen - ({away} {_ln(-h)})", "2": f"{away} ({_ln(-h)})"}[pick]
-    if market == "htou":
+    if market in ("htou", "2hou"):
         ln = str(line or 0.5).replace(".", ",")
         return f"Több, mint {ln}" if pick == "Több" else f"Kevesebb, mint {ln}"
     if market == "dc":
@@ -59,6 +59,11 @@ def sentence(market: str, pick: str, home: str, away: str, line: float | None = 
         if pick == "Több":
             return f"Legalább {n} gól az 1. félidőben"
         return "Gól nélküli 1. félidő" if n == 1 else f"Legfeljebb {n - 1} gól az 1. félidőben"
+    if market == "2hou":
+        n = int((line or 0.5) + 0.5)
+        if pick == "Több":
+            return f"Legalább {n} gól a 2. félidőben"
+        return "Gól nélküli 2. félidő" if n == 1 else f"Legfeljebb {n - 1} gól a 2. félidőben"
     if market == "hcp":
         return _hcp_sentence(pick, home, away, line or 0.0)
     return pick

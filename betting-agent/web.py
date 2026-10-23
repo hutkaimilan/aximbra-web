@@ -278,6 +278,8 @@ def _market_name(market: str, line) -> str:
     ln = f"{line:g}".replace(".", ",")
     if market == "htou":
         return f"Gólszám {ln} - 1. félidő"
+    if market == "2hou":
+        return f"Gólszám {ln} - 2. félidő"
     if market == "hcp":
         return f"{base} {line:+g}"  # a hazai csapat vonala előjellel: „Hendikep -1", „Hendikep +1"
     return f"{base} {ln}"
@@ -377,6 +379,45 @@ def build_state() -> dict:
     }
 
 
+MATCH_TTL = 10 * 60
+MAX_EXTRA_OFFERS = 20000
+_EXTRA_OFFERS: dict = {}   # a meccsoldalról lekért ajánlatok: id → (meccs, piac, kimenetel, sorozat), a check()-hez
+_EXTRA_GUARD = threading.Lock()
+
+
+def _load_match_markets(match_id: str) -> list:
+    with tippmix.Session() as s:
+        return tippmix.fetch_extras(s, match_id, groups_wanted=tippmix.MATCH_GROUPS, markets=tippmix.MATCH_MARKETS)
+
+
+def match_markets(match_id: str) -> dict:
+    """/api/match-markets: egy meccs saját oldalának gól-, félidős, szöglet- és lappiacai, minden vonallal.
+
+    Az áttekintő csak a 2,5-ös gólvonalat adja; a szelvényépítéshez (pl. „több mint 3,5", „2. félidőben
+    legalább 2 gól") a meccsoldal kell. Az ajánlatok ezután a /api/check-ben is ismertek.
+    """
+    state = build_state()
+    hit = next(((m, c) for c in state["competitions"] for m in c["matches"] if m["id"] == match_id), None)
+    if not hit:
+        raise KeyError(match_id)
+    m, c = hit
+    outs, _, _ = CACHE.get(("mm", match_id), MATCH_TTL, lambda: _load_match_markets(match_id))
+    mk = []
+    for g in _group(outs):
+        items = [{"id": o.offer_id, "pick": o.pick, "odds": o.odds,
+                  "label": labels.short(o.market, o.pick, m["home"], m["away"], o.line),
+                  "text": labels.sentence(o.market, o.pick, m["home"], m["away"], o.line)} for o in g["outcomes"]]
+        mk.append({"key": g["key"], "name": g["name"], "line": g["line"], "outcomes": items})
+    with _EXTRA_GUARD:
+        if len(_EXTRA_OFFERS) > MAX_EXTRA_OFFERS:
+            _EXTRA_OFFERS.clear()
+        for g in mk:
+            for o in g["outcomes"]:
+                _EXTRA_OFFERS[o["id"]] = (m, g, o, c)
+    return {"id": m["id"], "home": m["home"], "away": m["away"], "kickoff": m["kickoff"], "competition": c["key"],
+            "markets": mk}
+
+
 def _index(state: dict) -> dict:
     """Ajánlat id → (meccs, piac, kimenetel, sorozat)."""
     out = {}
@@ -393,8 +434,9 @@ def check(ids: list, stake: int) -> dict:
     idx = _index(state)
     legs, missing = [], []
     for i in ids:
-        if i in idx:
-            legs.append(idx[i])
+        hit = idx.get(i) or _EXTRA_OFFERS.get(i)
+        if hit:
+            legs.append(hit)
         else:
             missing.append(i)
     res = {"missing": missing, "legs": [], "forbidden": [], "bet_builder": [], "warnings": [],
@@ -738,6 +780,7 @@ LOGIN_GLOBAL = Limiter(40, 15 * 60)
 CHECK_LIMIT = Limiter(40, 60)
 REFRESH_LIMIT = Limiter(1, 30)
 SETTLE_LIMIT = Limiter(20, 60)
+MATCH_LIMIT = Limiter(120, 60)
 
 
 # --- HTTP ----------------------------------------------------------------------------------------
@@ -848,6 +891,16 @@ class Handler(BaseHTTPRequestHandler):
                 if q.get("refresh") == "1" and REFRESH_LIMIT.allow("all"):
                     CACHE.drop("tippmix")
                 return self._json(200, build_state())
+            if url.path == "/api/match-markets":
+                mid = q.get("id", "")
+                if not (mid.isdigit() and len(mid) < 30):
+                    return self._err(400, "Hibás meccsazonosító.")
+                if not MATCH_LIMIT.allow(self.address_string()):
+                    return self._err(429, "Lassíts egy kicsit: percenként legfeljebb 120 meccsoldal.")
+                try:
+                    return self._json(200, match_markets(mid))
+                except KeyError:
+                    return self._err(404, "Ez a meccs most nincs a kínálatban.")
             if url.path == "/api/best":
                 bankroll = int(q.get("keret", "50000"))
                 if not 1000 <= bankroll <= 100_000_000:
