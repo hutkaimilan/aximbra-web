@@ -46,7 +46,12 @@ logger = logging.getLogger(__name__)
 ROUTES = {"hu": "linkedin", "en": "instagram"}
 LOOKBACK_DAYS = 21
 RETRY_MIN = 30
-LAST_HOUR = 21
+# Eddig az óráig (kizárólag) indulhat új próbálkozás; a CONTENT_LAST_HOUR
+# környezeti változóval szűkíthető, pl. 19 = csak 19:00 előtt posztolunk.
+try:
+    LAST_HOUR = max(1, min(24, int(os.environ.get("CONTENT_LAST_HOUR") or 21)))
+except ValueError:
+    LAST_HOUR = 21
 DEFAULT_URL = "https://aximbra-video-production.up.railway.app/api/inbox"
 _lock = threading.Lock()
 
