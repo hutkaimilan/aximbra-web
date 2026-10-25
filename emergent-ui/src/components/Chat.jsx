@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { ImagePlus, Loader2, Send, Trash2, X } from "lucide-react";
-import { api } from "../lib/api";
 import { buildContext } from "../lib/chatContext";
 import { useSlip } from "../lib/slip";
 
@@ -112,8 +111,11 @@ export default function Chat({ state }) {
     setBusy(true);
     setError(null);
     try {
-      // ha a meccslista még nem töltött be (pl. rögtön ide jöttél), előbb betöltjük: adat nélkül nem tud érdemben válaszolni
-      const st = state?.competitions ? state : await api.state(false).catch(() => null);
+      // Adat nélkül nem tud érdemben válaszolni: ha a meccslista még nincs meg, betöltjük. Ha az Emergent-szerver
+      // alszik (kb. 30 percenként leáll), a saját TippmixPro-olvasónk állapotát kapja (ugyanaz a kínálat, saját modell).
+      const st = state?.competitions ? state
+        : await axios.get("/emergent/api/state", { __noWake: true }).then((r) => r.data)
+          .catch(() => axios.get("/api/state").then((r) => r.data).catch(() => null));
       const context = buildContext(st, slip, mine.text);
       const r = await axios.post("/api/chat", {
         context,
