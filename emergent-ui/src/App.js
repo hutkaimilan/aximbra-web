@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Activity, BookOpen, Moon, RefreshCw, Sun, Ticket, Wand2 } from "lucide-react";
+import { Activity, BookOpen, MessageCircle, Moon, RefreshCw, Sun, Ticket, Wand2 } from "lucide-react";
 import { Drawer, DrawerContent, DrawerTitle } from "./components/ui/drawer";
 import Accuracy from "./components/Accuracy";
 import Builder from "./components/Builder";
+import Chat from "./components/Chat";
 import MatchCard from "./components/MatchCard";
 import SlipLog from "./components/SlipLog";
 import SlipPanel from "./components/SlipPanel";
@@ -10,7 +11,7 @@ import TeamSheet from "./components/TeamSheet";
 import { api, COMPS, dayLabel, errText, num } from "./lib/api";
 import { SlipProvider, useSlip } from "./lib/slip";
 
-const TABS = [{ key: "builder", name: "Szelvénykészítő", icon: Wand2 }, ...COMPS, { key: "accuracy", name: "Mennyire pontos?", icon: Activity }, { key: "log", name: "Napló", icon: BookOpen }];
+const TABS = [{ key: "builder", name: "Szelvénykészítő", icon: Wand2 }, { key: "chat", name: "Kérdezz", icon: MessageCircle }, ...COMPS, { key: "accuracy", name: "Mennyire pontos?", icon: Activity }, { key: "log", name: "Napló", icon: BookOpen }];
 
 function useTheme() {
   const [dark, setDark] = useState(() => localStorage.getItem("theme") !== "light");
@@ -135,6 +136,7 @@ function Shell() {
             </div>
           )}
           {comp && <CompetitionView comp={comp} state={state} onTeam={setTeam} version={version} />}
+          {tab === "chat" && <Chat state={state} />}
           {tab === "accuracy" && <Accuracy />}
           {tab === "log" && <SlipLog />}
         </main>

@@ -12,6 +12,7 @@ Környezeti változók:
   APP_PASSWORD      opcionális belépési jelszó; üresen vagy hiányában az oldal jelszó nélkül nyitott
   APP_SECRET        a munkamenet aláírókulcsa (alapból a jelszóból származik)
   ODDS_API_KEY      opcionális: valós esély és értékkereső (the-odds-api.com)
+  GEMINI_API_KEY    a „Kérdezz" csevegő kulcsa (chat.py); GEMINI_MODEL, CHAT_DAILY_LIMIT
   EMERGENT_URL      az Emergentben készült Szelvénymodell szervere (a /emergent/ oldal adatforrása)
   PORT              a Railway adja
 """
@@ -43,6 +44,7 @@ import urllib.request
 import settle
 import builder
 import calibration
+import chat
 import insight
 import labels
 import slip
@@ -66,6 +68,7 @@ FD_TTL = 12 * 3600            # football-data: hetente frissül
 STAT_SPAN = {"corners": 2.5, "cards": 2.0}  # a kártyán csak a várható érték ± ennyi körüli vonalak
 SESSION_DAYS = 30
 MAX_BODY = 64 * 1024
+MAX_CHAT_BODY = 12 * 1024 * 1024   # a csevegés képeket is visz (kliensoldalon kicsinyítve)
 MAX_SLIP = 20
 MAX_SETTLE = 200              # egy kiértékelő kérésben ennyi tipp (a kliens kötegel)
 BUDAPEST = ZoneInfo("Europe/Budapest")
@@ -780,6 +783,7 @@ LOGIN_GLOBAL = Limiter(40, 15 * 60)
 CHECK_LIMIT = Limiter(40, 60)
 REFRESH_LIMIT = Limiter(1, 30)
 SETTLE_LIMIT = Limiter(20, 60)
+CHAT_LIMIT = Limiter(15, 60)
 MATCH_LIMIT = Limiter(120, 60)
 
 
@@ -904,12 +908,12 @@ class Handler(BaseHTTPRequestHandler):
                 return True
         return False
 
-    def _body(self):
+    def _body(self, limit: int = MAX_BODY):
         try:
             n = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             n = -1
-        if n < 0 or n > MAX_BODY:
+        if n < 0 or n > limit:
             raise ValueError("túl nagy kérés")
         raw = self.rfile.read(n) if n else b"{}"
         data = json.loads(raw.decode("utf-8") or "{}")
@@ -1000,7 +1004,7 @@ class Handler(BaseHTTPRequestHandler):
         if origin and urlparse(origin).netloc != self.headers.get("Host"):
             return self._err(403, "Idegen eredetű kérés.")
         try:
-            body = self._body()
+            body = self._body(MAX_CHAT_BODY if url.path == "/api/chat" else MAX_BODY)
         except (ValueError, UnicodeDecodeError) as e:
             return self._err(400, f"Hibás kérés: {e}")
         if url.path == "/api/login":
@@ -1036,6 +1040,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self._err(502, f"TippmixPro: {e}")
             except Exception:  # noqa: BLE001
                 logger.exception("váratlan hiba: check")
+                return self._err(500, "Váratlan hiba történt.")
+        if url.path == "/api/chat":
+            if not CHAT_LIMIT.allow(self.address_string()):
+                return self._err(429, "Lassíts egy kicsit: percenként legfeljebb 15 kérdés.")
+            try:
+                return self._json(200, {"reply": chat.ask(body.get("messages"), body.get("context") or "")})
+            except chat.ChatError as e:
+                return self._err(e.status, str(e))
+            except Exception:  # noqa: BLE001
+                logger.exception("váratlan hiba: chat")
                 return self._err(500, "Váratlan hiba történt.")
         if url.path == "/api/settle":
             if not SETTLE_LIMIT.allow(self.address_string()):
