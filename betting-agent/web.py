@@ -797,6 +797,9 @@ EMERGENT_LIMIT = Limiter(120, 60)
 CSP_EMERGENT = ("default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' "
                 "https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; "
                 "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+# Az alvó előnézetet csak a tulajdonos ébresztheti fel, bejelentkezve az Emergentbe: ez az ő ébresztő-oldala.
+EMERGENT_WAKE = ("https://app.emergent.sh/loading-preview?host="
+                 + urlparse(EMERGENT_URL).netloc + "&wake=1")
 CSP = ("default-src 'self'; img-src 'self' https://a.espncdn.com data:; style-src 'self'; script-src 'self'; "
        "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 
@@ -1026,8 +1029,8 @@ class Handler(BaseHTTPRequestHandler):
             logger.info("Emergent-szerver nem érhető el: %s", e)
             return self._json(502, {"detail": "Az Emergent-szerver most nem érhető el. Próbáld újra 1–2 perc múlva."})
         if "json" not in ctype:
-            # alvó előnézetnél HTML-oldal jön: a felület ezt hibaként mutatja, érthető szöveggel
-            return self._json(503, {"detail": "Az Emergent-szerver ébred (1–2 perc). Utána frissíts."})
+            # alvó előnézetnél HTML vagy szöveg jön: a felület ébresztő gombot mutat (wake_url), és vár
+            return self._json(503, {"detail": "Az Emergent-szerver alszik.", "wake_url": EMERGENT_WAKE})
         headers = {"Cache-Control": "no-store"}
         if "gzip" in self.headers.get("Accept-Encoding", "") and len(raw) > 1024:
             raw = gzip.compress(raw, 6)
