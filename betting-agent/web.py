@@ -798,7 +798,7 @@ EMERGENT_TIMEOUT = 150  # az előnézet alvásból 1–2 perc alatt ébred
 EMERGENT_API = re.compile(r"^/emergent/api/(state|slips|check|accuracy|log|health|team/[A-Za-z0-9._-]{1,40})$")
 EMERGENT_ASSET = re.compile(r"^/emergent/assets/[A-Za-z0-9._-]{1,80}$")
 EMERGENT_LIMIT = Limiter(120, 60)
-CSP_EMERGENT = ("default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' "
+CSP_EMERGENT = ("default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' "
                 "https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; "
                 "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 # Ébren tartás: az Emergent-előnézet használat nélkül elalszik, és csak a tulajdonos ébresztheti fel. Amíg
