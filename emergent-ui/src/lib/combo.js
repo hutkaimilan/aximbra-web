@@ -31,8 +31,10 @@ const MIN_FORM = 6;          // ennél kevesebb ismert meccsnél nem mondunk sem
 const MAX_ANALYSED = 30;     // ennyi meccset elemzünk ablakonként (kezdés szerint)
 const CONCURRENCY = 6;
 const CANDIDATES = 16;
-const SLIPS = 4;             // ennyi szelvény, mindegyik más meccsekből
+const SLIPS = 4;             // ennyi szelvény, mindegyik más tippekkel
+const MIN_MATCHES = 3;       // egy szelvényen legalább ennyi meccs (ha van ennyi egyértelmű)
 const MAX_MATCHES = 6;
+const MAX_SHARED = 1;        // két szelvénynek legfeljebb ennyi közös meccse lehet (ha a meccsek elfogynak)
 const MAX_PICKS = 4;         // egy meccsen legfeljebb ennyi tipp
 // A nem alapvető események (félidők, szöglet, lap) csak „szinte biztosan": a modell szerint legalább
 // STRONG_PROB, és mindkét csapat utolsó meccseinek legalább STRONG_SHARE részén bejött. Meccsenként egy.
@@ -325,29 +327,25 @@ function* combos(arr, k, start = 0, acc = []) {
   for (let i = start; i < arr.length; i++) yield* combos(arr, k, i + 1, [...acc, arr[i]]);
 }
 
-// A legjobb kombináció a szelvénykészítő szabályaival (a szerverével azonos).
-function choose(groups, target, floor) {
-  if (!target && floor == null) {
-    const out = [], used = new Set();
-    for (const g of groups) {
-      if (teamsOf(g).some((t) => used.has(t))) continue;
-      out.push(g); teamsOf(g).forEach((t) => used.add(t));
-      if (out.length >= 3) break;
-    }
-    return out.length ? out : null;
-  }
+// A legjobb kombináció legalább minK meccsből. Célszorzóval a legnagyobb esélyű, ami eléri; küszöbbel a legnagyobb
+// szorzójú, ami a küszöb fölött marad; egyik nélkül a minK legesélyesebb. A korábbi szelvényekkel (prior)
+// legfeljebb MAX_SHARED közös meccs lehet, hogy minden szelvény más tippekből álljon.
+export function choose(groups, target, floor, minK, prior) {
+  const okPrior = (c) => prior.every((ids) => c.filter((g) => ids.has(g.match_id)).length <= MAX_SHARED);
   let best = null, bestKey = null;
-  for (let k = 1; k <= Math.min(MAX_MATCHES, groups.length); k++) {
+  const hi = target || floor != null ? Math.min(MAX_MATCHES, groups.length) : minK;
+  for (let k = minK; k <= hi; k++) {
     for (const c of combos(groups, k)) {
       const ts = c.flatMap(teamsOf);
-      if (new Set(ts).size !== ts.length) continue;
+      if (new Set(ts).size !== ts.length || !okPrior(c)) continue;
       const odds = prod(c.map((g) => g.odds)), prob = prod(c.map((g) => g.prob));
       if (floor != null && prob < floor) continue;
       let key;
       if (target) {
         if (odds < target) continue;
         key = [prob, -odds];
-      } else key = [odds, prob];
+      } else if (floor != null) key = [odds, prob];
+      else key = [prob, odds];
       if (!bestKey || key[0] > bestKey[0] || (key[0] === bestKey[0] && key[1] > bestKey[1])) { best = c; bestKey = key; }
     }
   }
@@ -355,25 +353,20 @@ function choose(groups, target, floor) {
 }
 
 // Egy szelvény a csoportokból, a TippmixPro végső ellenőrzésével (tiltott párnál a gyengébb csoport kiesik).
-async function oneSlip(groups, { target, floor, stake, allowLow, idx, notes }) {
+async function oneSlip(groups, { target, floor, stake, minK, prior, idx, notes }) {
   let pl = groups;
-  for (let attempt = 0; attempt < 4 && pl.length; attempt++) {
-    let pick = choose(pl, target, floor);
+  for (let attempt = 0; attempt < 4 && pl.length >= minK; attempt++) {
+    let pick = choose(pl, target, floor, minK, prior);
     let low = false;
     if (!pick) {
-      // A beállítást egyik kombináció sem éri el: a két legesélyesebb csoport, narancssárga jelzéssel.
-      if (!allowLow) return null;
-      pick = [];
-      for (const g of pl) {
-        if (pick.flatMap(teamsOf).some((t) => teamsOf(g).includes(t))) continue;
-        pick.push(g);
-        if (pick.length >= 2) break;
-      }
+      // A beállítást egyik legalább minK meccses kombináció sem éri el: a legesélyesebb minK csoport, narancssárgán.
+      pick = choose(pl, null, null, minK, prior);
+      if (!pick) return null;
       low = true;
       const fl = floor != null ? `${Math.round(floor * 100)}%-os` : "";
       notes.push(target
-        ? `A papírforma-szelvények a ${String(target).replace(".", ",")}-es célszorzót ${fl ? `${fl} esély mellett ` : ""}nem érik el; a legesélyesebb csoportokból raktam össze őket (narancssárga címke).`
-        : `${fl ? `${fl} ` : ""}papírforma-szelvény nem jön ki; a legesélyesebb csoportokból raktam össze őket (narancssárga címke).`);
+        ? `A ${minK} meccses papírforma-szelvények a ${String(target).replace(".", ",")}-es célszorzót ${fl ? `${fl} esély mellett ` : ""}nem érik el; a legesélyesebb csoportokból raktam össze őket (narancssárga címke).`
+        : `${minK} meccsel ${fl ? `${fl} ` : ""}papírforma-szelvény nem jön ki; a legesélyesebb csoportokból raktam össze őket (narancssárga címke).`);
     }
     pick = [...pick].sort((x, y) => y.prob - x.prob);
     const chk = await own.check(pick.flatMap((g) => g.picks.map((p) => p.id)), stake);
@@ -458,24 +451,28 @@ export async function buildCombo({ state, window, comps, stake, target, mode }) 
   }
 
   const floor = mode === "auto" ? (target ? null : AUTO_MIN_PROB) : mode === "0" ? null : Number(mode) / 100;
-  const versions = [];
-  let rest = priced;
-  for (let k = 1; k <= SLIPS && rest.length; k++) {
+  const minK = Math.min(MIN_MATCHES, priced.length);
+  if (minK < MIN_MATCHES) notes.push(`Csak ${priced.length} meccsen van egyértelmű tipp, ezért a szelvények ${minK} meccsesek.`);
+  const versions = [], prior = [];
+  let rest = priced;   // előbb teljesen külön meccsekből; ha elfogynak, legfeljebb MAX_SHARED közös meccsel
+  for (let k = 1; k <= SLIPS; k++) {
+    const fromRest = rest.length >= minK;
     let v;
     try {
-      v = await oneSlip(rest, { target, floor, stake, allowLow: true, idx: k, notes });
+      v = await oneSlip(fromRest ? rest : priced, { target, floor, stake, minK, prior: fromRest ? [] : prior, idx: k, notes });
     } catch {
       notes.push(`A „${COMBO_NAME}” szelvényeit a TippmixPro most nem tudta ellenőrizni.`);
       break;
     }
     if (!v) break;
     versions.push(v);
-    const usedIds = new Set(v.groups.map((g) => g.match_id));
+    const ids = new Set(v.groups.map((g) => g.match_id));
+    prior.push(ids);
     const usedTeams = new Set(v.groups.flatMap(teamsOf));
-    rest = rest.filter((g) => !usedIds.has(g.match_id) && !teamsOf(g).some((t) => usedTeams.has(t)));
+    rest = rest.filter((g) => !ids.has(g.match_id) && !teamsOf(g).some((t) => usedTeams.has(t)));
   }
   if (versions.length && versions.length < SLIPS) {
-    notes.push(`${versions.length} papírforma-szelvény készült: több meccs nincs a kiválasztott napokon, amin egyértelmű esemény van.`);
+    notes.push(`${versions.length} papírforma-szelvény készült: a kiválasztott napokon nincs több meccs egyértelmű tippel. Válassz 2–3 napot a több szelvényhez.`);
   }
   return done(versions);
 }

@@ -20,6 +20,8 @@ mindegyik más meccsekből, meccsenként egy (Fogadásépítő-)csoporttal:
   lap 1,0 ráhagyás, 70%). Mindkét csapat lő gólt: mindkettő a meccsei 70%-án lőtt és 60%-án kapott gólt, a
   várható góljuk 1,1 / 1,0 fölött. 1,25 alatti szorzójú tipp nem kerül fel; egymásnak ellentmondó tipp
   (a modell szerint együtt jóval ritkább) nem kerül egy csoportba. Minden tipp mellett ott az indoklás.
+- Minden szelvényen legalább 3 meccs (ha van ennyi egyértelmű); a négy szelvény előbb teljesen külön
+  meccsekből áll, ha elfogynak, két szelvénynek legfeljebb 1 közös meccse lehet.
 - Ha a beállított esélyt egyik kombináció sem éri el, a szelvények a legesélyesebb csoportokból állnak,
   narancssárga címkével.
 - **Adatok:** várható gól/szöglet/lap és győzelmi esély az Emergent-szervertől, forma az Emergent
