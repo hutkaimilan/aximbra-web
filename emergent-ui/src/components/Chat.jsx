@@ -54,15 +54,20 @@ function shrink(file) {
   });
 }
 
-// Egyszerű megjelenítés: **félkövér**, felsorolás, címsor.
+// Egyszerű megjelenítés: **félkövér**, *dőlt*, felsorolás, címsor, elválasztó (HTML-t nem értelmez).
 function Rich({ text }) {
-  const bold = (s, k) => s.split(/(\*\*[^*]+\*\*)/g).map((p, i) => (p.startsWith("**") && p.endsWith("**")
-    ? <strong key={`${k}-${i}`}>{p.slice(2, -2)}</strong> : <span key={`${k}-${i}`}>{p}</span>));
+  const bold = (s, k) => s.split(/(\*\*[^*]+\*\*|\*[^*\s][^*]*\*)/g).map((p, i) => {
+    if (p.startsWith("**") && p.endsWith("**") && p.length > 4) return <strong key={`${k}-${i}`}>{p.slice(2, -2)}</strong>;
+    if (p.startsWith("*") && p.endsWith("*") && p.length > 2) return <em key={`${k}-${i}`}>{p.slice(1, -1)}</em>;
+    return <span key={`${k}-${i}`}>{p}</span>;
+  });
+  const clean = text.replace(/<br\s*\/?>/gi, "\n").replace(/<\/?[a-z][^>]*>/gi, "");
   return (
     <div className="space-y-1.5">
-      {text.split("\n").map((line, i) => {
+      {clean.split("\n").map((line, i) => {
         const t = line.trim();
         if (!t) return <div key={i} className="h-1" />;
+        if (/^(-{3,}|\*{3,}|_{3,})$/.test(t)) return <hr key={i} className="border-[var(--line)] my-2" />;
         if (/^#{1,4}\s/.test(t)) return <div key={i} className="font-bold mt-2">{bold(t.replace(/^#{1,4}\s/, ""), i)}</div>;
         if (/^[-*•]\s/.test(t)) return <div key={i} className="flex gap-2"><span className="text-[var(--yellow)]">•</span><span>{bold(t.slice(2), i)}</span></div>;
         return <p key={i}>{bold(t, i)}</p>;
