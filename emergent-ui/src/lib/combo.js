@@ -270,6 +270,78 @@ const leg = ({ mk, o, why }) => ({ id: o.id, label: o.label, market: why ? `${mk
 const modelProb = (a, picks) => jointProb(a.xg_home, a.xg_away, picks.filter((p) => p.cond).map((p) => p.cond))
   * prod(picks.filter((p) => p.p != null).map((p) => p.p));
 
+// --- szinte fix: meccsenként a legvalószínűbb, szinte biztos tippek -------------------------------
+
+const FIX_PROB = 0.88;        // egy tipp modell-esélye legalább ennyi
+const FIX_SHARE = 0.8;        // és mindkét csapat utolsó meccseinek legalább ennyi részén bejött
+const FIX_GROUP = 0.85;       // egy meccs tippjei együtt legalább ennyi
+const FIX_MIN_ODDS = 1.03;
+const FIX_MAX_PICKS = 3;
+const DC = { "1X": (i, j, k, l) => i + k >= j + l, X2: (i, j, k, l) => i + k <= j + l, 12: (i, j, k, l) => i + k !== j + l };
+
+export function fixGroup(m, compName, mm, fh, fa) {
+  const a = m.analysis;
+  if (!a || a.xg_home == null || a.xg_away == null) return null;
+  const markets = [...m.markets, ...(mm?.markets || [])];
+  const cands = [];
+  // kétesély a szerver győzelmi esélyeiből
+  const dc = m.markets.find((x) => x.key === "dc");
+  if (dc && a.p_home != null) {
+    const pd = { "1X": a.p_home + a.p_draw, X2: a.p_away + a.p_draw, 12: a.p_home + a.p_away };
+    const o = dc.outcomes.filter((x) => pd[x.pick] >= FIX_PROB && x.odds >= FIX_MIN_ODDS).sort((x, y) => pd[y.pick] - pd[x.pick])[0];
+    if (o) cands.push({ mk: dc, o, cond: DC[o.pick], prob: pd[o.pick], why: `modell ${Math.round(pd[o.pick] * 100)}%` });
+  }
+  // vonalas piacok: piaconként a legnagyobb szorzójú, ami még szinte biztos
+  for (const key of ["ou", "htou", "2hou", "corners", "cards"]) {
+    const sh = fh?.series(key) || [], sa = fa?.series(key) || [];
+    const form = sh.length >= MIN_FORM && sa.length >= MIN_FORM;
+    let best = null;
+    for (const L of linesOf(markets, key)) {
+      for (const over of [true, false]) {
+        let p, cond = null;
+        if (GOAL_COND[key]) {
+          cond = GOAL_COND[key](L, over);
+          p = jointProb(a.xg_home, a.xg_away, [cond]);
+        } else {
+          const mu = key === "corners" ? a.corners : a.cards;
+          if (mu == null) continue;
+          const po = nbOver(mu, DISPERSION[key], L);
+          p = over ? po : 1 - po;
+        }
+        if (p < (form ? FIX_PROB : 0.93)) continue;
+        const okH = cnt(sh, (x) => (over ? x > L : x < L)), okA = cnt(sa, (x) => (over ? x > L : x < L));
+        if (form && (okH < FIX_SHARE * sh.length || okA < FIX_SHARE * sa.length)) continue;
+        const mk = markets.find((x) => x.key === key && x.line === L);
+        const o = mk?.outcomes.find((x) => x.pick === (over ? "Több" : "Kevesebb"));
+        if (!o || o.odds < FIX_MIN_ODDS || (best && o.odds <= best.o.odds)) continue;
+        best = { mk, o, cond, p: cond ? null : p, prob: p,
+          why: `modell ${Math.round(p * 100)}%` + (form ? `; ${okH}/${sh.length} és ${okA}/${sa.length} meccsükön bejött` : "") };
+      }
+    }
+    if (best) cands.push(best);
+  }
+  cands.sort((x, y) => y.prob - x.prob);
+  const picks = [];
+  for (const c of cands) {
+    if (picks.length >= FIX_MAX_PICKS) break;
+    const together = modelProb(a, [...picks, c]);
+    if (together < FIX_GROUP) continue;
+    picks.push(c);
+  }
+  if (!picks.length) return null;
+  const dcPick = picks.find((p) => p.mk.key === "dc");
+  let prob = modelProb(a, picks);
+  if (dcPick) {
+    const pm = jointProb(a.xg_home, a.xg_away, [dcPick.cond]);
+    if (pm > 0) prob = Math.min(dcPick.prob, prob * (dcPick.prob / pm));
+  }
+  return {
+    match: `${m.home} – ${m.away}`, match_id: m.id, competition: compName, kickoff: m.kickoff,
+    builder: picks.length > 1, odds: picks.length === 1 ? picks[0].o.odds : null, prob, home: m.home, away: m.away,
+    picks: picks.map(leg),
+  };
+}
+
 // Egy meccs csoportja (szorzó nélkül), vagy null. m: az Emergent-állapot meccse, mm: a meccsoldal piacai.
 export function matchGroup(m, compName, mm, fh, fa) {
   const a = m.analysis;
@@ -353,7 +425,7 @@ export function choose(groups, target, floor, minK, prior) {
 }
 
 // Egy szelvény a csoportokból, a TippmixPro végső ellenőrzésével (tiltott párnál a gyengébb csoport kiesik).
-async function oneSlip(groups, { target, floor, stake, minK, prior, idx, notes }) {
+async function oneSlip(groups, { target, floor, stake, minK, prior, idx, notes, name = COMBO_NAME, desc = DESC }) {
   let pl = groups;
   for (let attempt = 0; attempt < 4 && pl.length >= minK; attempt++) {
     let pick = choose(pl, target, floor, minK, prior);
@@ -383,7 +455,7 @@ async function oneSlip(groups, { target, floor, stake, minK, prior, idx, notes }
     const odds = chk.odds || prod(pick.map((g) => g.odds));
     const st = Math.max(Number(stake) || 0, chk.min_stake || 100);
     return {
-      name: `${COMBO_NAME} ${idx}.`, kind: `combo-${idx}`, desc: DESC, groups: pick, odds, prob, ev: prob * odds - 1,
+      name: `${name} ${idx}.`, kind: `${name}-${idx}`, desc, groups: pick, odds, prob, ev: prob * odds - 1,
       stake: st, min_stake: chk.min_stake, payout: Math.floor(st * odds), low_prob: low || prob < AUTO_MIN_PROB,
       checked: true, warnings: chk.warnings || [],
     };
@@ -424,9 +496,10 @@ export async function buildCombo({ state, window, comps, stake, target, mode }) 
       teamForm(m.espn?.home).catch(() => null),
       teamForm(m.espn?.away).catch(() => null),
     ]);
-    return matchGroup(m, c.name, mm, fh, fa);
+    return { papir: matchGroup(m, c.name, mm, fh, fa), fix: fixGroup(m, c.name, mm, fh, fa) };
   });
-  const groups = analysed.filter(Boolean).sort((x, y) => y.prob - x.prob);
+  const fixVersions = await fixSlips(analysed.map((x) => x?.fix).filter(Boolean), stake, notes);
+  const groups = analysed.map((x) => x?.papir).filter(Boolean).sort((x, y) => y.prob - x.prob);
   const cands = [], used = new Set();
   for (const g of groups) {
     if (teamsOf(g).some((t) => used.has(t))) continue;
@@ -435,7 +508,7 @@ export async function buildCombo({ state, window, comps, stake, target, mode }) 
   }
   if (!cands.length) {
     notes.push(`A „${COMBO_NAME}”-hez egyik meccsen sincs egyértelmű favorit vagy egyértelmű esemény.`);
-    return done([]);
+    return done(fixVersions);
   }
   // Fogadásépítő-csoport szorzója és kötéstiltása a TippmixPro-tól; tiltott csoport kimarad.
   const priced = (await pool(cands, CONCURRENCY, async (g) => {
@@ -447,7 +520,7 @@ export async function buildCombo({ state, window, comps, stake, target, mode }) 
   })).filter((g) => g && g.odds >= MIN_GROUP_ODDS).sort((x, y) => y.prob - x.prob);
   if (!priced.length) {
     notes.push(`A „${COMBO_NAME}” csoportjait a TippmixPro most nem tudta beárazni.`);
-    return done([]);
+    return done(fixVersions);
   }
 
   const floor = mode === "auto" ? (target ? null : AUTO_MIN_PROB) : mode === "0" ? null : Number(mode) / 100;
@@ -474,5 +547,41 @@ export async function buildCombo({ state, window, comps, stake, target, mode }) 
   if (versions.length && versions.length < SLIPS) {
     notes.push(`${versions.length} papírforma-szelvény készült: a kiválasztott napokon nincs több meccs egyértelmű tippel. Válassz 2–3 napot a több szelvényhez.`);
   }
-  return done(versions);
+  return done([...fixVersions, ...versions]);
+}
+
+// „Szinte fix" szelvények: a legvalószínűbb csoportokból, szelvényenként legalább 3 meccs, egymástól eltérő meccsekkel.
+const FIX_SLIPS = 2;
+const FIX_DESC = "Meccsenként a legvalószínűbb, szinte biztos tippek (akár több egy meccsen, Fogadásépítőben), több meccsel.";
+async function fixSlips(groups, stake, notes) {
+  const cands = [], used = new Set();
+  for (const g of [...groups].sort((x, y) => y.prob - x.prob)) {
+    if (teamsOf(g).some((t) => used.has(t))) continue;
+    cands.push(g); teamsOf(g).forEach((t) => used.add(t));
+    if (cands.length >= CANDIDATES) break;
+  }
+  const priced = (await pool(cands, CONCURRENCY, async (g) => {
+    if (!g.builder) return g;
+    const r = await own.check(g.picks.map((p) => p.id), stake);
+    if (r.forbidden?.length || r.missing?.length) return null;
+    const bb = r.bet_builder?.[0]?.odds;
+    return bb ? { ...g, odds: bb } : null;
+  })).filter((g) => g && g.odds > 1.0).sort((x, y) => y.prob - x.prob);
+  if (!priced.length) return [];
+  const minK = Math.min(MIN_MATCHES, priced.length);
+  const out = [];
+  let rest = priced;
+  for (let k = 1; k <= FIX_SLIPS && rest.length >= minK; k++) {
+    let v;
+    try {
+      v = await oneSlip(rest, { target: null, floor: null, stake, minK, prior: [], idx: k, notes, name: "Szinte fix", desc: FIX_DESC });
+    } catch {
+      break;
+    }
+    if (!v) break;
+    out.push(v);
+    const ids = new Set(v.groups.map((g) => g.match_id));
+    rest = rest.filter((g) => !ids.has(g.match_id));
+  }
+  return out;
 }
