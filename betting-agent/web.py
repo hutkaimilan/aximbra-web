@@ -797,6 +797,58 @@ EMERGENT_LIMIT = Limiter(120, 60)
 CSP_EMERGENT = ("default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' "
                 "https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; "
                 "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+# Ébren tartás: az Emergent-előnézet használat nélkül elalszik, és csak a tulajdonos ébresztheti fel. Amíg
+# ébren van, ennyi másodpercenként rákérdezünk, hogy ne aludjon el (0 = kikapcsolva). Ha háromszor
+# egymás után alszik, abbahagyjuk (úgysem ébreszti fel), és a Railway is elaltathatja ezt a szervert;
+# a következő sikeres kérés újraindítja.
+KEEPALIVE_SECONDS = int(os.environ.get("EMERGENT_KEEPALIVE_SECONDS", "240"))
+KEEPALIVE_MAX_FAILS = 3
+
+
+def _emergent_alive() -> bool:
+    req = urllib.request.Request(f"{EMERGENT_URL}/api/health", headers={"User-Agent": "aximbra-tippmix-keepalive"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return "json" in r.headers.get("Content-Type", "") and bool(json.loads(r.read(64 * 1024)).get("ok"))
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+        return False
+
+
+class EmergentKeepAlive:
+    """Egyetlen háttérszál, ami amíg az Emergent ébren van, rendszeresen rákérdez."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._running = False
+
+    def kick(self):
+        if KEEPALIVE_SECONDS <= 0:
+            return
+        with self._lock:
+            if self._running:
+                return
+            self._running = True
+        threading.Thread(target=self._loop, daemon=True, name="emergent-keepalive").start()
+
+    def _loop(self):
+        fails = 0
+        try:
+            while fails < KEEPALIVE_MAX_FAILS:
+                time.sleep(KEEPALIVE_SECONDS)
+                if _emergent_alive():
+                    fails = 0
+                else:
+                    fails += 1
+            logger.info("az Emergent-szerver alszik: az ébren tartás szünetel a következő sikeres kérésig")
+        except Exception:  # noqa: BLE001 — háttérszál: csak napló, a következő kérés újraindítja
+            logger.exception("ébren tartás hiba")
+        finally:
+            with self._lock:
+                self._running = False
+
+
+KEEPALIVE = EmergentKeepAlive()
+
 # Az alvó előnézetet csak a tulajdonos ébresztheti fel, bejelentkezve az Emergentbe: ez az ő ébresztő-oldala.
 EMERGENT_WAKE = ("https://app.emergent.sh/loading-preview?host="
                  + urlparse(EMERGENT_URL).netloc + "&wake=1")
@@ -1031,6 +1083,8 @@ class Handler(BaseHTTPRequestHandler):
         if "json" not in ctype:
             # alvó előnézetnél HTML vagy szöveg jön: a felület ébresztő gombot mutat (wake_url), és vár
             return self._json(503, {"detail": "Az Emergent-szerver alszik.", "wake_url": EMERGENT_WAKE})
+        if status < 500:
+            KEEPALIVE.kick()  # ébren van: tartsuk is ébren
         headers = {"Cache-Control": "no-store"}
         if "gzip" in self.headers.get("Accept-Encoding", "") and len(raw) > 1024:
             raw = gzip.compress(raw, 6)
@@ -1067,6 +1121,7 @@ def main():
     srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     srv.daemon_threads = True
     logger.info("fut: http://0.0.0.0:%d", port)
+    KEEPALIVE.kick()  # ha az Emergent épp ébren van, maradjon is
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

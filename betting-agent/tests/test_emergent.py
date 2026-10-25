@@ -31,3 +31,26 @@ def test_asset_paths(path, ok):
 def test_built_ui_is_present():
     assert (web.EMERGENT_DIR / "index.html").is_file()
     assert any((web.EMERGENT_DIR / "assets").glob("index-*.js"))
+
+
+def test_keepalive_stops_after_repeated_sleep(monkeypatch):
+    calls = []
+    monkeypatch.setattr(web, "KEEPALIVE_SECONDS", 0.01)
+    monkeypatch.setattr(web, "_emergent_alive", lambda: calls.append(1) or False)
+    ka = web.EmergentKeepAlive()
+    ka.kick()
+    ka.kick()  # második indítás nem indít újabb szálat
+    for _ in range(200):
+        if not ka._running:
+            break
+        import time
+        time.sleep(0.01)
+    assert not ka._running
+    assert len(calls) == web.KEEPALIVE_MAX_FAILS
+
+
+def test_keepalive_disabled(monkeypatch):
+    monkeypatch.setattr(web, "KEEPALIVE_SECONDS", 0)
+    ka = web.EmergentKeepAlive()
+    ka.kick()
+    assert not ka._running
