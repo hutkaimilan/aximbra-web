@@ -667,3 +667,25 @@ def test_morning_followup_gets_demo_link_but_generic_page_does_not(api, monkeypa
     kert, zarva = (s.get(i) for i in ids)
     assert "aximbra.hu/neked/" in kert["followup_body"]
     assert "neked" not in zarva["followup_body"]
+
+
+def test_new_drafts_get_their_demo_page_and_the_panel_shows_it(api):
+    c, app_mod, calls, _ = api
+    st = app_mod.store
+    old = st.add_lead({"company": "Régi", "country": "HU", "lang": "hu", "email": "info@regi.hu",
+                       "website": "https://regi.hu", "pain": "phone", "subject": "s", "body": "b"})
+    before = {l["id"] for l in st.list("draft")}
+    new = st.add_lead({"company": "Kert Bisztró", "country": "HU", "lang": "hu", "email": "info@kertbisztro.hu",
+                       "website": "https://www.kertbisztro.hu", "pain": "phone", "subject": "s", "body": "b"})
+    app_mod._draft_demos(before, app_mod.pipeline.RunLog())
+    assert len(calls) == 1  # a régi vázlathoz nem készül
+    leads = {l["id"]: l for l in c.get("/api/state", auth=PW).json()["leads"]}
+    assert leads[new]["demo_url"].startswith("https://aximbra.hu/neked/")
+    assert leads[old]["demo_url"] is None
+
+
+def test_research_queries_spread_across_given_towns():
+    import playbook
+    p = playbook.queries_prompt("HU", ["logistics", "healthcare"], 2, ["Győr", "Pécs"])
+    assert "Győr, Pécs" in p and "each town at most once" in p
+    assert all(t for t in playbook.TOWNS) and set(playbook.TOWNS) == set(playbook.COUNTRIES)

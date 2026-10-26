@@ -144,7 +144,8 @@ def _discover(country: str, count: int, exclude_domains: list[str], focus: str) 
     rest = [s for s in playbook.SECTORS if s not in first]
     sectors = (first + random.sample(rest, len(rest)))[:3]
     try:
-        q = extract_json(_ask(playbook.queries_prompt(country, sectors, n)))
+        towns = random.sample(playbook.TOWNS.get(country, []), min(n, len(playbook.TOWNS.get(country, []))))
+        q = extract_json(_ask(playbook.queries_prompt(country, sectors, n, towns)))
     except LLMError:
         return []
     queries = [str(x).strip() for x in ((q or {}).get("queries") or []) if str(x).strip()][:n] \

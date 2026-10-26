@@ -424,6 +424,8 @@ function render() {
   if (!open) $("#drafts").innerHTML = drafts.length ? drafts.map((l) => `
     <div class="card" data-id="${l.id}">
       ${leadHead(l)}
+      <div class="mute">${l.demo_url ? `Demóoldal: <a href="${esc(l.demo_url)}" target="_blank" rel="noopener">megnézem</a> (az utánkövetés küldi, az első levélben nincs link)`
+        : `<button class="ddemo" title="Megnézi a cég weboldalát, és személyre szabott demóoldalt készít">Demóoldal készítése</button>`}</div>
       ${l.critique ? `<div class="mute">Bíráló: ${esc(l.critique)}</div>` : ""}
       ${l.warnings ? `<div><span class="tag w">figyelem</span><span class="mute">${esc(l.warnings)}</span></div>` : ""}
       ${l.rules && l.rules.length ? `<div><span class="tag n">szabály</span><span class="mute">${esc(l.rules.join("; "))}</span></div>` : ""}
@@ -568,6 +570,13 @@ document.addEventListener("click", async (e) => {
         await api(`/api/leads/${id}/mark-sent`, {}); flash("Elküldöttnek jelölve. A válaszát figyelem.");
       }
       if (e.target.classList.contains("skip")) { await api(`/api/leads/${id}/skip`, {}); }
+      if (e.target.classList.contains("ddemo")) {
+        e.target.disabled = true; e.target.textContent = "Készül… (fél-egy perc)";
+        try {
+          const r = await api(`/api/leads/${id}/demo-page`, {});
+          flash(r.generic ? "Az oldalukat nem sikerült elolvasni, ehhez a céghez nem készült egyedi demó." : "Kész a demóoldal.");
+        } finally { e.target.disabled = false; }
+      }
       document.activeElement.blur(); await refresh();
     }
     if (fcard) {

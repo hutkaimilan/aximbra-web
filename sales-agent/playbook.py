@@ -503,14 +503,34 @@ and these domains: {excl}.
 Answer ONLY with a JSON array: [{{"company": "...", "town": "...", "sector": "{'|'.join(SECTORS)}", "website": "https://..."}}]"""
 
 
-def queries_prompt(country: str, sectors: list[str], n: int) -> str:
+# Regionális központok: a keresések ezek közül kapnak véletlenszerűen egyet-egyet,
+# hogy a jelöltek ne egyetlen városból jöjjenek (a modell magától mindig
+# ugyanazt a pár várost írná).
+TOWNS = {
+    "HU": ["Győr", "Debrecen", "Szeged", "Pécs", "Miskolc", "Kecskemét", "Székesfehérvár", "Nyíregyháza",
+           "Szombathely", "Veszprém", "Zalaegerszeg", "Sopron", "Eger", "Tatabánya", "Szolnok", "Kaposvár",
+           "Békéscsaba", "Érd", "Budaörs", "Budapest"],
+    "SK": ["Bratislava", "Košice", "Žilina", "Nitra", "Trnava", "Banská Bystrica", "Prešov", "Komárno", "Dunajská Streda"],
+    "RO": ["Cluj-Napoca", "Oradea", "Timișoara", "Brașov", "Târgu Mureș", "Arad", "Sibiu", "Satu Mare", "Iași"],
+    "HR": ["Zagreb", "Split", "Rijeka", "Osijek", "Varaždin", "Zadar"],
+    "SI": ["Ljubljana", "Maribor", "Celje", "Kranj", "Koper", "Novo mesto"],
+    "GB": ["Manchester", "Birmingham", "Leeds", "Bristol", "Nottingham", "Sheffield", "Leicester", "Glasgow", "Cardiff"],
+    "IE": ["Dublin", "Cork", "Galway", "Limerick", "Waterford", "Athlone"],
+    "FR": ["Lyon", "Lille", "Nantes", "Bordeaux", "Toulouse", "Rennes", "Strasbourg", "Grenoble", "Montpellier"],
+    "BE": ["Bruxelles", "Liège", "Charleroi", "Namur", "Mons", "Wavre"],
+}
+
+
+def queries_prompt(country: str, sectors: list[str], n: int, towns: list[str] | None = None) -> str:
     c = COUNTRIES[country]
     lang = LANG_NAMES[c["lang"]]
     names = ", ".join(f"{k} ({SECTORS[k]['hu']})" for k in sectors)
+    where = (f"Use exactly one of these towns per query, each town at most once: {', '.join(towns)}."
+             if towns else "Name a town or region other than the capital where possible.")
     return f"""Write {n} web search queries in {lang} that find the OWN WEBSITES of mid-sized private companies
 (roughly 50–1000 employees) in {c['name']} in these sectors: {names}.
-Each query names a concrete business type and a town or region other than the capital where possible
-(e.g. "szállítmányozó cég Győr", "magánklinika Debrecen"). No company names, no quotes, no site: operators,
+Each query names a concrete business type and a town (e.g. "szállítmányozó cég Győr", "magánklinika Debrecen").
+{where} Spread the queries across different sectors. No company names, no quotes, no site: operators,
 no words like "list", "top", "directory".
 Answer ONLY with JSON: {{"queries": ["...", "..."]}}"""
 

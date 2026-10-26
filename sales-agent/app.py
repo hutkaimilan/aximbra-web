@@ -185,10 +185,12 @@ def index():
 
 @app.get("/api/state", dependencies=[Depends(auth)])
 def state():
+    demos = _demo_urls()
     return {
         "job": job.state(),
         "leads": [dict(l, mixed=bool(l["status"] == "draft" and verify.mixed_language(l)),
-                       rules=verify.rule_violations(l) if l["status"] in ("draft", "failed") else [])
+                       rules=verify.rule_violations(l) if l["status"] in ("draft", "failed") else [],
+                       demo_url=demos.get(_lead_domain(l)))
                   for l in store.list()],
         "blocked": store.blocked_keys()[:300],
         "demo_pages": [dict(p, page_url=_demo_link(p["slug"])) for p in store.demo_list()[:200]],
@@ -233,7 +235,11 @@ def research(body: ResearchIn):
         raise HTTPException(400, "Adj meg legalább egy országot.")
     if any(k not in COUNTRIES for k in plan) or sum(plan.values()) > pipeline.MAX_PER_RUN:
         raise HTTPException(400, f"Csak célország, és összesen legfeljebb {pipeline.MAX_PER_RUN}.")
-    return _require_start(job.start("keresés", lambda log: pipeline.research_run(store, plan, log)))
+    def run(log):
+        before = {l["id"] for l in store.list("draft")}
+        pipeline.research_run(store, plan, log)
+        _draft_demos(before, log)
+    return _require_start(job.start("keresés", run))
 
 
 class SendIn(BaseModel):
@@ -482,6 +488,14 @@ def _lead_site(lead: dict) -> str:
     return lead.get("website") or (f"https://{lead['domain']}" if lead.get("domain") else "")
 
 
+def _lead_domain(lead: dict) -> str:
+    site = _lead_site(lead)
+    try:
+        return demopage.domain_of(demopage.normalize_url(site)) if site else ""
+    except Exception:  # noqa: BLE001 — hibás webcím: nincs demó
+        return ""
+
+
 @app.post("/api/leads/{lead_id}/demo-page", dependencies=[Depends(auth)])
 def demo_for_lead(lead_id: int):
     lead = store.get(lead_id)
@@ -526,6 +540,27 @@ def _followup_demo_url(create: bool):
             return None
         return None if res["generic"] else res["page_url"]
     return get
+
+
+def _draft_demos(before: set, log) -> None:
+    """Az új vázlatok cégének demóoldala már most elkészül, hogy jóváhagyáskor
+    látni lehessen; az első levélbe nem kerül link, az utánkövetés ezt küldi."""
+    get = _followup_demo_url(create=True)
+    made = 0
+    for lead in store.list("draft"):
+        if lead["id"] in before:
+            continue
+        try:
+            made += bool(get(lead))
+        except Exception as e:  # noqa: BLE001 — a demó hibája ne vigye el a kört
+            logger.warning("vázlat demóoldala: %s", type(e).__name__)
+    if made:
+        log.say(f"{made} vázlathoz elkészült a demóoldal (az utánkövetés küldi).")
+
+
+def _demo_urls() -> dict[str, str]:
+    """domain -> a cég (nem általános) demóoldalának linkje."""
+    return {p["domain"]: _demo_link(p["slug"]) for p in store.demo_list() if not p["generic"]}
 
 
 _event_hits: dict[str, list[float]] = {}
@@ -852,6 +887,7 @@ def _morning(log):
     auto_sent: list[dict] = []
     try:
         pipeline.research_run(store, _auto_plan(), log)
+        _draft_demos(before, log)
         try:
             auto_sent = pipeline.auto_send(store, log, now=datetime.now(TZ))
         except Exception as e:  # noqa: BLE001 — a küldés hibája ne vigye el az összefoglalót
