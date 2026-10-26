@@ -53,12 +53,20 @@ def sender_address() -> str:
     return addr
 
 
+def from_address() -> str:
+    """A levél feladója. FROM_ADDRESS (pl. milan@aximbra.hu) a saját domainről
+    küld: a Gmailben ez egy ellenőrzött „Küldés másként” cím, amely a küldő-
+    szolgáltató SMTP-jén megy ki SPF/DKIM aláírással. Ha nincs beállítva, vagy
+    a Gmail nem ismeri, a fiók saját címe marad (a Gmail átírja, nem hiba)."""
+    return (os.environ.get("FROM_ADDRESS") or "").strip() or sender_address()
+
+
 def sender_name() -> str:
     return os.environ.get("SENDER_NAME", "Hutkai Milán")
 
 
 def build_message(to: str, subject: str, body: str, in_reply_to: str | None = None) -> EmailMessage:
-    user = sender_address()
+    user = from_address()
     msg = EmailMessage()
     msg["From"] = email.utils.formataddr((sender_name(), user))
     msg["To"] = to

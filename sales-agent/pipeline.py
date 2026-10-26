@@ -23,7 +23,12 @@ from store import Store, domain_of
 
 logger = logging.getLogger(__name__)
 
-DAILY_CAP = 25          # új levél + utánkövetés együtt, naponta
+# Új levél + utánkövetés együtt, naponta. Új küldő domain bemelegítésénél
+# kisebbre állítható (DAILY_CAP), utána fokozatosan vissza 25-re.
+try:
+    DAILY_CAP = max(1, int(os.environ.get("DAILY_CAP", "25")))
+except ValueError:
+    DAILY_CAP = 25
 MAX_PER_RUN = 20        # egy kereséssel legfeljebb ennyi vázlat
 BATCH = 6               # egy modellhívásban ennyi céget kérünk
 FOLLOWUP_AFTER_WORKDAYS = 5

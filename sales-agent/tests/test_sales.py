@@ -1603,3 +1603,14 @@ def test_directory_filter_does_not_drop_real_company_names():
     assert websearch.is_directory("https://www.opten.hu/ceg")
     assert not websearch.is_directory("https://www.epitoceg.hu/")
     assert not websearch.is_directory("https://fox-logisztika.hu/")
+
+
+def test_own_domain_sender_is_used_when_set(monkeypatch):
+    monkeypatch.setenv("GMAIL_USER", "aximbra@gmail.com")
+    monkeypatch.delenv("COMPOSE_ACCOUNT", raising=False)
+    monkeypatch.delenv("FROM_ADDRESS", raising=False)
+    assert "aximbra@gmail.com" in mailer.build_message("a@b.hu", "s", "t")["From"]
+    monkeypatch.setenv("FROM_ADDRESS", "milan@aximbra.hu")
+    m = mailer.build_message("a@b.hu", "s", "t")
+    assert "milan@aximbra.hu" in m["From"] and m["Message-ID"].endswith("@aximbra.hu>")
+    assert m["List-Unsubscribe"] == "<mailto:milan@aximbra.hu?subject=nem>"
