@@ -1,4 +1,5 @@
 """Az értékesítő hálózat nélkül: modell, Gmail és letöltés csonkkal."""
+import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
@@ -1543,3 +1544,62 @@ def test_done_rounds_survive_a_restart(monkeypatch, tmp_path):
     assert "2026-09-29 10:00" in app_mod._load_done()
     app_mod.store.set_setting("auto_done", "nem json")
     assert app_mod._load_done() == set()
+
+
+# ---- cégkeresés valódi találatokból ----------------------------------------
+
+def _discover_env(monkeypatch, hits, picked):
+    monkeypatch.setattr(websearch, "tavily_on", lambda: True)
+    monkeypatch.setattr(websearch, "_budget", {"day": "", "used": 0})
+    monkeypatch.setattr(websearch, "_tavily", lambda q, n, inc=None: hits)
+    asked = []
+
+    def fake_ask(prompt, **kw):
+        asked.append(prompt)
+        if "search queries" in prompt:
+            return '{"queries": ["szállítmányozó cég Győr", "magánklinika Debrecen"]}'
+        return json.dumps(picked)
+    monkeypatch.setattr(llm, "_ask", fake_ask)
+    return asked
+
+
+def test_discover_keeps_only_company_sites_from_the_results(monkeypatch):
+    hits = [{"title": "Kiss Trans", "url": "https://www.kiss-trans.hu/", "text": "Szállítmányozás 1995 óta"},
+            {"title": "Cégjegyzék", "url": "https://www.ceginformacio.hu/x", "text": "lista"},
+            {"title": "Ismert", "url": "https://regi.hu/", "text": "már írtunk"},
+            {"title": "Osztrák", "url": "https://spedition.at/", "text": "nem célország"}]
+    picked = [{"company": "Kiss Trans", "town": "Győr", "sector": "logistics", "website": "https://kiss-trans.hu"},
+              {"company": "Kitalált", "town": "Pécs", "sector": "logistics", "website": "https://kitalalt.hu"}]
+    asked = _discover_env(monkeypatch, hits, picked)
+    got = llm._discover("HU", 8, ["regi.hu"], "")
+    assert [c["company"] for c in got] == ["Kiss Trans"]  # a kitalált domain nem jön át
+    pick = asked[-1]
+    assert "kiss-trans.hu" in pick and "ceginformacio" not in pick and "regi.hu/" not in pick and "spedition.at" not in pick
+
+
+def test_discover_respects_the_daily_search_budget(monkeypatch):
+    _discover_env(monkeypatch, [{"title": "A", "url": "https://a-kft.hu/", "text": "x"}],
+                  [{"company": "A", "website": "https://a-kft.hu"}])
+    monkeypatch.setenv("TAVILY_RESEARCH_DAILY", "3")
+    calls = []
+    monkeypatch.setattr(websearch, "_tavily", lambda q, n, inc=None: calls.append(q) or [
+        {"title": "A", "url": "https://a-kft.hu/", "text": "x"}])
+    llm._discover("HU", 8, [], "")   # 2 keresés
+    llm._discover("HU", 8, [], "")   # már csak 1 fér bele
+    assert llm._discover("HU", 8, [], "") == []  # elfogyott: a hívó emlékezetből listáz
+    assert len(calls) == 3
+
+
+def test_research_crawl_falls_back_to_memory_without_search(monkeypatch):
+    monkeypatch.setattr(websearch, "tavily_on", lambda: False)
+    asked = []
+    monkeypatch.setattr(llm, "_ask", lambda p, **kw: asked.append(p) or "[]")
+    assert llm._research_crawl("HU", 4, [], "") == []
+    assert len(asked) == 1 and "REAL private companies" in asked[0]
+
+
+def test_directory_filter_does_not_drop_real_company_names():
+    assert websearch.is_directory("https://www.facebook.com/kisstrans")
+    assert websearch.is_directory("https://www.opten.hu/ceg")
+    assert not websearch.is_directory("https://www.epitoceg.hu/")
+    assert not websearch.is_directory("https://fox-logisztika.hu/")

@@ -14,6 +14,9 @@ from __future__ import annotations
 import logging
 import os
 import re
+import threading
+from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 import httpx
 
@@ -92,6 +95,56 @@ def search(query: str, n: int = 4, include_domains: list[str] | None = None) -> 
         if hits:
             return hits
     return [] if include_domains else _gemini_grounded(query)
+
+
+# ---- cégkeresés -------------------------------------------------------------
+# A kutatás a valódi találatokból választ cégeket. A Tavily havi 1000 ingyenes
+# keresése közös a tanácsadóval és a LinkedIn-kereséssel, ezért a kutatás napi
+# kerete külön korlátozott (TAVILY_RESEARCH_DAILY, alapból 24 ≈ 720/hó). A
+# számláló a folyamatban él: újraindítás után nullázódik, ami legfeljebb egy
+# napnyi keret duplázása – a szolgáltatás nem alszik el, ritkán indul újra.
+
+_budget_lock = threading.Lock()
+_budget = {"day": "", "used": 0}
+
+# Cégjegyzékek, közösségi oldalak, állásportálok: nem egy cég saját oldala.
+DIRECTORY_HOSTS = (
+    "facebook.", "linkedin.", "instagram.", "youtube.", "twitter.", "tiktok.", "wikipedia.",
+    "google.", "booking.", "tripadvisor.", "yelp.", "europages.", "kompass.", "cylex", "opten.",
+    "ceginformacio.", "nemzeticegtar.", "e-cegjegyzek.", "cegkereso", "aranyoldalak.",
+    "infobel.", "firmy.", "finstat.", "zlatestranky.", "listafirme.", "risco.", "termene.", "poslovna.",
+    "bizi.si", "companieshouse.", "endole.", "yell.", "solocheck.", "societe.com", "pappers.", "pagesjaunes.",
+    "indeed.", "profession.hu", "cvonline.", "jobs.", "glassdoor.", "trustpilot.", "goldenpages.", "clutch.",
+    "kununu.", "dnb.com", "zoominfo.", "crunchbase.", "bloomberg.", "reddit.", "medium.com", "gov.", ".gov",
+)
+
+
+def research_budget(want: int) -> int:
+    """Ennyi keresést kaphat most a kutatás (0, ha elfogyott a napi keret)."""
+    try:
+        cap = max(0, int(os.environ.get("TAVILY_RESEARCH_DAILY", "24")))
+    except ValueError:
+        cap = 24
+    today = datetime.now(timezone.utc).date().isoformat()
+    with _budget_lock:
+        if _budget["day"] != today:
+            _budget.update(day=today, used=0)
+        grant = max(0, min(want, cap - _budget["used"]))
+        _budget["used"] += grant
+        return grant
+
+
+def is_directory(url: str) -> bool:
+    host = urlparse(url or "").netloc.lower().removeprefix("www.")
+    return not host or any(d in host for d in DIRECTORY_HOSTS)
+
+
+def company_hits(query: str, n: int = 10) -> list[dict]:
+    """Tavily-találatok, a cégjegyzékek és közösségi oldalak nélkül.
+    A Gemini-ágat szándékosan kihagyja: az összefoglal, nem cégoldalakat ad."""
+    if not tavily_on():
+        return []
+    return [h for h in _tavily(query, n) if not is_directory(h["url"])]
 
 
 def urls_in(text: str) -> list[str]:

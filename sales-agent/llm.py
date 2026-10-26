@@ -125,23 +125,81 @@ def can_search() -> bool:
     return provider() == "openai"
 
 
+def _discover(country: str, count: int, exclude_domains: list[str], focus: str) -> list[dict]:
+    """Valódi cégoldalak webes keresésből. A modell emlékezetből főleg nagy,
+    ismert cégeket sorol (kohó, halfarm), azok rendre kiesnek a pontozáson;
+    a keresés a kis- és középcégeket is megtalálja. Kulcs vagy keret nélkül
+    üres listát ad, és a hívó a régi úton megy tovább."""
+    import random
+
+    import websearch
+    from store import domain_of
+    if not websearch.tavily_on():
+        return []
+    n = websearch.research_budget(2 if count >= 6 else 1)
+    if not n:
+        logger.info("%s: a mai keresési keret elfogyott, emlékezetből listázok.", country)
+        return []
+    first = [s for s in (focus or "").replace(" ", "").split(",") if s in playbook.SECTORS]
+    rest = [s for s in playbook.SECTORS if s not in first]
+    sectors = (first + random.sample(rest, len(rest)))[:3]
+    try:
+        q = extract_json(_ask(playbook.queries_prompt(country, sectors, n)))
+    except LLMError:
+        return []
+    queries = [str(x).strip() for x in ((q or {}).get("queries") or []) if str(x).strip()][:n] \
+        if isinstance(q, dict) else []
+    known = set(exclude_domains)
+    blocked = playbook.BLOCKED_TLDS
+    hits, seen = [], set()
+    for query in queries:
+        for h in websearch.company_hits(query, 10):
+            dom = domain_of(h["url"])
+            if not dom or dom in known or dom in seen or dom.endswith(blocked):
+                continue
+            seen.add(dom)
+            hits.append(h)
+    if not hits:
+        return []
+    try:
+        picked = extract_json(_ask(playbook.pick_prompt(country, hits, count, exclude_domains)))
+    except LLMError:
+        return []
+    if isinstance(picked, dict):
+        picked = picked.get("items") or picked.get("companies") or []
+    # Csak a találatok közül választhat: kitalált domain nem csúszhat be.
+    out = []
+    for c in picked if isinstance(picked, list) else []:
+        if isinstance(c, dict) and domain_of(c.get("website") or "") in seen:
+            out.append(c)
+    logger.info("%s: %d keresés, %d cégoldal, %d kiválasztva.", country, len(queries), len(hits), len(out))
+    return out
+
+
 def _research_crawl(country: str, count: int, exclude_domains: list[str], focus: str) -> list[dict]:
     """Keresés webes keresőeszköz nélkül: a modell ismert cégeket sorol fel,
     a program maga tölti le az oldalukat, és a modell a letöltött szövegből
     választ tényt és címet. Az ellenőrzés utána ugyanaz, mint máskor."""
     import verify
-    listed = extract_json(_ask(playbook.list_prompt(country, count * 2, exclude_domains, focus)))
-    if isinstance(listed, dict):
-        listed = listed.get("items") or listed.get("companies") or []
+    from store import domain_of
+    listed = _discover(country, count * 2, exclude_domains, focus)
+    if len(listed) < count:
+        # Keresés nélkül (vagy ha kevés jött) marad a modell saját tudása.
+        more = extract_json(_ask(playbook.list_prompt(country, count * 2, exclude_domains, focus)))
+        if isinstance(more, dict):
+            more = more.get("items") or more.get("companies") or []
+        listed += [x for x in more if isinstance(x, dict)] if isinstance(more, list) else []
     known = set(exclude_domains)
     out = []
-    for c in [x for x in listed if isinstance(x, dict)][: count * 2]:
+    for c in [x for x in listed if isinstance(x, dict)][: count * 3]:
         site = (c.get("website") or "").strip()
+        if not site:
+            continue
         if not site.startswith("http"):
             site = "https://" + site.lstrip("/")
-        from store import domain_of
-        if not site or domain_of(site) in known:
+        if domain_of(site) in known:
             continue
+        known.add(domain_of(site))
         pages = verify.crawl_site(site)
         emails = verify.role_emails(pages, site)
         if not emails:

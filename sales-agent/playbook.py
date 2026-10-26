@@ -503,6 +503,34 @@ and these domains: {excl}.
 Answer ONLY with a JSON array: [{{"company": "...", "town": "...", "sector": "{'|'.join(SECTORS)}", "website": "https://..."}}]"""
 
 
+def queries_prompt(country: str, sectors: list[str], n: int) -> str:
+    c = COUNTRIES[country]
+    lang = LANG_NAMES[c["lang"]]
+    names = ", ".join(f"{k} ({SECTORS[k]['hu']})" for k in sectors)
+    return f"""Write {n} web search queries in {lang} that find the OWN WEBSITES of mid-sized private companies
+(roughly 50–1000 employees) in {c['name']} in these sectors: {names}.
+Each query names a concrete business type and a town or region other than the capital where possible
+(e.g. "szállítmányozó cég Győr", "magánklinika Debrecen"). No company names, no quotes, no site: operators,
+no words like "list", "top", "directory".
+Answer ONLY with JSON: {{"queries": ["...", "..."]}}"""
+
+
+def pick_prompt(country: str, hits: list[dict], count: int, exclude_domains: list[str]) -> str:
+    c = COUNTRIES[country]
+    excl = ", ".join(exclude_domains[:300]) or "none"
+    found = "\n".join(f"- {h['url']} | {h['title']} | {h['text'][:300]}" for h in hits)
+    return f"""Below are web search results from {c['name']} ({country}). Pick up to {count} that are the OWN WEBSITE
+of a single private company headquartered in {c['name']} with roughly 50–1000 employees, in these sectors: {", ".join(SECTORS)}.
+Skip directories, rankings, news and job portals, public institutions, state-owned companies, foreign groups' branches,
+micro businesses, restaurants, cafés, beauty salons, and these domains: {excl}.
+Skip {NOT_A_PROSPECT}.
+Use only what the results show; leave a result out when unsure. The website is the result's own domain root.
+Answer ONLY with a JSON array: [{{"company": "...", "town": "...", "sector": "{'|'.join(SECTORS)}", "website": "https://..."}}]
+
+RESULTS:
+{found}"""
+
+
 def fact_prompt(company: dict, pages: str, emails: list[str]) -> str:
     pains = "\n".join(f"- {k}: {v}" for k, v in PAINS.items())
     return f"""You are a senior B2B sales researcher. Below is text from the website of {company.get('company')} ({company.get('town', '')}).
