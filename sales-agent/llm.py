@@ -239,6 +239,11 @@ def compose(lead: dict) -> dict:
     body = paragraphs(data["body"])
     # A leiratkozó mondat kötelező: ha a modell kihagyta, a kód teszi hozzá.
     opt = playbook.OPT_OUT[lead["lang"]]
+    # Az ajánlat is kötelező, szó szerint: ha a modell átírta vagy kihagyta,
+    # a kód teszi be a leiratkozó mondat elé.
+    if playbook.OFFER[lead["lang"]] not in body:
+        ps = playbook.offer_ps(lead["lang"])
+        body = body.replace(opt, "").rstrip() + "\n\n" + ps
     if opt not in body:
         body = body.rstrip() + "\n\n" + opt
     postal = playbook.postal_line(lead.get("country") or "")

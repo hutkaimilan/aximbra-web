@@ -16,6 +16,7 @@ import html
 import ipaddress
 import json
 import logging
+import os
 import re
 import secrets
 import socket
@@ -39,7 +40,85 @@ SITE_TEXT_CHARS = 40_000
 MIN_SITE_CHARS = 300
 PAGE_DAYS = 90
 PUBLIC_BASE = "https://aximbra.hu/neked"
-CONTACT_EMAIL = "aximbra@gmail.com"
+
+
+def contact_email() -> str:
+    """A demóoldal kapcsolati címe: a saját domaines feladó, ha be van állítva."""
+    return (os.environ.get("FROM_ADDRESS") or "").strip() or "aximbra@gmail.com"
+
+
+# A felület fordítása nyelvenként egyszer készül, és minden oldal (a régiek is)
+# ugyanazt használja: az oldalankénti fordítást a modell gyakran kihagyta, és
+# akkor a szlovák oldal felülete angol maradt. Fájlban él a lemezen, a DB mellett.
+_ui_lock = threading.Lock()
+
+
+def _ui_cache_path() -> str:
+    return os.path.join(os.path.dirname(os.environ.get("SALES_DB_PATH", "/data/sales.db")) or ".", "ui_translations.json")
+
+
+def _ui_cache() -> dict:
+    try:
+        with open(_ui_cache_path(), encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+# A cím és a lábléc mintája; a fordításban a {company} helyőrző megmarad.
+TEMPLATES_EN = {
+    "title_tpl": "What an AI agent would do at {company}",
+    "footer_tpl": "This demo is based on {company}'s public website; the sample data is fictional.",
+    "footer_generic_tpl": "This demo was prepared for {company}; their website could not be read, and the sample "
+                          "data is fictional.",
+}
+
+
+def _fill(tpl: str | None, company: str) -> str | None:
+    return tpl.replace("{company}", company) if tpl and "{company}" in tpl else None
+
+
+def cached_ui(lang: str) -> dict | None:
+    return _ui_cache().get((lang or "")[:2].lower())
+
+
+def ensure_ui(lang: str, ask, extract_json) -> dict | None:
+    """A nyelv felületi szövegei (EN_UI kulcsaival). Egy modellhívás nyelvenként,
+    utána a lemezről. Magyarra és angolra nincs szükség."""
+    code = (lang or "")[:2].lower()
+    if not code or code in ("hu", "en"):
+        return None
+    have = cached_ui(code)
+    if have:
+        return have
+
+    source = {**EN_UI, **TEMPLATES_EN}
+
+    def check(d: dict) -> dict:
+        out = {k: _str(d.get(k), 200) for k in source if isinstance(d.get(k), str) and d.get(k).strip()}
+        if len(out) < len(source) * 0.9:
+            raise ValueError(f"only {len(out)} of {len(source)} keys translated")
+        for k in TEMPLATES_EN:
+            if k in out and "{company}" not in out[k]:
+                raise ValueError(f"{k} must keep the {{company}} placeholder")
+        return out
+    ui = _ask_json(ask, extract_json,
+                   f"Translate the VALUES of this JSON into the language with ISO code '{code}'. Keep the keys, "
+                   "keep {company} and numbers unchanged, natural business register. Answer ONLY with JSON.",
+                   json.dumps(source, ensure_ascii=False), check)
+    if ui:
+        with _ui_lock:
+            data = _ui_cache()
+            data[code] = ui
+            tmp = _ui_cache_path() + ".tmp"
+            try:
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False)
+                os.replace(tmp, _ui_cache_path())
+            except OSError as e:
+                logger.warning("ui translation cache not saved: %s", e)
+    return ui
 
 # Egyszerre ennyi oldal készülhet: két modellhívás + hat letöltés oldalanként,
 # az ingyenes Gemini-keret percenkénti korlátja ennél többet nem bír.
@@ -842,11 +921,13 @@ def title_and_footer(company: str, lang: str, ui: dict, generic: bool) -> tuple[
             f"Ez a bemutató {art} {company} nyilvános weboldala alapján készült; a példaadatok kitaláltak."
         return f"Ezt csinálná egy AI agent {art} {hu_with_suffix(company)}", footer
     if generic:
-        footer = ui.get("footer_generic") or (f"This demo was prepared for {company}; their website could not be "
-                                              "read, and the sample data is fictional.")
+        footer = ui.get("footer_generic") or _fill(ui.get("footer_generic_tpl"), company) \
+            or TEMPLATES_EN["footer_generic_tpl"].replace("{company}", company)
     else:
-        footer = ui.get("footer") or f"This demo is based on {company}'s public website; the sample data is fictional."
-    return ui.get("title") or f"What an AI agent would do at {company}", footer
+        footer = ui.get("footer") or _fill(ui.get("footer_tpl"), company) \
+            or TEMPLATES_EN["footer_tpl"].replace("{company}", company)
+    return ui.get("title") or _fill(ui.get("title_tpl"), company) \
+        or TEMPLATES_EN["title_tpl"].replace("{company}", company), footer
 
 
 # Ha a modell a nyelv nélküli (olvashatatlan) oldalhoz sem ad tartalmat:
@@ -1053,7 +1134,10 @@ def build_page(url: str, *, ask, extract_json, lang: str | None = None, company:
             out_lang = "en"
 
     is_hu = out_lang.startswith("hu")
-    ui = HU_UI if is_hu else {**EN_UI, **{k: v for k, v in (c["ui"] or {}).items() if v}}
+    page_ui = {k: v for k, v in (c["ui"] or {}).items() if v}
+    if not is_hu and not out_lang.startswith("en") and len(page_ui) < len(EN_UI) * 0.9:
+        page_ui = ensure_ui(out_lang, ask, extract_json) or page_ui
+    ui = HU_UI if is_hu else {**EN_UI, **page_ui}
     company_name = a["company_name"] or dom
     title, footer = title_and_footer(company_name, out_lang, ui, a["generic"])
     obs = a["observation"]
@@ -1079,7 +1163,7 @@ def build_page(url: str, *, ask, extract_json, lang: str | None = None, company:
                        "reason": s["reason"]} for s in a["secondary"]],
         "demo": {"kind": agent["kind"], **c["demo"]},
         "roi": c["roi"],
-        "contact_email": CONTACT_EMAIL,
+        "contact_email": contact_email(),
     }
 
 
@@ -1097,6 +1181,18 @@ def generate(url: str, **kw) -> dict:
 def public_view(row: dict) -> dict:
     """Amit a nyilvános oldal megkap: a belső számlálók és a lead nélkül."""
     data = json.loads(row["data"])
+    # Régi oldalak: a mostani kapcsolati cím, és ha a felület angolul maradt,
+    # a nyelv tárolt fordítása (csak az angolul maradt kulcsokra).
+    data["contact_email"] = contact_email()
+    lang = (data.get("lang") or "")[:2].lower()
+    tr = cached_ui(lang) if lang not in ("hu", "en") else None
+    if tr and isinstance(data.get("ui"), dict):
+        data["ui"] = {**data["ui"], **{k: v for k, v in tr.items() if k in EN_UI
+                                       and data["ui"].get(k) in (None, EN_UI.get(k))}}
+        company = data.get("company") or ""
+        for key, tpl in (("title", "title_tpl"), ("footer", "footer_tpl"), ("footer", "footer_generic_tpl")):
+            if company and data.get(key) == TEMPLATES_EN[tpl].replace("{company}", company):
+                data[key] = _fill(tr.get(tpl), company) or data[key]
     return {"slug": row["slug"], "created_at": row["created_at"], "expires_at": row["expires_at"], **data}
 
 

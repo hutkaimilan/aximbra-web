@@ -1647,3 +1647,24 @@ def test_us_and_canada_need_a_postal_address(monkeypatch):
     body = pipeline.followup_body({"lang": "en", "lang2": None, "country": "US"})
     assert body.endswith("1 Example Street, 1000 Budapest, Hungary")
     assert "Example Street" not in pipeline.followup_body({"lang": "en", "lang2": None, "country": "GB"})
+
+
+def test_offer_is_in_every_follow_up_word_for_word():
+    import playbook
+    for lang in playbook.OFFER:
+        lead = {"lang": lang, "lang2": None, "country": "HU"}
+        assert playbook.OFFER[lang] in pipeline.followup_body(lead), lang
+        with_demo = pipeline.followup_body(lead, "https://aximbra.hu/neked/x")
+        assert playbook.OFFER[lang] in with_demo and "https://aximbra.hu/neked/x" in with_demo, lang
+        assert not verify.has_price(with_demo), lang
+
+
+def test_compose_puts_the_offer_back_if_the_model_drops_it(monkeypatch):
+    import llm
+    import playbook
+    monkeypatch.setattr(llm, "_ask", lambda p, **kw: json.dumps(
+        {"subject": "Kérdés", "body": "Jó napot!\n\nLáttam az oldalukat.\n\nUi.: Élő demók vannak.\n\n" + OPT_OUT["hu"]}))
+    out = llm.compose({"lang": "hu", "country": "HU", "pain": "phone", "company": "X", "observation": "o"})
+    body = out["body"]
+    assert playbook.OFFER["hu"] in body and body.rstrip().endswith(OPT_OUT["hu"])
+    assert body.index(playbook.OFFER["hu"]) < body.index(OPT_OUT["hu"])

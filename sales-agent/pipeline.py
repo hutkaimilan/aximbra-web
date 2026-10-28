@@ -383,9 +383,13 @@ def followup_body(lead: dict, demo_url: str | None = None) -> str:
     parts = []
     for lang in langs:
         if demo_url:
-            parts.append(FOLLOW_UP_DEMO.get(lang, FOLLOW_UP_DEMO["en"]).format(url=demo_url))
+            paras = FOLLOW_UP_DEMO.get(lang, FOLLOW_UP_DEMO["en"]).format(url=demo_url).split("\n\n")
+            at = len(paras) - 2  # a leiratkozó mondat elé
         else:
-            parts.append(FOLLOW_UP[lang])
+            paras = FOLLOW_UP[lang].split("\n\n")
+            at = len(paras) - 1  # az aláírás elé
+        offer = playbook.OFFER.get(lang, playbook.OFFER["en"])
+        parts.append("\n\n".join(paras[:at] + [offer] + paras[at:]))
     body = f"\n\n{verify.SEPARATOR}\n\n".join(parts)
     postal = playbook.postal_line(lead.get("country") or "")
     return body + "\n" + postal if postal else body

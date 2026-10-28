@@ -460,6 +460,21 @@ def _make_demo_locked(target: str, dom: str, lang: str, company: str, lead_id: i
     return _demo_result(slug, page, False)
 
 
+@app.post("/api/demo-pages/translate-ui", dependencies=[Depends(auth)])
+def demo_translate_ui():
+    """A meglévő oldalak nyelveire elkészíti a felület fordítását (nyelvenként
+    egy modellhívás, egyszer); utána a régi oldalak is a saját nyelvükön jelennek meg."""
+    langs = sorted({(p.get("lang") or "")[:2].lower() for p in store.demo_list()} - {"", "hu", "en"})
+    done, failed = [], []
+    for lang in langs:
+        try:
+            (done if demopage.ensure_ui(lang, llm._ask, llm.extract_json) else failed).append(lang)
+        except Exception as e:  # noqa: BLE001 — egy nyelv hibája ne állítsa meg a többit
+            logger.warning("ui translation %s: %s", lang, type(e).__name__)
+            failed.append(lang)
+    return {"translated": done, "failed": failed}
+
+
 @app.post("/api/demo-pages", dependencies=[Depends(auth)])
 def demo_create(body: DemoIn):
     return _make_demo(body.url, body.lang, body.company)

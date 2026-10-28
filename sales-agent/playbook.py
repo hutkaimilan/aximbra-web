@@ -114,6 +114,31 @@ OPT_OUT = {
     "pt": "Se não for relevante neste momento, basta um simples «não» e não volto a escrever.",
 }
 
+# Az ajánlat, a tulajdonos döntése: egy hónap ingyen; ha bármi baj van, nem
+# fizetnek semmit, és leállítjuk az agentet; ha marad, csak az ár felét kérjük.
+# Fix mondat minden nyelven (a modell nem fogalmazza át): az első levél
+# utóiratában, az utánkövetésben és a demóoldalon ugyanez áll. Szám és
+# százalékjel nincs benne, hogy az ár- és statisztika-szabály ne akadjon rá.
+OFFER = {
+    "hu": "Egy hónapig ingyen kipróbálható. Ha bármi nem tetszik, nem kell fizetni semmit, és leállítjuk; ha marad, akkor is csak az ár felét kérjük.",
+    "sk": "Mesiac ho môžete používať zadarmo. Ak vám niečo nebude vyhovovať, nezaplatíte nič a agenta vypneme; ak si ho necháte, zaplatíte len polovicu ceny.",
+    "ro": "Îl puteți folosi gratuit o lună. Dacă ceva nu vă convine, nu plătiți nimic și îl oprim; dacă îl păstrați, plătiți doar jumătate din preț.",
+    "hr": "Mjesec dana ga možete koristiti besplatno. Ako vam nešto ne odgovara, ne plaćate ništa i isključujemo ga; ako ga zadržite, plaćate samo pola cijene.",
+    "sl": "Mesec dni ga lahko uporabljate brezplačno. Če vam kaj ne ustreza, ne plačate ničesar in ga izklopimo; če ga obdržite, plačate le polovico cene.",
+    "en": "You can use the agent free for a month. If anything is not right, you pay nothing and we switch it off; if you keep it, you pay only half the price.",
+    "fr": "Vous l’utilisez gratuitement pendant un mois. Si quelque chose ne vous convient pas, vous ne payez rien et nous l’arrêtons ; si vous le gardez, vous ne payez que la moitié du prix.",
+    "nl": "U gebruikt de agent een maand gratis. Als er iets niet bevalt, betaalt u niets en zetten we hem uit; als u hem houdt, betaalt u maar de helft van de prijs.",
+    "sv": "Ni använder agenten gratis i en månad. Om något inte passar betalar ni ingenting och vi stänger av den; om ni behåller den betalar ni bara halva priset.",
+    "fi": "Voitte käyttää agenttia kuukauden ilmaiseksi. Jos jokin ei miellytä, ette maksa mitään ja suljemme sen; jos pidätte sen, maksatte vain puolet hinnasta.",
+    "pt": "Podem usar o agente gratuitamente durante um mês. Se algo não vos agradar, não pagam nada e desligamos o agente; se ficarem com ele, pagam apenas metade do preço.",
+}
+PS_PREFIX = {"hu": "Ui.:", "fr": "P.-S. :"}
+
+
+def offer_ps(lang: str) -> str:
+    return f"{PS_PREFIX.get(lang, 'P.S.')} {OFFER[lang]}"
+
+
 SIGNATURE = {
     "hu": "Hutkai Milán · AXIMBRA · {site}",
     "other": "Milán Hutkai · AXIMBRA · {site}",
@@ -182,7 +207,7 @@ FOLLOW_UP_DEMO = {
           "\n\nMilán Hutkai · AXIMBRA · aximbra.hu/en",
 }
 
-MAX_WORDS = 110  # a törzs + aláírás + ui. + leiratkozás együtt; maga az üzenet 75 alatt
+MAX_WORDS = 130  # a törzs + aláírás + ui. (az ajánlat) + leiratkozás együtt; maga az üzenet 75 alatt
 
 # Iparági tudás: mi fáj nekik valójában, milyen jel mutatja, hogy most fáj,
 # és melyik mondat szól a saját nyelvükön. A kutató és a levélíró is ebből dolgozik.
@@ -327,7 +352,7 @@ MAX_SENTENCE_WORDS = 25
 def compose_prompt(lead: dict) -> str:
     lang = lead["lang"]
     site = site_for(lead)
-    ps = DEMO_PS[lead["pain"]]["hu" if lang == "hu" else "other"].format(site=site)
+    ps = offer_ps(lang)
     sig = SIGNATURE["hu" if lang == "hu" else "other"].format(site=site)
     sec = SECTORS.get(lead.get("sector") or "", {})
     signal = (lead.get("signal_note") or "").strip()
@@ -346,7 +371,7 @@ Proven structure (observation → consequence question → one-line offer → in
 4. One sentence: "Építettem egy …" / "I built a …" — our tool in their exact situation, naming what it writes down or sorts.
 5. The question "Would this be interesting for you?" in {LANG_NAMES[lang]}.
 6. Signature line exactly: {sig}
-7. A postscript (P.S.) in {LANG_NAMES[lang]}: {ps}
+7. The postscript, copied exactly, word for word: {ps}
 8. Last line exactly: {OPT_OUT[lang]}
 
 Proven writing rules: short sentences (max 20 words each), everyday words a 12-year-old understands, no
@@ -504,7 +529,7 @@ Subject: {subject}
 ---
 Their website says: "{lead['observation']}"
 
-Score 0–10 against: (a) the first lines are specific to THIS business, not generic; (b) exactly one consequence question the reader can picture; (c) the offer is one concrete sentence; (d) parts before the signature under 75 words; (e) no hype, no price, no link, no flattery, no claims about clients, no named individuals; (f) natural, native {LANG_NAMES[lead['lang']]} a local business owner would not find odd; (g) signature, P.S. and the last opt-out line kept exactly; (h) easy to read: every sentence under 20 words, everyday words, the closing question answerable with one word.
+Score 0–10 against: (a) the first lines are specific to THIS business, not generic; (b) exactly one consequence question the reader can picture; (c) the offer is one concrete sentence; (d) parts before the signature under 75 words; (e) no hype, no price figure (the fixed P.S. offer is not a price and stays), no link, no flattery, no claims about clients, no named individuals; (f) natural, native {LANG_NAMES[lead['lang']]} a local business owner would not find odd; (g) signature, P.S. and the last opt-out line kept exactly; (h) easy to read: every sentence under 20 words, everyday words, the closing question answerable with one word.
 Write the "issues" in Hungarian, each under 15 words (the owner reads them on his phone).
 If the score is below 9, rewrite it fixing every issue, keeping the same structure and the signature, P.S. and opt-out line unchanged.
 Answer ONLY with JSON: {{"score": 0-10, "issues": ["..."], "subject": "...", "body": "..."}}"""

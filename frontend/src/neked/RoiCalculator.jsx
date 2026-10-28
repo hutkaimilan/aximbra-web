@@ -60,7 +60,8 @@ export const RoiCalculator = ({ page }) => {
   const monthly = hours * rate;
   const fee = agent.monthly_fee;
   const net = monthly - (fee || 0);
-  const payback = agent.price_min && net > 0 ? Math.max(1, Math.ceil(agent.price_min / net)) : null;
+  // Az ajánlat szerint a próbahónap ingyenes, utána csak az ár felét kérjük.
+  const payback = agent.price_min && net > 0 ? Math.max(1, Math.ceil((agent.price_min / 2) / net)) : null;
   const isHu = lang.toLowerCase().startsWith("hu");
   const price = isHu || !agent.price_max ? agent.price_text : `${fmtHuf(agent.price_min, lang)} – ${fmtHuf(agent.price_max, lang)}`;
 

@@ -689,3 +689,30 @@ def test_research_queries_spread_across_given_towns():
     p = playbook.queries_prompt("HU", ["logistics", "healthcare"], 2, ["Győr", "Pécs"])
     assert "Győr, Pécs" in p and "each town at most once" in p
     assert all(t for t in playbook.TOWNS) and set(playbook.TOWNS) == set(playbook.COUNTRIES)
+
+
+def test_ui_translation_is_made_once_per_language_and_fixes_old_pages(tmp_path, monkeypatch):
+    monkeypatch.setenv("SALES_DB_PATH", str(tmp_path / "x.db"))
+    monkeypatch.setenv("FROM_ADDRESS", "milan@aximbra.hu")
+    calls = []
+    tr = {k: "SK " + v for k, v in demopage.EN_UI.items()}
+    tr.update({k: v.replace("What an AI agent would do at", "Čo by robil AI agent v") if k == "title_tpl" else "SK " + v
+               for k, v in demopage.TEMPLATES_EN.items()})
+
+    def ask(p):
+        calls.append(p)
+        return json.dumps(tr)
+    assert demopage.ensure_ui("sk", ask, json.loads)["cta"] == "SK " + demopage.EN_UI["cta"]
+    assert demopage.ensure_ui("sk", ask, json.loads) and len(calls) == 1  # másodszor a lemezről
+    assert demopage.ensure_ui("hu", ask, json.loads) is None and len(calls) == 1
+    old = {"lang": "sk", "company": "Aliter", "ui": dict(demopage.EN_UI), "contact_email": "aximbra@gmail.com",
+           "title": "What an AI agent would do at Aliter", "footer": "x"}
+    view = demopage.public_view({"slug": "a", "created_at": "", "expires_at": "", "data": json.dumps(old)})
+    assert view["ui"]["cta"] == "SK " + demopage.EN_UI["cta"] and view["contact_email"] == "milan@aximbra.hu"
+    assert view["title"] == "Čo by robil AI agent v Aliter" and "title_tpl" not in view["ui"]
+
+
+def test_bad_ui_translation_is_not_cached(tmp_path, monkeypatch):
+    monkeypatch.setenv("SALES_DB_PATH", str(tmp_path / "x.db"))
+    assert demopage.ensure_ui("ro", lambda p: '{"cta": "Scrieți-ne"}', json.loads) is None
+    assert demopage.cached_ui("ro") is None
