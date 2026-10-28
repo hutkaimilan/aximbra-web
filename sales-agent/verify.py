@@ -10,7 +10,7 @@ import unicodedata
 
 import httpx
 
-from playbook import BLOCKED_TLDS, COUNTRIES, MAX_SENTENCE_WORDS, MAX_WORDS, OPT_OUT, PAIN_KEYS
+from playbook import BLOCKED_TLDS, COUNTRIES, country_ready, MAX_SENTENCE_WORDS, MAX_WORDS, OPT_OUT, PAIN_KEYS
 
 FETCH_TIMEOUT = 15
 MAX_BYTES = 1_500_000
@@ -202,8 +202,17 @@ _LANG_WORDS = {
            "not", "are", "if", "or", "hello", "dear", "write", "again", "will", "have", "it", "do"},
     "fr": {"le", "la", "les", "et", "vous", "votre", "vos", "nous", "pour", "avec", "est", "sont", "une",
            "des", "du", "que", "qui", "pas", "si", "bonjour", "écrirai", "plus", "suffit", "dans", "sur"},
+    "nl": {"het", "een", "van", "uw", "wij", "voor", "met", "niet", "als", "dat", "op", "deze", "naar",
+           "zijn", "goedendag", "nee", "genoeg", "schrijf", "meer", "ik", "bij", "ook", "wat"},
+    "sv": {"och", "att", "det", "är", "för", "med", "inte", "om", "ni", "er", "vi", "på", "en", "som", "hej",
+           "nej", "räcker", "skriver", "igen", "jag", "har", "kan", "till"},
+    "fi": {"ja", "on", "ei", "että", "tai", "jos", "te", "teillä", "teidän", "me", "se", "hei", "riittää",
+           "kirjoita", "enää", "tämä", "olla", "kanssa", "kun", "myös", "mitä"},
+    "pt": {"do", "da", "dos", "das", "para", "com", "não", "que", "um", "uma", "bom", "nos", "pela", "pelo",
+           "dia", "basta", "volto", "escrever", "vossa", "vosso", "é", "mais"},
 }
-_LANG_CHARS = {"hu": "őűáéíóöúü", "sk": "ľťďňôäŕĺ", "ro": "ășțâî", "hr": "ćđ", "sl": "", "en": "", "fr": "èàçêùûœ"}
+_LANG_CHARS = {"hu": "őűáéíóöúü", "sk": "ľťďňôäŕĺ", "ro": "ășțâî", "hr": "ćđ", "sl": "", "en": "", "fr": "èàçêùûœ",
+               "nl": "", "sv": "åäö", "fi": "äö", "pt": "ãõç"}
 
 
 def detect_lang(text: str) -> str | None:
@@ -337,7 +346,7 @@ _NAME_RE = re.compile(
     rf"\b[{_UPPER}][a-záéíóöőúüű]+\s+(úr|úrnak|úrral|urat|úrtól|asszony|asszonynak|asszonnyal|asszonyt|kolléganő)\b|"
     rf"\b(pán|pani|pánovi|panej|pána|panu|domnul|doamna|domnului|doamnei|dl\.|dna\.|gospodin|gospodine|"
     rf"gospođa|gospođo|gospa|gospod|g\.|ga\.|[Mm]r\.?|[Mm]rs\.?|[Mm]s\.?|[Mm]onsieur|[Mm]adame|[Mm]me\.?|M\.)\s+[{_UPPER}]|"
-    rf"\b(Kedves|Tisztelt|Dear|Milý|Milá|Vážený|Vážená|Stimate|Stimată|Dragă|Poštovani|Poštovana|Spoštovani|Spoštovana|Cher|Chère|Bonjour|Hello|Hi)"
+    rf"\b(Kedves|Tisztelt|Dear|Milý|Milá|Vážený|Vážená|Stimate|Stimată|Dragă|Poštovani|Poštovana|Spoštovani|Spoštovana|Cher|Chère|Bonjour|Hello|Hi|Beste|Geachte|Hej|Bästa|Hei|Hyvä|Caro|Cara|Prezado|Prezada|Exmo|Exma)"
     # A kivétellista kis- és nagybetűre is érvényes: „Stimate Domn / Stimată Doamnă” általános megszólítás.
     rf"\s+(?!(?i:Hölgyem|Uram|Címzett|Partner|Ügyfél|Csapat|Kolleg|Munkatárs|pán|pani|páni|pane|domn|doamn|gospo|gospa|kolegi|kolegovia|Sir|Madam|team|Monsieur|Madame|équipe))"
     rf"[{_UPPER}][a-záéíóöőúüűčďľĺňôŕšťýžăâîșțćđ]+", re.U)
@@ -348,6 +357,8 @@ def target_problems(lead: dict) -> list[str]:
     p = []
     if lead.get("country") not in COUNTRIES:
         p.append("nem célország")
+    elif not country_ready(lead["country"]):
+        p.append("ide a levélbe postacím kell: állítsd be a POSTAL_ADDRESS-t")
     for u in ((lead.get("email") or "").split("@")[-1], lead.get("website") or "", lead.get("email_url") or ""):
         host = u.lower().split("://")[-1].split("/")[0].split(":")[0]
         if host.endswith(BLOCKED_TLDS):

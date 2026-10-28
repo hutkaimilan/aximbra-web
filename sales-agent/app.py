@@ -29,6 +29,7 @@ import outreach
 import websearch
 import mailer
 import pipeline
+import playbook
 import verify
 from mailer import AuthError, MailError
 from playbook import COUNTRIES, SECTORS
@@ -859,19 +860,40 @@ def _auto_on() -> bool:
     return (os.environ.get("AUTO_RESEARCH") or "").strip().lower() in ("1", "true", "yes")
 
 
-# Minden célországban keres; az AUTO_PLAN csak felülírja a darabszámot
+# Minden célország egyenlő súllyal: körönként annyi ország jön sorra, amennyi
+# belefér egy futás keretébe (pipeline.MAX_PER_RUN), és a következő kör ott
+# folytatja, ahol ez abbahagyta. Az AUTO_PLAN csak a darabszámot írja felül
 # (XX:0 kizár egy országot).
-DEFAULT_PLAN = {"HU": 8, "SK": 2, "RO": 2, "HR": 1, "SI": 1, "GB": 2, "IE": 1, "FR": 2, "BE": 1}
+PER_COUNTRY = 2
 
 
-def _auto_plan() -> dict[str, int]:
+def _auto_plan(rotate: bool = True) -> dict[str, int]:
     raw = os.environ.get("AUTO_PLAN", "")
-    plan = {c: DEFAULT_PLAN.get(c, 1) for c in COUNTRIES}
+    base = {c: PER_COUNTRY for c in COUNTRIES}
     for part in raw.split(","):
         if ":" in part:
             k, v = part.split(":", 1)
             if k.strip().upper() in COUNTRIES and v.strip().isdigit():
-                plan[k.strip().upper()] = int(v)
+                base[k.strip().upper()] = int(v)
+    order = [c for c in COUNTRIES if base[c] > 0 and playbook.country_ready(c)]
+    plan = {c: 0 for c in COUNTRIES}
+    if not order:
+        return plan
+    try:
+        start = int(store.get_setting("plan_cursor") or 0) % len(order)
+    except ValueError:
+        start = 0
+    total, taken = 0, 0
+    for i in range(len(order)):
+        c = order[(start + i) % len(order)]
+        n = min(base[c], pipeline.MAX_PER_RUN)
+        if total + n > pipeline.MAX_PER_RUN:
+            break
+        plan[c] = n
+        total += n
+        taken += 1
+    if rotate:
+        store.set_setting("plan_cursor", str((start + taken) % len(order)))
     return plan
 
 

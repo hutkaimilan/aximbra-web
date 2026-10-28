@@ -933,8 +933,18 @@ def test_every_country_is_in_the_automatic_plan(monkeypatch, tmp_path):
     import app as app_mod
     importlib.reload(app_mod)
     from playbook import COUNTRIES
+    import pipeline
     plan = app_mod._auto_plan()
-    assert set(plan) == set(COUNTRIES) and plan["HU"] == 10 and plan["FR"] == 0 and plan["GB"] >= 1
+    assert set(plan) == set(COUNTRIES) and plan["HU"] == 10 and plan["FR"] == 0
+    assert sum(plan.values()) <= pipeline.MAX_PER_RUN
+    # A következő kör ott folytatja, ahol ez abbahagyta: végül minden ország sorra kerül.
+    seen = {c for c, n in plan.items() if n}
+    for _ in range(len(COUNTRIES)):
+        p = app_mod._auto_plan()
+        assert sum(p.values()) <= pipeline.MAX_PER_RUN
+        seen |= {c for c, n in p.items() if n}
+    ready = {c for c in COUNTRIES if c != "FR" and app_mod.playbook.country_ready(c)}
+    assert seen == ready
 
 
 EN_BODY = ("Hello,\n\nYour website says that your support team answers enquiries in three languages.\n\n"
@@ -1614,3 +1624,26 @@ def test_own_domain_sender_is_used_when_set(monkeypatch):
     m = mailer.build_message("a@b.hu", "s", "t")
     assert "milan@aximbra.hu" in m["From"] and m["Message-ID"].endswith("@aximbra.hu>")
     assert m["List-Unsubscribe"] == "<mailto:milan@aximbra.hu?subject=nem>"
+
+
+def test_every_country_has_letter_texts_in_its_language():
+    import playbook
+    for code, c in playbook.COUNTRIES.items():
+        lang = c["lang"]
+        assert lang in playbook.LANG_NAMES and lang in playbook.OPT_OUT, code
+        assert lang in playbook.FOLLOW_UP and lang in playbook.FOLLOW_UP_DEMO, code
+        assert verify.detect_lang(playbook.FOLLOW_UP[lang]) in (lang, None), code
+        assert code in playbook.TOWNS, code
+
+
+def test_us_and_canada_need_a_postal_address(monkeypatch):
+    import playbook
+    monkeypatch.delenv("POSTAL_ADDRESS", raising=False)
+    lead = {"country": "US", "email": "info@acme.com", "website": "https://acme.com"}
+    assert not playbook.country_ready("US") and playbook.country_ready("GB")
+    assert any("POSTAL_ADDRESS" in p for p in verify.target_problems(lead))
+    monkeypatch.setenv("POSTAL_ADDRESS", "1 Example Street, 1000 Budapest, Hungary")
+    assert playbook.country_ready("US") and not verify.target_problems(lead)
+    body = pipeline.followup_body({"lang": "en", "lang2": None, "country": "US"})
+    assert body.endswith("1 Example Street, 1000 Budapest, Hungary")
+    assert "Example Street" not in pipeline.followup_body({"lang": "en", "lang2": None, "country": "GB"})

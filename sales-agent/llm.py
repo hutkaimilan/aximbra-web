@@ -241,6 +241,9 @@ def compose(lead: dict) -> dict:
     opt = playbook.OPT_OUT[lead["lang"]]
     if opt not in body:
         body = body.rstrip() + "\n\n" + opt
+    postal = playbook.postal_line(lead.get("country") or "")
+    if postal and postal not in body:
+        body = body.rstrip() + "\n" + postal
     return {"subject": (data.get("subject") or "").strip(), "body": body}
 
 

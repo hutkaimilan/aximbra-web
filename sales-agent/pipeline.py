@@ -17,6 +17,7 @@ import json
 import calendar_slots
 import llm as llm_mod
 import mailer as mailer_mod
+import playbook
 import verify
 from playbook import COUNTRIES, FOLLOW_UP, FOLLOW_UP_DEMO, OPT_OUT, SECTORS, SIGNAL_TYPES
 from store import Store, domain_of
@@ -118,6 +119,11 @@ def research_run(store: Store, plan: dict[str, int], log: RunLog, *, llm=llm_mod
         log.say(f"Tanulás: eddig itt válaszolnak a legtöbben: {focus}. Ezeket veszem előre.")
     try:
         for country, want in plan.items():
+            if want <= 0:
+                continue
+            if not playbook.country_ready(country):
+                log.say(f"{country}: kihagyva, ide a levélbe postacím kell (POSTAL_ADDRESS).")
+                continue
             got, attempts = 0, 0
             while got < want and attempts < 4:
                 attempts += 1
@@ -380,7 +386,9 @@ def followup_body(lead: dict, demo_url: str | None = None) -> str:
             parts.append(FOLLOW_UP_DEMO.get(lang, FOLLOW_UP_DEMO["en"]).format(url=demo_url))
         else:
             parts.append(FOLLOW_UP[lang])
-    return f"\n\n{verify.SEPARATOR}\n\n".join(parts)
+    body = f"\n\n{verify.SEPARATOR}\n\n".join(parts)
+    postal = playbook.postal_line(lead.get("country") or "")
+    return body + "\n" + postal if postal else body
 
 
 def prepare_followups(store: Store, now: datetime | None = None, demo_url=None) -> int:

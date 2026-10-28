@@ -15,6 +15,13 @@ kutató, a levélíró és az ellenőrző ugyanabból a szabályból dolgozzon.
 #  - Egyesült Királyság (PECR: cégeknek szabad), Írország (cégeknek szabad
 #    leiratkozással), Franciaország (CNIL: a szakmájához kapcsolódó ajánlat szabad),
 #    Belgium (csak személytelen céges cím, pl. info@ — mi amúgy is csak ilyenre írunk).
+#  - Hollandia, Luxemburg, Svédország, Finnország, Portugália: jogi személynek
+#    leiratkozással szabad; Ausztrália, Új-Zéland: nyilvánosan közzétett, a
+#    munkakörhöz illő céges címre szabad; USA (CAN-SPAM) és Kanada (CASL: közzétett
+#    cím, kapcsolódó ajánlat) csak postacímmel a levélben.
+#  - Lengyelország és Dánia nem: cégeknek is előzetes hozzájárulás kell.
+import os
+
 COUNTRIES = {
     "HU": {"name": "Magyarország", "lang": "hu", "site": "aximbra.hu"},
     "SK": {"name": "Szlovákia", "lang": "sk", "site": "aximbra.hu/sk"},
@@ -25,15 +32,40 @@ COUNTRIES = {
     "IE": {"name": "Írország", "lang": "en", "site": "aximbra.hu/en"},
     "FR": {"name": "Franciaország", "lang": "fr", "site": "aximbra.hu/fr"},
     "BE": {"name": "Belgium (francia nyelvű rész: Vallónia, Brüsszel)", "lang": "fr", "site": "aximbra.hu/fr"},
+    # Ahol cégnek leiratkozási lehetőséggel szabad első üzleti levelet küldeni.
+    # Hozzájárulást kérő országok (DE, AT, CH, ES, IT, PL, DK) nem kerülnek ide.
+    "NL": {"name": "Hollandia", "lang": "nl", "site": "aximbra.hu/en"},
+    "LU": {"name": "Luxemburg", "lang": "fr", "site": "aximbra.hu/fr"},
+    "SE": {"name": "Svédország", "lang": "sv", "site": "aximbra.hu/en"},
+    "FI": {"name": "Finnország", "lang": "fi", "site": "aximbra.hu/en"},
+    "PT": {"name": "Portugália", "lang": "pt", "site": "aximbra.hu/en"},
+    "AU": {"name": "Ausztrália", "lang": "en", "site": "aximbra.hu/en"},
+    "NZ": {"name": "Új-Zéland", "lang": "en", "site": "aximbra.hu/en"},
+    # A CAN-SPAM és a CASL a levélben postacímet is kér: POSTAL_ADDRESS nélkül
+    # ezekbe az országokba nem megy levél (lásd postal_line).
+    "US": {"name": "Egyesült Államok", "lang": "en", "site": "aximbra.hu/en", "postal": True},
+    "CA": {"name": "Kanada", "lang": "en", "site": "aximbra.hu/en", "postal": True},
 }
+
+
+def postal_line(country: str) -> str:
+    """A postacím sor, ha az ország törvénye kéri; üres, ha nem kell."""
+    return os.environ.get("POSTAL_ADDRESS", "").strip() if COUNTRIES.get(country, {}).get("postal") else ""
+
+
+def country_ready(country: str) -> bool:
+    """Postacímet kérő országba csak beállított POSTAL_ADDRESS mellett írunk."""
+    c = COUNTRIES.get(country)
+    return bool(c) and (not c.get("postal") or bool(os.environ.get("POSTAL_ADDRESS", "").strip()))
 
 # A domain végződése alapján is kizárunk: egy .at cím akkor is osztrák cég,
 # ha a modell tévedésből magyarnak mondja. Ugyanígy a tiltott országoké.
-BLOCKED_TLDS = (".at", ".de", ".ch", ".li", ".es", ".it")
+BLOCKED_TLDS = (".at", ".de", ".ch", ".li", ".es", ".it", ".pl", ".dk")
 
 LANG_NAMES = {
     "hu": "Hungarian", "sk": "Slovak", "ro": "Romanian",
     "hr": "Croatian", "sl": "Slovenian", "en": "English", "fr": "French",
+    "nl": "Dutch", "sv": "Swedish", "fi": "Finnish", "pt": "Portuguese",
 }
 
 PAINS = {
@@ -76,6 +108,10 @@ OPT_OUT = {
     "sl": "Če vam to trenutno ni zanimivo, zadošča kratek »ne« — ne bom vam več pisal.",
     "en": "If this is not relevant right now, a short “no” is enough and I will not write again.",
     "fr": "Si ce n’est pas d’actualité, un simple « non » suffit et je ne vous écrirai plus.",
+    "nl": "Als dit nu niet relevant is, is een kort „nee” genoeg en schrijf ik u niet meer.",
+    "sv": "Om det inte är aktuellt räcker det med ett kort ”nej”, så skriver jag inte igen.",
+    "fi": "Jos tämä ei ole nyt ajankohtaista, lyhyt ”ei” riittää, enkä kirjoita enää.",
+    "pt": "Se não for relevante neste momento, basta um simples «não» e não volto a escrever.",
 }
 
 SIGNATURE = {
@@ -91,6 +127,10 @@ FOLLOW_UP = {
     "sl": "Pozdravljeni,\n\npišem še enkrat, za primer, da se je moje prejšnje sporočilo izgubilo. Če vam ni zanimivo, zadošča kratek »ne« in vam ne bom več pisal.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/en",
     "en": "Hello,\n\nI am writing once more in case my previous email got lost. If it is not relevant, a short “no” is enough and I will not write again.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/en",
     "fr": "Bonjour,\n\nJe vous écris une dernière fois, au cas où mon précédent message se serait perdu. Si ce n’est pas d’actualité, un simple « non » suffit et je ne vous écrirai plus.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/fr",
+    "nl": "Goedendag,\n\nIk schrijf u nog één keer, voor het geval mijn vorige bericht verloren is gegaan. Als het niet relevant is, is een kort „nee” genoeg en schrijf ik u niet meer.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/en",
+    "sv": "Hej,\n\nJag skriver en gång till, ifall mitt förra mejl försvann. Om det inte är aktuellt räcker det med ett kort ”nej”, så skriver jag inte igen.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/en",
+    "fi": "Hei,\n\nKirjoitan vielä kerran siltä varalta, että edellinen viestini hukkui. Jos tämä ei ole ajankohtaista, lyhyt ”ei” riittää, enkä kirjoita enää.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/en",
+    "pt": "Bom dia,\n\nEscrevo mais uma vez, caso a minha mensagem anterior se tenha perdido. Se não for relevante, basta um simples «não» e não volto a escrever.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/en",
 }
 
 # Utánkövetés, ha van a cégnek demóoldala: nem azzal kezd, hogy "hátha
@@ -124,6 +164,22 @@ FOLLOW_UP_DEMO = {
           "vous, à partir de votre site : {url}\n\nSi cela vous intéresse, dites-moi en une phrase ce qui prend le "
           "plus de temps à votre équipe.\n\nSi ce n’est pas d’actualité, un simple « non » suffit et je ne vous "
           "écrirai plus.\n\nMilán Hutkai · AXIMBRA · aximbra.hu/fr",
+    "nl": "Goedendag,\n\nSinds mijn vorige bericht heb ik een korte pagina voor u gemaakt over wat een AI-agent bij u "
+          "zou doen, op basis van uw website: {url}\n\nAls het u interesseert, schrijf me dan in één zin wat uw team "
+          "de meeste tijd kost.\n\nAls het niet relevant is, is een kort „nee” genoeg en schrijf ik u niet meer."
+          "\n\nMilán Hutkai · AXIMBRA · aximbra.hu/en",
+    "sv": "Hej,\n\nSedan mitt förra mejl har jag tagit fram en kort sida om vad en AI-agent skulle göra hos er, "
+          "utifrån er webbplats: {url}\n\nOm det är intressant, skriv gärna i en mening vad som tar mest tid för "
+          "ert team.\n\nOm det inte är aktuellt räcker det med ett kort ”nej”, så skriver jag inte igen.\n\nMilán "
+          "Hutkai · AXIMBRA · aximbra.hu/en",
+    "fi": "Hei,\n\nEdellisen viestini jälkeen kokosin teille lyhyen sivun siitä, mitä tekoälyagentti tekisi "
+          "teillä verkkosivujenne perusteella: {url}\n\nJos tämä kiinnostaa, kertokaa yhdellä lauseella, mikä vie "
+          "tiimiltänne eniten aikaa.\n\nJos tämä ei ole ajankohtaista, lyhyt ”ei” riittää, enkä kirjoita enää."
+          "\n\nMilán Hutkai · AXIMBRA · aximbra.hu/en",
+    "pt": "Bom dia,\n\nDesde a minha última mensagem, preparei uma página curta sobre o que um agente de IA faria "
+          "na vossa empresa, com base no vosso site: {url}\n\nSe tiver interesse, diga-me numa frase o que ocupa "
+          "mais tempo à vossa equipa.\n\nSe não for relevante, basta um simples «não» e não volto a escrever."
+          "\n\nMilán Hutkai · AXIMBRA · aximbra.hu/en",
 }
 
 MAX_WORDS = 110  # a törzs + aláírás + ui. + leiratkozás együtt; maga az üzenet 75 alatt
@@ -518,6 +574,16 @@ TOWNS = {
     "IE": ["Dublin", "Cork", "Galway", "Limerick", "Waterford", "Athlone"],
     "FR": ["Lyon", "Lille", "Nantes", "Bordeaux", "Toulouse", "Rennes", "Strasbourg", "Grenoble", "Montpellier"],
     "BE": ["Bruxelles", "Liège", "Charleroi", "Namur", "Mons", "Wavre"],
+    "NL": ["Rotterdam", "Utrecht", "Eindhoven", "Den Haag", "Groningen", "Tilburg", "Breda", "Arnhem", "Zwolle"],
+    "LU": ["Luxembourg", "Esch-sur-Alzette", "Differdange", "Dudelange", "Ettelbruck"],
+    "SE": ["Göteborg", "Malmö", "Uppsala", "Västerås", "Örebro", "Linköping", "Jönköping", "Umeå", "Stockholm"],
+    "FI": ["Tampere", "Turku", "Oulu", "Jyväskylä", "Lahti", "Kuopio", "Espoo", "Vantaa", "Helsinki"],
+    "PT": ["Porto", "Braga", "Aveiro", "Coimbra", "Leiria", "Setúbal", "Faro", "Lisboa"],
+    "AU": ["Melbourne", "Brisbane", "Perth", "Adelaide", "Gold Coast", "Newcastle", "Canberra", "Sydney"],
+    "NZ": ["Auckland", "Wellington", "Christchurch", "Hamilton", "Tauranga", "Dunedin"],
+    "US": ["Austin", "Denver", "Columbus", "Charlotte", "Nashville", "Minneapolis", "Phoenix", "Pittsburgh",
+           "Indianapolis", "Kansas City", "Raleigh", "Salt Lake City"],
+    "CA": ["Toronto", "Calgary", "Ottawa", "Edmonton", "Winnipeg", "Mississauga", "Halifax", "Vancouver"],
 }
 
 
