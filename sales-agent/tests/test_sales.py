@@ -1298,9 +1298,9 @@ def test_content_sends_two_briefs_once_and_never_leaks_names(store, monkeypatch)
     monkeypatch.setenv("AGENT_TOKEN", "x" * 32)
     store.add_lead(dict(CAND, lang="hu"))
     company = CAND["company"]
-    now = _dt(2026, 10, 5, 7, 45)
+    now = _dt(2026, 10, 6, 10, 0)                                          # kedd: LinkedIn-idő
     assert content.enabled() and content.due(now, store)
-    assert not content.due(now.replace(hour=7, minute=0), store)          # kezdés előtt nem
+    assert not content.due(now.replace(hour=9, minute=0), store)          # kezdés előtt nem
 
     replies = [{"hu": {"brief": f"{company} postafiókja reggel, AXIMBRA e-mail rendező bemutató.", "form": "video"},
                 "en": {"brief": "AXIMBRA phone agent: a missed call at a busy logistics firm, shown in one strong image.", "form": "image"}},
@@ -1325,14 +1325,16 @@ def test_content_sends_two_briefs_once_and_never_leaks_names(store, monkeypatch)
     later = now + timedelta(minutes=content.RETRY_MIN)
     assert content.due(later, store)
     content.run(store, later)                                              # ugyanazt a témát küldi újra
-    assert [s["id"] for s in sent] == ["sales-2026-10-05-hu", "sales-2026-10-05-en"]
+    assert [s["id"] for s in sent] == ["sales-2026-10-06-hu"]               # délelőtt csak a LinkedIn
+    content.run(store, now.replace(hour=12, minute=30))                    # ebédidőben az Instagram
+    assert [s["id"] for s in sent] == ["sales-2026-10-06-hu", "sales-2026-10-06-en"]
     assert sent[0]["targets"] == ["linkedin"] and sent[1]["targets"] == ["instagram"]
     # A formát a kód adja, nem a modell (az itt mást írt vissza).
     assert sent[0]["form"] == content.pick_form("hu", now.date())
     assert sent[1]["form"] == content.pick_form("en", now.date())
     assert company.lower() not in sent[0]["brief"].lower()
-    assert not content.due(later + timedelta(hours=2), store)             # ma kész
-    assert content.due(later + timedelta(days=1), store)
+    assert not content.due(now.replace(hour=13, minute=0), store)         # ma kész
+    assert content.due(now + timedelta(days=1), store)                    # szerda
 
 
 def test_content_covers_every_agent_before_repeating_any(store, monkeypatch):
@@ -1340,6 +1342,9 @@ def test_content_covers_every_agent_before_repeating_any(store, monkeypatch):
     multi-agent rendszerről nulla. A névsort ezért a kód forgatja, nem a modell."""
     import json as _json
     import content
+    # Ez a teszt nem az időzítésről szól: minden nap, egész nap esedékes.
+    monkeypatch.setattr(content, "schedule", lambda: {"hu": ((0, 0), set(range(7))), "en": ((0, 0), set(range(7)))})
+    monkeypatch.setattr(content, "WINDOW_MIN", 24 * 60)
     from playbook import AGENTS
     monkeypatch.setenv("CONTENT_DAILY", "1")
     monkeypatch.setenv("AGENT_TOKEN", "x" * 32)
@@ -1462,6 +1467,9 @@ def test_content_retry_keeps_the_same_agent_and_never_burns_one(store, monkeypat
     ugyanaz az agent jön vissza, és a sikertelen nap nem ég el."""
     import json as _json
     import content
+    # Ez a teszt nem az időzítésről szól: minden nap, egész nap esedékes.
+    monkeypatch.setattr(content, "schedule", lambda: {"hu": ((0, 0), set(range(7))), "en": ((0, 0), set(range(7)))})
+    monkeypatch.setattr(content, "WINDOW_MIN", 24 * 60)
     from playbook import AGENTS
     monkeypatch.setenv("CONTENT_DAILY", "1")
     monkeypatch.setenv("AGENT_TOKEN", "x" * 32)

@@ -24,7 +24,8 @@ Hibatűrés:
 - a napi témát egyszer generálja és elmenti; ha a küldés elhasal, ugyanazt a
   szöveget ugyanazzal az azonosítóval küldi újra, a videós agent pedig az
   azonosítón szűr, így nem lesz dupla videó;
-- RETRY_MIN percenként újrapróbálja, LAST_HOUR óráig; utána aznapra feladja.
+- RETRY_MIN percenként újrapróbálja, a platform kezdése után WINDOW_MIN percig;
+  utána aznapra feladja.
 """
 from __future__ import annotations
 
@@ -46,14 +47,33 @@ logger = logging.getLogger(__name__)
 ROUTES = {"hu": "linkedin", "en": "instagram"}
 LOOKBACK_DAYS = 21
 RETRY_MIN = 30
-# Eddig az óráig (kizárólag) indulhat új próbálkozás; a CONTENT_LAST_HOUR
-# környezeti változóval szűkíthető, pl. 19 = csak 19:00 előtt posztolunk.
-try:
-    LAST_HOUR = max(1, min(24, int(os.environ.get("CONTENT_LAST_HOUR") or 21)))
-except ValueError:
-    LAST_HOUR = 21
 DEFAULT_URL = "https://aximbra-video-production.up.railway.app/api/inbox"
 _lock = threading.Lock()
+
+# Platformonként külön idő (budapesti idő), a B2B-közönség munkaritmusához:
+# LinkedIn kedd–csütörtök délelőtt, Instagram hétköznap ebédidőben; hétvégén
+# semmi. A témát néhány perccel korábban küldjük, mert a videós agentnek
+# 1–5 perc a gyártás, és utána azonnal posztol. Ha a szolgáltatás a kezdés
+# után WINDOW_MIN percen belül nem jut el a küldésig, aznap kimarad: egy
+# délutánra csúszott LinkedIn-poszt többet árt, mint ha nincs.
+WINDOW_MIN = 120
+
+
+def _hm(raw: str, default: tuple[int, int]) -> tuple[int, int]:
+    try:
+        h, m = (int(x) for x in (raw or "").strip().split(":"))
+        if 0 <= h < 24 and 0 <= m < 60:
+            return h, m
+    except ValueError:
+        pass
+    return default
+
+
+def schedule() -> dict[str, tuple[tuple[int, int], set[int]]]:
+    """lang -> ((óra, perc), hétköznapok 0=hétfő). Az idő környezeti változóval
+    állítható (CONTENT_LI_TIME, CONTENT_IG_TIME)."""
+    return {"hu": (_hm(os.environ.get("CONTENT_LI_TIME", ""), (9, 50)), {1, 2, 3}),
+            "en": (_hm(os.environ.get("CONTENT_IG_TIME", ""), (12, 20)), {0, 1, 2, 3, 4})}
 
 
 def enabled() -> bool:
@@ -61,25 +81,19 @@ def enabled() -> bool:
         and len(os.environ.get("AGENT_TOKEN", "")) >= 24
 
 
-def start_time() -> tuple[int, int]:
-    raw = (os.environ.get("CONTENT_TIME") or "07:30").strip()
-    try:
-        h, m = (int(x) for x in raw.split(":"))
-        if 0 <= h < 24 and 0 <= m < 60:
-            return h, m
-    except ValueError:
-        pass
-    return 7, 30
+def lang_due(lang: str, now: datetime, store) -> bool:
+    """Ennek a platformnak ma most van az ideje, és még nem ment ki."""
+    (h, m), days = schedule()[lang]
+    if now.weekday() not in days or store.get_setting(f"content_sent_{lang}") == now.date().isoformat():
+        return False
+    start = now.replace(hour=h, minute=m, second=0, microsecond=0)
+    return start <= now < start + timedelta(minutes=WINDOW_MIN)
 
 
 def due(now: datetime, store) -> bool:
-    """Ma még nem ment ki mindkét téma, elmúlt a kezdés, és az utolsó
-    próbálkozás óta eltelt RETRY_MIN perc."""
-    h, m = start_time()
-    if now < now.replace(hour=h, minute=m, second=0, microsecond=0) or now.hour >= LAST_HOUR:
-        return False
-    day = now.date().isoformat()
-    if all(store.get_setting(f"content_sent_{lang}") == day for lang in ROUTES):
+    """Valamelyik platformnak most van az ideje, és az utolsó próbálkozás
+    óta eltelt RETRY_MIN perc."""
+    if not any(lang_due(lang, now, store) for lang in ROUTES):
         return False
     last = store.get_setting("content_last_try") or ""
     try:
@@ -317,7 +331,7 @@ def run(store, now: datetime, say=logger.info) -> dict:
         source = f"sales agent · {key}" if key else "sales agent"
         sent = {}
         for lang, target in ROUTES.items():
-            if store.get_setting(f"content_sent_{lang}") == day:
+            if not lang_due(lang, now, store):
                 continue
             b = briefs[lang]
             _send({"id": f"sales-{day}-{lang}", "brief": b["brief"], "lang": lang,
