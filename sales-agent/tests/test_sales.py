@@ -1754,7 +1754,9 @@ def test_linkedin_finds_the_decision_maker_at_companies_we_emailed(store, monkey
                         if status == "sent" else [])
     hits = [{"title": "Nagy Béla - Másik Cég Kft.", "url": "https://hu.linkedin.com/in/nagy-bela", "text": "ügyvezető"},
             {"title": "Kovács Anna - Ügyvezető - Kiss Trans Kft.", "url": "https://hu.linkedin.com/in/kovacs-anna?x=1",
-             "text": "Kiss Trans, szállítmányozás"}]
+             "text": "Kiss Trans, szállítmányozás, Szeged"},
+            {"title": "John Kiss - CEO - Kiss Trans Inc.", "url": "https://www.linkedin.com/in/john-kiss",
+             "text": "Kiss Trans, Dallas, Texas"}]
     monkeypatch.setattr(outreach.websearch, "search", lambda q, n=10, include_domains=None: hits)
     monkeypatch.setattr(outreach.websearch, "linkedin_budget", lambda n: n)
     seen = {}
@@ -1763,5 +1765,5 @@ def test_linkedin_finds_the_decision_maker_at_companies_we_emailed(store, monkey
     assert outreach._from_leads(store, 5, lambda m: None) == 1
     row = store.li_list()[0]
     assert row["key"] == "kovacs-anna" and row["company"] == "Kiss Trans Kft." and row["name"] == "Kovács Anna"
-    assert "ellenőrzött" in seen["profile"] and "info@kisstrans.hu" in seen["note"]
+    assert "ellenőrzött" in seen["profile"] and "nem kizáró ok" in seen["note"]
     assert outreach._from_leads(store, 5, lambda m: None) == 0      # ugyanazt a céget nem keresi újra

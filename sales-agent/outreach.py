@@ -348,7 +348,7 @@ def with_offer(message: str, lang: str) -> str:
 # tényünk van a saját weboldalukról, tehát illenek hozzánk; csak a döntéshozót
 # kell megtalálni náluk. Ugyanazt a céget két csatornán érjük el, és az üzenet
 # konkrétabb, mint egy puszta keresési találatból.
-TRIED_KEY = "li_tried_leads"
+TRIED_KEY = "li_tried_leads_v2"   # v2: az első változat rossz háttérszöveggel utasított el cégeket
 TRIED_KEEP = 2000
 
 
@@ -358,6 +358,37 @@ def _company_words(company: str) -> list[str]:
             "srl", "s.a", "sa", "sas", "sarl", "bv", "b.v", "nv", "ab", "oy", "lda", "plc", "group", "the", "and"}
     words = [w.strip(".,()&-").lower() for w in re.split(r"\s+", company or "")]
     return [w for w in words if len(w) >= 3 and w not in stop]
+
+
+# LinkedIn országos aldomainje (uk.linkedin.com) a célország kódjával.
+_LI_SUB = {"GB": "uk"}
+# Előnyben a döntéshozók: ügyvezető, üzemeltetés, ügyfélszolgálat; a HR és a
+# marketing csak akkor, ha mást nem találtunk.
+_ROLE_ORDER = (("ceo", "managing director", "ügyvezető", "general manager", "owner", "tulajdonos", "founder",
+                "director general", "directeur général", "konateľ", "director general", "direktor"),
+               ("coo", "operations", "üzemeltet", "operational", "logisti", "customer service", "ügyfélszolgálat",
+                "plant manager", "site manager"),
+               ("cfo", "finance", "pénzügy", "it ", "cio", "cto", "head of it"))
+
+
+def _role_rank(title: str) -> int:
+    t = (title or "").lower()
+    for i, words in enumerate(_ROLE_ORDER):
+        if any(w in t for w in words):
+            return i
+    return len(_ROLE_ORDER)
+
+
+def _same_country(hit: dict, lead: dict, text: str) -> bool:
+    host = (hit.get("url") or "").split("://")[-1].split("/")[0].lower()
+    sub = host.split(".")[0] if host.count(".") >= 2 else "www"
+    want = _LI_SUB.get(lead["country"], lead["country"].lower())
+    if sub not in ("www", "linkedin"):
+        return sub == want
+    dom = (lead.get("domain") or "").split(".")[0].lower()
+    town = (lead.get("town") or "").lower()
+    country = COUNTRY_EN.get(lead["country"], "").lower()
+    return bool((dom and dom in text) or (town and town in text) or (country and country in text))
 
 
 def _tried(store) -> list[int]:
@@ -384,16 +415,22 @@ def _from_leads(store, want: int, say) -> int:
             say("A mai LinkedIn-keresési keret elfogyott.")
             break
         done.append(lead["id"])
-        role = "ügyvezető" if lead["country"] == "HU" else "manager director head"
+        role = ("ügyvezető OR üzemeltetési vezető OR igazgató" if lead["country"] == "HU"
+                else "CEO OR managing director OR operations director OR head of operations")
         known = store.li_keys() | set(_seen_list(store))
-        pick = None
+        pick, best = None, 99
         for h in websearch.search(f"{lead['company']} {role}", n=10, include_domains=["linkedin.com"]):
             key = _profile_key(h.get("url", ""))
             text = f"{h.get('title', '')} {h.get('text', '')}".lower()
-            # Csak az, akinél a cég neve is ott van: különben egy névrokon cég embere lenne.
-            if key and key not in known and all(w in text for w in words[:2]):
-                pick = (key, h)
-                break
+            # Csak az, akinél a cég neve is ott van, és ugyanabban az országban:
+            # különben egy névrokon cég embere lenne (egy amerikai „PPS Group”).
+            if not key or key in known or not all(w in text for w in words[:2]):
+                continue
+            if not _same_country(h, lead, text):
+                continue
+            rank = _role_rank(h.get("title", ""))
+            if rank < best:
+                pick, best = (key, h), rank
         if not pick:
             continue
         key, h = pick
@@ -401,7 +438,9 @@ def _from_leads(store, want: int, say) -> int:
         fact = (lead.get("observation") or "").strip()
         profile = (f"{h['title']}\n{h.get('text', '')}".strip()
                    + (f"\n\nA cég saját weboldaláról (ellenőrzött): {fact}" if fact else ""))
-        note = f"A cégnek ({lead['company']}) már írtunk e-mailt a(z) {lead['email']} címre; ez a második csatorna."
+        note = (f"Háttér, nem kizáró ok: a cégnek ({lead['company']}) korábban már írtunk egy rövid e-mailt, "
+                "erre nem jött válasz. Ezért szándékosan keressük meg a döntéshozót LinkedInen is — ez a "
+                "megszokott második csatorna, írj neki nyugodtan. Az e-mailt ne említsd.")
         try:
             d = draft(profile[:MAX_PROFILE], note, lang, from_search=True)
         except (ValueError, llm.LLMError) as e:
