@@ -155,6 +155,52 @@ th{color:var(--mute);font:500 11px var(--mono);letter-spacing:.08em;text-transfo
 .think i:nth-child(2){animation-delay:.2s;background:var(--v)}.think i:nth-child(3){animation-delay:.4s;background:var(--m)}
 @keyframes blink{0%,100%{opacity:.2;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
 #warn{border-color:rgba(255,176,32,.5);color:var(--a)}
+
+/* Nagyobb, levegősebb felület: a panelt egész nap használják, telefonon is.
+   Egy helyen írjuk felül a méreteket, hogy a régi szabályok érintetlenek maradjanak. */
+body{font-size:17px;line-height:1.6}
+h1{font-size:19px} h1 small{font-size:11px}
+.cap{font-size:14px}
+.led{font-size:12px;padding:4px 11px 4px 10px}
+nav{gap:8px}
+nav button{font-size:15.5px;padding:11px 17px;border-radius:14px;gap:9px}
+nav button svg{width:18px;height:18px}
+nav button .n{font-size:12px;padding:1px 7px}
+main{padding-top:26px;padding-bottom:80px}
+button{font-size:16px;padding:12px 19px;border-radius:14px}
+.card{padding:26px 28px;margin-bottom:20px;border-radius:22px}
+@media (max-width:600px){.card{padding:20px 18px}}
+.mute,.stat{font-size:15px}
+.tag{font-size:13px;padding:3px 11px}
+label{font-size:13px;margin:16px 0 8px}
+h2{font-size:14px;margin:4px 0 16px}
+b.co{font-size:19px}
+input,textarea,select{font-size:16.5px;padding:13px 15px;border-radius:14px}
+textarea{min-height:260px}
+.row{gap:10px}
+table{font-size:15.5px} th{font-size:12.5px} th,td{padding:13px 8px}
+.log{font-size:14px;max-height:420px;padding:16px}
+.kpis{gap:16px;margin-bottom:20px}
+.kpi .v{font-size:40px} .kpi .k{font-size:12.5px} .kpi .s{font-size:13.5px}
+.fstep{font-size:15px;grid-template-columns:130px 1fr 52px}
+.ring{width:52px;height:52px;font-size:14px} .ring span{width:43px;height:43px}
+.checks label{font-size:15.5px;padding:11px 14px}
+.chips button{font-size:15px;padding:9px 14px}
+.obs{font-size:16.5px}
+
+/* LinkedIn */
+.li-card{display:grid;gap:14px}
+.li-head{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.li-who b{font-size:21px;display:block}
+.li-who span{color:var(--mute)}
+.li-msg{min-height:230px}
+.li-acts{display:flex;gap:10px;flex-wrap:wrap}
+.li-steps{display:grid;gap:8px;margin:0;padding-left:22px;color:var(--mute)}
+.li-filter{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.li-filter button{font-size:14px;padding:8px 14px;border-radius:999px}
+.li-table select{width:auto;padding:8px 10px;font-size:14.5px}
+.li-table td{vertical-align:top}
+.li-drop{border:1px dashed var(--line2);border-radius:16px;padding:22px;text-align:center;color:var(--mute)}
 details summary{cursor:pointer}
 </style>
 </head>
@@ -268,6 +314,45 @@ details summary{cursor:pointer}
 
   <section id="tab-linkedin" class="hide">
     <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Mai LinkedIn-sor</h2>
+        <div class="row"><span class="mute" id="liAuto"></span><button id="liRun">Új profilok most</button></div>
+      </div>
+      <ol class="li-steps" style="margin-top:14px">
+        <li>A <b>Profil + szöveg</b> gomb megnyitja a profilt, és a vágólapra teszi az üzenetet.</li>
+        <li>Ha még nem vagytok kapcsolatban: küldj <b>meghívót</b> (ingyenes fióknál megjegyzés nélkül), majd jelöld: <b>Meghívó elküldve</b>.</li>
+        <li>Ha elfogadta: illeszd be az üzenetet a LinkedIn-üzenetbe, és jelöld: <b>Üzenet elküldve</b>.</li>
+      </ol>
+    </div>
+    <div id="liQueue"></div>
+
+    <div class="card">
+      <h2>Nyilvántartás</h2>
+      <p class="mute" style="margin-top:0">Mindenki, akit a sales agent talált vagy akivel korábban kapcsolatban voltál.
+        Egy ember csak egyszer szerepelhet; akit egyszer megkerestél vagy kihagytál, az soha nem kerül újra a sorba.</p>
+      <div class="li-filter" id="liFilter"></div>
+      <div style="overflow-x:auto"><table class="li-table" id="liTable"></table></div>
+    </div>
+
+    <div class="card">
+      <h2>Aktív figyelő — korábbi kapcsolatok</h2>
+      <p class="mute" style="margin-top:0">Töltsd fel a LinkedIn-adatexportodat (<a href="https://www.linkedin.com/mypreferences/d/download-my-data" target="_blank" rel="noopener">innen kérheted</a>:
+        Connections, Invitations, Messages). Mindenki kimarad, akivel a sales agent előtt kapcsolatban voltál,
+        akinek meghívót küldtél, vagy akivel üzenetet váltottál — és aki épp a sorban várt, onnan is kikerül.
+        Bármikor újra feltöltheted, csak az újakat veszi fel.</p>
+      <label>A saját LinkedIn-profilod linkje (hogy magadat ne vegye fel)</label>
+      <input id="liOwn" placeholder="https://www.linkedin.com/in/…">
+      <div class="li-drop" style="margin-top:14px">
+        <input type="file" id="liFiles" multiple accept=".zip,.csv" style="max-width:420px;margin:0 auto">
+        <div style="margin-top:12px"><button class="pri" id="liImport">Feltöltés és kizárás</button></div>
+        <div class="mute" id="liImportInfo" style="margin-top:10px"></div>
+      </div>
+    </div>
+
+    <details class="card">
+      <summary><h2 style="display:inline;margin:0">Kézi keresés és bemásolás</h2></summary>
+      <div style="margin-top:18px">
+    <div class="card">
       <h2>Profilkeresés</h2>
       <p class="mute" style="margin-top:0">Iparág és ország szerint keres nyilvános profilokat, és
         mindegyikről ír pár sort: mit csinál a cég, milyen teher járhat a szerepkörrel, melyik agent illik rá.
@@ -321,7 +406,9 @@ details summary{cursor:pointer}
           <option value="hu">Magyar</option><option value="en">Angol</option>
           <option value="sk">Szlovák</option><option value="ro">Román</option>
           <option value="hr">Horvát</option><option value="sl">Szlovén</option>
-          <option value="fr">Francia</option>
+          <option value="fr">Francia</option><option value="nl">Holland</option>
+          <option value="sv">Svéd</option><option value="fi">Finn</option>
+          <option value="pt">Portugál</option>
         </select>
         <button class="pri" id="liGo">Megírja</button>
         <button id="liClear">Új profil</button>
@@ -329,6 +416,8 @@ details summary{cursor:pointer}
       </div>
     </div>
     <div id="liOut"></div>
+      </div>
+    </details>
   </section>
 
   <section id="tab-stats" class="hide"><div id="stats"></div></section>
@@ -364,7 +453,7 @@ document.querySelectorAll("[data-go]").forEach((b) => b.onclick = () => go(b.dat
 document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   tab = b.dataset.tab; window.scrollTo({top: 0});
   if (tab === "advisor") advLoad();
-  if (tab === "linkedin") liFillSelects();
+  if (tab === "linkedin") { liFillSelects(); liLoad(); }
   document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x === b));
   document.querySelectorAll("main section").forEach((s) => s.classList.toggle("hide", s.id !== "tab-" + tab));
 });
@@ -523,7 +612,11 @@ function planUI() {
 }
 
 async function refresh() {
-  try { S = await api("/api/state"); if (!$("#plan").children.length) planUI(); liFillSelects(); render(); }
+  try {
+    const was = S && S.job && S.job.running;
+    S = await api("/api/state"); if (!$("#plan").children.length) planUI(); liFillSelects(); render();
+    if (was && !S.job.running && tab === "linkedin") liLoad();   // a LinkedIn-kör végén frissül a sor
+  }
   catch (e) { flash(e.message); }
 }
 
@@ -969,6 +1062,95 @@ setInterval(() => { if (!document.hidden) refresh(); }, 5000);
     .observe(document.body, {childList: true, subtree: true});
   scan();
 })();
+
+// ---- LinkedIn: napi sor, nyilvántartás, aktív figyelő -------------------------
+let LI = {contacts: [], statuses: {}}, liShow = "all";
+const LI_OPEN = ["invited", "accepted", "messaged", "replied", "interested"];
+async function liLoad() {
+  try { LI = await api("/api/linkedin/contacts"); } catch (e) { flash(e.message); return; }
+  $("#liAuto").textContent = LI.daily ? `Magától: ${LI.time}, napi ${LI.daily} profil` : "A napi kör ki van kapcsolva";
+  liDrawQueue(); liDrawTable();
+}
+function liDrawQueue() {
+  const q = LI.contacts.filter((c) => c.status === "queued");
+  const ready = LI.contacts.filter((c) => c.status === "accepted");
+  const card = (c, mode) => `<div class="card li-card" data-key="${esc(c.key)}">
+    <div class="li-head">
+      <div class="li-who"><b>${esc(c.name || c.key)}</b><span>${esc(c.headline || "")}${c.company ? " · " + esc(c.company) : ""}</span>
+        <div style="margin-top:8px">${c.country ? `<span class="tag">${esc(c.country)}</span>` : ""}${c.agent ? `<span class="tag i">${esc(c.agent)}</span>` : ""}${c.score ? `<span class="tag">${c.score}/100</span>` : ""}</div></div>
+      <a href="${esc(c.url)}" target="_blank" rel="noopener" class="mute">${esc(c.url.replace(/^https?:\/\/(www\.)?/, ""))}</a>
+    </div>
+    ${c.summary ? `<div class="obs">${esc(c.summary)}</div>` : ""}
+    ${c.note ? `<div><span class="tag w">figyelem</span><span class="mute">${esc(c.note)}</span></div>` : ""}
+    <textarea class="li-msg">${esc(c.message || "")}</textarea>
+    <div class="li-acts">
+      <button class="pri" data-li="open">Profil + szöveg</button>
+      ${mode === "queue" ? `<button data-li="invited">Meghívó elküldve</button><button data-li="messaged">Üzenet elküldve</button><button class="warn" data-li="skipped">Kihagyom</button>`
+        : `<button data-li="messaged">Üzenet elküldve</button>`}
+      <button data-li="save">Szöveg mentése</button>
+    </div></div>`;
+  $("#liQueue").innerHTML =
+    (ready.length ? `<h2 style="margin:6px 0 12px">Elfogadták a meghívót — most mehet az üzenet (${ready.length})</h2>` + ready.map((c) => card(c, "ready")).join("") : "") +
+    (q.length ? `<h2 style="margin:6px 0 12px">Küldésre vár (${q.length})</h2>` + q.map((c) => card(c, "queue")).join("")
+      : `<div class="card mute">Most nincs várakozó profil. ${LI.daily ? "A következő napi körben jönnek újak, vagy nyomd meg az „Új profilok most” gombot." : ""}</div>`);
+}
+function liDrawTable() {
+  const counts = {}; LI.contacts.forEach((c) => counts[c.status] = (counts[c.status] || 0) + 1);
+  const keys = ["all", ...Object.keys(LI.statuses).filter((k) => counts[k])];
+  $("#liFilter").innerHTML = keys.map((k) => `<button data-lif="${k}" class="${liShow === k ? "on" : ""}">${k === "all" ? "Mind" : esc(LI.statuses[k])} (${k === "all" ? LI.contacts.length : counts[k]})</button>`).join("");
+  const rows = LI.contacts.filter((c) => liShow === "all" || c.status === liShow);
+  const opts = (cur) => Object.entries(LI.statuses).map(([k, v]) => `<option value="${k}" ${k === cur ? "selected" : ""}>${esc(v)}</option>`).join("");
+  $("#liTable").innerHTML = rows.length ? `<tr><th>Név</th><th>Cég / beosztás</th><th>Profil</th><th>Állapot</th><th>Elküldve</th><th>Megjegyzés</th></tr>` +
+    rows.map((c) => `<tr data-key="${esc(c.key)}">
+      <td><b>${esc(c.name || "—")}</b>${c.country ? `<div class="mute">${esc(c.country)}</div>` : ""}</td>
+      <td>${esc(c.company || "")}${c.company && c.headline ? "<br>" : ""}<span class="mute">${esc(c.headline || "")}</span></td>
+      <td><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.key)}</a></td>
+      <td><select data-lis>${opts(c.status)}</select></td>
+      <td class="mute">${esc((c.sent_at || "").slice(0, 10))}</td>
+      <td class="mute">${esc(c.note || "")}</td></tr>`).join("")
+    : `<tr><td class="mute">Még nincs senki a nyilvántartásban.</td></tr>`;
+}
+document.addEventListener("click", async (e) => {
+  const f = e.target.closest("[data-lif]");
+  if (f) { liShow = f.dataset.lif; liDrawTable(); return; }
+  const b = e.target.closest("[data-li]"); if (!b) return;
+  const card = b.closest("[data-key]"), key = card.dataset.key, msg = card.querySelector(".li-msg").value;
+  const c = LI.contacts.find((x) => x.key === key);
+  try {
+    if (b.dataset.li === "open") {
+      try { await navigator.clipboard.writeText(msg); flash("A szöveg a vágólapon van — a LinkedInen illeszd be (Ctrl+V)."); }
+      catch { flash("A vágólapra nem tudtam másolni: jelöld ki a szöveget, és másold kézzel."); }
+      window.open(c.url, "_blank", "noopener");
+      return;
+    }
+    if (b.dataset.li === "save") { await api(`/api/linkedin/contacts/${encodeURIComponent(key)}`, {message: msg}); flash("Mentve."); return; }
+    await api(`/api/linkedin/contacts/${encodeURIComponent(key)}`, {status: b.dataset.li, message: msg});
+    await liLoad();
+  } catch (err) { flash(err.message); }
+});
+document.addEventListener("change", async (e) => {
+  if (!e.target.matches("[data-lis]")) return;
+  const key = e.target.closest("[data-key]").dataset.key;
+  try { await api(`/api/linkedin/contacts/${encodeURIComponent(key)}`, {status: e.target.value}); await liLoad(); }
+  catch (err) { flash(err.message); }
+});
+$("#liRun").onclick = async () => {
+  try { await api("/api/linkedin/round", {}); flash("Keresem az új profilokat — a folyamat fent látszik, utána frissül a sor."); go("linkedin"); }
+  catch (e) { flash(e.message); }
+};
+$("#liImport").onclick = async () => {
+  const files = $("#liFiles").files;
+  if (!files.length) { flash("Válaszd ki a LinkedIn-export ZIP-jét vagy a CSV-ket."); return; }
+  const fd = new FormData(); [...files].forEach((f) => fd.append("files", f)); fd.append("own_url", $("#liOwn").value.trim());
+  $("#liImportInfo").textContent = "Feldolgozom…";
+  try {
+    const r = await fetch("/api/linkedin/import", {method: "POST", body: fd});
+    const d = await r.json().catch(() => null);
+    if (!r.ok) throw new Error((d && d.detail) || ("Hiba " + r.status));
+    $("#liImportInfo").textContent = `${d.found} korábbi kapcsolatot találtam: ${d.new} új került a kizártak közé, ${d.dequeued} kikerült a sorból.`;
+    await liLoad();
+  } catch (e) { $("#liImportInfo").textContent = ""; flash(e.message); }
+};
 </script>
 </body>
 </html>

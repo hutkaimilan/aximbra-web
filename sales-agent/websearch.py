@@ -100,7 +100,7 @@ def search(query: str, n: int = 4, include_domains: list[str] | None = None) -> 
 # ---- cégkeresés -------------------------------------------------------------
 # A kutatás a valódi találatokból választ cégeket. A Tavily havi 1000 ingyenes
 # keresése közös a tanácsadóval és a LinkedIn-kereséssel, ezért a kutatás napi
-# kerete külön korlátozott (TAVILY_RESEARCH_DAILY, alapból 24 ≈ 720/hó). A
+# kerete külön korlátozott (TAVILY_RESEARCH_DAILY, alapból 20 ≈ 600/hó; a LinkedIn napi köre ~130/hó). A
 # számláló a folyamatban él: újraindítás után nullázódik, ami legfeljebb egy
 # napnyi keret duplázása – a szolgáltatás nem alszik el, ritkán indul újra.
 
@@ -122,9 +122,9 @@ DIRECTORY_HOSTS = (
 def research_budget(want: int) -> int:
     """Ennyi keresést kaphat most a kutatás (0, ha elfogyott a napi keret)."""
     try:
-        cap = max(0, int(os.environ.get("TAVILY_RESEARCH_DAILY", "24")))
+        cap = max(0, int(os.environ.get("TAVILY_RESEARCH_DAILY", "20")))
     except ValueError:
-        cap = 24
+        cap = 20
     today = datetime.now(timezone.utc).date().isoformat()
     with _budget_lock:
         if _budget["day"] != today:

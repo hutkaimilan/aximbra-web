@@ -1676,3 +1676,72 @@ def test_compose_puts_the_offer_back_if_the_model_drops_it(monkeypatch):
     body = out["body"]
     assert playbook.OFFER["hu"] in body and body.rstrip().endswith(OPT_OUT["hu"])
     assert body.index(playbook.OFFER["hu"]) < body.index(OPT_OUT["hu"])
+
+
+# ---- LinkedIn-nyilvántartás --------------------------------------------------
+
+CONNECTIONS_CSV = """Notes:
+"When exporting your connection data, you may notice that some of the email addresses are missing."
+
+First Name,Last Name,URL,Email Address,Company,Position,Connected On
+Anna,Kovács,https://www.linkedin.com/in/anna-kovacs-123,,Kiss Trans Kft.,Logisztikai vezető,01 Oct 2026
+"""
+INVITATIONS_CSV = """From,To,Sent At,Message,Direction,inviterProfileUrl,inviteeProfileUrl
+Milán Hutkai,Peter Smith,"10/20/26, 9:00 AM",,OUTGOING,https://www.linkedin.com/in/milan-hutkai,https://www.linkedin.com/in/peter-smith-9
+Jane Doe,Milán Hutkai,"10/21/26, 9:00 AM",,INCOMING,https://www.linkedin.com/in/jane-doe,https://www.linkedin.com/in/milan-hutkai
+"""
+MESSAGES_CSV = """CONVERSATION ID,CONVERSATION TITLE,FROM,SENDER PROFILE URL,TO,RECIPIENT PROFILE URLS,DATE,SUBJECT,CONTENT,FOLDER
+1,,Milán Hutkai,https://www.linkedin.com/in/milan-hutkai,Tom,https://www.linkedin.com/in/tom-b,2026-10-01,,Hello,INBOX
+"""
+
+
+def test_linkedin_export_finds_everyone_we_already_had_contact_with(store):
+    import io
+    import zipfile
+    import outreach
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("Connections.csv", CONNECTIONS_CSV)
+        z.writestr("Invitations.csv", INVITATIONS_CSV)
+        z.writestr("messages.csv", MESSAGES_CSV)
+    rows = {r["key"]: r for r in outreach.parse_export({"export.zip": buf.getvalue()},
+                                                       "https://www.linkedin.com/in/milan-hutkai/")}
+    assert set(rows) == {"anna-kovacs-123", "peter-smith-9", "jane-doe", "tom-b"}   # saját profil nélkül
+    assert rows["anna-kovacs-123"]["company"] == "Kiss Trans Kft." and rows["anna-kovacs-123"]["name"] == "Anna Kovács"
+    # aki épp a sorban várt, kikerül; a többiek korábbi kapcsolatként kerülnek be
+    store.li_add({"key": "tom-b", "url": "https://www.linkedin.com/in/tom-b", "message": "Szia"})
+    res = outreach.import_export(store, {"Connections.csv": CONNECTIONS_CSV.encode(),
+                                         "Invitations.csv": INVITATIONS_CSV.encode(),
+                                         "messages.csv": MESSAGES_CSV.encode()})
+    assert res == {"found": 5, "new": 4, "dequeued": 1}   # itt a saját profil is benne van, kulcs nélkül szűrés
+    st = {c["key"]: c["status"] for c in store.li_list()}
+    assert st["tom-b"] == "previous" and st["anna-kovacs-123"] == "previous"
+    with pytest.raises(ValueError):
+        outreach.import_export(store, {"x.csv": b"a,b\n1,2\n"})
+
+
+def test_linkedin_daily_round_writes_each_person_only_once(store, monkeypatch):
+    import outreach
+    monkeypatch.setenv("LI_DAILY", "2")
+    monkeypatch.setattr(outreach.websearch, "tavily_on", lambda: True)
+    profiles = [{"key": f"p{i}", "url": f"https://www.linkedin.com/in/p{i}", "name": f"P{i}", "headline": "Ops",
+                 "summary": "s", "agent": "E-mail rendező", "score": 80, "snippet": "Operations manager at X"}
+                for i in range(3)]
+    monkeypatch.setattr(outreach, "search", lambda store, **kw: {"profiles": [p for p in profiles
+                                                                              if p["key"] not in store.li_keys()]})
+    monkeypatch.setattr(outreach, "draft", lambda *a, **k: {"verdict": "ir", "message": "Hello, " + "x" * 90,
+                                                           "problems": []})
+    assert outreach.daily_round(store) == 2
+    assert outreach.daily_round(store) == 0                 # tele a sor: előbb el kell küldeni
+    rows = store.li_list()
+    assert all(r["status"] == "queued" and playbook_offer_in(r) for r in rows)
+    store.li_set_status(rows[0]["key"], "invited")
+    assert store.li_list()[0]["sent_at"] or any(r["sent_at"] for r in store.li_list())
+    assert outreach.daily_round(store) == 1                 # csak az új jöhet, a két régi soha
+    assert sorted(r["key"] for r in store.li_list()) == ["p0", "p1", "p2"]
+    assert not store.li_add({"key": "p0", "url": "x"})      # ugyanaz az ember másodszor nem
+
+
+def playbook_offer_in(row):
+    import playbook
+    return any(o in (row["message"] or "") for o in playbook.OFFER.values())

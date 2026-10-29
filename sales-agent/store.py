@@ -84,6 +84,20 @@ CREATE TABLE IF NOT EXISTS demo_pages (
   first_cta TEXT
 );
 CREATE INDEX IF NOT EXISTS demo_pages_domain ON demo_pages(domain);
+CREATE TABLE IF NOT EXISTS li_contacts (
+  key TEXT PRIMARY KEY,           -- a profil linkjének vége (linkedin.com/in/<key>), kisbetűvel
+  url TEXT NOT NULL,
+  name TEXT, headline TEXT, company TEXT,
+  country TEXT, lang TEXT, agent TEXT, score INTEGER,
+  summary TEXT, message TEXT,
+  status TEXT NOT NULL,           -- lásd LI_STATUSES
+  source TEXT NOT NULL,           -- agent | import
+  note TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  sent_at TEXT
+);
+CREATE INDEX IF NOT EXISTS li_contacts_status ON li_contacts(status);
 CREATE TABLE IF NOT EXISTS demo_decisions (
   domain TEXT PRIMARY KEY,        -- a cégre egyszer választott agent, hogy ne ugráljon
   main TEXT NOT NULL,
@@ -91,6 +105,21 @@ CREATE TABLE IF NOT EXISTS demo_decisions (
   decided_at TEXT NOT NULL
 );
 """
+
+# LinkedIn-kapcsolat állapotai, a folyamat sorrendjében. Ingyenes fiókkal
+# idegennek csak meghívó mehet; üzenet csak elfogadás után.
+LI_STATUSES = {
+    "queued": "Vár küldésre",
+    "invited": "Meghívó elküldve",
+    "accepted": "Elfogadta",
+    "messaged": "Üzenet elküldve",
+    "replied": "Válaszolt",
+    "interested": "Érdeklődik",
+    "not_interested": "Nem érdekli",
+    "skipped": "Kihagyva",
+    "previous": "Korábbi kapcsolat",   # a LinkedIn-exportból: a sales agent előtt is volt kapcsolat
+}
+LI_CONTACTED = ("invited", "accepted", "messaged", "replied", "interested", "not_interested")
 
 # Később hozzáadott oszlopok: a meglévő adatbázis a köteten van, ezért
 # indításkor pótoljuk őket, adatvesztés nélkül.
@@ -154,6 +183,68 @@ class Store:
         with self._conn() as c:
             c.execute("INSERT INTO settings (key, value) VALUES (?, ?) "
                       "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (key, value))
+
+    # ---- LinkedIn-kapcsolatok --------------------------------------------
+
+    def li_keys(self) -> set[str]:
+        with self._conn() as c:
+            return {r[0] for r in c.execute("SELECT key FROM li_contacts").fetchall()}
+
+    def li_add(self, row: dict) -> bool:
+        """Új profil a sorba. Hamis, ha már szerepel: mindenki csak egyszer."""
+        t = now()
+        with self._conn() as c:
+            cur = c.execute(
+                "INSERT OR IGNORE INTO li_contacts (key, url, name, headline, company, country, lang, agent, score, "
+                "summary, message, status, source, note, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (row["key"], row["url"], row.get("name"), row.get("headline"), row.get("company"),
+                 row.get("country"), row.get("lang"), row.get("agent"), _int(row.get("score")),
+                 row.get("summary"), row.get("message"), row.get("status") or "queued",
+                 row.get("source") or "agent", row.get("note"), t, t))
+            return cur.rowcount > 0
+
+    def li_mark_previous(self, row: dict) -> str:
+        """Az exportból: aki még nincs bent, korábbi kapcsolatként kerül be; aki a
+        sorban várt, kikerül onnan (vele már volt dolgunk). 'new' | 'dequeued' | ''"""
+        t = now()
+        with self._conn() as c:
+            cur = c.execute("UPDATE li_contacts SET status = 'previous', updated_at = ?, "
+                            "name = COALESCE(name, ?), company = COALESCE(company, ?) "
+                            "WHERE key = ? AND status = 'queued'",
+                            (t, row.get("name"), row.get("company"), row["key"]))
+            if cur.rowcount:
+                return "dequeued"
+            cur = c.execute(
+                "INSERT OR IGNORE INTO li_contacts (key, url, name, headline, company, status, source, note, "
+                "created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'previous', 'import', ?, ?, ?)",
+                (row["key"], row["url"], row.get("name"), row.get("headline"), row.get("company"),
+                 row.get("note"), t, t))
+            return "new" if cur.rowcount else ""
+
+    def li_list(self) -> list[dict]:
+        with self._conn() as c:
+            rows = c.execute("SELECT * FROM li_contacts ORDER BY COALESCE(sent_at, created_at) DESC").fetchall()
+        return [dict(r) for r in rows]
+
+    def li_set_status(self, key: str, status: str, note: str | None = None) -> dict | None:
+        if status not in LI_STATUSES:
+            raise ValueError("ismeretlen állapot")
+        t = now()
+        with self._conn() as c:
+            c.execute("UPDATE li_contacts SET status = ?, updated_at = ?, note = COALESCE(?, note), "
+                      "sent_at = CASE WHEN sent_at IS NULL AND ? IN ('invited', 'messaged') THEN ? ELSE sent_at END "
+                      "WHERE key = ?", (status, t, note, status, t, key))
+            r = c.execute("SELECT * FROM li_contacts WHERE key = ?", (key,)).fetchone()
+        return dict(r) if r else None
+
+    def li_set_message(self, key: str, message: str) -> None:
+        with self._conn() as c:
+            c.execute("UPDATE li_contacts SET message = ?, updated_at = ? WHERE key = ?", (message, now(), key))
+
+    def li_queued(self) -> int:
+        with self._conn() as c:
+            return c.execute("SELECT COUNT(*) FROM li_contacts WHERE status = 'queued'").fetchone()[0]
 
     # ---- tanácsadó -------------------------------------------------------
 

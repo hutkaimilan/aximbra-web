@@ -104,10 +104,32 @@ def _score(v) -> int:
         return 0
 
 
+# A nem magyar országokban angolul keresünk: a magyar iparágnév egy román vagy
+# holland profilra semmit nem talál, az angol beosztás viszont szinte mindenhol
+# így szerepel a LinkedInen.
+SECTOR_EN = {"logistics": "logistics", "manufacturing": "manufacturing", "healthcare": "private healthcare",
+             "automotive": "car dealership", "finance": "financial services", "property": "real estate",
+             "ecommerce": "e-commerce", "hospitality": "hotel", "energy": "energy", "it_services": "IT services"}
+COUNTRY_EN = {"HU": "Hungary", "SK": "Slovakia", "RO": "Romania", "HR": "Croatia", "SI": "Slovenia",
+              "GB": "United Kingdom", "IE": "Ireland", "FR": "France", "BE": "Belgium", "NL": "Netherlands",
+              "LU": "Luxembourg", "SE": "Sweden", "FI": "Finland", "PT": "Portugal", "AU": "Australia",
+              "NZ": "New Zealand", "US": "United States", "CA": "Canada"}
+ROLES_EN = ("Operations Manager", "Customer Service Manager", "Managing Director", "Head of Operations",
+            "Finance Director", "IT Manager")
+
+
 def queries(sector: str, country: str, role: str) -> list[str]:
     """Több rövid lekérdezés egy hosszú helyett: a keresők a tömör kifejezésekre
     adnak értelmes találatot, és a változatok más-más embereket hoznak fel."""
     sec = playbook.SECTORS.get(sector, {})
+    if country != "HU":
+        place = COUNTRY_EN.get(country, country)
+        base = SECTOR_EN.get(sector, sector)
+        what = (role or "").strip() or base
+        out = [f"{what} {base} {place}", f"{what} {place} LinkedIn"]
+        if role:
+            out.append(f"{role} {base}")
+        return out
     place = playbook.COUNTRIES.get(country, {}).get("name", country)
     what = (role or "").strip() or sec.get("hu", sector)
     base = sec.get("hu", sector)
@@ -144,7 +166,7 @@ def _clean(values, allowed, what: str) -> list[str]:
 
 
 def search(store, *, sectors: list[str], countries: list[str], roles: list[str] | None = None,
-           say=logger.info) -> dict:
+           say=logger.info, max_combos: int = MAX_COMBOS) -> dict:
     """Nyilvános profilok keresése és szűrése. Nem küld és nem ment leadet."""
     sectors = _clean(sectors, playbook.SECTORS, "iparágat")
     countries = _clean(countries, playbook.COUNTRIES, "országot")
@@ -153,8 +175,10 @@ def search(store, *, sectors: list[str], countries: list[str], roles: list[str] 
         raise ValueError("Ehhez TAVILY_API_KEY kell: a keresőmotor indexét kérdezzük, "
                          "és enélkül nincs honnan találatot venni.")
 
-    combos = plan(sectors, countries, roles)
-    seen, hits, keys = set(_seen_list(store)), [], set()
+    combos = plan(sectors, countries, roles)[:max_combos]
+    # A nyilvántartásban szereplők (megkeresettek és a LinkedIn-exportból
+    # ismert korábbi kapcsolatok) sem jöhetnek elő újra.
+    seen, hits, keys = set(_seen_list(store)) | store.li_keys(), [], set()
     for sector, country, role in combos:
         if len(hits) >= MAX_HITS:
             break
@@ -204,6 +228,7 @@ def search(store, *, sectors: list[str], countries: list[str], roles: list[str] 
         if score < playbook.MIN_SEARCH_SCORE:
             continue
         out.append({
+            "key": _profile_key(hits[i]["url"]),
             "url": hits[i]["url"],
             "name": str(item.get("name") or "").strip()[:120],
             "headline": str(item.get("headline") or "").strip()[:120],
@@ -275,3 +300,171 @@ def draft(profile: str, note: str = "", lang: str = "hu", from_search: bool = Fa
                         f"({len(message)}) — LinkedInen ennyit nem olvasnak el.")
     return {"verdict": verdict, "reason": reason, "quote": quote,
             "message": message, "problems": problems}
+
+
+# ---- napi kör: a sor feltöltése ------------------------------------------------
+# Hétköznap egyszer: a következő iparág–ország párokra keres (körbeforgatva, hogy
+# mind sorra kerüljön), a legjobb profiloknak megírja az üzenetet a nyelvükön,
+# és a sorba teszi. Elküldeni a felhasználó küldi el, a LinkedInen; a sor arra
+# való, hogy reggel kész legyen, mit kinek.
+
+DAILY_DEFAULT = 10
+DAILY_COMBOS = 3   # 3 pár × 2 keresés = napi 6 Tavily-lekérdezés (havi ~130)
+
+
+def daily_target() -> int:
+    import os
+    try:
+        return max(0, min(30, int(os.environ.get("LI_DAILY") or DAILY_DEFAULT)))
+    except ValueError:
+        return DAILY_DEFAULT
+
+
+def _next_pairs(store, n: int) -> list[tuple[str, str]]:
+    """A következő n iparág–ország pár. A kurzor a beállításokban él, így egy
+    újraindítás után is ott folytatja, ahol abbahagyta."""
+    countries = [c for c in playbook.COUNTRIES if playbook.country_ready(c)]
+    sectors = list(playbook.SECTORS)
+    pairs = [(sectors[i % len(sectors)], countries[i % len(countries)])
+             for i in range(len(sectors) * len(countries))]
+    try:
+        at = int(store.get_setting("li_cursor") or 0)
+    except ValueError:
+        at = 0
+    out = [pairs[(at + i) % len(pairs)] for i in range(n)]
+    store.set_setting("li_cursor", str((at + n) % len(pairs)))
+    return out
+
+
+def with_offer(message: str, lang: str) -> str:
+    offer = playbook.OFFER.get(lang) or playbook.OFFER["en"]
+    return message if offer in message else f"{message.rstrip()}\n\n{offer}"
+
+
+def daily_round(store, say=logger.info) -> int:
+    """Feltölti a sort legfeljebb daily_target() új profillal. Visszaadja, hányat tett be."""
+    want = daily_target() - store.li_queued()
+    if want <= 0:
+        say("A LinkedIn-sor tele van: előbb a várakozókat küldd el vagy hagyd ki.")
+        return 0
+    added = 0
+    for sector, country in _next_pairs(store, DAILY_COMBOS):
+        if added >= want:
+            break
+        try:
+            found = search(store, sectors=[sector], countries=[country], roles=[], say=say, max_combos=1)
+        except (ValueError, llm.LLMError) as e:
+            say(f"LinkedIn ({sector}, {country}): a keresés nem sikerült ({e}).")
+            continue
+        lang = playbook.COUNTRIES[country]["lang"]
+        for p in found["profiles"]:
+            if added >= want:
+                break
+            if not p["key"] or p["key"] in store.li_keys():
+                continue
+            try:
+                d = draft(p["snippet"], "", lang, from_search=True)
+            except (ValueError, llm.LLMError) as e:
+                say(f"LinkedIn: {p['name'] or p['key']} — nem lett szöveg ({e}).")
+                continue
+            if d["verdict"] != "ir" or not d["message"]:
+                continue
+            row = {"key": p["key"], "url": p["url"], "name": p["name"], "headline": p["headline"],
+                   "company": "", "country": country, "lang": lang, "agent": p["agent"], "score": p["score"],
+                   "summary": p["summary"], "message": with_offer(d["message"], lang),
+                   "note": "; ".join(d["problems"]) or None}
+            if store.li_add(row):
+                added += 1
+                say(f"LinkedIn: sorba téve {p['name'] or p['key']} ({country}, {p['score']}/100).")
+    say(f"LinkedIn: {added} új profil vár küldésre.")
+    return added
+
+
+# ---- aktív figyelő: a LinkedIn-adatexport --------------------------------------
+# A LinkedIn „Adataid letöltése” csomagjából (ZIP vagy a benne lévő CSV-k)
+# mindenkit kiolvasunk, akivel a sales agent előtt is volt kapcsolat: a
+# kapcsolatokat, a küldött és kapott meghívókat, és akikkel üzenetet váltottál.
+# Ők soha nem kerülnek a sorba; aki épp ott várt, kikerül onnan.
+
+_IN_URL = re.compile(r"https?://(?:[a-z0-9-]+\.)*linkedin\.com/in/[^\s\",;/?#]+", re.I)
+
+
+def _csv_rows(text: str) -> list[dict]:
+    """A LinkedIn CSV-k elején néha megjegyzés-sorok vannak; a fejléc az első
+    sor, amelyben vessző után ismert oszlopnév áll."""
+    import csv
+    import io
+    lines = text.splitlines()
+    start = 0
+    for i, line in enumerate(lines[:20]):
+        low = line.lower()
+        if "url" in low or "first name" in low or "conversation id" in low or "from" in low:
+            start = i
+            break
+    return list(csv.DictReader(io.StringIO("\n".join(lines[start:]))))
+
+
+def parse_export(files: dict[str, bytes], own_url: str = "") -> list[dict]:
+    """{fájlnév: tartalom} -> [{key, url, name, company, headline, note}]. ZIP-et is elfogad."""
+    import io
+    import zipfile
+    texts: dict[str, str] = {}
+    for name, data in files.items():
+        if name.lower().endswith(".zip") or data[:2] == b"PK":
+            try:
+                with zipfile.ZipFile(io.BytesIO(data)) as z:
+                    for info in z.infolist():
+                        if info.filename.lower().endswith(".csv") and info.file_size < 50_000_000:
+                            texts[info.filename] = z.read(info).decode("utf-8-sig", "replace")
+            except zipfile.BadZipFile:
+                raise ValueError(f"{name}: nem olvasható ZIP")
+        else:
+            texts[name] = data.decode("utf-8-sig", "replace")
+    own = _profile_key(own_url) if own_url else ""
+    found: dict[str, dict] = {}
+
+    def add(url: str, **extra):
+        key = _profile_key(url)
+        if not key or key == own:
+            return
+        row = found.setdefault(key, {"key": key, "url": url.split("?")[0]})
+        for k, v in extra.items():
+            if v and not row.get(k):
+                row[k] = v.strip()[:200]
+
+    for name, text in texts.items():
+        low = name.lower().rsplit("/", 1)[-1]
+        if low.startswith("connections"):
+            for r in _csv_rows(text):
+                url = r.get("URL") or r.get("Url") or ""
+                full = f"{r.get('First Name', '')} {r.get('Last Name', '')}".strip()
+                add(url, name=full, company=r.get("Company", ""), headline=r.get("Position", ""),
+                    note="kapcsolat (LinkedIn-export)")
+        elif low.startswith("invitations"):
+            for r in _csv_rows(text):
+                outgoing = (r.get("Direction") or "").upper() == "OUTGOING"
+                url = (r.get("inviteeProfileUrl") if outgoing else r.get("inviterProfileUrl")) or ""
+                add(url, name=(r.get("To") if outgoing else r.get("From")) or "",
+                    note="meghívó (LinkedIn-export)")
+        elif low.startswith("messages"):
+            for r in _csv_rows(text):
+                for u in _IN_URL.findall((r.get("RECIPIENT PROFILE URLS") or "") + " " +
+                                         (r.get("SENDER PROFILE URL") or "")):
+                    add(u, note="üzenetváltás (LinkedIn-export)")
+        # A többi fájlban (pl. ajánlások, követések) is lehet profillink:
+        # azokat nem gyűjtjük, mert nem jelentenek megkeresést.
+    return list(found.values())
+
+
+def import_export(store, files: dict[str, bytes], own_url: str = "") -> dict:
+    rows = parse_export(files, own_url)
+    if not rows:
+        raise ValueError("Nem találtam benne profilt. A LinkedIn-export ZIP-jét vagy a Connections, "
+                         "Invitations, messages CSV-t töltsd fel.")
+    new = dequeued = 0
+    for r in rows:
+        res = store.li_mark_previous(r)
+        new += res == "new"
+        dequeued += res == "dequeued"
+    _remember(store, [r["key"] for r in rows])
+    return {"found": len(rows), "new": new, "dequeued": dequeued}

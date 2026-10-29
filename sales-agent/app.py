@@ -14,7 +14,7 @@ import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -852,6 +852,85 @@ def linkedin_draft(body: LinkedInIn):
         _advisor_lock.release()
 
 
+# ---- LinkedIn-nyilvántartás -------------------------------------------------
+
+@app.get("/api/linkedin/contacts", dependencies=[Depends(auth)])
+def linkedin_contacts():
+    from store import LI_STATUSES
+    return {"contacts": store.li_list(), "statuses": LI_STATUSES, "daily": outreach.daily_target(),
+            "time": _li_time_text()}
+
+
+class LiUpdateIn(BaseModel):
+    status: str | None = Field(default=None, max_length=20)
+    note: str | None = Field(default=None, max_length=500)
+    message: str | None = Field(default=None, max_length=3000)
+
+
+@app.post("/api/linkedin/contacts/{key}", dependencies=[Depends(auth)])
+def linkedin_contact_update(key: str, body: LiUpdateIn):
+    if body.message is not None:
+        store.li_set_message(key, body.message.strip())
+    row = None
+    if body.status is not None:
+        try:
+            row = store.li_set_status(key, body.status, body.note)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        if row is None:
+            raise HTTPException(404, "Nincs ilyen profil a listában.")
+    return {"ok": True, "contact": row}
+
+
+@app.post("/api/linkedin/round", dependencies=[Depends(auth)])
+def linkedin_round():
+    return _require_start(job.start("LinkedIn-kör", lambda log: outreach.daily_round(store, say=log.say)))
+
+
+@app.post("/api/linkedin/import", dependencies=[Depends(auth)])
+def linkedin_import(files: list[UploadFile] = File(...), own_url: str = Form(default="")):
+    """Aktív figyelő: a LinkedIn-adatexportból mindenki kimarad, akivel már volt kapcsolat."""
+    data: dict[str, bytes] = {}
+    total = 0
+    for f in files[:10]:
+        b = f.file.read(LI_IMPORT_MAX + 1)
+        total += len(b)
+        if total > LI_IMPORT_MAX:
+            raise HTTPException(413, "Túl nagy (legfeljebb 100 MB együtt).")
+        data[f.filename or f"fajl{len(data)}"] = b
+    try:
+        return outreach.import_export(store, data, own_url.strip())
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+LI_IMPORT_MAX = 100 * 1024 * 1024
+
+
+def _li_time() -> tuple[int, int]:
+    raw = (os.environ.get("LI_TIME") or "08:15").strip()
+    try:
+        h, m = (int(x) for x in raw.split(":"))
+        if 0 <= h < 24 and 0 <= m < 60:
+            return h, m
+    except ValueError:
+        pass
+    return 8, 15
+
+
+def _li_time_text() -> str:
+    h, m = _li_time()
+    return f"hétköznap {h:02d}:{m:02d}"
+
+
+def linkedin_due(now: datetime) -> bool:
+    """Hétköznap egyszer, a beállított idő után, délután 2-ig."""
+    if now.weekday() > 4 or store.get_setting("li_done_day") == now.date().isoformat():
+        return False
+    h, m = _li_time()
+    return now.replace(hour=h, minute=m, second=0, microsecond=0) <= now and now.hour < 14
+
+
 class BlockIn(BaseModel):
     items: str = Field(max_length=20000)
     reason: str = Field(default="kézzel felvéve", max_length=100)
@@ -1055,6 +1134,9 @@ def _scheduler():
                     _reply_watch()
                 except (AuthError, MailError) as e:
                     logger.warning("válaszfigyelés kimaradt: %s", e)
+            if outreach.daily_target() and linkedin_due(now) and not job.running and websearch.tavily_on():
+                if job.start("LinkedIn napi kör", lambda log: outreach.daily_round(store, say=log.say)):
+                    store.set_setting("li_done_day", now.date().isoformat())
             if content.enabled() and content.due(now, store):
                 threading.Thread(target=_content_round, args=(now,), daemon=True).start()
         except Exception:  # noqa: BLE001
