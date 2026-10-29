@@ -100,7 +100,7 @@ def search(query: str, n: int = 4, include_domains: list[str] | None = None) -> 
 # ---- cégkeresés -------------------------------------------------------------
 # A kutatás a valódi találatokból választ cégeket. A Tavily havi 1000 ingyenes
 # keresése közös a tanácsadóval és a LinkedIn-kereséssel, ezért a kutatás napi
-# kerete külön korlátozott (TAVILY_RESEARCH_DAILY, alapból 20 ≈ 600/hó; a LinkedIn napi köre ~130/hó). A
+# kerete külön korlátozott (TAVILY_RESEARCH_DAILY, alapból 18 ≈ 540/hó; a LinkedIn napi köre ~260/hó). A
 # számláló a folyamatban él: újraindítás után nullázódik, ami legfeljebb egy
 # napnyi keret duplázása – a szolgáltatás nem alszik el, ritkán indul újra.
 
@@ -119,19 +119,32 @@ DIRECTORY_HOSTS = (
 )
 
 
-def research_budget(want: int) -> int:
-    """Ennyi keresést kaphat most a kutatás (0, ha elfogyott a napi keret)."""
+_li_budget = {"day": "", "used": 0}
+
+
+def _grant(book: dict, want: int, env: str, default: int) -> int:
     try:
-        cap = max(0, int(os.environ.get("TAVILY_RESEARCH_DAILY", "20")))
+        cap = max(0, int(os.environ.get(env, str(default))))
     except ValueError:
-        cap = 20
+        cap = default
     today = datetime.now(timezone.utc).date().isoformat()
     with _budget_lock:
-        if _budget["day"] != today:
-            _budget.update(day=today, used=0)
-        grant = max(0, min(want, cap - _budget["used"]))
-        _budget["used"] += grant
+        if book["day"] != today:
+            book.update(day=today, used=0)
+        grant = max(0, min(want, cap - book["used"]))
+        book["used"] += grant
         return grant
+
+
+def research_budget(want: int) -> int:
+    """Ennyi keresést kaphat most a kutatás (0, ha elfogyott a napi keret)."""
+    return _grant(_budget, want, "TAVILY_RESEARCH_DAILY", 18)
+
+
+def linkedin_budget(want: int) -> int:
+    """A LinkedIn napi körének kerete (TAVILY_LINKEDIN_DAILY, alapból 12 ≈ 260/hó
+    hétköznapokon). A kutatás 18-cal együtt ~800/hó: marad a tanácsadónak is."""
+    return _grant(_li_budget, want, "TAVILY_LINKEDIN_DAILY", 12)
 
 
 def is_directory(url: str) -> bool:

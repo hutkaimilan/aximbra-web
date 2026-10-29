@@ -166,7 +166,7 @@ def _clean(values, allowed, what: str) -> list[str]:
 
 
 def search(store, *, sectors: list[str], countries: list[str], roles: list[str] | None = None,
-           say=logger.info, max_combos: int = MAX_COMBOS) -> dict:
+           say=logger.info, max_combos: int = MAX_COMBOS, budgeted: bool = False) -> dict:
     """Nyilvános profilok keresése és szűrése. Nem küld és nem ment leadet."""
     sectors = _clean(sectors, playbook.SECTORS, "iparágat")
     countries = _clean(countries, playbook.COUNTRIES, "országot")
@@ -184,7 +184,10 @@ def search(store, *, sectors: list[str], countries: list[str], roles: list[str] 
             break
         for q in queries(sector, country, role)[:QUERIES_PER_COMBO]:
             say(f"Keresés: {q}")
-            for h in websearch.search(q, n=10, include_domains=["linkedin.com"]):
+            if budgeted and not websearch.linkedin_budget(1):
+                say("A mai LinkedIn-keresési keret elfogyott.")
+                break
+            for h in websearch.search(q, n=20, include_domains=["linkedin.com"]):
                 key = _profile_key(h.get("url", ""))
                 if not key or key in keys or key in seen:
                     continue
@@ -309,7 +312,7 @@ def draft(profile: str, note: str = "", lang: str = "hu", from_search: bool = Fa
 # való, hogy reggel kész legyen, mit kinek.
 
 DAILY_DEFAULT = 10
-DAILY_COMBOS = 3   # 3 pár × 2 keresés = napi 6 Tavily-lekérdezés (havi ~130)
+DAILY_PAIRS = 6    # legfeljebb ennyi iparág–ország pár egy körben; a keresést a napi keret is korlátozza
 
 
 def daily_target() -> int:
@@ -348,11 +351,16 @@ def daily_round(store, say=logger.info) -> int:
         say("A LinkedIn-sor tele van: előbb a várakozókat küldd el vagy hagyd ki.")
         return 0
     added = 0
-    for sector, country in _next_pairs(store, DAILY_COMBOS):
+    for n, (sector, country) in enumerate(_next_pairs(store, DAILY_PAIRS)):
         if added >= want:
             break
+        # Konkrét beosztással keresünk: beosztás nélkül a kifejezés csak az
+        # iparág nevét ismételte, és alig hozott profilt.
+        roles = ROLES if country == "HU" else ROLES_EN
+        role = roles[(n + len(store.li_keys())) % len(roles)]
         try:
-            found = search(store, sectors=[sector], countries=[country], roles=[], say=say, max_combos=1)
+            found = search(store, sectors=[sector], countries=[country], roles=[role], say=say,
+                           max_combos=1, budgeted=True)
         except (ValueError, llm.LLMError) as e:
             say(f"LinkedIn ({sector}, {country}): a keresés nem sikerült ({e}).")
             continue
