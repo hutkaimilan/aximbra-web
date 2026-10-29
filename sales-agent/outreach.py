@@ -344,13 +344,91 @@ def with_offer(message: str, lang: str) -> str:
     return message if offer in message else f"{message.rstrip()}\n\n{offer}"
 
 
+# Első forrás: a cégek, akiknek a sales agent már írt e-mailt. Róluk ellenőrzött
+# tényünk van a saját weboldalukról, tehát illenek hozzánk; csak a döntéshozót
+# kell megtalálni náluk. Ugyanazt a céget két csatornán érjük el, és az üzenet
+# konkrétabb, mint egy puszta keresési találatból.
+TRIED_KEY = "li_tried_leads"
+TRIED_KEEP = 2000
+
+
+def _company_words(company: str) -> list[str]:
+    """A cégnév jellemző szavai az egyezéshez (a jogi forma és a rövid szavak nélkül)."""
+    stop = {"kft", "zrt", "nyrt", "bt", "kkt", "ltd", "limited", "llc", "inc", "gmbh", "sro", "s.r.o", "a.s",
+            "srl", "s.a", "sa", "sas", "sarl", "bv", "b.v", "nv", "ab", "oy", "lda", "plc", "group", "the", "and"}
+    words = [w.strip(".,()&-").lower() for w in re.split(r"\s+", company or "")]
+    return [w for w in words if len(w) >= 3 and w not in stop]
+
+
+def _tried(store) -> list[int]:
+    try:
+        data = json.loads(store.get_setting(TRIED_KEY) or "[]")
+    except ValueError:
+        return []
+    return [x for x in data if isinstance(x, int)]
+
+
+def _from_leads(store, want: int, say) -> int:
+    tried = set(_tried(store))
+    leads = [l for l in store.list("sent") if l["id"] not in tried and l["reply_kind"] in ("none", "auto")
+             and not store.is_blocked(l["email"]) and l.get("company")]
+    added, done = 0, []
+    for lead in leads:
+        if added >= want:
+            break
+        words = _company_words(lead["company"])
+        if not words:
+            done.append(lead["id"])
+            continue
+        if not websearch.linkedin_budget(1):
+            say("A mai LinkedIn-keresési keret elfogyott.")
+            break
+        done.append(lead["id"])
+        role = "ügyvezető" if lead["country"] == "HU" else "manager director head"
+        known = store.li_keys() | set(_seen_list(store))
+        pick = None
+        for h in websearch.search(f"{lead['company']} {role}", n=10, include_domains=["linkedin.com"]):
+            key = _profile_key(h.get("url", ""))
+            text = f"{h.get('title', '')} {h.get('text', '')}".lower()
+            # Csak az, akinél a cég neve is ott van: különben egy névrokon cég embere lenne.
+            if key and key not in known and all(w in text for w in words[:2]):
+                pick = (key, h)
+                break
+        if not pick:
+            continue
+        key, h = pick
+        lang = lead.get("lang") or playbook.COUNTRIES.get(lead["country"], {}).get("lang", "en")
+        fact = (lead.get("observation") or "").strip()
+        profile = (f"{h['title']}\n{h.get('text', '')}".strip()
+                   + (f"\n\nA cég saját weboldaláról (ellenőrzött): {fact}" if fact else ""))
+        note = f"A cégnek ({lead['company']}) már írtunk e-mailt a(z) {lead['email']} címre; ez a második csatorna."
+        try:
+            d = draft(profile[:MAX_PROFILE], note, lang, from_search=True)
+        except (ValueError, llm.LLMError) as e:
+            say(f"LinkedIn ({lead['company']}): nem lett szöveg ({e}).")
+            continue
+        if d["verdict"] != "ir" or not d["message"]:
+            say(f"LinkedIn ({lead['company']}): a talált embernek nem érdemes írni ({d['reason']}).")
+            continue
+        name = re.split(r"\s[-–|]\s", h["title"])[0].strip()[:120]
+        row = {"key": key, "url": h["url"].split("?")[0], "name": name, "headline": h["title"][:200],
+               "company": lead["company"], "country": lead["country"], "lang": lang, "agent": lead.get("pain"),
+               "score": lead.get("score"), "summary": f"E-mailben már megkerestük ({lead['email']}). {fact}"[:700],
+               "message": with_offer(d["message"], lang), "note": "; ".join(d["problems"]) or None}
+        if store.li_add(row):
+            added += 1
+            say(f"LinkedIn: sorba téve {name} ({lead['company']}, {lead['country']}).")
+    store.set_setting(TRIED_KEY, json.dumps((_tried(store) + done)[-TRIED_KEEP:]))
+    return added
+
+
 def daily_round(store, say=logger.info) -> int:
     """Feltölti a sort legfeljebb daily_target() új profillal. Visszaadja, hányat tett be."""
     want = daily_target() - store.li_queued()
     if want <= 0:
         say("A LinkedIn-sor tele van: előbb a várakozókat küldd el vagy hagyd ki.")
         return 0
-    added = 0
+    added = _from_leads(store, want, say)
     for n, (sector, country) in enumerate(_next_pairs(store, DAILY_PAIRS)):
         if added >= want:
             break

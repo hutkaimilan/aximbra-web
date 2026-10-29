@@ -1745,3 +1745,23 @@ def test_linkedin_daily_round_writes_each_person_only_once(store, monkeypatch):
 def playbook_offer_in(row):
     import playbook
     return any(o in (row["message"] or "") for o in playbook.OFFER.values())
+
+
+def test_linkedin_finds_the_decision_maker_at_companies_we_emailed(store, monkeypatch):
+    import outreach
+    lid = store.add_lead(dict(CAND, company="Kiss Trans Kft.", email="info@kisstrans.hu", lang="hu"))
+    monkeypatch.setattr(store, "list", lambda status=None: [dict(store.get(lid), status="sent", reply_kind="none")]
+                        if status == "sent" else [])
+    hits = [{"title": "Nagy Béla - Másik Cég Kft.", "url": "https://hu.linkedin.com/in/nagy-bela", "text": "ügyvezető"},
+            {"title": "Kovács Anna - Ügyvezető - Kiss Trans Kft.", "url": "https://hu.linkedin.com/in/kovacs-anna?x=1",
+             "text": "Kiss Trans, szállítmányozás"}]
+    monkeypatch.setattr(outreach.websearch, "search", lambda q, n=10, include_domains=None: hits)
+    monkeypatch.setattr(outreach.websearch, "linkedin_budget", lambda n: n)
+    seen = {}
+    monkeypatch.setattr(outreach, "draft", lambda profile, note, lang, from_search=False: seen.update(
+        profile=profile, note=note) or {"verdict": "ir", "message": "Jó napot, " + "x" * 90, "problems": [], "reason": ""})
+    assert outreach._from_leads(store, 5, lambda m: None) == 1
+    row = store.li_list()[0]
+    assert row["key"] == "kovacs-anna" and row["company"] == "Kiss Trans Kft." and row["name"] == "Kovács Anna"
+    assert "ellenőrzött" in seen["profile"] and "info@kisstrans.hu" in seen["note"]
+    assert outreach._from_leads(store, 5, lambda m: None) == 0      # ugyanazt a céget nem keresi újra
