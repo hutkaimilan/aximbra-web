@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { ImagePlus, Loader2, Send, Trash2, X } from "lucide-react";
+import { ImagePlus, Loader2, MessageSquarePlus, Send, Trash2, X } from "lucide-react";
 import { buildContext } from "../lib/chatContext";
 import { useSlip } from "../lib/slip";
 
-// Csevegés a szelvényekről és a meccsekről (/api/chat → Gemini). A beszélgetés szövege a böngészőben
-// megmarad; a képek csak a mostani munkamenetben (méretük miatt nem mentjük el).
-const STORE = "chat-history";
-const MAX_KEEP = 30;
+// Csevegés a szelvényekről és a meccsekről (/api/chat → Gemini). Az oldal minden megnyitásakor üres beszélgetés
+// indul; a korábbiak a böngészőben maradnak meg, lenyíló listában (folytathatók, törölhetők). A képeket
+// méretük miatt nem mentjük el, csak a mostani megnyitás alatt élnek.
+const STORE = "chat-conversations";
+const OLD_STORE = "chat-history";
+const MAX_KEEP = 30;          // üzenet beszélgetésenként
+const MAX_CONVOS = 20;
 const MAX_IMG_SIDE = 1400;
 const MAX_ATTACH = 3;
 
@@ -19,21 +22,29 @@ const QUICK = [
   "Melyik favorit tűnik túlárazottnak?",
 ];
 
-function loadHistory() {
+const slim = (msgs) => msgs.slice(-MAX_KEEP).map(({ role, text, images, imgCount }) => (
+  { role, text, imgCount: images?.length || imgCount || 0 }));
+
+function loadConvos() {
   try {
-    const v = JSON.parse(localStorage.getItem(STORE) || "[]");
-    return Array.isArray(v) ? v.filter((m) => m && (m.role === "user" || m.role === "assistant")) : [];
+    let v = JSON.parse(localStorage.getItem(STORE) || "[]");
+    if (!Array.isArray(v)) v = [];
+    // a korábbi, egyetlen beszélgetéses tárolóból átvesszük, ami volt
+    const old = JSON.parse(localStorage.getItem(OLD_STORE) || "null");
+    if (Array.isArray(old) && old.length) v = [{ id: "regi", started: new Date().toISOString(), msgs: old }, ...v];
+    localStorage.removeItem(OLD_STORE);
+    return v.filter((c) => c && Array.isArray(c.msgs) && c.msgs.length).slice(0, MAX_CONVOS);
   } catch {
     return [];
   }
 }
 
-function saveHistory(msgs) {
-  try {
-    const slim = msgs.slice(-MAX_KEEP).map(({ role, text, images }) => ({ role, text, imgCount: images?.length || 0 }));
-    localStorage.setItem(STORE, JSON.stringify(slim));
-  } catch { /* privát mód: nem baj */ }
+function saveConvos(convos) {
+  try { localStorage.setItem(STORE, JSON.stringify(convos.slice(0, MAX_CONVOS))); } catch { /* privát mód: nem baj */ }
 }
+
+const newConvo = () => ({ id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, started: new Date().toISOString(), msgs: [] });
+const fmtWhen = (iso) => new Date(iso).toLocaleString("hu-HU", { timeZone: "Europe/Budapest", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 // Kép kicsinyítése JPEG-be (a telefonfotó több MB is lehet).
 function shrink(file) {
@@ -78,7 +89,10 @@ function Rich({ text }) {
 
 export default function Chat({ state }) {
   const slip = useSlip();
-  const [msgs, setMsgs] = useState(loadHistory);
+  const [convos, setConvos] = useState(loadConvos);          // korábbi beszélgetések, legújabb elöl
+  const [current, setCurrent] = useState(newConvo);         // megnyitáskor mindig üres
+  const msgs = current.msgs;
+  const setMsgs = (f) => setCurrent((c) => ({ ...c, msgs: typeof f === "function" ? f(c.msgs) : f }));
   const [text, setText] = useState("");
   const [images, setImages] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -86,7 +100,21 @@ export default function Chat({ state }) {
   const fileRef = useRef(null);
   const endRef = useRef(null);
 
-  useEffect(() => { saveHistory(msgs); endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [msgs, busy]);
+  // a mostani beszélgetés a lista elejére kerül (és frissül), amint van benne üzenet
+  useEffect(() => {
+    if (!current.msgs.length) return;
+    setConvos((cs) => {
+      const next = [{ id: current.id, started: current.started, msgs: slim(current.msgs) }, ...cs.filter((c) => c.id !== current.id)];
+      saveConvos(next);
+      return next;
+    });
+  }, [current]);
+  useEffect(() => { if (msgs.length) endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [msgs, busy]);
+
+  const older = convos.filter((c) => c.id !== current.id);
+  const startNew = () => { setCurrent(newConvo()); setError(null); setImages([]); };
+  const resume = (c) => { setCurrent({ ...c, msgs: [...c.msgs] }); setError(null); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const remove = (id) => setConvos((cs) => { const next = cs.filter((c) => c.id !== id); saveConvos(next); return next; });
 
   const addFiles = async (files) => {
     setError(null);
@@ -116,7 +144,8 @@ export default function Chat({ state }) {
       const st = state?.competitions ? state
         : await axios.get("/emergent/api/state", { __noWake: true }).then((r) => r.data)
           .catch(() => axios.get("/api/state").then((r) => r.data).catch(() => null));
-      const context = buildContext(st, slip, mine.text);
+      // a beszélgetés utolsó üzeneteiben (a képről kiolvasottakban is) említett meccsek részletes adatait is megkapja
+      const context = buildContext(st, slip, next.slice(-8).map((m) => m.text).join("\n"));
       const r = await axios.post("/api/chat", {
         context,
         messages: next.slice(-24).map(({ role, text: t, images: im }) => ({ role, text: t, images: im || [] })),
@@ -137,8 +166,8 @@ export default function Chat({ state }) {
           <p className="text-sm muted mt-1 max-w-2xl">Kérdezz a meccsekről, kérd a szelvényed véleményezését, vagy küldj képet (pl. egy TippmixPro-szelvényről). A szelvényedet és a meccsek adatait magától megkapja; hírekhez, sérültekhez nem fér hozzá.</p>
         </div>
         {msgs.length > 0 && (
-          <button className="btn-ghost text-xs inline-flex items-center gap-1 shrink-0" onClick={() => { setMsgs([]); setError(null); }} data-testid="chat-clear">
-            <Trash2 size={13} /> Új beszélgetés
+          <button className="btn-ghost text-xs inline-flex items-center gap-1 shrink-0" onClick={startNew} data-testid="chat-clear">
+            <MessageSquarePlus size={13} /> Új beszélgetés
           </button>
         )}
       </div>
@@ -195,6 +224,38 @@ export default function Chat({ state }) {
         </div>
         <p className="text-[11px] faint">A válasz modellbecslés, nem garancia. A Gemini napi kerete közös az AXIMBRA-oldallal.</p>
       </div>
+
+      {older.length > 0 && (
+        <details className="panel p-3" data-testid="chat-history">
+          <summary className="cursor-pointer text-sm font-semibold select-none">Korábbi beszélgetések ({older.length})</summary>
+          <div className="mt-3 space-y-2">
+            {older.map((c) => {
+              const first = c.msgs.find((m) => m.role === "user")?.text || "(kép)";
+              return (
+                <details key={c.id} className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2">
+                  <summary className="cursor-pointer text-sm select-none">
+                    <span className="faint text-xs mr-2">{fmtWhen(c.started)}</span>
+                    {first.length > 70 ? `${first.slice(0, 70)}…` : first}
+                    <span className="faint text-xs"> · {c.msgs.length} üzenet</span>
+                  </summary>
+                  <div className="mt-2 space-y-2 text-sm">
+                    {c.msgs.map((m, i) => (
+                      <div key={i} className={m.role === "user" ? "font-semibold" : "muted"}>
+                        {m.imgCount > 0 && <span className="text-xs faint">[{m.imgCount} kép] </span>}
+                        {m.role === "assistant" ? <Rich text={m.text} /> : m.text}
+                      </div>
+                    ))}
+                    <div className="flex gap-2 pt-1">
+                      <button className="chip" onClick={() => resume(c)}>Folytatás</button>
+                      <button className="btn-ghost text-xs inline-flex items-center gap-1" onClick={() => remove(c.id)}><Trash2 size={13} /> Törlés</button>
+                    </div>
+                  </div>
+                </details>
+              );
+            })}
+          </div>
+        </details>
+      )}
     </section>
   );
 }

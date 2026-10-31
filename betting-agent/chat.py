@@ -49,8 +49,14 @@ Szabályok:
   számokból, és ha van jobb alternatíva ugyanarra a meccsre a kínálatból, javasold. A végén az egész
   szelvényről egy-két mondat: becsült esély, a leggyengébb láb, és mit cserélnél.
 - Ugyanarra a meccsre tett tippek Fogadásépítőt alkotnak: összefüggnek, nem szorozhatók egyszerűen össze.
-- Képen (pl. TippmixPro-szelvény képernyőképe) olvasd ki a meccseket, tippeket, szorzókat, és vesd össze az
-  ADATOK meccslistájával. Ha egy meccs nincs az adatokban, mondd meg.
+- Az ADATOK „OLDAL SZELVÉNYPANELJE" része csak az oldal jobb oldali szelvénye. Ha az üres, az NEM jelenti, hogy a
+  felhasználónak nincs szelvénye: ha képen vagy szövegben küldött egyet (most vagy korábban a beszélgetésben),
+  azt értékeld, és soha ne mondj emiatt 0%-ot.
+- Képen (pl. TippmixPro-szelvény képernyőképe) olvasd ki a meccseket, tippeket, szorzókat, és keresd meg őket az
+  ADATOK meccslistájában. Egy tipp esélye: 1X2-nél a modell győzelmi esélye, kétesélynél a két kimenetel
+  összege, 2,5-ös gólszámnál és „mindkét csapat lő gólt"-nál a megadott esély; más piacnál a várható gólból
+  becsülj, és mondd, hogy becslés. Külön meccsek esélyét szorozd össze; ugyanarra a meccsre tett tippeknél
+  jelezd, hogy összefüggnek. Ha egy meccs nincs az adatokban, mondd meg, és nélküle számolj.
 - Ne biztass nagyobb tétre, és ne ígérj nyerést. Ha a felhasználó veszteség után akar visszanyerni, jelezd
   finoman a kockázatot."""
 

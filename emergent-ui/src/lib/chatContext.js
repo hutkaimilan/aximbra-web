@@ -7,7 +7,7 @@ const n2 = (x) => (x == null ? "–" : Number(x).toFixed(2).replace(".", ","));
 const when = (iso) => new Date(iso).toLocaleString("hu-HU", { timeZone: TZ, month: "short", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit" });
 const norm = (s) => String(s || "").normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-const MAX_MENTIONED = 6;
+const MAX_MENTIONED = 10;
 const MAX_LIST = 120;
 
 function index(state) {
@@ -61,7 +61,7 @@ export function buildContext(state, slip, question) {
   const { legs = [], stake, check } = slip || {};
   if (legs.length) {
     const info = Object.fromEntries((check?.legs || []).map((l) => [l.id, l]));
-    out.push(`A FELHASZNÁLÓ SZELVÉNYE (tét ${stake} Ft, össz-szorzó ${n2(check?.odds)}, lehetséges nyeremény ${check?.payout ?? "–"} Ft):`);
+    out.push(`AZ OLDAL SZELVÉNYPANELJE (jobb oldali szelvény; tét ${stake} Ft, össz-szorzó ${n2(check?.odds)}, lehetséges nyeremény ${check?.payout ?? "–"} Ft):`);
     for (const l of legs) {
       const i = info[l.id] || {};
       out.push(`- ${i.match || l.match}: ${i.label || l.label} — ${i.market || l.market} @ ${n2(i.odds ?? l.odds)}`
@@ -72,7 +72,7 @@ export function buildContext(state, slip, question) {
     for (const w of check?.warnings || []) out.push(`  Figyelmeztetés: ${w}`);
     out.push("");
   } else {
-    out.push("A felhasználó szelvénye üres.\n");
+    out.push("AZ OLDAL SZELVÉNYPANELJE üres (ha a felhasználó képen vagy szövegben küldött szelvényt, azt értékeld).\n");
   }
   const detailed = new Set();
   const details = [];
@@ -84,7 +84,7 @@ export function buildContext(state, slip, question) {
   for (const { m, c } of mentioned(state, question)) {
     if (!detailed.has(m.id)) { detailed.add(m.id); details.push(matchDetail(m, c)); }
   }
-  if (details.length) out.push("RÉSZLETES ELEMZÉS (a szelvény és a kérdésben említett meccsek):", ...details, "");
+  if (details.length) out.push("RÉSZLETES ELEMZÉS (a szelvénypanel és a beszélgetésben említett meccsek):", ...details, "");
   const all = [...idx.values()].sort((x, y) => new Date(x.m.kickoff) - new Date(y.m.kickoff)).slice(0, MAX_LIST);
   if (all.length) out.push(`KIÍRT MECCSEK (a következő ${all.length}, TippmixPro-szorzókkal és a modell becslésével):`, ...all.map(({ m, c }) => `- ${matchLine(m, c)}`));
   out.push("", `Mai dátum: ${new Date().toLocaleDateString("hu-HU", { timeZone: TZ, year: "numeric", month: "long", day: "numeric", weekday: "long" })}.`);
