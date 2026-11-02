@@ -18,7 +18,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 TIMEOUT = 60
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 OPENAI_MODEL = os.environ.get("TRADING_OPENAI_MODEL", "gpt-4.1-mini")
 
 PERSONA = (
