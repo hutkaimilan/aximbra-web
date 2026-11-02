@@ -20,6 +20,7 @@ import paper
 import strategy
 from config import Config
 from llm import LLMError
+from mailer import MailError
 from market import Market, MarketError
 from store import Position, Store
 from telegram import TelegramError
@@ -42,23 +43,40 @@ def _usd(x: float) -> str:
 
 
 class Agent:
-    def __init__(self, cfg: Config, store: Store, market: Market, bot=None, llm=None, clock=time.time):
+    def __init__(self, cfg: Config, store: Store, market: Market, bot=None, llm=None, clock=time.time,
+                 mailer=None):
         self.cfg = cfg
         self.store = store
         self.market = market
         self.bot = bot
         self.llm = llm
         self.clock = clock
+        self.mailer = mailer
 
     # --- kifelé --------------------------------------------------------------
-    def notify(self, text: str) -> None:
-        if self.bot is None or not self.bot.chat_id:
-            logger.info("értesítés (nincs Telegram): %s", text.splitlines()[0] if text else "")
-            return
-        try:
-            self.bot.send(text)
-        except TelegramError as e:
-            logger.warning("az értesítés nem ment ki: %s", e)
+    def notify(self, text: str, email: bool = True) -> None:
+        """Minden beállított csatornára. Egy csatorna hibája nem akadályozza a másikat."""
+        delivered = False
+        if self.bot is not None and self.bot.chat_id:
+            try:
+                self.bot.send(text)
+                delivered = True
+            except TelegramError as e:
+                logger.warning("a Telegram-értesítés nem ment ki: %s", e)
+        if email and self.mailer is not None:
+            try:
+                self.mailer.send(self._subject(text), text)
+                delivered = True
+            except MailError as e:
+                logger.warning("az e-mail nem ment ki: %s", e)
+        if not delivered:
+            logger.info("értesítés (nincs kézbesítő csatorna): %s", self._subject(text))
+
+    @staticmethod
+    def _subject(text: str) -> str:
+        """A tárgy az első érdemi sor: a papírkereskedés-jelölés minden levélben ugyanaz."""
+        lines = [l.strip() for l in (text or "").splitlines() if l.strip() and l.strip() != PAPER]
+        return ("Milán Trader Bot — " + lines[0]) if lines else "Milán Trader Bot"
 
     def _explain(self, task: str, facts: dict) -> str:
         if self.llm is None:

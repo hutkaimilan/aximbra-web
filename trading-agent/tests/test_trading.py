@@ -254,3 +254,32 @@ def test_config_rejects_dangerous_values(monkeypatch):
     monkeypatch.setenv("TRADING_SYMBOLS", "btc/usdt")
     with pytest.raises(config.ConfigError):
         config.load()
+
+
+class FakeMailer:
+    def __init__(self, fail=False):
+        self.sent = []
+        self.fail = fail
+
+    def send(self, subject, text):
+        from mailer import MailError
+        if self.fail:
+            raise MailError("leállt")
+        self.sent.append((subject, text))
+
+
+def test_email_channel_gets_alerts_without_telegram():
+    ag, _, _ = make_agent()
+    ag.bot = None
+    ag.mailer = FakeMailer()
+    ag.tick()
+    subjects = [s for s, _ in ag.mailer.sent]
+    assert any("VÉTEL" in s for s in subjects)
+    assert all("PAPÍRKERESKEDÉS" not in s for s in subjects)   # a tárgy az érdemi sor
+
+
+def test_email_failure_does_not_block_telegram():
+    ag, _, bot = make_agent()
+    ag.mailer = FakeMailer(fail=True)
+    ag.tick()
+    assert any("VÉTEL" in m for m in bot.sent)

@@ -17,6 +17,7 @@ megérdemli-e a valódi pénzt.
 | `agent.py` | A ciklus: adatellenőrzés → stop/cél → jelzés → kockázat → napló → értesítés |
 | `llm.py` | Gemini vagy OpenAI: csak magyaráz és válaszol, a számokat a rendszer adja |
 | `telegram.py` | Értesítés kifelé, parancsok és kérdések befelé |
+| `mailer.py` | E-mailes értesítés (Resend HTTPS API; a Railway a Pro csomag alatt tiltja az SMTP-t) |
 
 **Kockázati szabályok** (alapértékek): 1% kockázat kötésenként, legfeljebb 2 nyitott
 pozíció, 3% napi veszteség után aznap nincs új nyitás, 0,1% díj és 0,05% csúszás
@@ -48,6 +49,7 @@ python backtest.py BTCUSDT ETHUSDT --bars 3000
   `MAX_OPEN_POSITIONS` (2), `DAILY_LOSS_LIMIT` (0.03), `FEE_RATE` (0.001), `SLIPPAGE_RATE` (0.0005)
 - `POLL_SECONDS` (60), `REPORT_HOUR` (8), `TRADING_TZ` (`Europe/Budapest`), `TRADING_DB_PATH` (`/data/trading.db`)
 - `LLM_PROVIDER` (`gemini`|`openai`), `GEMINI_MODEL`, `TRADING_OPENAI_MODEL`
+- `RESEND_API_KEY`, `NOTIFY_EMAIL`: e-mailes értesítés (jelzés, zárás, adathiba, napi jelentés); Telegram nélkül is működik
 - `STATUS_TOKEN`: ha be van állítva, a `GET /status` végpont az `X-Status-Token` fejléccel elérhető
 - `TRADING_LOOP=off`: a háttérszálak nem indulnak (teszteléshez)
 
