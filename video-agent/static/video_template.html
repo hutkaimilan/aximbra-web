@@ -163,7 +163,13 @@ body.tall .cname,body.square .cname{font-size:15px}
 body.land .shot{max-width:400px}
 @keyframes shotIn{from{opacity:0;transform:translateY(40px) scale(.94)}to{opacity:1;transform:none}}
 .grid2m{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.grid2m .shot{border-radius:16px}
+/* Három oszlop flexszel: a hiányos utolsó sor (pl. 8 képnél) középre kerül. */
+.grid2m.g3{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.grid2m.g3 .shot{width:calc((100% - 16px) / 3)}
+/* Egyforma cellák, kitöltve: a különböző arányú képek ne hagyjanak fehér rést. */
+.grid2m .shot{border-radius:16px;aspect-ratio:3/4}
+.grid2m.g3 .shot{border-radius:12px}
+.grid2m .shot img{width:100%;height:100%;object-fit:cover}
 @keyframes tileIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
 </style>
 </head>
@@ -258,11 +264,13 @@ function scene(s, t0, shots, dims, lib) {
       return {bleed: `<div class="bleed">${v}</div>`, onbleed: true, txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
     }
     case "gallery": {
-      const ids = (s.medias || []).filter((x) => lib[x]).slice(0, 4);
+      const ids = (s.medias || []).filter((x) => lib[x]).slice(0, 9);
       if (!ids.length) return {txt: head(s, t0, true) + rise("sub", s.sub, t0 + .7)};
-      return {txt: head(s, t0) + `<div class="grid2m">${ids.map((id, i) =>
-        `<div class="shot" style="animation:${anim("tileIn", .5, t0 + .8 + .3 * i)}"><img src="${esc(lib[id].src)}" alt=""></div>`).join("")}</div>`
-        + rise("sub", s.sub, t0 + 1.2 + ids.length * .3)};
+      // 1–4 kép: két oszlop; 5–9: három oszlop, hogy kiférjen a képernyőre.
+      const step = ids.length > 4 ? .15 : .3;
+      return {txt: head(s, t0) + `<div class="grid2m${ids.length > 4 ? " g3" : ""}">${ids.map((id, i) =>
+        `<div class="shot" style="animation:${anim("tileIn", .5, t0 + .8 + step * i)}"><img src="${esc(lib[id].src)}" alt=""></div>`).join("")}</div>`
+        + rise("sub", s.sub, t0 + 1.2 + ids.length * step)};
     }
     case "agents":
       return {txt: head(s, t0) + `<div class="tiles">${L.map((l, i) =>

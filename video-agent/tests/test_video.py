@@ -1354,3 +1354,29 @@ def test_multi_label_domain_removed_whole():
 def test_spelled_out_url_written_back_for_captions():
     assert videomaker._written_url("Try it free at aximbra dot h-u slash e-n.") == "Try it free at aximbra.hu/en."
     assert videomaker._written_url("Visit aximbra dot hu today") == "Visit aximbra.hu today"
+
+
+def test_every_attached_image_ends_up_in_the_collage(monkeypatch):
+    """A panasz: 8 képből kollázst kértek, és csak 4 került bele."""
+    import videomaker
+    imgs = [f"img{i}" for i in range(8)]
+    monkeypatch.setattr(videomaker.media, "get", lambda mid: {"id": mid, "kind": "image"} if mid in imgs else None)
+    script = {"scenes": [{"kind": "gallery", "headline": "Kollázs", "medias": imgs[:4], "media": ""},
+                         {"kind": "cta", "headline": "aximbra.hu", "medias": [], "media": ""}]}
+    out = videomaker.use_all_attached(script, imgs)
+    assert out["scenes"][0]["medias"] == imgs and len(out["scenes"]) == 2
+    # Ha 9-nél több lenne, a maradék egy új kollázsba kerül a CTA elé.
+    many = [f"img{i}" for i in range(12)]
+    monkeypatch.setattr(videomaker.media, "get", lambda mid: {"id": mid, "kind": "image"})
+    script = {"scenes": [{"kind": "gallery", "headline": "K", "medias": many[:2], "media": ""},
+                         {"kind": "cta", "headline": "x", "medias": [], "media": ""}]}
+    out = videomaker.use_all_attached(script, many)
+    kinds = [s["kind"] for s in out["scenes"]]
+    assert kinds == ["gallery", "gallery", "cta"]
+    assert out["scenes"][0]["medias"] + out["scenes"][1]["medias"] == many
+
+
+def test_collage_template_allows_nine_and_fills_the_cells():
+    import os
+    t = open(os.path.join(os.path.dirname(__file__), "..", "static", "video_template.html"), encoding="utf-8").read()
+    assert ".slice(0, 9)" in t and "object-fit:cover" in t and ".grid2m.g3" in t and "justify-content:center" in t

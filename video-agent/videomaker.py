@@ -61,6 +61,7 @@ VISUAL_KINDS = ("site", "call", "inbox", "sms", "photo", "gallery", "clip")
 # Mozgó jelenetek: álló diában szöveges dia lesz belőlük.
 MOTION_KINDS = ("site", "call", "inbox", "sms", "clip")
 MEDIA_KINDS = ("photo", "gallery", "clip")
+GALLERY_MAX = 9   # egy kollázsban legfeljebb ennyi kép (3×3)
 THEMES = ("neon", "clean", "warm", "mono")
 ASPECTS = {"9:16": (540, 960), "4:5": (540, 675), "1:1": (540, 540), "16:9": (960, 540)}
 FORMS = ("auto", "video", "image", "carousel", "logo")
@@ -206,7 +207,8 @@ problem, benefit, agents or cta — "site", "call" and "inbox" animate, so they 
 - "photo": one image with the text. Set "media" to a library id, OR set "image_prompt" to have one generated
   (describe the picture in English: subject, setting, light, mood). "layout": "full" (text over the image) or
   "side" (image beside the text). Never ask for a recognisable real person.
-- "gallery": headline + "medias" = 2–4 library ids shown in a grid.
+- "gallery": headline + "medias" = 2–9 library ids shown as a collage grid. When the user attached several
+  images for a collage, put ALL of them into one gallery scene.
 - "clip": an uploaded video clip. "media" = a library id of kind "clip". A long recording is used in several
   consecutive "clip" scenes, each one a stretch of it: "from" = where the stretch starts (seconds into the
   clip), "speed" = playback speed (1, 1.5, 2, 3 or 4), "seconds" = screen time; the stretch covers
@@ -409,7 +411,7 @@ def normalize(data: dict, seconds: int, n_shots: int = 1, form: str = "video") -
             "sub": _clip(_no_url(s.get("sub")), 140), "lines": lines("lines", 6), "lines2": lines("lines2", 4),
             "left_title": _clip(s.get("left_title"), 20), "right_title": _clip(s.get("right_title"), 20),
             "media": _media_id(s.get("media")),
-            "medias": [m for m in (_media_id(x) for x in (s.get("medias") or [])) if m][:4],
+            "medias": [m for m in (_media_id(x) for x in (s.get("medias") or [])) if m][:GALLERY_MAX],
             "image_prompt": _clip(s.get("image_prompt"), 400),
             "layout": (str(s.get("layout") or "").strip() if str(s.get("layout") or "").strip() in ("side", "phone")
                        else "full"),
@@ -1299,6 +1301,32 @@ def pick_form(brief: str) -> str:
 FORM_NAMES = {"video": "videó", "image": "kép", "carousel": "körhinta", "logo": "logó"}
 
 
+def use_all_attached(script: dict, attach: list, say=lambda m: None) -> dict:
+    """A csatolt képek közül egy sem maradhat ki. A rendező néha csak néhányat tett
+    be (egy 8 képes kollázsból 4 lett): a kimaradtakat a kód teszi az első
+    galériába, vagy ha nincs galéria és több kép maradt ki, egy új galériába."""
+    used = set()
+    for sc in script["scenes"]:
+        used.update(([sc.get("media")] if sc.get("media") else []) + (sc.get("medias") or []))
+    missing = [m for m in attach if m not in used and (media.get(m) or {}).get("kind") == "image"]
+    if not missing:
+        return script
+    gal = next((sc for sc in script["scenes"] if sc["kind"] == "gallery"), None)
+    if gal is not None:
+        room = GALLERY_MAX - len(gal["medias"])
+        gal["medias"] = gal["medias"] + missing[:max(0, room)]
+        missing = missing[max(0, room):]
+    if missing:
+        # Ami már nem fért el: egy új kollázs a meglévő jelenetek után, a CTA elé.
+        tpl = dict(gal or script["scenes"][0])
+        new = {**tpl, "kind": "gallery", "medias": missing[:GALLERY_MAX], "media": "", "image_prompt": "",
+               "headline": tpl.get("headline") if gal else "", "lines": [], "lines2": []}
+        at = next((i for i, sc in enumerate(script["scenes"]) if sc["kind"] == "cta"), len(script["scenes"]))
+        script["scenes"].insert(at, new)
+    say(f"A rendező nem tett be minden csatolt képet: pótoltam ({len(attach)} kép mind benne van).")
+    return script
+
+
 def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", voice: bool = True,
          male: bool = False, research: bool = False, form: str = "auto", say=lambda m: None,
          attach: list | None = None, captions: bool = False) -> dict:
@@ -1332,6 +1360,7 @@ def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", 
         return _finish(_logo_script(design_logos(brief, ctx, lang, say)), opts, ctx, say)
     say("Forgatókönyv írása…")
     script = write_script(brief, ctx, seconds, lang, aspect, voice, say, form)
+    script = use_all_attached(script, attach, say)
     script = fill_images(script, aspect, say)
     say(f"Forgatókönyv kész: {script['title']} ({len(script['scenes'])} "
         f"{'dia' if form != 'video' else 'jelenet'}, {script['theme']} stílus).")
