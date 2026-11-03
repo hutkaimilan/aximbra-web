@@ -60,6 +60,8 @@ else:
     raise SystemExit(f"ismeretlen TRADING_MODE: {MODE} (paper | binance)")
 
 store = Store(db_path, start_equity)
+if not store.get("started_at"):
+    store.set("started_at", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
 bot = Telegram.from_env()
 llm = LLM.from_env()
 mailer = Mailer.from_env()

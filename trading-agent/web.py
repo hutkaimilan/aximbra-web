@@ -99,8 +99,10 @@ def make_router(agent, state: dict) -> APIRouter:
         for p in positions:
             px = prices.get(p.symbol)
             pos_out.append({"symbol": p.symbol, "qty": p.qty, "entry": p.entry_price, "stop": p.stop,
-                            "target": p.target, "price": px,
-                            "pnl": p.qty * (px - p.entry_price) if px else None})
+                            "target": p.target, "price": px, "opened_at": p.opened_at,
+                            "entry_value": p.qty * p.entry_price + p.entry_fee,
+                            "value": p.qty * px if px else None,
+                            "pnl": p.qty * (px - p.entry_price) - p.entry_fee if px else None})
         snap = agent.radar.snapshot() if agent.radar else {}
         moves = {}
         if agent.radar:
@@ -111,6 +113,8 @@ def make_router(agent, state: dict) -> APIRouter:
                 "cash": agent.store.cash(), "positions": pos_out, "paused": agent.entries_paused(),
                 "prices": prices, "moves": moves, "vix": snap.get("vix"),
                 "closed": len(closed), "closed_pnl": sum(p.pnl or 0 for p in closed),
+                "started_at": agent.store.get("started_at"),
+                "history": agent.store.equity_history(int(time.time()) - 30 * 86400),
                 "last_tick_age": None if state.get("last_tick") is None else round(time.time() - state["last_tick"]),
                 "server_time": time.time()}
         with cache_lock:

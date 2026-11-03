@@ -171,6 +171,7 @@ class Agent:
             except MarketError as e:
                 self._data_problem(sym, str(e))
         self._maybe_daily_report(prices)
+        self._log_equity(prices)
 
     def _tick_symbol(self, sym: str, prices: dict[str, float]) -> None:
         candles = self.market.candles(sym, self.cfg.interval, limit=300)
@@ -396,6 +397,16 @@ class Agent:
         self.notify(f"{self.label}\n⚠️ {pos.symbol}: a zárás nem sikerült ({error}). "
                     + ("A pozíciót újra védi a tőzsdei stop; a következő ciklusban újrapróbálom."
                        if protected else "A pozíció JELENLEG STOP NÉLKÜL van — nézd meg a tőzsdén!"))
+
+    def _log_equity(self, prices: dict[str, float]) -> None:
+        """5 percenként egy pont az egyenleg-grafikonhoz (csak friss árakkal, hogy ne torzítson)."""
+        now = int(self.clock())
+        if now - int(self.store.get("equity_logged_at", "0") or 0) < 300:
+            return
+        if any(p.symbol not in prices for p in self.store.open_positions()):
+            return
+        self.store.log_equity(now, self.equity(prices), self.store.cash())
+        self.store.set("equity_logged_at", now)
 
     def _report_check(self, sym: str, candles, pos, price: float) -> None:
         """Minden lezárt gyertyánál: mit látott a bot, és miért nem lépett."""

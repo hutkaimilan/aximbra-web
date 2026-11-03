@@ -68,6 +68,11 @@ CREATE TABLE IF NOT EXISTS news (
   seen_at TEXT NOT NULL,
   analysis TEXT
 );
+CREATE TABLE IF NOT EXISTS equity_log (
+  ts INTEGER PRIMARY KEY,
+  equity REAL NOT NULL,
+  cash REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS chat (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at TEXT NOT NULL,
@@ -257,6 +262,24 @@ class Store:
                 rows = list(reversed(self._conn.execute("SELECT * FROM events ORDER BY id DESC LIMIT ?",
                                                         (limit,)).fetchall()))
         return [dict(r) for r in rows]
+
+    # --- egyenleg-idősor ----------------------------------------------------------
+    def log_equity(self, ts: int, equity: float, cash: float) -> None:
+        with self._lock, self._conn:
+            self._conn.execute("INSERT OR REPLACE INTO equity_log(ts, equity, cash) VALUES (?, ?, ?)",
+                               (int(ts), equity, cash))
+            # 90 nap 5 percenként ~26 ezer sor: ennél régebbit nem tartunk
+            self._conn.execute("DELETE FROM equity_log WHERE ts < ?", (int(ts) - 90 * 86400,))
+
+    def equity_history(self, since_ts: int, max_points: int = 300) -> list[tuple[int, float]]:
+        with self._lock:
+            rows = self._conn.execute("SELECT ts, equity FROM equity_log WHERE ts >= ? ORDER BY ts",
+                                      (int(since_ts),)).fetchall()
+        rows = [(r["ts"], r["equity"]) for r in rows]
+        if len(rows) > max_points:   # egyenletes ritkítás, az utolsó pont mindig marad
+            step = len(rows) / max_points
+            rows = [rows[int(i * step)] for i in range(max_points - 1)] + [rows[-1]]
+        return rows
 
     # --- hírek -----------------------------------------------------------------
     def add_news(self, link: str, source: str, title: str, published: str | None) -> int | None:

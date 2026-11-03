@@ -599,3 +599,12 @@ def test_secret_link_logs_in_without_password(monkeypatch):
     r = c.get("/?k=" + "k" * 32, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/"
     assert c.get("/api/state").status_code == 200
+
+
+def test_equity_is_logged_and_served():
+    ag, market, _ = make_agent()
+    ag.tick()
+    hist = ag.store.equity_history(0)
+    assert len(hist) == 1 and hist[0][1] == pytest.approx(ag.equity({"BTCUSDT": market.price_}), rel=1e-6)
+    ag.tick()                                   # 5 percen belül nem ír új pontot
+    assert len(ag.store.equity_history(0)) == 1

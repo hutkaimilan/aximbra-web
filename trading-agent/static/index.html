@@ -30,6 +30,8 @@ input,button.go{font:inherit;color:var(--tx);background:var(--card);border:1px s
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}.chips button{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:99px;padding:6px 11px;font:inherit;font-size:13px}
 #login{display:none;margin:20vh auto 0;max-width:320px;padding:0 16px;width:100%}
 .small{font-size:12px;color:var(--mut);margin:8px 0}
+.bal{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px}
+.lbl{font-size:12px;color:var(--mut)}.lbl b{color:var(--tx);font-weight:600}.chg{font-size:18px;font-weight:700}
 </style>
 </head>
 <body>
@@ -41,7 +43,13 @@ input,button.go{font:inherit;color:var(--tx);background:var(--card);border:1px s
 <div id="app" style="display:none;flex-direction:column;height:100%">
 <header>
   <div class="row"><h1>Milán Trader Bot</h1><span class="badge" id="mode">…</span></div>
-  <div class="row" style="margin-top:4px"><div><div class="big" id="eq">–</div><div class="mut" id="eqs">&nbsp;</div></div><div class="mut" style="text-align:right;font-size:12px" id="meta"></div></div>
+  <div class="bal">
+    <div class="row"><div><div class="lbl">Jelenlegi egyenleg</div><div class="big" id="eq">–</div></div>
+      <div style="text-align:right"><div class="lbl">Változás</div><div class="chg" id="chg">–</div></div></div>
+    <div class="row" style="margin-top:6px"><div class="lbl">Kezdőösszeg: <b id="st">–</b> <span id="stdate"></span></div><div class="lbl" id="meta"></div></div>
+    <div class="row lbl" style="margin-top:2px"><span>Szabad készpénz: <b id="cash">–</b></span><span>Lezárt kötések: <b id="cl">–</b></span></div>
+    <svg id="spark" viewBox="0 0 300 54" preserveAspectRatio="none" style="width:100%;height:54px;margin-top:6px"></svg>
+  </div>
   <div id="paused"></div><div id="poss"></div>
 </header>
 <nav><button data-t="feed" class="on">Élő</button><button data-t="market">Piac</button><button data-t="chat">Chat</button></nav>
@@ -71,19 +79,29 @@ async function pollEvents(){const r=await api('/api/events?after='+lastId);const
  if(loud.length){beep();if(Notification.permission==='granted')loud.slice(-3).forEach(e=>new Notification(e.title,{body:(e.body||'').slice(0,140)}))}first=false}
 function beep(){try{sound=sound||new (window.AudioContext||window.webkitAudioContext)();const o=sound.createOscillator(),g=sound.createGain();o.connect(g);g.connect(sound.destination);o.frequency.value=880;g.gain.value=.08;o.start();o.stop(sound.currentTime+.25)}catch{}}
 async function pollState(){const s=await api('/api/state');
- $('#mode').textContent=s.mode;const pnl=s.equity-s.start;$('#eq').textContent=fmt(s.equity)+' USDT';
- $('#eqs').innerHTML=`<span class="${pnl>=0?'up':'dn'}">${pnl>=0?'+':''}${fmt(pnl)} (${fmt(pnl/s.start*100)}%)</span> • készpénz ${fmt(s.cash,0)}`;
+ $('#mode').textContent=s.mode;const pnl=s.equity-s.start,cls=pnl>=0?'up':'dn';$('#eq').textContent=fmt(s.equity)+' USDT';
+ $('#chg').innerHTML=`<span class="${cls}">${pnl>=0?'+':''}${fmt(pnl)} USDT<br><span style="font-size:13px">${pnl>=0?'+':''}${fmt(pnl/s.start*100)}%</span></span>`;
+ $('#st').textContent=fmt(s.start)+' USDT';$('#stdate').textContent=s.started_at?'('+new Date(s.started_at).toLocaleDateString('hu-HU')+')':'';
+ $('#cash').textContent=fmt(s.cash)+' USDT';$('#cl').textContent=`${s.closed} db, ${s.closed_pnl>=0?'+':''}${fmt(s.closed_pnl)} USDT`;
+ drawSpark(s.history,s.start,s.equity);
  $('#meta').innerHTML=(s.vix?`VIX ${s.vix}<br>`:'')+(s.last_tick_age!=null?`adat ${s.last_tick_age} mp-es`:'');
  $('#paused').innerHTML=s.paused?`<div class="warn">⏸ Védekező mód: ${esc(s.paused)} — feloldás: /folytat</div>`:'';
- $('#poss').innerHTML=s.positions.map(p=>`<div class="pos"><b>${esc(p.symbol)}</b> ${fmt(p.qty,5)} • belépés ${fmt(p.entry)} • most ${fmt(p.price)} • <span class="${(p.pnl||0)>=0?'up':'dn'}">${p.pnl==null?'–':(p.pnl>=0?'+':'')+fmt(p.pnl)} USDT</span><br><span class="mut">stop ${fmt(p.stop)} • cél ${fmt(p.target)}</span></div>`).join('')||'<div class="small">Nincs nyitott pozíció.</div>';
+ $('#poss').innerHTML=s.positions.map(p=>`<div class="pos"><div class="row"><b>${esc(p.symbol)} • ${fmt(p.qty,5)} db</b><span class="${(p.pnl||0)>=0?'up':'dn'}"><b>${p.pnl==null?'–':(p.pnl>=0?'+':'')+fmt(p.pnl)} USDT</b></span></div>
+ <div class="row"><span>Belépéskor: <b>${fmt(p.entry_value)} USDT</b> <span class="mut">(${fmt(p.entry)})</span></span><span>Most: <b>${fmt(p.value)} USDT</b> <span class="mut">(${fmt(p.price)})</span></span></div>
+ <span class="mut">stop ${fmt(p.stop)} • cél ${fmt(p.target)}${p.opened_at?' • nyitva '+new Date(p.opened_at).toLocaleString('hu-HU',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</span></div>`).join('')||'<div class="small">Nincs nyitott pozíció.</div>';
  $('#market').innerHTML=`<div class="small">Szokatlansági sorrend: z = a mai mozgás a szokásos napi ingadozás hányszorosa. Ez leírás, nem előrejelzés.</div><table><tr><th>Eszköz</th><th>Ár</th><th>Nap</th><th>Hét</th><th>z</th></tr>${s.moves.map(m=>`<tr><td>${esc(m.name)}</td><td>${fmt(m.price,m.price<10?4:2)}</td><td class="${m.day>=0?'up':'dn'}">${fmt(m.day)}%</td><td class="${m.week>=0?'up':'dn'}">${fmt(m.week,1)}%</td><td class="${Math.abs(m.z)>=2.5?'dn':'mut'}">${fmt(m.z,1)}</td></tr>`).join('')}</table>`}
+function drawSpark(h,start,now){const el=$('#spark');const pts=(h||[]).map(x=>x[1]);pts.push(now);
+ if(pts.length<2){el.innerHTML=`<text x="0" y="30" fill="#8b98a5" font-size="11">Az egyenleg-grafikon 5 percenként kap új pontot.</text>`;return}
+ const all=pts.concat([start]),lo=Math.min(...all),hi=Math.max(...all),span=(hi-lo)||1,W=300,H=54,y=v=>H-3-(v-lo)/span*(H-6);
+ const d=pts.map((v,i)=>`${i?'L':'M'}${(i/(pts.length-1)*W).toFixed(1)},${y(v).toFixed(1)}`).join(' ');const c=now>=start?'#2ebd85':'#f6465d';
+ el.innerHTML=`<line x1="0" x2="${W}" y1="${y(start)}" y2="${y(start)}" stroke="#3a4654" stroke-dasharray="3 3"/><path d="${d}" fill="none" stroke="${c}" stroke-width="1.8"/>`}
 async function loadChat(){const r=await api('/api/chat');$('#msgs').innerHTML='';r.messages.forEach(m=>addMsg(m.role==='user'?'user':'bot',m.content))}
 function addMsg(c,t){const d=document.createElement('div');d.className='m '+c;d.textContent=t;$('#msgs').appendChild(d);$('#msgs').scrollTop=1e9;return d}
 async function send(text){if(!text.trim())return;addMsg('user',text);const w=addMsg('bot','…');try{const r=await api('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});w.textContent=r.reply}catch(e){w.textContent='Hiba: '+(e.message||e)}}
 $('#sf').onsubmit=e=>{e.preventDefault();const v=$('#tx').value;$('#tx').value='';send(v)};
 document.querySelectorAll('.chips button').forEach(b=>b.onclick=()=>send(b.textContent));
 let timers=[];async function boot(){timers.forEach(clearInterval);try{await api('/api/state');showApp();lastId=0;first=true;$('#feed').innerHTML='';await Promise.all([pollEvents(),pollState(),loadChat()]);
- timers=[setInterval(()=>pollEvents().catch(()=>{}),5000),setInterval(()=>pollState().catch(()=>{}),15000)];
+ timers=[setInterval(()=>pollEvents().catch(()=>{}),5000),setInterval(()=>pollState().catch(()=>{}),10000)];
  if('Notification'in window&&Notification.permission==='default')document.addEventListener('click',()=>Notification.requestPermission(),{once:true})}catch(e){if(e!==0){$('#le').textContent=e.message||''}}}
 boot();
 </script>
