@@ -582,3 +582,20 @@ def test_llm_falls_back_to_second_provider():
                   fallback=LLM("openai", "k", client=httpx.Client(transport=httpx.MockTransport(oai))))
     assert primary.ask("hello") == "válasz"
     assert calls.count("gemini") == 2 and calls[-1] == "openai"
+
+
+def test_secret_link_logs_in_without_password(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from web import make_router
+    ag, _, _ = make_agent()
+    monkeypatch.setenv("WEB_PASSWORD", "jelszo")
+    monkeypatch.setenv("WEB_LINK_KEY", "k" * 32)
+    app = FastAPI()
+    app.include_router(make_router(ag, {}))
+    c = TestClient(app, base_url="https://testserver")
+    assert c.get("/?k=rossz", follow_redirects=False).status_code == 401
+    r = c.get("/?k=" + "k" * 32, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/"
+    assert c.get("/api/state").status_code == 200

@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 from fastapi import APIRouter, Cookie, HTTPException, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
 COOKIE = "mtb_session"
@@ -50,9 +50,17 @@ def make_router(agent, state: dict) -> APIRouter:
             raise HTTPException(401, "nincs belépve")
 
     @router.get("/")
-    def page():
+    def page(k: str | None = None):
         if not password():
             raise HTTPException(404, "a webes felület nincs bekapcsolva")
+        link_key = os.environ.get("WEB_LINK_KEY", "")
+        if k is not None:
+            # Titkos link: jelszó gépelése nélkül belép, a süti 1 évig megmarad, a kulcs eltűnik a címsorból.
+            if len(link_key) >= 24 and hmac.compare_digest(k.encode(), link_key.encode()):
+                r = RedirectResponse("/", status_code=303)
+                r.set_cookie(COOKIE, token(), max_age=365 * 86400, httponly=True, secure=True, samesite="lax")
+                return r
+            raise HTTPException(401, "érvénytelen link")
         return FileResponse(PAGE, headers={"Cache-Control": "no-store"})
 
     @router.post("/api/login")
