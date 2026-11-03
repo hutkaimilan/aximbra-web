@@ -52,6 +52,22 @@ CREATE TABLE IF NOT EXISTS kv (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT
+);
+CREATE TABLE IF NOT EXISTS news (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  link TEXT NOT NULL UNIQUE,
+  source TEXT NOT NULL,
+  title TEXT NOT NULL,
+  published TEXT,
+  seen_at TEXT NOT NULL,
+  analysis TEXT
+);
 CREATE TABLE IF NOT EXISTS chat (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at TEXT NOT NULL,
@@ -223,6 +239,42 @@ class Store:
 
     def realized_since(self, iso: str) -> float:
         return sum(p.pnl or 0.0 for p in self.closed_since(iso))
+
+    # --- események (az élő felület hírfolyama) ---------------------------------
+    def add_event(self, kind: str, title: str, body: str = "") -> int:
+        with self._lock, self._conn:
+            cur = self._conn.execute("INSERT INTO events(created_at, kind, title, body) VALUES (?, ?, ?, ?)",
+                                     (now_iso(), kind, title[:300], body[:4000]))
+            self._conn.execute("DELETE FROM events WHERE id NOT IN (SELECT id FROM events ORDER BY id DESC LIMIT 1000)")
+            return cur.lastrowid
+
+    def events_after(self, after_id: int = 0, limit: int = 100) -> list[dict]:
+        with self._lock:
+            if after_id:
+                rows = self._conn.execute("SELECT * FROM events WHERE id > ? ORDER BY id LIMIT ?",
+                                          (after_id, limit)).fetchall()
+            else:
+                rows = list(reversed(self._conn.execute("SELECT * FROM events ORDER BY id DESC LIMIT ?",
+                                                        (limit,)).fetchall()))
+        return [dict(r) for r in rows]
+
+    # --- hírek -----------------------------------------------------------------
+    def add_news(self, link: str, source: str, title: str, published: str | None) -> int | None:
+        """Id, ha új hír; None, ha már láttuk."""
+        with self._lock, self._conn:
+            cur = self._conn.execute("INSERT OR IGNORE INTO news(link, source, title, published, seen_at) "
+                                     "VALUES (?, ?, ?, ?, ?)", (link, source, title[:300], published, now_iso()))
+            self._conn.execute("DELETE FROM news WHERE id NOT IN (SELECT id FROM news ORDER BY id DESC LIMIT 3000)")
+            return cur.lastrowid if cur.rowcount == 1 else None
+
+    def set_news_analysis(self, news_id: int, analysis: str) -> None:
+        with self._lock, self._conn:
+            self._conn.execute("UPDATE news SET analysis = ? WHERE id = ?", (analysis, news_id))
+
+    def recent_news(self, limit: int = 30) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM news ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in rows]
 
     # --- beszélgetés ---------------------------------------------------------
     def add_chat(self, role: str, content: str) -> None:

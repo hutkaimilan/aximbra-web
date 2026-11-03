@@ -445,3 +445,118 @@ def test_forced_entry_runs_once_through_risk_gate(monkeypatch):
     ag.store.close_position(pos[0].id, pos[0].entry_price, 0, "teszt", 0.0)
     ag.tick()                                                   # nem indul újra
     assert not ag.store.open_positions()
+
+
+# --- radar, védekező mód, webes felület ---------------------------------------------------
+import json as _json  # noqa: E402
+import math  # noqa: E402
+
+import radar  # noqa: E402
+
+
+def _series(n=40, day_move=0.0, base=100.0, noise=0.004):
+    out, px = [], base
+    for i in range(n - 1):
+        px *= 1 + noise * (1 if i % 2 else -1)
+        out.append((1_700_000_000 + i * 86400, px))
+    out.append((1_700_000_000 + (n - 1) * 86400, px * (1 + day_move)))
+    return out
+
+
+def test_measure_flags_unusual_move_not_normal_one():
+    calm = radar.measure("EURUSD=X", _series(day_move=0.004))
+    big = radar.measure("^GSPC", _series(day_move=-0.035))
+    assert not radar.is_notable(calm)
+    assert radar.is_notable(big) and big.z < -2.5 and big.day_pct == pytest.approx(-3.5, abs=0.2)
+    assert radar.measure("X", _series(n=10)) is None
+
+
+def test_risk_off_conditions_are_narrow():
+    m = lambda sym, pct, price=100: radar.Move(sym, sym, "macro", price, pct, 0, -3, "2026-11-03")  # noqa: E731
+    assert radar.risk_off_reason({"^VIX": m("^VIX", 30, 30)})
+    assert radar.risk_off_reason({"^VIX": m("^VIX", 30, 15)}) is None      # alacsony szintről ugrás nem pánik
+    assert radar.risk_off_reason({"^GSPC": m("^GSPC", -3.4)})
+    assert radar.risk_off_reason({"^GSPC": m("^GSPC", -1.0), "BTC-USD": m("BTC-USD", -4)}) is None
+
+
+def test_parse_rss_and_heuristic():
+    xml = ("<rss><channel><item><title>Markets  PLUNGE as bank run fears grow</title>"
+           "<link>https://x.test/a</link><pubDate>Mon, 03 Nov 2026 10:00:00 GMT</pubDate></item>"
+           "<item><title>no link</title></item></channel></rss>")
+    items = radar.parse_rss(xml, "T")
+    assert len(items) == 1 and items[0]["title"] == "Markets PLUNGE as bank run fears grow"
+    assert radar.heuristic(items[0]["title"])["sev"] == 4 and radar.heuristic("Company opens new office")["sev"] == 2
+    assert radar.parse_rss("<<not xml", "T") == []
+
+
+def test_news_scan_alerts_only_new_severe_and_not_on_first_run():
+    import httpx
+    xml = ("<rss><channel><item><title>Global markets crash as default looms</title><link>https://x.test/1</link></item>"
+           "</channel></rss>")
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, text=xml)))
+    st = Store(":memory:", 1000)
+    events = []
+    r = radar.Radar(st, None, emit=lambda *a: events.append(a), client=client)
+    r.scan_news()
+    assert events == []                       # az első körben a régi hírek nem riasztanak
+    xml2 = xml.replace("https://x.test/1", "https://x.test/2")
+    client2 = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, text=xml2)))
+    r.client = client2
+    r.scan_news()
+    assert len(events) >= 1 and events[0][0] == "news"
+    n = len(events)
+    r.scan_news()
+    assert len(events) == n                   # ugyanazt a hírt nem riasztja újra
+
+
+def test_risk_off_closes_positions_and_pauses_entries():
+    ag, market, bot = make_live_agent()
+    ag.tick()
+    assert ag.store.open_positions()
+    ag.risk_off("teszt: pánik")
+    assert not ag.store.open_positions()
+    assert ag.store.closed_positions()[0].exit_reason == "védekező mód"
+    assert ag.entries_paused()
+    ag.store.delete("last_candle:BTCUSDT")
+    ag.tick()                                  # a stratégia jelezne, de a védekező mód tiltja
+    assert not ag.store.open_positions()
+    assert "feloldva" in ag.respond("/folytat") and not ag.entries_paused()
+
+
+def test_web_requires_login_and_serves_state(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from web import make_router
+    ag, _, _ = make_agent()
+    ag.radar = radar.Radar(ag.store, None)
+    monkeypatch.setenv("WEB_PASSWORD", "titok-jelszo")
+    app = FastAPI()
+    app.include_router(make_router(ag, {"last_tick": None}))
+    c = TestClient(app, base_url="https://testserver")
+    assert c.get("/api/state").status_code == 401
+    assert c.post("/api/login", json={"password": "rossz"}).status_code == 401
+    assert c.post("/api/login", json={"password": "titok-jelszo"}).status_code == 200
+    s = c.get("/api/state").json()
+    assert s["equity"] == pytest.approx(10_000) and s["positions"] == []
+    ag.notify("🕐 Teszt esemény\nrészlet", kind="pulse", push=None)
+    ev = c.get("/api/events").json()["events"]
+    assert any(e["title"] == "🕐 Teszt esemény" for e in ev)
+    assert "Parancsok" in c.post("/api/chat", json={"text": "/help"}).json()["reply"]
+    monkeypatch.delenv("WEB_PASSWORD")
+    assert c.get("/api/state").status_code == 404      # jelszó nélkül a felület ki van kapcsolva
+
+
+def test_web_login_rate_limit(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from web import make_router
+    ag, _, _ = make_agent()
+    monkeypatch.setenv("WEB_PASSWORD", "jo")
+    app = FastAPI()
+    app.include_router(make_router(ag, {}))
+    c = TestClient(app, base_url="https://testserver")
+    codes = [c.post("/api/login", json={"password": "x"}).status_code for _ in range(10)]
+    assert codes[:8] == [401] * 8 and codes[8] == 429
+    assert c.post("/api/login", json={"password": "jo"}).status_code == 429   # zárolás alatt a jó jelszó sem jó

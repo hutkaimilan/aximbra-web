@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<title>Milán Trader Bot</title>
+<style>
+:root{--bg:#0b0f14;--card:#131a22;--line:#1f2a36;--tx:#e6edf3;--mut:#8b98a5;--up:#2ebd85;--dn:#f6465d;--acc:#f0b90b;--blue:#4c9aff}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{display:flex;flex-direction:column;max-width:900px;margin:0 auto;padding-bottom:env(safe-area-inset-bottom)}
+header{padding:12px 16px 8px;position:sticky;top:0;background:var(--bg);z-index:5;border-bottom:1px solid var(--line)}
+.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+h1{font-size:16px;margin:0}.badge{font-size:11px;padding:2px 8px;border-radius:99px;background:#2a2410;color:var(--acc);border:1px solid #4a3d10}
+.big{font-size:26px;font-weight:700}.up{color:var(--up)}.dn{color:var(--dn)}.mut{color:var(--mut)}
+.pos{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-top:8px;font-size:13px}
+.warn{background:#2b1418;border:1px solid #5b2430;color:#ff9aa6;border-radius:10px;padding:8px 12px;margin-top:8px;font-size:13px}
+nav{display:flex;border-bottom:1px solid var(--line);position:sticky;top:0}
+nav button{flex:1;padding:11px;background:none;border:0;color:var(--mut);font:inherit;border-bottom:2px solid transparent}
+nav button.on{color:var(--tx);border-color:var(--acc)}
+main{flex:1;overflow:auto;padding:12px 16px}
+.ev{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:8px}
+.ev.trade{border-left-color:var(--up)}.ev.riskoff{border-left-color:var(--dn)}.ev.news{border-left-color:var(--blue)}.ev.move{border-left-color:var(--acc)}.ev.pulse{opacity:.7}
+.ev .t{font-weight:600}.ev .b{white-space:pre-wrap;color:var(--mut);font-size:13px;margin-top:3px;word-break:break-word}.ev .ts{font-size:11px;color:var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:right}td:first-child,th:first-child{text-align:left}th{color:var(--mut);font-weight:500}
+#chat{display:none;flex-direction:column;height:100%}.msgs{flex:1;overflow:auto}
+.m{max-width:88%;padding:9px 12px;border-radius:14px;margin:6px 0;white-space:pre-wrap;word-break:break-word}.m.user{margin-left:auto;background:#1d3a5f}.m.bot{background:var(--card);border:1px solid var(--line)}
+form.send{display:flex;gap:8px;padding:10px 16px;border-top:1px solid var(--line);background:var(--bg);position:sticky;bottom:0}
+input,button.go{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 12px}input{flex:1;min-width:0}button.go{background:var(--acc);color:#111;font-weight:600;border:0}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}.chips button{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:99px;padding:6px 11px;font:inherit;font-size:13px}
+#login{display:none;margin:20vh auto 0;max-width:320px;padding:0 16px;width:100%}
+.small{font-size:12px;color:var(--mut);margin:8px 0}
+</style>
+</head>
+<body>
+<div id="login">
+  <h1 style="margin-bottom:14px">Milán Trader Bot</h1>
+  <form id="lf" style="display:flex;gap:8px"><input id="pw" type="password" placeholder="Jelszó" autocomplete="current-password"><button class="go">Belép</button></form>
+  <div id="le" class="small dn"></div>
+</div>
+<div id="app" style="display:none;flex-direction:column;height:100%">
+<header>
+  <div class="row"><h1>Milán Trader Bot</h1><span class="badge" id="mode">…</span></div>
+  <div class="row" style="margin-top:4px"><div><div class="big" id="eq">–</div><div class="mut" id="eqs">&nbsp;</div></div><div class="mut" style="text-align:right;font-size:12px" id="meta"></div></div>
+  <div id="paused"></div><div id="poss"></div>
+</header>
+<nav><button data-t="feed" class="on">Élő</button><button data-t="market">Piac</button><button data-t="chat">Chat</button></nav>
+<main id="feed"></main>
+<main id="market" style="display:none"></main>
+<main id="chat">
+  <div class="msgs" id="msgs"></div>
+  <div class="chips"><button>/status</button><button>/radar</button><button>/journal</button><button>Mi történik most a piacon?</button><button>/vedekezes</button></div>
+</main>
+<form class="send" id="sf" style="display:none"><input id="tx" placeholder="Írj a botnak…" autocomplete="off"><button class="go">Küld</button></form>
+</div>
+<script>
+const $=s=>document.querySelector(s),fmt=(n,d=2)=>n==null?'–':Number(n).toLocaleString('hu-HU',{minimumFractionDigits:d,maximumFractionDigits:d});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let lastId=0,tab='feed',first=true,sound=null;
+async function api(p,o){const r=await fetch(p,{credentials:'same-origin',...o});if(r.status===401){showLogin();throw 0}if(!r.ok){let m='';try{m=(await r.json()).detail}catch{}throw new Error(m||r.status)}return r.json()}
+function showLogin(){$('#app').style.display='none';$('#login').style.display='block'}
+function showApp(){$('#login').style.display='none';$('#app').style.display='flex';setTab(tab)}
+$('#lf').onsubmit=async e=>{e.preventDefault();$('#le').textContent='';try{await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#pw').value})});$('#pw').value='';boot()}catch(x){if(x!==0)$('#le').textContent=x.message||'Hiba'}};
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.t));
+function setTab(t){tab=t;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+ $('#feed').style.display=t==='feed'?'block':'none';$('#market').style.display=t==='market'?'block':'none';$('#chat').style.display=t==='chat'?'flex':'none';$('#sf').style.display=t==='chat'?'flex':'none';
+ if(t==='chat')setTimeout(()=>{$('#msgs').scrollTop=1e9},50)}
+function evHtml(e){const d=new Date(e.created_at+(e.created_at.endsWith('Z')||e.created_at.includes('+')?'':'Z'));return `<div class="ev ${esc(e.kind)}"><div class="ts">${d.toLocaleString('hu-HU',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div><div class="t">${esc(e.title)}</div>${e.body?`<div class="b">${esc(e.body)}</div>`:''}</div>`}
+async function pollEvents(){const r=await api('/api/events?after='+lastId);const loud=[];
+ for(const e of r.events){lastId=Math.max(lastId,e.id);$('#feed').insertAdjacentHTML('afterbegin',evHtml(e));if(!first&&['trade','riskoff','news','move'].includes(e.kind))loud.push(e)}
+ if(loud.length){beep();if(Notification.permission==='granted')loud.slice(-3).forEach(e=>new Notification(e.title,{body:(e.body||'').slice(0,140)}))}first=false}
+function beep(){try{sound=sound||new (window.AudioContext||window.webkitAudioContext)();const o=sound.createOscillator(),g=sound.createGain();o.connect(g);g.connect(sound.destination);o.frequency.value=880;g.gain.value=.08;o.start();o.stop(sound.currentTime+.25)}catch{}}
+async function pollState(){const s=await api('/api/state');
+ $('#mode').textContent=s.mode;const pnl=s.equity-s.start;$('#eq').textContent=fmt(s.equity)+' USDT';
+ $('#eqs').innerHTML=`<span class="${pnl>=0?'up':'dn'}">${pnl>=0?'+':''}${fmt(pnl)} (${fmt(pnl/s.start*100)}%)</span> • készpénz ${fmt(s.cash,0)}`;
+ $('#meta').innerHTML=(s.vix?`VIX ${s.vix}<br>`:'')+(s.last_tick_age!=null?`adat ${s.last_tick_age} mp-es`:'');
+ $('#paused').innerHTML=s.paused?`<div class="warn">⏸ Védekező mód: ${esc(s.paused)} — feloldás: /folytat</div>`:'';
+ $('#poss').innerHTML=s.positions.map(p=>`<div class="pos"><b>${esc(p.symbol)}</b> ${fmt(p.qty,5)} • belépés ${fmt(p.entry)} • most ${fmt(p.price)} • <span class="${(p.pnl||0)>=0?'up':'dn'}">${p.pnl==null?'–':(p.pnl>=0?'+':'')+fmt(p.pnl)} USDT</span><br><span class="mut">stop ${fmt(p.stop)} • cél ${fmt(p.target)}</span></div>`).join('')||'<div class="small">Nincs nyitott pozíció.</div>';
+ $('#market').innerHTML=`<div class="small">Szokatlansági sorrend: z = a mai mozgás a szokásos napi ingadozás hányszorosa. Ez leírás, nem előrejelzés.</div><table><tr><th>Eszköz</th><th>Ár</th><th>Nap</th><th>Hét</th><th>z</th></tr>${s.moves.map(m=>`<tr><td>${esc(m.name)}</td><td>${fmt(m.price,m.price<10?4:2)}</td><td class="${m.day>=0?'up':'dn'}">${fmt(m.day)}%</td><td class="${m.week>=0?'up':'dn'}">${fmt(m.week,1)}%</td><td class="${Math.abs(m.z)>=2.5?'dn':'mut'}">${fmt(m.z,1)}</td></tr>`).join('')}</table>`}
+async function loadChat(){const r=await api('/api/chat');$('#msgs').innerHTML='';r.messages.forEach(m=>addMsg(m.role==='user'?'user':'bot',m.content))}
+function addMsg(c,t){const d=document.createElement('div');d.className='m '+c;d.textContent=t;$('#msgs').appendChild(d);$('#msgs').scrollTop=1e9;return d}
+async function send(text){if(!text.trim())return;addMsg('user',text);const w=addMsg('bot','…');try{const r=await api('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});w.textContent=r.reply}catch(e){w.textContent='Hiba: '+(e.message||e)}}
+$('#sf').onsubmit=e=>{e.preventDefault();const v=$('#tx').value;$('#tx').value='';send(v)};
+document.querySelectorAll('.chips button').forEach(b=>b.onclick=()=>send(b.textContent));
+let timers=[];async function boot(){timers.forEach(clearInterval);try{await api('/api/state');showApp();lastId=0;first=true;$('#feed').innerHTML='';await Promise.all([pollEvents(),pollState(),loadChat()]);
+ timers=[setInterval(()=>pollEvents().catch(()=>{}),5000),setInterval(()=>pollState().catch(()=>{}),15000)];
+ if('Notification'in window&&Notification.permission==='default')document.addEventListener('click',()=>Notification.requestPermission(),{once:true})}catch(e){if(e!==0){$('#le').textContent=e.message||''}}}
+boot();
+</script>
+</body>
+</html>

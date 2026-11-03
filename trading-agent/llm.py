@@ -9,8 +9,10 @@ kulcsa (ugyanúgy, mint a sales-agentben).
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import re
 import time
 
 import httpx
@@ -32,6 +34,22 @@ PERSONA = (
 
 class LLMError(RuntimeError):
     pass
+
+
+def extract_json(text: str):
+    """Az első érvényes JSON tömb vagy objektum a szövegből (a modell néha szöveget ír köré)."""
+    text = (text or "").strip()
+    fenced = re.search(r"```(?:json)?\s*(.+?)```", text, flags=re.S)
+    if fenced:
+        text = fenced.group(1).strip()
+    for opener, closer in sorted((("[", "]"), ("{", "}")), key=lambda p: (text.find(p[0]) == -1, text.find(p[0]))):
+        start, end = text.find(opener), text.rfind(closer)
+        if start != -1 and end > start:
+            try:
+                return json.loads(text[start:end + 1])
+            except json.JSONDecodeError:
+                continue
+    raise ValueError("a modell nem adott értelmezhető JSON-t")
 
 
 class LLM:

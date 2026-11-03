@@ -35,6 +35,9 @@ HELP = (
     "/status — számla, nyitott pozíciók, utolsó jelzések\n"
     "/journal — lezárt kötések és statisztika\n"
     "/backtest [SYMBOL] — visszateszt valódi múltbeli adatokon\n"
+    "/radar — világpiaci radar: szokatlan mozgások és friss hírek\n"
+    "/vedekezes — minden pozíció azonnali lezárása, új nyitás tiltva\n"
+    "/folytat — a védekező mód feloldása\n"
     "/help — ez a lista\n"
     "Bármi mást kérdezhetsz szabad szöveggel is, pl. „mit csinál most a BTC?”"
 )
@@ -46,7 +49,7 @@ def _usd(x: float) -> str:
 
 class Agent:
     def __init__(self, cfg: Config, store: Store, market: Market, bot=None, llm=None, clock=time.time,
-                 mailer=None, executor=None):
+                 mailer=None, executor=None, push=None):
         self.cfg = cfg
         self.store = store
         self.market = market
@@ -54,28 +57,37 @@ class Agent:
         self.llm = llm
         self.clock = clock
         self.mailer = mailer
+        self.push = push
+        self.radar = None
         self.executor = executor or PaperExecutor(cfg.fee, cfg.slippage)
         self.label = PAPER if not self.executor.live else f"🧪 {self.executor.name.upper()}" + (
             " — játékpénz" if "demó" in self.executor.name else " — VALÓDI PÉNZ")
 
     # --- kifelé --------------------------------------------------------------
-    def notify(self, text: str, email: bool = True) -> None:
-        """Minden beállított csatornára. Egy csatorna hibája nem akadályozza a másikat."""
-        delivered = False
+    def notify(self, text: str, email: bool = True, kind: str = "trade", push: int | None = 4) -> None:
+        """Minden beállított csatornára: élő felület (esemény), telefon (ntfy), Telegram, e-mail.
+        Egy csatorna hibája nem akadályozza a többit."""
+        title = self._subject(text).removeprefix("Milán Trader Bot — ")
+        lines = [l for l in (text or "").splitlines() if l.strip() and l.strip() != self.label]
+        try:
+            self.store.add_event(kind, title, "\n".join(lines[1:]))
+        except Exception:
+            logger.exception("az esemény mentése nem sikerült")
+        delivered = True   # az élő felületen minden esemény látszik
+        if push is not None and self.push is not None:
+            self.push.send(title, "\n".join(lines[1:]) or title, priority=push)
         if self.bot is not None and self.bot.chat_id:
             try:
                 self.bot.send(text)
-                delivered = True
             except TelegramError as e:
                 logger.warning("a Telegram-értesítés nem ment ki: %s", e)
-        if email and self.mailer is not None:
+        if email and self.mailer is not None and os.environ.get("EMAIL_ALERTS", "on").lower() != "off":
             try:
                 self.mailer.send(self._subject(text), text)
-                delivered = True
             except MailError as e:
                 logger.warning("az e-mail nem ment ki: %s", e)
         if not delivered:
-            logger.info("értesítés (nincs kézbesítő csatorna): %s", self._subject(text))
+            logger.info("értesítés: %s", title)
 
     def _subject(self, text: str) -> str:
         """A tárgy az első érdemi sor: a mód-jelölés minden levélben ugyanaz."""
@@ -197,6 +209,9 @@ class Agent:
         ok, why = paper.can_open(len(self.store.open_positions()), self.cfg.max_open,
                                  self.store.realized_since(self._day_start_iso()), equity,
                                  self.cfg.daily_loss_limit)
+        paused = self.entries_paused()
+        if ok and paused and not sig.reason.startswith("KÉZI"):
+            ok, why = False, f"védekező mód: {paused}"
         fill = paper.entry_fill(price, self.cfg.slippage)
         if ok and fill <= sig.stop:
             ok, why = False, "az ár a jelzés óta a stop alá esett"
@@ -373,6 +388,57 @@ class Agent:
                     + ("A pozíciót újra védi a tőzsdei stop; a következő ciklusban újrapróbálom."
                        if protected else "A pozíció JELENLEG STOP NÉLKÜL van — nézd meg a tőzsdén!"))
 
+    # --- radar és védekezés -----------------------------------------------------
+    def radar_emit(self, kind: str, title: str, body: str = "", push: int | None = None) -> None:
+        text = f"{title}\n{body}" if body else title
+        self.notify(text, email=False, kind=kind, push=push)
+        if kind == "riskoff":
+            self.risk_off(body or title)
+
+    def entries_paused(self) -> str | None:
+        until = float(self.store.get("entries_paused_until", "0") or 0)
+        return self.store.get("entries_paused_reason") if until > self.clock() else None
+
+    def risk_off(self, reason: str, hours: float = 24) -> None:
+        """Védekező mód: minden nyitott pozíciót lezár (a pénz USDT-ben marad a számlán), és
+        a következő órákra letiltja az új nyitást. A kivételi jog a kulcson nincs."""
+        self.store.set("entries_paused_until", self.clock() + hours * 3600)
+        self.store.set("entries_paused_reason", reason)
+        closed = []
+        prices: dict[str, float] = {}
+        for pos in self.store.open_positions():
+            try:
+                px = self.market.price(pos.symbol)
+            except MarketError:
+                px = pos.entry_price
+            prices[pos.symbol] = px
+            self._close(pos, px, "védekező mód", prices, reason)
+            closed.append(pos.symbol)
+        self.notify(f"🛑 VÉDEKEZŐ MÓD {hours:.0f} órára\n{reason}\n"
+                    + (f"Lezárt pozíciók: {', '.join(closed)}." if closed else "Nem volt nyitott pozíció.")
+                    + "\nÚj pozíciót nem nyitok. Feloldás: írd be a chatbe: /folytat",
+                    email=False, kind="riskoff", push=5)
+
+    def pulse(self) -> None:
+        """Óránkénti élő helyzetkép az eseményfolyamba (telefonra nem megy)."""
+        prices = self._prices(list(self.cfg.symbols), {})
+        eq = self.equity(prices)
+        pos = self.store.open_positions()
+        bits = [f"Számla {eq:,.0f} USDT ({eq / self.store.start_equity() - 1:+.2%})"]
+        for p in pos:
+            px = prices.get(p.symbol)
+            if px:
+                bits.append(f"{p.symbol} {p.qty * (px - p.entry_price):+,.2f} USDT")
+        if not pos:
+            bits.append("nincs nyitott pozíció")
+        snap = self.radar.snapshot() if self.radar else {}
+        if snap.get("vix"):
+            bits.append(f"VIX {snap['vix']}")
+        paused = self.entries_paused()
+        if paused:
+            bits.append("⏸ védekező mód")
+        self.notify("🕐 Helyzetkép\n" + " • ".join(bits), email=False, kind="pulse", push=None)
+
     # --- adatminőség ---------------------------------------------------------
     def _data_problem(self, sym: str, error: str) -> None:
         logger.warning("%s: %s", sym, error)
@@ -396,7 +462,7 @@ class Agent:
         if local.hour < self.cfg.report_hour or self.store.get("last_report") == today:
             return
         self.store.set("last_report", today)  # előbb jelöljük: hiba esetén se menjen ki kétszer
-        self.notify(self.report(prices, daily=True))
+        self.notify(self.report(prices, daily=True), kind="report", push=3)
 
     def report(self, prices: dict[str, float] | None = None, daily: bool = False) -> str:
         positions = self.store.open_positions()
@@ -457,6 +523,10 @@ class Agent:
         if str(chat_id) != str(self.bot.chat_id):
             logger.warning("idegen chatből jött üzenet (%s), figyelmen kívül hagyva", chat_id)
             return None
+        return self.respond(text)
+
+    def respond(self, text: str) -> str | None:
+        """Parancs vagy szabad kérdés; a hívó felelős a jogosultság ellenőrzéséért (Telegram-chat, webes belépés)."""
         text = (text or "").strip()
         if not text:
             return None
@@ -468,6 +538,14 @@ class Agent:
             return self.report()
         if cmd == "/journal":
             return self.journal()
+        if cmd == "/radar":
+            return self.radar_text()
+        if cmd == "/folytat":
+            self.store.set("entries_paused_until", 0)
+            return "▶️ A védekező mód feloldva, az új pozíciók nyitása újra engedélyezett."
+        if cmd == "/vedekezes":
+            self.risk_off("kézi kérés (/vedekezes)")
+            return "🛑 Védekező mód bekapcsolva, a pozíciókat lezártam."
         if cmd == "/backtest":
             sym = (arg.strip().upper() or self.cfg.symbols[0])
             if sym not in self.cfg.symbols:
@@ -478,6 +556,22 @@ class Agent:
                 return f"A backtest most nem futott le: {e}"
         return self.answer(text)
 
+    def radar_text(self) -> str:
+        if not self.radar:
+            return "A radar nincs bekapcsolva."
+        snap = self.radar.snapshot()
+        lines = [f"🌍 Világpiaci radar" + (f" (frissítve {snap['frissítve_másodperce'] // 60} perce)"
+                                          if snap.get("frissítve_másodperce") is not None else "")]
+        if snap.get("vix"):
+            lines.append(f"VIX: {snap['vix']}")
+        lines.append("Legszokatlanabb mozgások:")
+        for m in snap["legszokatlanabb_mozgások"]:
+            lines.append(f"• {m['név']}: {m['napi_%']:+.2f}% (z={m['z']})")
+        lines.append("Friss hírek:")
+        for n in snap["friss_hírek"][:6]:
+            lines.append(f"• [{n['súly'] or '-'}] {n['cím']} ({n['forrás']})")
+        return "\n".join(lines)
+
     def answer(self, question: str) -> str:
         if self.llm is None:
             return "Szabad kérdésre csak modellkulccsal tudok válaszolni (GEMINI_API_KEY vagy OPENAI_API_KEY).\n" + HELP
@@ -486,8 +580,13 @@ class Agent:
                    "kockázati_szabályok": {"kockázat_kötésenként": self.cfg.risk_per_trade,
                                            "max_nyitott": self.cfg.max_open,
                                            "napi_veszteséglimit": self.cfg.daily_loss_limit},
+                   "világpiaci_radar": self.radar.snapshot() if self.radar else None,
+                   "védekező_mód": self.entries_paused(),
                    "korábbi_beszélgetés": self.store.recent_chat(8)}
-        reply = self._explain(f"A megbízó kérdése: „{question}”. Válaszolj neki az adatok alapján.", context)
+        reply = self._explain(
+            f"A megbízó kérdése: „{question}”. Válaszolj neki az adatok alapján. Ha árelőrejelzést kér, mondd ki "
+            "őszintén, hogy az irányt nem tudod megbízhatóan megjósolni; helyette add meg, mi történik most, "
+            "mi szokatlan, és mik a kockázatok.", context)
         if not reply:
             return "A modell most nem elérhető, ezért csak a számokat tudom adni:\n\n" + self.report()
         self.store.add_chat("user", question)

@@ -18,6 +18,9 @@ from agent import Agent
 from exchange import BinanceClient, BinanceExecutor, ExchangeError, PaperExecutor, selftest
 from llm import LLM
 from mailer import Mailer
+from push import Push
+from radar import Radar
+from web import make_router
 from market import Market
 from store import Store
 from telegram import Telegram, TelegramError
@@ -60,17 +63,22 @@ store = Store(db_path, start_equity)
 bot = Telegram.from_env()
 llm = LLM.from_env()
 mailer = Mailer.from_env()
-agent = Agent(cfg, store, Market(), bot, llm, mailer=mailer, executor=executor)
-state = {"started": time.time(), "last_tick": None, "last_error": None}
+push = Push.from_env()
+agent = Agent(cfg, store, Market(), bot, llm, mailer=mailer, executor=executor, push=push)
+state = {"started": time.time(), "last_tick": None, "last_error": None, "radar_tick": None, "radar_error": None}
+agent.radar = Radar(store, llm, emit=agent.radar_emit)
 
-app = FastAPI(title="AXIMBRA trading agent (papír)")
+app = FastAPI(title="AXIMBRA trading agent")
+app.include_router(make_router(agent, state))
 
 
 @app.get("/health")
 def health():
     last = state["last_tick"]
     return {"ok": True, "mode": executor.name, "symbols": list(cfg.symbols), "interval": cfg.interval,
-            "telegram": bot is not None, "telegram_chat": bool(bot and bot.chat_id), "email": mailer is not None,
+            "telegram": bot is not None, "telegram_chat": bool(bot and bot.chat_id), "email": mailer is not None, "push": push is not None,
+            "web": bool(os.environ.get("WEB_PASSWORD")), "radar_age_s": None if not state["radar_tick"] else round(time.time() - state["radar_tick"]),
+            "radar_error": state["radar_error"],
             "llm": llm.provider if llm else None,
             "last_tick_age_s": None if last is None else round(time.time() - last),
             "last_error": state["last_error"]}
@@ -97,6 +105,30 @@ def _market_loop() -> None:
             logger.exception("a ciklus hibával állt le")
             state["last_error"] = f"{type(e).__name__}: {e}"[:300]
         time.sleep(max(1.0, cfg.poll_seconds - (time.time() - started)))
+
+
+def _radar_loop() -> None:
+    """Világpiac és hírek: árak 10 percenként, hírek 5 percenként, óránként helyzetkép."""
+    last_markets = last_news = last_pulse = 0.0
+    while True:
+        now = time.time()
+        try:
+            if now - last_news >= 300:
+                agent.radar.scan_news()
+                last_news = time.time()
+            if now - last_markets >= 600:
+                agent.radar.scan_markets()
+                last_markets = time.time()
+                state["radar_tick"] = last_markets
+            if now - last_pulse >= 3600 and agent.radar.moves:
+                agent.pulse()
+                last_pulse = time.time()
+            state["radar_error"] = None
+        except Exception as e:   # a radar hibája nem érintheti a kereskedést
+            logger.exception("a radar ciklusa hibával állt le")
+            state["radar_error"] = f"{type(e).__name__}: {e}"[:300]
+            last_news = last_markets = time.time() - 240   # 1 perc múlva újra
+        time.sleep(30)
 
 
 def _telegram_loop() -> None:
@@ -132,6 +164,8 @@ def _startup() -> None:
         logger.info("TRADING_LOOP=off: a háttérszálak nem indulnak")
         return
     threading.Thread(target=_market_loop, name="market", daemon=True).start()
+    if os.environ.get("RADAR", "on").lower() != "off":
+        threading.Thread(target=_radar_loop, name="radar", daemon=True).start()
     if bot is not None:
         threading.Thread(target=_telegram_loop, name="telegram", daemon=True).start()
     hello = (f"🚀 Elindultam ({executor.name}). Figyelem: {', '.join(cfg.symbols)} ({cfg.interval}). "
@@ -139,7 +173,7 @@ def _startup() -> None:
     # Telegramon minden indulás jelez; e-mailben csak az első, hogy a csatorna
     # működése igazolva legyen, de egy-egy újratelepítés ne töltse a postafiókot.
     first_mail = mailer is not None and not store.get("mail_hello_v2")
-    agent.notify(hello + (" /help" if bot else ""), email=first_mail)
+    agent.notify(hello + (" /help" if bot else ""), email=first_mail, kind="info", push=None)
     if first_mail:
         store.set("mail_hello_v2", "1")
     if mailer is not None and os.environ.get("MAIL_DIAG", "") == "on":
