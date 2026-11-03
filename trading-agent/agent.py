@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -120,8 +121,33 @@ class Agent:
         return total
 
     # --- ciklus --------------------------------------------------------------
+    def _maybe_force_entry(self, prices: dict[str, float]) -> None:
+        """Kézi indítás (FORCE_ENTRY=BTCUSDT): egyszer, a stratégiai jelzés nélkül is nyit egy pozíciót.
+        Ugyanazon a kapun megy át, mint a jelzés: kockázati méret, napi limit, tőzsdei stop."""
+        sym = os.environ.get("FORCE_ENTRY", "").strip().upper()
+        if not sym or sym not in self.cfg.symbols or self.store.get(f"forced:{sym}"):
+            return
+        self.store.set(f"forced:{sym}", self._now().isoformat(timespec="seconds"))   # előbb jelölünk: egyszer fusson
+        if self.store.open_position_for(sym) is not None:
+            return
+        candles = self.market.candles(sym, self.cfg.interval, limit=300)
+        ind = strategy.compute(candles)
+        a = ind["atr"][-1] if candles else None
+        price = self.market.price(sym)
+        if not a:
+            self.notify(f"{self.label}\n⚪ {sym}: a kézi indítás nem ment, nincs elég adat az ATR-hez.")
+            return
+        prices[sym] = price
+        sig = strategy.Signal("enter", price, "KÉZI INDÍTÁS (nem stratégiai jelzés): a megbízó kérésére, játékpénzzel",
+                              stop=price - strategy.STOP_ATR * a, atr=a)
+        self._handle(sym, sig, int(self.clock() * 1000), None, price, prices)
+
     def tick(self) -> None:
         prices: dict[str, float] = {}
+        try:
+            self._maybe_force_entry(prices)
+        except (MarketError, ExchangeError) as e:
+            logger.warning("kézi indítás: %s", e)
         for sym in self.cfg.symbols:
             try:
                 self._tick_symbol(sym, prices)

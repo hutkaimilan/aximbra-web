@@ -431,3 +431,17 @@ def test_binance_place_queries_before_resending(monkeypatch):
                           "newClientOrderId": "mtb-x"})
     assert order["status"] == "FILLED"
     assert calls.count("POST") == 1   # nem küldte újra, mert a lekérdezés megtalálta
+
+
+def test_forced_entry_runs_once_through_risk_gate(monkeypatch):
+    ag, _, bot = make_live_agent()
+    ag.store.set("last_candle:BTCUSDT", 10**15)       # a stratégia ebben a ciklusban ne jelezzen
+    monkeypatch.setenv("FORCE_ENTRY", "BTCUSDT")
+    ag.tick()
+    pos = ag.store.open_positions()
+    assert len(pos) == 1 and pos[0].stop_cid and ag.executor.stops[pos[0].stop_cid] == "open"
+    assert pos[0].risk_amount <= 10_000 * 0.01 * 1.05           # a kockázati határon belül
+    assert any("KÉZI INDÍTÁS" in m for m in bot.sent)
+    ag.store.close_position(pos[0].id, pos[0].entry_price, 0, "teszt", 0.0)
+    ag.tick()                                                   # nem indul újra
+    assert not ag.store.open_positions()
