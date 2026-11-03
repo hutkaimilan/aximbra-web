@@ -74,6 +74,8 @@ class Agent:
         except Exception:
             logger.exception("az esemény mentése nem sikerült")
         delivered = True   # az élő felületen minden esemény látszik
+        if push is None and os.environ.get("PUSH_ALL", "off").lower() == "on":
+            push = 2       # minden lépésről szól, a kevésbé fontosakról halkan
         if push is not None and self.push is not None:
             self.push.send(title, "\n".join(lines[1:]) or title, priority=push)
         if self.bot is not None and self.bot.chat_id:
@@ -191,6 +193,8 @@ class Agent:
         sig = strategy.latest(candles, pos is not None)
         if sig is not None:
             self._handle(sym, sig, last.open_time, pos, price, prices)
+        elif len(candles) >= strategy.MIN_BARS:
+            self._report_check(sym, candles, pos, price)
         # A jelzés feldolgozása után: ha közben hiba volt, a következő ciklus újra
         # megpróbálja, a naplóbeli egyedi kulcs pedig kizárja a kettős végrehajtást.
         self.store.set(key, last.open_time)
@@ -312,6 +316,8 @@ class Agent:
             return
         try:
             self.executor.protect(p.symbol, p.qty, p.stop, p.stop_cid)
+            self.notify(f"{self.label}\n🛡 {p.symbol}: védőstop leadva a tőzsdén {p.stop:,.2f}-n "
+                        f"({p.qty:.6f} db). Ha az ár ide esik, a Binance automatikusan elad.", kind="trade", push=3)
         except ExchangeError as e:
             logger.error("%s: a stop leadása nem sikerült: %s", p.symbol, e)
             self._close(p, prices.get(p.symbol, p.entry_price), "biztonsági zárás",
@@ -387,6 +393,24 @@ class Agent:
         self.notify(f"{self.label}\n⚠️ {pos.symbol}: a zárás nem sikerült ({error}). "
                     + ("A pozíciót újra védi a tőzsdei stop; a következő ciklusban újrapróbálom."
                        if protected else "A pozíció JELENLEG STOP NÉLKÜL van — nézd meg a tőzsdén!"))
+
+    def _report_check(self, sym: str, candles, pos, price: float) -> None:
+        """Minden lezárt gyertyánál: mit látott a bot, és miért nem lépett."""
+        ind = strategy.compute(candles)
+        f, sl, r = ind["fast"][-1], ind["slow"][-1], ind["regime"][-1]
+        close = candles[-1].close
+        trend = "emelkedő (EMA200 felett)" if close > r else "csökkenő (EMA200 alatt)"
+        if pos is not None:
+            why = (f"nyitott pozíció: {pos.qty * (price - pos.entry_price):+,.2f} USDT, "
+                   f"stop {pos.stop:,.2f}, cél {pos.target:,.2f}")
+        elif close <= r:
+            why = f"csökkenő trendben nem veszek; az EMA200 ({r:,.2f}) {r / close - 1:+.1%}-ra van"
+        elif f <= sl:
+            why = "a trend emelkedő, de az EMA20 még az EMA50 alatt van: várom a felfelé keresztezést"
+        else:
+            why = "a trend emelkedő, az EMA20 az EMA50 felett van, de a keresztezés nem most történt"
+        self.notify(f"🔍 {sym} {self.cfg.interval} gyertya lezárult: {close:,.2f}\nTrend: {trend}. {why}.",
+                    email=False, kind="check", push=None)
 
     # --- radar és védekezés -----------------------------------------------------
     def radar_emit(self, kind: str, title: str, body: str = "", push: int | None = None) -> None:
