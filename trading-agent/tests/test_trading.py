@@ -581,4 +581,4 @@ def test_llm_falls_back_to_second_provider():
     primary = LLM("gemini", "k", client=httpx.Client(transport=httpx.MockTransport(gem)),
                   fallback=LLM("openai", "k", client=httpx.Client(transport=httpx.MockTransport(oai))))
     assert primary.ask("hello") == "válasz"
-    assert calls.count("gemini") == 3 and calls[-1] == "openai"
+    assert calls.count("gemini") == 2 and calls[-1] == "openai"

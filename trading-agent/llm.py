@@ -83,13 +83,27 @@ class LLM:
             return self.fallback._ask_once(prompt)
 
     def _ask_once(self, prompt: str) -> str:
-        for attempt in range(3):
+        """Gemininél a GEMINI_MODELS lista modelljein megy végig: túlterhelésnél a következő jön."""
+        models = [m.strip() for m in os.environ.get("GEMINI_MODELS", "").split(",") if m.strip()] or [GEMINI_MODEL]
+        if self.provider != "gemini":
+            models = [None]
+        last = None
+        for model in models:
             try:
-                r = self._request(prompt)
+                return self._ask_model(prompt, model)
+            except LLMError as e:
+                last = e
+                logger.warning("modell %s: %s", model, str(e)[:120])
+        raise last
+
+    def _ask_model(self, prompt: str, model: str | None) -> str:
+        for attempt in range(2):
+            try:
+                r = self._request(prompt, model)
             except httpx.HTTPError as e:
                 raise LLMError(f"a modell nem érhető el ({type(e).__name__})") from None
-            if r.status_code in (429, 500, 502, 503) and attempt < 2:
-                time.sleep(3 + 5 * attempt)
+            if r.status_code in (429, 500, 502, 503) and attempt < 1:
+                time.sleep(3)
                 continue
             if r.status_code >= 400:
                 raise LLMError(f"modellhiba (HTTP {r.status_code}): {r.text[:200]}")
@@ -102,9 +116,21 @@ class LLM:
             return text.strip()
         raise LLMError("a modell túlterhelt, később újra")
 
-    def _request(self, prompt: str) -> httpx.Response:
+    def models(self) -> list[str]:
+        """A kulccsal elérhető Gemini-modellek (diagnosztika)."""
+        if self.provider != "gemini":
+            return []
+        try:
+            r = self.client.get("https://generativelanguage.googleapis.com/v1beta/models",
+                                headers={"x-goog-api-key": self._key}, params={"pageSize": 200})
+            return [m["name"].removeprefix("models/") for m in r.json().get("models", [])
+                    if "generateContent" in m.get("supportedGenerationMethods", [])]
+        except (httpx.HTTPError, ValueError, KeyError):
+            return []
+
+    def _request(self, prompt: str, model: str | None = None) -> httpx.Response:
         if self.provider == "gemini":
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model or GEMINI_MODEL}:generateContent"
             body = {"systemInstruction": {"parts": [{"text": PERSONA}]},
                     "contents": [{"role": "user", "parts": [{"text": prompt}]}]}
             return self.client.post(url, headers={"x-goog-api-key": self._key}, json=body)

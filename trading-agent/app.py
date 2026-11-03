@@ -194,5 +194,8 @@ def _startup() -> None:
         if ok:
             store.set("selftest_ok", "1")
         agent.notify(f"{agent.label}\n{'✅' if ok else '❌'} Binance-önteszt\n" + "\n".join(lines))
+    if llm is not None and llm.provider == "gemini":
+        threading.Thread(target=lambda: logger.info("elérhető Gemini-modellek: %s", ", ".join(
+            m for m in llm.models() if "flash" in m or "pro" in m)), daemon=True).start()
     logger.info("indulás: %s, %s, telegram=%s, email=%s, llm=%s", cfg.symbols, cfg.interval, bot is not None,
                 mailer is not None, llm.provider if llm else None)
