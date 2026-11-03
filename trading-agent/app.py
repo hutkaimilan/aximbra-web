@@ -169,7 +169,7 @@ def _startup() -> None:
     if bot is not None:
         threading.Thread(target=_telegram_loop, name="telegram", daemon=True).start()
     hello = (f"🚀 Elindultam ({executor.name}). Figyelem: {', '.join(cfg.symbols)} ({cfg.interval}). "
-             f"Számla: {store.cash():,.2f} USDT.")
+             f"Számla: {agent.equity({}):,.2f} USDT.")
     # Telegramon minden indulás jelez; e-mailben csak az első, hogy a csatorna
     # működése igazolva legyen, de egy-egy újratelepítés ne töltse a postafiókot.
     first_mail = mailer is not None and not store.get("mail_hello_v2")

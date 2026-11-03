@@ -560,3 +560,25 @@ def test_web_login_rate_limit(monkeypatch):
     codes = [c.post("/api/login", json={"password": "x"}).status_code for _ in range(10)]
     assert codes[:8] == [401] * 8 and codes[8] == 429
     assert c.post("/api/login", json={"password": "jo"}).status_code == 429   # zárolás alatt a jó jelszó sem jó
+
+
+def test_llm_falls_back_to_second_provider():
+    import httpx
+
+    from llm import LLM
+    calls = []
+
+    def gem(request):
+        calls.append("gemini")
+        return httpx.Response(503, json={"error": "overloaded"})
+
+    def oai(request):
+        calls.append("openai")
+        return httpx.Response(200, json={"choices": [{"message": {"content": "válasz"}}]})
+
+    import llm as llm_mod
+    llm_mod.time.sleep = lambda s: None
+    primary = LLM("gemini", "k", client=httpx.Client(transport=httpx.MockTransport(gem)),
+                  fallback=LLM("openai", "k", client=httpx.Client(transport=httpx.MockTransport(oai))))
+    assert primary.ask("hello") == "válasz"
+    assert calls.count("gemini") == 3 and calls[-1] == "openai"

@@ -53,35 +53,43 @@ def extract_json(text: str):
 
 
 class LLM:
-    def __init__(self, provider: str, key: str, client: httpx.Client | None = None):
+    def __init__(self, provider: str, key: str, client: httpx.Client | None = None, fallback: "LLM | None" = None):
         self.provider = provider
         self._key = key
         self.client = client or httpx.Client(timeout=TIMEOUT)
+        self.fallback = fallback
 
     @classmethod
     def from_env(cls) -> "LLM | None":
         wanted = (os.environ.get("LLM_PROVIDER") or "").strip().lower()
         gemini = os.environ.get("GEMINI_API_KEY", "").strip()
         openai = os.environ.get("OPENAI_API_KEY", "").strip()
-        if wanted == "openai" and openai:
-            return cls("openai", openai)
-        if wanted == "gemini" and gemini:
-            return cls("gemini", gemini)
-        if not wanted:
-            if gemini:
-                return cls("gemini", gemini)
-            if openai:
-                return cls("openai", openai)
-        return None
+        gem = cls("gemini", gemini) if gemini else None
+        oai = cls("openai", openai) if openai else None
+        order = [oai, gem] if wanted == "openai" else [gem, oai]
+        chain = [x for x in order if x]
+        if not chain:
+            return None
+        chain[0].fallback = chain[1] if len(chain) > 1 else None   # a másik szolgáltató tartaléknak
+        return chain[0]
 
     def ask(self, prompt: str) -> str:
-        for attempt in range(2):
+        try:
+            return self._ask_once(prompt)
+        except LLMError as first:
+            if self.fallback is None:
+                raise
+            logger.warning("a(z) %s modell nem válaszolt (%s), tartalék: %s", self.provider, first, self.fallback.provider)
+            return self.fallback._ask_once(prompt)
+
+    def _ask_once(self, prompt: str) -> str:
+        for attempt in range(3):
             try:
                 r = self._request(prompt)
             except httpx.HTTPError as e:
                 raise LLMError(f"a modell nem érhető el ({type(e).__name__})") from None
-            if r.status_code in (429, 500, 502, 503) and attempt == 0:
-                time.sleep(5)
+            if r.status_code in (429, 500, 502, 503) and attempt < 2:
+                time.sleep(3 + 5 * attempt)
                 continue
             if r.status_code >= 400:
                 raise LLMError(f"modellhiba (HTTP {r.status_code}): {r.text[:200]}")
