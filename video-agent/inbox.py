@@ -65,6 +65,8 @@ def add(body: dict, now: datetime | None = None) -> tuple[dict, bool]:
     if not targets and not hold:
         raise InboxError("legalább egy cél kell: instagram vagy linkedin")
     form = body.get("form") if body.get("form") in FORMS else "auto"
+    # Ugyanaz a tartalom további nyelve(i)n is: a fő videó után lefordítva, ugyanoda posztolva.
+    twins = [l for l in dict.fromkeys(body.get("twins") or []) if l in ("hu", "en") and l != lang]
     seconds = body.get("seconds")
     if seconds is not None:
         try:
@@ -77,7 +79,7 @@ def add(body: dict, now: datetime | None = None) -> tuple[dict, bool]:
             if it["id"] == tid:
                 return it, False
         it = {"id": tid, "brief": brief, "lang": lang, "targets": targets, "form": form,
-              "seconds": seconds, "hold": hold,
+              "seconds": seconds, "hold": hold, "twins": twins,
               "source": str(body.get("source") or "")[:40], "status": "pending", "tries": 0,
               "created_at": now.isoformat(timespec="seconds"), "last_try": "", "result": {}, "error": ""}
         cutoff = (now - timedelta(days=KEEP_DAYS)).isoformat()

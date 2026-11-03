@@ -1524,3 +1524,104 @@ def revise(vid: str, feedback: str, say=lambda m: None) -> dict:
     script = check(script, opts["brief"] + " " + feedback, ctx, opts["seconds"], opts["lang"], say, form)
     script = fill_images(script, opts["aspect"], say)
     return _finish(script, opts, ctx, say, parent=vid)
+
+
+# ---- ugyanaz a videó másik nyelven ----------------------------------------------
+
+# A jelenetek szöveges mezői. Minden más (fajta, idő, kép, klip, téma) változatlanul
+# átjön, így a két nyelvű változat képre és ritmusra ugyanaz.
+TEXT_FIELDS = ("kicker", "headline", "sub", "lines", "lines2", "left_title", "right_title",
+               "app", "caller", "status", "tile_label", "button", "voice")
+TOP_TEXT_FIELDS = ("title", "tagline", "post", "first_comment")
+
+
+def hungarian_site(url: str) -> str:
+    """Az english_site fordítottja: /en#agentek → /#agentek, /en/demo/x → /demo/x."""
+    m = _AXIMBRA_RE.match(url or "")
+    if not m:
+        return url
+    path = re.sub(r"^/en(?=/|$)", "", m.group(2) or "/") or "/"
+    return f"https://aximbra.hu{path}{m.group(3) or ''}"
+
+
+def translate_prompt(texts: dict, lang: str) -> str:
+    return f"""Translate this short social video script into {_lang_name(lang)}.
+Rules:
+- Same JSON structure, same keys, same number of scenes and list items, in the same order.
+- Translate meaning, not word for word; keep it as short and punchy as the original (on-screen space is tight).
+- Keep the brand name AXIMBRA, domains (aximbra.hu) and hashtags' topic; translate hashtag words where natural.
+- Text wrapped in *asterisks* is highlighted on screen: keep the asterisks around the translated words.
+- "voice" is narration: it must sound natural when read aloud in {_lang_name(lang)}.
+- Add nothing, remove nothing, never invent numbers, customers or results.
+- In "first_comment" a link to aximbra.hu stays a link{' (use https://aximbra.hu/en for English)' if lang == 'en' else ' (use https://aximbra.hu)'}.
+
+SCRIPT:
+{json.dumps(texts, ensure_ascii=False)}
+
+Answer ONLY with the translated JSON."""
+
+
+def _texts_of(script: dict) -> dict:
+    return {**{k: script.get(k, "") for k in TOP_TEXT_FIELDS},
+            "scenes": [{k: sc.get(k) for k in TEXT_FIELDS if sc.get(k)} for sc in script["scenes"]]}
+
+
+def _merge_texts(script: dict, tr: dict) -> dict:
+    """A fordított szövegek visszaírása. Ha a modell elrontotta a szerkezetet
+    (más jelenetszám), az hiba: inkább nincs második nyelv, mint egy más videó."""
+    if not isinstance(tr, dict) or not isinstance(tr.get("scenes"), list) \
+            or len(tr["scenes"]) != len(script["scenes"]):
+        raise VideoError("a fordítás szerkezete eltér az eredetitől")
+    out = {**script, "scenes": []}
+    for k in TOP_TEXT_FIELDS:
+        if isinstance(tr.get(k), str) and (tr[k].strip() or not script.get(k)):
+            out[k] = tr[k].strip()
+    for sc, t in zip(script["scenes"], tr["scenes"]):
+        new = dict(sc)
+        t = t if isinstance(t, dict) else {}
+        for k in TEXT_FIELDS:
+            if not sc.get(k):
+                continue
+            v = t.get(k)
+            if isinstance(sc[k], list):
+                if isinstance(v, list) and len(v) == len(sc[k]) and all(isinstance(x, str) for x in v):
+                    new[k] = v
+            elif isinstance(v, str) and v.strip():
+                new[k] = v
+        out["scenes"].append(new)
+    return out
+
+
+def translate(vid: str, lang: str, say=lambda m: None) -> dict:
+    """Egy kész videó (vagy kép, körhinta) másik nyelvű változata: ugyanaz a
+    forgatókönyv, ugyanazok a képek és jelenetek, csak a szöveg, a narráció és
+    a poszt más nyelvű. Új videóként jön létre, a szülője az eredeti."""
+    meta = get_meta(vid)
+    if not meta:
+        raise VideoError("nincs ilyen videó")
+    if lang not in ("hu", "en"):
+        raise VideoError("nyelv: hu vagy en")
+    opts = dict(meta.get("opts") or {})
+    form = opts.get("form") or meta.get("form") or "video"
+    if form == "logo":
+        raise VideoError("logót nem fordítok")
+    if opts.get("lang") == lang:
+        raise VideoError("a videó már ezen a nyelven van")
+    opts.update(lang=lang, form=form)
+    site = english_site if lang == "en" else hungarian_site
+    ctx = {"urls": [site(u) for u in (meta.get("ctx_urls") or [])], "pages": [], "web": []}
+    script = {k: meta[k] for k in ("title", "tagline", "brand", "theme", "scenes", "post", "first_comment") if k in meta}
+    say(f"Fordítás: ugyanaz a videó {'angolul' if lang == 'en' else 'magyarul'}…")
+    tr = _ask_json(translate_prompt(_texts_of(script), lang), say)
+    merged = _merge_texts(script, tr)
+    # Ugyanaz a tisztítás és vágás, mint az eredetinél (hossz, URL, hashtag), de a
+    # jelenetek sorrendje és képei nem változnak.
+    script = normalize(merged, opts.get("seconds") or 30, len(ctx["urls"]), form)
+    left = wrong_language(script, lang)
+    if left:
+        say(f"Fordítás: {len(left)} szöveg még a régi nyelven van, újrapróbálom…")
+        script = normalize(_merge_texts(script, _ask_json(translate_prompt(_texts_of(script), lang), say)),
+                           opts.get("seconds") or 30, len(ctx["urls"]), form)
+        if wrong_language(script, lang):
+            raise VideoError("a fordítás után is maradt más nyelvű szöveg")
+    return _finish(script, opts, ctx, say, parent=vid)

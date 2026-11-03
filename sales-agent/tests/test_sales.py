@@ -1329,6 +1329,8 @@ def test_content_sends_two_briefs_once_and_never_leaks_names(store, monkeypatch)
     content.run(store, now.replace(hour=12, minute=30))                    # ebédidőben az Instagram
     assert [s["id"] for s in sent] == ["sales-2026-10-06-hu", "sales-2026-10-06-en"]
     assert sent[0]["targets"] == ["linkedin"] and sent[1]["targets"] == ["instagram"]
+    # Instagram: egy videó magyarul, a videós agent angolra is lefordítja és kiposztolja.
+    assert sent[1]["lang"] == "hu" and sent[1]["twins"] == ["en"] and "twins" not in sent[0]
     # A formát a kód adja, nem a modell (az itt mást írt vissza).
     assert sent[0]["form"] == content.pick_form("hu", now.date())
     assert sent[1]["form"] == content.pick_form("en", now.date())
@@ -1423,10 +1425,9 @@ def test_forms_alternate_so_both_platforms_get_videos_and_images():
     assert forms.count("video") == len(days) // 2
     assert forms.count("image") + forms.count("carousel") == len(days) // 2
     assert all(a != b or a != "video" for a, b in zip(forms, forms[1:]))
-    # Instagram (angol): új fiók, Reels-re építünk — négy napból három videó, egy körhinta.
+    # Instagram: minden nap videó (egy videó, magyarul és angolul).
     forms = [content.pick_form("en", d) for d in days]
-    assert forms.count("video") == len(days) * 3 // 4
-    assert forms.count("carousel") == len(days) // 4
+    assert forms == ["video"] * len(days)
 
 
 def test_the_prompt_names_today_s_weekday():

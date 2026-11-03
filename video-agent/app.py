@@ -355,6 +355,8 @@ class InboxIn(BaseModel):
     seconds: int | None = Field(default=None, ge=10, le=120)
     # Elkészül, de nem posztolódik: a panelen vár jóváhagyásra.
     hold: bool = False
+    # Ugyanez a videó ezeken a nyelveken is (pl. ["en"]): lefordítva, ugyanoda posztolva.
+    twins: list[str] = []
 
 
 @app.post("/api/inbox", dependencies=[Depends(_agent_auth)])
@@ -388,22 +390,39 @@ def _inbox_round(it: dict):
         except Exception as e:  # noqa: BLE001
             inbox.update(it["id"], error=str(e)[:300])
             raise
+        # A további nyelvű változatok a posztolás ELŐTT készülnek: ha valamelyik
+        # elhasal, a fő videó attól még kimegy, a hiba pedig a tételen látszik.
+        twins, errors = [], []
+        for lang in it.get("twins") or []:
+            try:
+                twins.append(videomaker.translate(meta["id"], lang, say=say))
+            except stop.Cancelled:
+                raise
+            except Exception as e:  # noqa: BLE001
+                say(f"{lang} változat nem készült el: {e}")
+                errors.append(f"{lang}: {str(e)[:120]}")
+        videos = [meta] + twins
         if it.get("hold"):
             say("Elkészült, jóváhagyásra vár: nem posztolom, a panelen lehet kiküldeni.")
-            inbox.update(it["id"], status="done", video=meta["id"], result={}, error="")
+            inbox.update(it["id"], status="done", video=meta["id"], twins=[t["id"] for t in twins],
+                         result={}, error="; ".join(errors))
             return meta
         live = publisher.enabled_targets()
         targets = [t for t in it["targets"] if t in live]
         skipped = [t for t in it["targets"] if t not in live]
         for t in skipped:
             say(f"{t}: nincs bekötve, ide nem posztolom.")
-        out = _post_video(meta["id"], targets, meta.get("post", ""), say) if targets else {}
+        out = {}
+        for v in videos:
+            lang = (v.get("opts") or {}).get("lang") or it["lang"]
+            res = _post_video(v["id"], targets, v.get("post", ""), say) if targets else {}
+            out.update({(t if v is meta else f"{t}_{lang}"): pid for t, pid in res.items()})
         if out:
             settings_store.count_post(datetime.now(timezone.utc), settings_store.load())
         # Ha a gyártás sikerült, a tétel kész akkor is, ha egy platform elhasalt:
         # egy újrafutás dupla posztot adna oda, ahova már kiment.
-        inbox.update(it["id"], status="done", video=meta["id"], result=out,
-                     error="; ".join(f"{t}: nincs bekötve" for t in skipped))
+        inbox.update(it["id"], status="done", video=meta["id"], twins=[t["id"] for t in twins], result=out,
+                     error="; ".join(errors + [f"{t}: nincs bekötve" for t in skipped]))
         return meta
     return run
 

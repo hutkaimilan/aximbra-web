@@ -1,4 +1,5 @@
-"""Napi tartalomtéma a videós agentnek: egy magyar (LinkedIn) és egy angol (Instagram).
+"""Napi tartalomtéma a videós agentnek: egy magyar (LinkedIn) és egy Instagram-videó,
+ami magyarul ÉS angolul is kimegy (ugyanaz a videó, két nyelven: két poszt).
 
 A sales agent tudja, milyen fájdalmakat és jeleket talált az utóbbi hetekben a
 cégeknél; ebből ír egy-egy rövid témát, és elküldi a videós agent beérkező
@@ -45,6 +46,9 @@ from playbook import AGENTS, SECTORS, VOICE_AGENT
 logger = logging.getLogger(__name__)
 
 ROUTES = {"hu": "linkedin", "en": "instagram"}
+# Az Instagram-videó nyelvei: az elsőn készül, a többire a videós agent fordítja le
+# ugyanazt a forgatókönyvet (ugyanazok a képek és jelenetek, más szöveg és hang).
+IG_LANGS = ("hu", "en")
 LOOKBACK_DAYS = 21
 RETRY_MIN = 30
 DEFAULT_URL = "https://aximbra-video-production.up.railway.app/api/inbox"
@@ -143,8 +147,8 @@ SECTOR_KEYS = tuple(SECTORS)
 # az egyik platform videót, a másik állóképet kap.
 FORM_CYCLE = ("video", "image", "video", "carousel")
 FORM_OFFSET = {"hu": 0, "en": 1}
-# Az Instagram (angol) új fióknál a Reels-en nő: négy napból három videó, egy körhinta.
-FORM_CYCLES = {"en": ("video", "video", "carousel", "video")}
+# Instagramra minden nap videó megy (a tulajdonos kérése: napi egy videó két nyelven).
+FORM_CYCLES = {"en": ("video",)}
 
 HU_DAYS = ("hétfő", "kedd", "szerda", "csütörtök", "péntek", "szombat", "vasárnap")
 EN_DAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
@@ -217,7 +221,7 @@ szerepet, helyzetet keresel benne, ahol a mai agentnek van dolga.
 
 A MAI FORMA — ezt is a kód adja, nem választasz:
   "hu" (LinkedIn): {FORM_HU.get(forms.get("hu", ""), "")}
-  "en" (Instagram): {FORM_HU.get(forms.get("en", ""), "")}
+  "en" (Instagram, magyarul és angolul is kimegy): {FORM_HU.get(forms.get("en", ""), "")}
 A témát úgy írd, hogy ebben a formában működjön (videónál mozgás és hang, képnél egy erős jelenet, körhintánál lépések).
 
 Amit az utóbbi {LOOKBACK_DAYS} napban a magyar cégeknél láttunk:
@@ -241,7 +245,9 @@ Szabályok (marketingkutatás alapján):
    Ne írd bele, hogy "az értékesítő agent mutatja be" — a téma a nézőnek szól, nem rólad.
 5. A formát fent megkaptad; ne írj mást.
 6. "hu": magyar nyelven, magyar kkv-vezetőknek, LinkedInre: szakmai, nyugodt, a végén kérdés az olvasónak.
-   "en": angolul, nemzetközi cégtulajdonosoknak és üzemeltetési vezetőknek, Instagramra: vizuálisabb, rövidebb, erős első kép.
+   "en": angolul írd, Instagramra: vizuálisabb, rövidebb, erős első kép. Ugyanez a videó magyarul és angolul is
+   kimegy, ezért magyar és nemzetközi cégvezetőknek egyaránt szóljon: ne legyen benne csak egy országra
+   érthető utalás (helyi szabály, ünnep, pénznem)
 7. Mindkét téma 2–4 mondat, 200–600 karakter: mit mutasson, kinek, milyen hangulatban, mi a zárás.
 
 Csak JSON-t adj vissza:
@@ -334,8 +340,13 @@ def run(store, now: datetime, say=logger.info) -> dict:
             if not lang_due(lang, now, store):
                 continue
             b = briefs[lang]
-            _send({"id": f"sales-{day}-{lang}", "brief": b["brief"], "lang": lang,
-                   "targets": [target], "form": b["form"], "source": source})
+            item = {"id": f"sales-{day}-{lang}", "brief": b["brief"], "lang": lang,
+                    "targets": [target], "form": b["form"], "source": source}
+            if target == "instagram":
+                # Egy videó, két nyelven: magyarul készül, a videós agent angolra is
+                # lefordítja, és mindkettőt kiposztolja.
+                item.update(lang=IG_LANGS[0], twins=list(IG_LANGS[1:]))
+            _send(item)
             store.set_setting(f"content_sent_{lang}", day)
             sent[lang] = b["brief"]
             say(f"Tartalomtéma elküldve ({lang} → {target}, {key or 'agent'}, "

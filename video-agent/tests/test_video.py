@@ -1380,3 +1380,101 @@ def test_collage_template_allows_nine_and_fills_the_cells():
     import os
     t = open(os.path.join(os.path.dirname(__file__), "..", "static", "video_template.html"), encoding="utf-8").read()
     assert ".slice(0, 9)" in t and "object-fit:cover" in t and ".grid2m.g3" in t and "justify-content:center" in t
+
+
+def test_translate_keeps_scenes_and_media_changes_only_text(tmp_path, monkeypatch):
+    """Egy videó két nyelven: ugyanazok a jelenetek, képek és idők, csak a szöveg,
+    a hang és a poszt más nyelvű; a link az angol oldalra mutat."""
+    import json as _json
+    monkeypatch.setattr(videomaker, "VIDEO_DIR", str(tmp_path))
+    src = {"id": "abcdef012345", "title": "Hétfő reggel", "tagline": "", "brand": "AXIMBRA", "theme": "neon",
+           "scenes": [{"kind": "hook", "headline": "Hétfő reggel *200 levél*", "voice": "Hétfő reggel kétszáz levél.",
+                       "seconds": 3.0, "media": "", "medias": [], "lines": [], "lines2": []},
+                      {"kind": "photo", "headline": "Az agent rendez", "media": "abc123def456", "seconds": 5.0,
+                       "image_prompt": "", "medias": [], "lines": ["Egy", "Kettő"], "lines2": []},
+                      {"kind": "cta", "headline": "Próbálja ki", "url": "aximbra.hu", "button": "Élő demó",
+                       "seconds": 4.0, "media": "", "medias": [], "lines": [], "lines2": []}],
+           "post": "Hétfő reggel kétszáz levél vár. #AI", "first_comment": "Élő demók: https://aximbra.hu",
+           "opts": {"brief": "x" * 30, "seconds": 12, "lang": "hu", "aspect": "9:16", "voice": False,
+                    "male": False, "research": False, "form": "video"},
+           "ctx_urls": ["https://aximbra.hu/#agentek"]}
+    (tmp_path / "abcdef012345.mp4").write_bytes(b"x")
+    (tmp_path / "abcdef012345.json").write_text(_json.dumps(src), encoding="utf-8")
+    monkeypatch.setattr(videomaker.media, "get", lambda mid: {"id": mid, "kind": "image"} if mid == "abc123def456" else None)
+    asked = []
+
+    def ask(prompt, **k):
+        asked.append(prompt)
+        return _json.dumps({"title": "Monday morning", "tagline": "", "post": "Monday morning, 200 emails. #AI",
+                            "first_comment": "Live demos: https://aximbra.hu/en",
+                            "scenes": [{"headline": "Monday morning *200 emails*", "voice": "Monday morning, two hundred emails."},
+                                       {"headline": "The agent sorts it", "lines": ["One", "Two"]},
+                                       {"headline": "Try it", "button": "Live demo"}]})
+    monkeypatch.setattr(llm, "_ask", ask)
+    seen = {}
+
+    def fake_render(script, urls, out, aspect, audio, captions, say):
+        seen["urls"] = urls
+        open(out, "wb").write(b"mp4")
+        return 12.0
+    monkeypatch.setattr(videomaker, "render", fake_render)
+    m = videomaker.translate("abcdef012345", "en")
+    assert m["parent"] == "abcdef012345" and m["opts"]["lang"] == "en"
+    assert [s["kind"] for s in m["scenes"]] == ["hook", "photo", "cta"]
+    assert m["scenes"][1]["media"] == "abc123def456" and m["scenes"][1]["lines"] == ["One", "Two"]
+    assert m["scenes"][0]["headline"] == "Monday morning *200 emails*"
+    assert m["post"].startswith("Monday morning") and seen["urls"] == ["https://aximbra.hu/en#agentek"]
+    assert "Hétfő reggel" in asked[0]
+    with pytest.raises(videomaker.VideoError):
+        videomaker.translate("abcdef012345", "hu")                     # már magyar
+
+
+def test_translate_refuses_a_changed_structure(tmp_path, monkeypatch):
+    """Ha a fordítás más jelenetszámot ad, nincs második nyelv: inkább kimarad, mint más videó."""
+    with pytest.raises(videomaker.VideoError):
+        videomaker._merge_texts({"scenes": [{"headline": "A"}, {"headline": "B"}]},
+                                {"scenes": [{"headline": "X"}]})
+    assert videomaker.hungarian_site("https://aximbra.hu/en/demo/x") == "https://aximbra.hu/demo/x"
+    assert videomaker.hungarian_site("https://aximbra.hu/en#agentek") == "https://aximbra.hu/#agentek"
+
+
+def test_inbox_twin_language_is_made_and_posted_after_the_main_video(tmp_path, monkeypatch):
+    """Instagram: egy videó magyarul és angolul is kimegy — két poszt, ugyanaz a tartalom."""
+    import app as video_app
+    import inbox
+    monkeypatch.setattr(inbox, "PATH", str(tmp_path / "inbox.json"))
+    inbox.add({"id": "sales-2026-11-04-en", "brief": "Hétfő reggel kétszáz levél egy szervizben.",
+               "lang": "hu", "twins": ["en", "hu", "de"], "targets": ["instagram"], "form": "video"})
+    assert inbox._load()[0]["twins"] == ["en"]
+    monkeypatch.setattr(video_app.videomaker, "make", lambda *a, **k: {"id": "v1", "post": "HU", "opts": {"lang": "hu"}})
+    monkeypatch.setattr(video_app.videomaker, "translate",
+                        lambda vid, lang, say=None: {"id": "v2", "post": "EN", "opts": {"lang": lang}, "parent": vid})
+    monkeypatch.setattr(video_app.publisher, "enabled_targets", lambda: ["instagram"])
+    posted = []
+    monkeypatch.setattr(video_app, "_post_video",
+                        lambda vid, targets, caption, say: posted.append((vid, caption)) or {"instagram": f"p-{vid}"})
+    video_app._inbox_round(inbox.next_due())(lambda m: None)
+    assert posted == [("v1", "HU"), ("v2", "EN")]
+    it = inbox._load()[0]
+    assert it["status"] == "done" and it["twins"] == ["v2"]
+    assert it["result"] == {"instagram": "p-v1", "instagram_en": "p-v2"}
+
+
+def test_a_failed_translation_still_posts_the_main_video(tmp_path, monkeypatch):
+    import app as video_app
+    import inbox
+    monkeypatch.setattr(inbox, "PATH", str(tmp_path / "inbox.json"))
+    inbox.add({"id": "sales-2026-11-05-en", "brief": "Hétfő reggel kétszáz levél egy szervizben.",
+               "lang": "hu", "twins": ["en"], "targets": ["instagram"], "form": "video"})
+    monkeypatch.setattr(video_app.videomaker, "make", lambda *a, **k: {"id": "v1", "post": "HU", "opts": {"lang": "hu"}})
+
+    def boom(*a, **k):
+        raise videomaker.VideoError("a fordítás szerkezete eltér az eredetitől")
+    monkeypatch.setattr(video_app.videomaker, "translate", boom)
+    monkeypatch.setattr(video_app.publisher, "enabled_targets", lambda: ["instagram"])
+    posted = []
+    monkeypatch.setattr(video_app, "_post_video",
+                        lambda vid, targets, caption, say: posted.append(vid) or {"instagram": "p1"})
+    video_app._inbox_round(inbox.next_due())(lambda m: None)
+    it = inbox._load()[0]
+    assert posted == ["v1"] and it["status"] == "done" and "en:" in it["error"]
