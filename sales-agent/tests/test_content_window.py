@@ -34,13 +34,14 @@ def test_linkedin_only_tuesday_to_thursday_morning():
     assert not content.lang_due("hu", at(6, 10, 0), s)        # péntek
 
 
-def test_instagram_weekdays_at_lunch_and_never_at_weekend():
+def test_instagram_every_day_at_lunch():
     s = _Store()
     assert content.lang_due("en", at(2, 12, 20), s)           # hétfő
     assert content.lang_due("en", at(6, 13, 0), s)            # péntek
-    assert not content.lang_due("en", at(3, 10, 0), s)
-    assert not content.lang_due("en", at(7, 12, 30), s)       # szombat
-    assert not content.due(at(8, 12, 30), s)                  # vasárnap
+    assert not content.lang_due("en", at(3, 10, 0), s)        # délelőtt még nem
+    assert content.lang_due("en", at(7, 12, 30), s)           # szombat is
+    assert content.due(at(8, 12, 30), s)                      # vasárnap is
+    assert not content.lang_due("hu", at(7, 10, 0), s)        # a LinkedIn hétvégén nem
 
 
 def test_sent_today_is_not_sent_again():

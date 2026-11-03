@@ -55,7 +55,7 @@ DEFAULT_URL = "https://aximbra-video-production.up.railway.app/api/inbox"
 _lock = threading.Lock()
 
 # Platformonként külön idő (budapesti idő), a B2B-közönség munkaritmusához:
-# LinkedIn kedd–csütörtök délelőtt, Instagram hétköznap ebédidőben; hétvégén
+# LinkedIn kedd–csütörtök délelőtt, Instagram minden nap ebédidőben; LinkedInen hétvégén
 # semmi. A témát néhány perccel korábban küldjük, mert a videós agentnek
 # 1–5 perc a gyártás, és utána azonnal posztol. Ha a szolgáltatás a kezdés
 # után WINDOW_MIN percen belül nem jut el a küldésig, aznap kimarad: egy
@@ -77,7 +77,8 @@ def schedule() -> dict[str, tuple[tuple[int, int], set[int]]]:
     """lang -> ((óra, perc), hétköznapok 0=hétfő). Az idő környezeti változóval
     állítható (CONTENT_LI_TIME, CONTENT_IG_TIME)."""
     return {"hu": (_hm(os.environ.get("CONTENT_LI_TIME", ""), (9, 50)), {1, 2, 3}),
-            "en": (_hm(os.environ.get("CONTENT_IG_TIME", ""), (12, 20)), {0, 1, 2, 3, 4})}
+            # Instagram a hét minden napján (a tulajdonos kérése): magyarul és angolul, egymás után.
+            "en": (_hm(os.environ.get("CONTENT_IG_TIME", ""), (12, 20)), set(range(7)))}
 
 
 def enabled() -> bool:

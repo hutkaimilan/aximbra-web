@@ -1337,6 +1337,9 @@ def test_content_sends_two_briefs_once_and_never_leaks_names(store, monkeypatch)
     assert company.lower() not in sent[0]["brief"].lower()
     assert not content.due(now.replace(hour=13, minute=0), store)         # ma kész
     assert content.due(now + timedelta(days=1), store)                    # szerda
+    sat = now + timedelta(days=5)                                         # szombat: csak az Instagram
+    assert not content.lang_due("hu", sat.replace(hour=10), store)
+    assert content.lang_due("en", sat.replace(hour=12, minute=30), store)
 
 
 def test_content_covers_every_agent_before_repeating_any(store, monkeypatch):
