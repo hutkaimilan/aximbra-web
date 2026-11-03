@@ -283,3 +283,151 @@ def test_email_failure_does_not_block_telegram():
     ag.mailer = FakeMailer(fail=True)
     ag.tick()
     assert any("VÉTEL" in m for m in bot.sent)
+
+
+# --- tőzsdei végrehajtás (Binance-csonk) -----------------------------------------------
+from exchange import BinanceClient, ExchangeError, Fill  # noqa: E402
+
+
+class FakeLiveExecutor:
+    live = True
+    name = "Binance demó"
+
+    def __init__(self):
+        self.stops = {}          # cid -> "open" | "filled" | "gone"
+        self.orders = {}         # cid -> Fill
+        self.fail_protect = False
+        self.buy_uncertain = False
+        self.sells = []
+
+    def round_qty(self, symbol, qty):
+        return round(qty, 5)
+
+    def min_notional(self, symbol):
+        return 5.0
+
+    def buy(self, symbol, qty, price, cid):
+        fill = Fill(qty * 0.999, price, qty * price * 0.001)
+        self.orders[cid] = fill
+        if self.buy_uncertain:
+            raise ExchangeError("időtúllépés", uncertain=True)
+        return fill
+
+    def sell(self, symbol, qty, price, cid):
+        self.sells.append(cid)
+        return Fill(qty, price, qty * price * 0.001)
+
+    def protect(self, symbol, qty, stop, cid):
+        if self.fail_protect:
+            raise ExchangeError("STOP_LOSS_LIMIT elutasítva")
+        self.stops[cid] = "open"
+
+    def unprotect(self, symbol, cid):
+        if self.stops.get(cid) == "open":
+            self.stops[cid] = "gone"
+
+    def stop_state(self, symbol, cid):
+        st = self.stops.get(cid)
+        if st == "open":
+            return None
+        if st == "filled":
+            return ("filled", Fill(1.0, 90.0, 0.09))
+        return ("gone", None)
+
+    def lookup(self, symbol, cid):
+        return self.orders.get(cid)
+
+
+def make_live_agent():
+    ag, market, bot = make_agent()
+    ag.executor = FakeLiveExecutor()
+    ag.label = "🧪 BINANCE DEMÓ — játékpénz"
+    return ag, market, bot
+
+
+def test_live_entry_places_exchange_stop():
+    ag, _, bot = make_live_agent()
+    ag.tick()
+    pos = ag.store.open_positions()[0]
+    assert pos.stop_cid and ag.executor.stops[pos.stop_cid] == "open"
+    assert any("VÉTEL" in m and "BINANCE DEMÓ" in m for m in bot.sent)
+
+
+def test_live_stop_failure_exits_immediately():
+    ag, _, bot = make_live_agent()
+    ag.executor.fail_protect = True
+    ag.tick()
+    assert not ag.store.open_positions()
+    assert ag.store.closed_positions()[0].exit_reason == "biztonsági zárás"
+    assert ag.executor.sells
+
+
+def test_live_exchange_stop_fill_is_booked():
+    ag, _, bot = make_live_agent()
+    ag.tick()
+    pos = ag.store.open_positions()[0]
+    ag.executor.stops[pos.stop_cid] = "filled"
+    ag.tick()
+    closed = ag.store.closed_positions()[0]
+    assert closed.exit_reason == "stop (tőzsdei)" and not ag.executor.sells
+
+
+def test_live_uncertain_buy_is_reconciled_not_repeated():
+    ag, _, bot = make_live_agent()
+    ag.executor.buy_uncertain = True
+    ag.tick()
+    assert not ag.store.open_positions() and ag.store.get("pending_entry:BTCUSDT")
+    ag.executor.buy_uncertain = False
+    ag.tick()   # a következő ciklus a tőzsdei adatból könyvel, nem vesz újra
+    assert len(ag.store.open_positions()) == 1
+    assert len(ag.executor.orders) == 1
+    assert ag.store.get("pending_entry:BTCUSDT") is None
+
+
+def test_binance_signature_is_valid_ed25519():
+    import base64
+    import urllib.parse
+
+    import httpx
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    priv = Ed25519PrivateKey.generate()
+    pem = priv.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                             serialization.NoEncryption()).decode()
+    seen = {}
+
+    def handler(request):
+        seen["url"] = str(request.url)
+        seen["key"] = request.headers.get("X-MBX-APIKEY")
+        return httpx.Response(200, json={"balances": [{"asset": "USDT", "free": "5000"}]})
+
+    client = BinanceClient("k", pem, client=httpx.Client(transport=httpx.MockTransport(handler)))
+    assert client.free("USDT") == 5000
+    query = seen["url"].split("?", 1)[1]
+    payload, sig = query.rsplit("&signature=", 1)
+    priv.public_key().verify(base64.b64decode(urllib.parse.unquote(sig)), payload.encode())
+    assert seen["key"] == "k" and "timestamp=" in payload
+
+
+def test_binance_place_queries_before_resending(monkeypatch):
+    import httpx
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    pem = Ed25519PrivateKey.generate().private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()
+    calls = []
+
+    def handler(request):
+        calls.append(request.method)
+        if request.method == "POST":
+            raise httpx.ReadTimeout("lassú")
+        return httpx.Response(200, json={"status": "FILLED", "executedQty": "0.001",
+                                         "cummulativeQuoteQty": "77"})
+
+    import exchange
+    monkeypatch.setattr(exchange.time, "sleep", lambda s: None)
+    client = BinanceClient("k", pem, client=httpx.Client(transport=httpx.MockTransport(handler)))
+    order = client.place({"symbol": "BTCUSDT", "side": "BUY", "type": "MARKET", "quantity": "0.001",
+                          "newClientOrderId": "mtb-x"})
+    assert order["status"] == "FILLED"
+    assert calls.count("POST") == 1   # nem küldte újra, mert a lekérdezés megtalálta

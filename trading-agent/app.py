@@ -15,6 +15,7 @@ from fastapi import FastAPI, Header, HTTPException
 
 import config
 from agent import Agent
+from exchange import BinanceClient, BinanceExecutor, ExchangeError, PaperExecutor, selftest
 from llm import LLM
 from mailer import Mailer
 from market import Market
@@ -27,11 +28,39 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("trading-agent")
 
 cfg = config.load()
-store = Store(cfg.db_path, cfg.start_equity)
+MODE = os.environ.get("TRADING_MODE", "paper").strip().lower()
+
+
+def _binance_executor() -> tuple[BinanceExecutor, float]:
+    client = BinanceClient.from_env(cfg.fee)
+    if client is None:
+        raise SystemExit("TRADING_MODE=binance, de hiányzik a BINANCE_API_KEY vagy a BINANCE_PRIVATE_KEY")
+    if not client.is_demo and os.environ.get("BINANCE_LIVE_CONFIRM", "") != "VALODI_PENZ":
+        # Éles címre csak kifejezett, külön jóváhagyással: egy elgépelt URL ne kereskedjen valódi pénzzel.
+        raise SystemExit("éles Binance-cím BINANCE_LIVE_CONFIRM=VALODI_PENZ nélkül — leállok")
+    last = None
+    for attempt in range(3):
+        try:
+            return BinanceExecutor(client), client.free("USDT")
+        except ExchangeError as e:
+            last = e
+            time.sleep(3 * (attempt + 1))
+    raise SystemExit(f"a Binance-fiók nem érhető el: {last}")
+
+
+if MODE == "binance":
+    executor, start_equity = _binance_executor()
+    db_path = os.environ.get("TRADING_DB_PATH_BINANCE", "/data/trading-binance.db")
+elif MODE == "paper":
+    executor, start_equity, db_path = PaperExecutor(cfg.fee, cfg.slippage), cfg.start_equity, cfg.db_path
+else:
+    raise SystemExit(f"ismeretlen TRADING_MODE: {MODE} (paper | binance)")
+
+store = Store(db_path, start_equity)
 bot = Telegram.from_env()
 llm = LLM.from_env()
 mailer = Mailer.from_env()
-agent = Agent(cfg, store, Market(), bot, llm, mailer=mailer)
+agent = Agent(cfg, store, Market(), bot, llm, mailer=mailer, executor=executor)
 state = {"started": time.time(), "last_tick": None, "last_error": None}
 
 app = FastAPI(title="AXIMBRA trading agent (papír)")
@@ -40,7 +69,7 @@ app = FastAPI(title="AXIMBRA trading agent (papír)")
 @app.get("/health")
 def health():
     last = state["last_tick"]
-    return {"ok": True, "mode": "paper", "symbols": list(cfg.symbols), "interval": cfg.interval,
+    return {"ok": True, "mode": executor.name, "symbols": list(cfg.symbols), "interval": cfg.interval,
             "telegram": bot is not None, "telegram_chat": bool(bot and bot.chat_id), "email": mailer is not None,
             "llm": llm.provider if llm else None,
             "last_tick_age_s": None if last is None else round(time.time() - last),
@@ -105,13 +134,22 @@ def _startup() -> None:
     threading.Thread(target=_market_loop, name="market", daemon=True).start()
     if bot is not None:
         threading.Thread(target=_telegram_loop, name="telegram", daemon=True).start()
-    hello = (f"🚀 Elindultam. Figyelem: {', '.join(cfg.symbols)} ({cfg.interval}). "
-             "Papírkereskedés, valódi árfolyamokon.")
+    hello = (f"🚀 Elindultam ({executor.name}). Figyelem: {', '.join(cfg.symbols)} ({cfg.interval}). "
+             f"Számla: {store.cash():,.2f} USDT.")
     # Telegramon minden indulás jelez; e-mailben csak az első, hogy a csatorna
     # működése igazolva legyen, de egy-egy újratelepítés ne töltse a postafiókot.
     first_mail = mailer is not None and not store.get("mail_hello")
     agent.notify(hello + (" /help" if bot else ""), email=first_mail)
     if first_mail:
         store.set("mail_hello", "1")
+    if executor.live and not store.get("selftest_ok") and os.environ.get("BINANCE_SELFTEST", "on") != "off":
+        # Egyszer, az első induláskor: egy kis valódi kör a demószámlán, hogy minden lépés igazolva legyen.
+        lines = selftest(executor.c, cfg.symbols[0])
+        for line in lines:
+            logger.info("önteszt: %s", line)
+        ok = all(l.startswith("✅") for l in lines)
+        if ok:
+            store.set("selftest_ok", "1")
+        agent.notify(f"{agent.label}\n{'✅' if ok else '❌'} Binance-önteszt\n" + "\n".join(lines))
     logger.info("indulás: %s, %s, telegram=%s, email=%s, llm=%s", cfg.symbols, cfg.interval, bot is not None,
                 mailer is not None, llm.provider if llm else None)

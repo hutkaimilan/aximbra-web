@@ -19,6 +19,7 @@ import backtest
 import paper
 import strategy
 from config import Config
+from exchange import ExchangeError, PaperExecutor
 from llm import LLMError
 from mailer import MailError
 from market import Market, MarketError
@@ -44,7 +45,7 @@ def _usd(x: float) -> str:
 
 class Agent:
     def __init__(self, cfg: Config, store: Store, market: Market, bot=None, llm=None, clock=time.time,
-                 mailer=None):
+                 mailer=None, executor=None):
         self.cfg = cfg
         self.store = store
         self.market = market
@@ -52,6 +53,9 @@ class Agent:
         self.llm = llm
         self.clock = clock
         self.mailer = mailer
+        self.executor = executor or PaperExecutor(cfg.fee, cfg.slippage)
+        self.label = PAPER if not self.executor.live else f"🧪 {self.executor.name.upper()}" + (
+            " — játékpénz" if "demó" in self.executor.name else " — VALÓDI PÉNZ")
 
     # --- kifelé --------------------------------------------------------------
     def notify(self, text: str, email: bool = True) -> None:
@@ -72,10 +76,9 @@ class Agent:
         if not delivered:
             logger.info("értesítés (nincs kézbesítő csatorna): %s", self._subject(text))
 
-    @staticmethod
-    def _subject(text: str) -> str:
-        """A tárgy az első érdemi sor: a papírkereskedés-jelölés minden levélben ugyanaz."""
-        lines = [l.strip() for l in (text or "").splitlines() if l.strip() and l.strip() != PAPER]
+    def _subject(self, text: str) -> str:
+        """A tárgy az első érdemi sor: a mód-jelölés minden levélben ugyanaz."""
+        lines = [l.strip() for l in (text or "").splitlines() if l.strip() and l.strip() != self.label]
         return ("Milán Trader Bot — " + lines[0]) if lines else "Milán Trader Bot"
 
     def _explain(self, task: str, facts: dict) -> str:
@@ -138,11 +141,10 @@ class Agent:
         prices[sym] = price
         self._data_ok(sym)
 
+        self._reconcile_pending(sym, prices)
         pos = self.store.open_position_for(sym)
         if pos is not None:
-            hit = paper.exit_on_price(pos.stop, pos.target, price)
-            if hit:
-                self._close(pos, hit[0], hit[1], prices)
+            self._check_exit(pos, price, prices)
 
         key = f"last_candle:{sym}"
         if int(self.store.get(key, "0")) >= last.open_time:
@@ -174,18 +176,19 @@ class Agent:
             ok, why = False, "az ár a jelzés óta a stop alá esett"
         qty = paper.size(equity, self.store.cash(), fill, sig.stop, self.cfg.risk_per_trade,
                          self.cfg.max_open, self.cfg.fee) if ok else 0.0
-        if ok and qty * fill < paper.MIN_NOTIONAL:
+        try:
+            qty = self.executor.round_qty(sym, qty) if ok else 0.0
+            min_notional = max(paper.MIN_NOTIONAL, self.executor.min_notional(sym))
+        except ExchangeError as e:
+            ok, why, min_notional = False, f"a tőzsde nem érhető el: {e}", paper.MIN_NOTIONAL
+        if ok and qty * fill < min_notional:
             ok, why = False, "a kockázati szabályok szerinti pozíció túl kicsi"
         pos_id = None
         if ok:
-            target = strategy.target_for(fill, sig.stop)
-            pos_id = self.store.open_position(sym, qty, fill, qty * fill * self.cfg.fee, sig.stop, target,
-                                              candle_time)
-            if pos_id is None:
-                why = "már van nyitott pozíció, vagy nincs rá fedezet"
+            pos_id, why = self._enter(sym, qty, price, sig.stop, candle_time, prices)
         if pos_id is None:
             self.store.set_signal_outcome(sym, candle_time, "enter", f"kihagyva: {why}")
-            self.notify(f"{PAPER}\n⚪ {sym}: vételi jelzés, de NEM nyitottam.\nOk: {why}\nJelzés: {sig.reason}")
+            self.notify(f"{self.label}\n⚪ {sym}: vételi jelzés, de NEM nyitottam.\nOk: {why}\nJelzés: {sig.reason}")
             return
 
         self.store.set_signal_outcome(sym, candle_time, "enter", "nyitva")
@@ -198,15 +201,22 @@ class Agent:
         why_text = self._explain("Magyarázd el a megbízónak, miért nyitottunk most vételi pozíciót, "
                                  "és mi a terv, ha a stop vagy a cél teljesül.", facts)
         self.notify(
-            f"{PAPER}\n🟢 VÉTEL — {sym}\n"
+            f"{self.label}\n🟢 VÉTEL — {sym}\n"
             f"Belépés: {p.entry_price:,.2f} | Stop: {p.stop:,.2f} | Cél: {p.target:,.2f}\n"
             f"Méret: {p.qty:.6f} ({_usd(p.qty * p.entry_price)}) | Kockázat: {_usd(p.risk_amount)} ({risk_pct:.2%})\n"
             f"Ok: {sig.reason}" + (f"\n\n🧠 {why_text}" if why_text else ""))
 
     def _close(self, pos: Position, raw_price: float, reason: str, prices: dict[str, float],
                detail: str = "") -> None:
-        exit_px, exit_fee, pnl = paper.settle(pos.qty, pos.entry_price, pos.entry_fee, raw_price,
-                                              self.cfg.fee, self.cfg.slippage)
+        try:
+            fill = self._exit_fill(pos, raw_price)
+        except ExchangeError as e:
+            self._exit_failed(pos, e)
+            return
+        if fill is None:   # közben kiütött a tőzsdei stop: azt könyveltük
+            return
+        exit_px, exit_fee = fill.price, fill.fee
+        pnl = pos.qty * exit_px - exit_fee - pos.qty * pos.entry_price - pos.entry_fee
         if not self.store.close_position(pos.id, exit_px, exit_fee, reason, pnl):
             return
         closed = self.store.get_position(pos.id)
@@ -217,10 +227,125 @@ class Agent:
                  "számla_értéke": self.equity(prices)}
         why_text = self._explain("Számolj be a pozíció zárásáról: mi történt, és mit jelent ez a terv szempontjából.",
                                  facts)
-        self.notify(f"{PAPER}\n{icon} ZÁRÁS — {pos.symbol} ({reason})\n"
+        self.notify(f"{self.label}\n{icon} ZÁRÁS — {pos.symbol} ({reason})\n"
                     f"Belépés: {pos.entry_price:,.2f} → Kilépés: {exit_px:,.2f}\n"
                     f"Eredmény: {pnl:+,.2f} USDT {r}" + (f"\nOk: {detail}" if detail else "")
                     + (f"\n\n🧠 {why_text}" if why_text else ""))
+
+    # --- végrehajtás ----------------------------------------------------------
+    @staticmethod
+    def _cid(sym: str, candle_time: int) -> str:
+        # Binance: legfeljebb 36 karakter, [.A-Za-z:/0-9_-]
+        return f"mtb-{sym}-{candle_time // 1000}"
+
+    def _enter(self, sym: str, qty: float, price: float, stop: float, candle_time: int,
+               prices: dict[str, float]) -> tuple[int | None, str]:
+        """Vétel, napló, tőzsdei stop. (pozíció id, ok) — id None, ha nem nyitottunk."""
+        cid = self._cid(sym, candle_time)
+        pending_key = f"pending_entry:{sym}"
+        # Előbb a szándék: ha a vétel után összeomlunk, a következő ciklus ebből rendezi.
+        self.store.set(pending_key, json.dumps({"cid": cid, "stop": stop, "candle": candle_time}))
+        try:
+            fill = self.executor.buy(sym, qty, price, cid + "-b")
+        except ExchangeError as e:
+            if not e.uncertain:
+                self.store.delete(pending_key)
+            return None, f"a vétel nem sikerült: {e}"
+        pos_id = self._book_entry(sym, fill, stop, candle_time, cid)
+        self.store.delete(pending_key)
+        if pos_id is None:
+            return None, "már van nyitott pozíció, vagy nincs rá fedezet"
+        self._protect_or_exit(pos_id, prices)
+        return (pos_id if self.store.get_position(pos_id).status == "open" else None,
+                "a tőzsdei stopot nem sikerült leadni, ezért azonnal kiszálltam")
+
+    def _book_entry(self, sym: str, fill, stop: float, candle_time: int, cid: str) -> int | None:
+        target = strategy.target_for(fill.price, stop)
+        return self.store.open_position(sym, fill.qty, fill.price, fill.fee, stop, target, candle_time,
+                                        stop_cid=(cid + "-s") if self.executor.live else None,
+                                        force=self.executor.live)
+
+    def _protect_or_exit(self, pos_id: int, prices: dict[str, float]) -> None:
+        p = self.store.get_position(pos_id)
+        if not self.executor.live:
+            return
+        try:
+            self.executor.protect(p.symbol, p.qty, p.stop, p.stop_cid)
+        except ExchangeError as e:
+            logger.error("%s: a stop leadása nem sikerült: %s", p.symbol, e)
+            self._close(p, prices.get(p.symbol, p.entry_price), "biztonsági zárás",
+                        prices, f"a tőzsdei stopot nem sikerült leadni ({e})")
+
+    def _reconcile_pending(self, sym: str, prices: dict[str, float]) -> None:
+        """Félbemaradt vétel rendezése (összeomlás vagy bizonytalan válasz után)."""
+        raw = self.store.get(f"pending_entry:{sym}")
+        if not raw or not self.executor.live:
+            if raw:
+                self.store.delete(f"pending_entry:{sym}")
+            return
+        info = json.loads(raw)
+        if self.store.open_position_for(sym) is not None:
+            self.store.delete(f"pending_entry:{sym}")
+            return
+        fill = self.executor.lookup(sym, info["cid"] + "-b")
+        if fill is None:
+            self.store.delete(f"pending_entry:{sym}")   # a vétel nem jött létre
+            return
+        pos_id = self._book_entry(sym, fill, info["stop"], info["candle"], info["cid"])
+        self.store.delete(f"pending_entry:{sym}")
+        if pos_id:
+            self.notify(f"{self.label}\n🔧 {sym}: egy félbemaradt vételt rendeztem a tőzsdei adatok alapján "
+                        f"({fill.qty:.6f} @ {fill.price:,.2f}), és leadom a stopot.")
+            self._protect_or_exit(pos_id, prices)
+
+    def _check_exit(self, pos: Position, price: float, prices: dict[str, float]) -> None:
+        if not self.executor.live:
+            hit = paper.exit_on_price(pos.stop, pos.target, price)
+            if hit:
+                self._close(pos, hit[0], hit[1], prices)
+            return
+        state = self.executor.stop_state(pos.symbol, pos.stop_cid)
+        if state is not None and state[0] == "filled":
+            self._book_exit(pos, state[1], "stop (tőzsdei)", prices)
+        elif state is not None:
+            self._close(pos, price, "biztonsági zárás", prices, "a tőzsdei stop eltűnt vagy törlődött")
+        elif price >= pos.target:
+            self._close(pos, price, "cél", prices)
+
+    def _exit_fill(self, pos: Position, raw_price: float):
+        if not self.executor.live:
+            return self.executor.sell(pos.symbol, pos.qty, raw_price, "")
+        self.executor.unprotect(pos.symbol, pos.stop_cid)
+        # A törlés és a kiütés versenyezhet: ha a stop közben teljesült, azt könyveljük.
+        state = self.executor.stop_state(pos.symbol, pos.stop_cid)
+        if state is not None and state[0] == "filled":
+            self._book_exit(pos, state[1], "stop (tőzsdei)", {})
+            return None
+        return self.executor.sell(pos.symbol, pos.qty, raw_price, f"mtb-p{pos.id}-x")
+
+    def _book_exit(self, pos: Position, fill, reason: str, prices: dict[str, float]) -> None:
+        pnl = pos.qty * fill.price - fill.fee - pos.qty * pos.entry_price - pos.entry_fee
+        if self.store.close_position(pos.id, fill.price, fill.fee, reason, pnl):
+            closed = self.store.get_position(pos.id)
+            r = f"{closed.r_multiple:+.2f}R" if closed.r_multiple is not None else ""
+            self.notify(f"{self.label}\n{'🟢' if pnl > 0 else '🔴'} ZÁRÁS — {pos.symbol} ({reason})\n"
+                        f"Belépés: {pos.entry_price:,.2f} → Kilépés: {fill.price:,.2f}\n"
+                        f"Eredmény: {pnl:+,.2f} USDT {r}")
+
+    def _exit_failed(self, pos: Position, error: ExchangeError) -> None:
+        """Az eladás nem ment át: a pozíció nyitva marad, és újra stopot kap, hogy ne legyen védtelen."""
+        logger.error("%s: a zárás nem sikerült: %s", pos.symbol, error)
+        new_cid = f"mtb-p{pos.id}-s{int(self.clock()) % 100000}"
+        protected = False
+        try:
+            self.executor.protect(pos.symbol, pos.qty, pos.stop, new_cid)
+            self.store.set_stop_cid(pos.id, new_cid)
+            protected = True
+        except ExchangeError as e:
+            logger.error("%s: az újbóli stop sem ment át: %s", pos.symbol, e)
+        self.notify(f"{self.label}\n⚠️ {pos.symbol}: a zárás nem sikerült ({error}). "
+                    + ("A pozíciót újra védi a tőzsdei stop; a következő ciklusban újrapróbálom."
+                       if protected else "A pozíció JELENLEG STOP NÉLKÜL van — nézd meg a tőzsdén!"))
 
     # --- adatminőség ---------------------------------------------------------
     def _data_problem(self, sym: str, error: str) -> None:
@@ -254,7 +379,7 @@ class Agent:
         start = self.store.start_equity()
         since = (self._now() - timedelta(hours=24)).isoformat(timespec="seconds")
         last_day = self.store.closed_since(since)
-        lines = [PAPER, ("☀️ Napi jelentés" if daily else "📋 Állapot") + f" — {self._now().astimezone(self.cfg.tz):%Y-%m-%d %H:%M}",
+        lines = [self.label, ("☀️ Napi jelentés" if daily else "📋 Állapot") + f" — {self._now().astimezone(self.cfg.tz):%Y-%m-%d %H:%M}",
                  f"Számla: {_usd(equity)} ({equity / start - 1:+.2%} a kezdethez képest)" if start else
                  f"Számla: {_usd(equity)}",
                  f"Készpénz: {_usd(self.store.cash())}"]
@@ -285,10 +410,10 @@ class Agent:
     def journal(self) -> str:
         closed = self.store.closed_positions()
         if not closed:
-            return f"{PAPER}\n📒 Még nincs lezárt kötés. A statisztika az első zárás után indul."
+            return f"{self.label}\n📒 Még nincs lezárt kötés. A statisztika az első zárás után indul."
         wins = [p for p in closed if (p.pnl or 0) > 0]
         rs = [p.r_multiple for p in closed if p.r_multiple is not None]
-        lines = [PAPER, f"📒 Napló — {len(closed)} lezárt kötés",
+        lines = [self.label, f"📒 Napló — {len(closed)} lezárt kötés",
                  f"Találati arány: {len(wins) / len(closed):.0%} | átlag: {sum(rs) / len(rs) if rs else 0:+.2f}R | "
                  f"összesen: {sum(p.pnl or 0 for p in closed):+,.2f} USDT", "Utolsó 10:"]
         for p in closed[:10]:
@@ -312,7 +437,7 @@ class Agent:
         cmd, _, arg = text.partition(" ")
         cmd = cmd.split("@")[0].lower()
         if cmd in ("/start", "/help"):
-            return f"Szia! A kriptó-brókered vagyok ({PAPER}).\n{HELP}"
+            return f"Szia! A kriptó-brókered vagyok ({self.label}).\n{HELP}"
         if cmd == "/status":
             return self.report()
         if cmd == "/journal":

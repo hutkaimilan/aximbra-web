@@ -84,6 +84,7 @@ class Position:
     closed_at: str | None
     pnl: float | None
     r_multiple: float | None
+    stop_cid: str | None = None
 
 
 class Store:
@@ -101,6 +102,10 @@ class Store:
             if path != ":memory:":
                 self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.executescript(SCHEMA)
+            # Régebbi adatbázisokhoz: a tőzsdei stop megbízásának azonosítója.
+            cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(positions)")}
+            if "stop_cid" not in cols:
+                self._conn.execute("ALTER TABLE positions ADD COLUMN stop_cid TEXT")
             # Csak az első induláskor: a meglévő számla kezdőtőkéjét nem írja felül.
             self._conn.execute("INSERT OR IGNORE INTO kv(key, value) VALUES ('cash', ?)", (repr(float(start_equity)),))
             self._conn.execute("INSERT OR IGNORE INTO kv(key, value) VALUES ('start_equity', ?)",
@@ -148,21 +153,23 @@ class Store:
 
     # --- pozíciók ------------------------------------------------------------
     def open_position(self, symbol: str, qty: float, entry_price: float, entry_fee: float, stop: float,
-                      target: float, entry_candle: int) -> int | None:
+                      target: float, entry_candle: int, stop_cid: str | None = None,
+                      force: bool = False) -> int | None:
         """Megnyitja a pozíciót és levonja a költséget. None, ha már van nyitott
-        pozíció ezen az instrumentumon, vagy nincs rá fedezet."""
+        pozíció ezen az instrumentumon, vagy nincs rá fedezet. force: a tőzsdén már
+        teljesült vételt mindenképp könyvelni kell, a napló fedezete ilyenkor nem dönthet."""
         cost = qty * entry_price + entry_fee
         with self._lock:
             try:
                 with self._conn:
                     cash = float(self._conn.execute("SELECT value FROM kv WHERE key = 'cash'").fetchone()["value"])
-                    if cost > cash + 1e-9:
+                    if cost > cash + 1e-9 and not force:
                         return None
                     cur = self._conn.execute(
                         "INSERT INTO positions(symbol, qty, entry_price, entry_fee, stop, target, risk_amount, "
-                        "entry_candle, opened_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        (symbol, qty, entry_price, entry_fee, stop, target, qty * (entry_price - stop),
-                         entry_candle, now_iso()))
+                        "entry_candle, opened_at, stop_cid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        (symbol, qty, entry_price, entry_fee, stop, target, max(qty * (entry_price - stop), 0.0),
+                         entry_candle, now_iso(), stop_cid))
                     self._conn.execute("UPDATE kv SET value = ? WHERE key = 'cash'", (repr(cash - cost),))
                     return cur.lastrowid
             except sqlite3.IntegrityError:
@@ -185,6 +192,10 @@ class Store:
             self._conn.execute("UPDATE kv SET value = CAST(CAST(value AS REAL) + ? AS TEXT) WHERE key = 'cash'",
                                (proceeds,))
             return True
+
+    def set_stop_cid(self, pos_id: int, cid: str) -> None:
+        with self._lock, self._conn:
+            self._conn.execute("UPDATE positions SET stop_cid = ? WHERE id = ?", (cid, pos_id))
 
     def _positions(self, where: str, params: tuple = ()) -> list[Position]:
         with self._lock:
