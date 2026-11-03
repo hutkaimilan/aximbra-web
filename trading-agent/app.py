@@ -142,6 +142,15 @@ def _startup() -> None:
     agent.notify(hello + (" /help" if bot else ""), email=first_mail)
     if first_mail:
         store.set("mail_hello_v2", "1")
+    if mailer is not None and os.environ.get("MAIL_DIAG", "") == "on":
+        def _mail_diag():
+            try:
+                mail_id = mailer.send("Milán Trader Bot — e-mail diagnosztika", "Ha ezt látod, az e-mail működik.")
+                time.sleep(15)
+                logger.info("e-mail diagnosztika: %s", mailer.status(mail_id) if mail_id else "nincs id")
+            except Exception as e:
+                logger.warning("e-mail diagnosztika hiba: %s", e)
+        threading.Thread(target=_mail_diag, name="maildiag", daemon=True).start()
     if executor.live and not store.get("selftest_ok") and os.environ.get("BINANCE_SELFTEST", "on") != "off":
         # Egyszer, az első induláskor: egy kis valódi kör a demószámlán, hogy minden lépés igazolva legyen.
         lines = selftest(executor.c, cfg.symbols[0])

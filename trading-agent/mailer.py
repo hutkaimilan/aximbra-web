@@ -37,7 +37,18 @@ class Mailer:
             return None
         return cls(key, to, os.environ.get("TRADER_MAIL_FROM", "").strip() or DEFAULT_FROM)
 
-    def send(self, subject: str, text: str) -> None:
+    def status(self, mail_id: str) -> str:
+        """A Resend szerint mi lett a levéllel (delivered, bounced, ...), diagnosztikához."""
+        try:
+            r = self.client.get(f"{RESEND_URL}/{mail_id}", headers={"Authorization": f"Bearer {self._key}"})
+        except httpx.HTTPError as e:
+            return f"lekérdezés sikertelen ({type(e).__name__})"
+        if r.status_code >= 400:
+            return f"lekérdezés sikertelen (HTTP {r.status_code}: {r.text[:120]})"
+        data = r.json() or {}
+        return f"{data.get('last_event')} (címzett: {data.get('to')}, feladó: {data.get('from')})"
+
+    def send(self, subject: str, text: str) -> str | None:
         body = {"from": self.sender, "to": [self.to], "subject": subject[:150], "text": text}
         try:
             r = self.client.post(RESEND_URL, headers={"Authorization": f"Bearer {self._key}"}, json=body)
@@ -51,3 +62,4 @@ class Mailer:
             mail_id = None
         # A naplóból így visszakereshető a Resend felületén, ha egy levél nem érkezik meg.
         logger.info("e-mail elküldve (HTTP %s, Resend id: %s): %s", r.status_code, mail_id, subject[:80])
+        return mail_id
