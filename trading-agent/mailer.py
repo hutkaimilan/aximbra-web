@@ -45,3 +45,9 @@ class Mailer:
             raise MailError(f"a Resend nem érhető el ({type(e).__name__})") from None
         if r.status_code >= 400:
             raise MailError(f"Resend-hiba (HTTP {r.status_code}): {r.text[:200]}")
+        try:
+            mail_id = (r.json() or {}).get("id")
+        except ValueError:
+            mail_id = None
+        # A naplóból így visszakereshető a Resend felületén, ha egy levél nem érkezik meg.
+        logger.info("e-mail elküldve (HTTP %s, Resend id: %s): %s", r.status_code, mail_id, subject[:80])

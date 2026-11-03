@@ -138,10 +138,10 @@ def _startup() -> None:
              f"Számla: {store.cash():,.2f} USDT.")
     # Telegramon minden indulás jelez; e-mailben csak az első, hogy a csatorna
     # működése igazolva legyen, de egy-egy újratelepítés ne töltse a postafiókot.
-    first_mail = mailer is not None and not store.get("mail_hello")
+    first_mail = mailer is not None and not store.get("mail_hello_v2")
     agent.notify(hello + (" /help" if bot else ""), email=first_mail)
     if first_mail:
-        store.set("mail_hello", "1")
+        store.set("mail_hello_v2", "1")
     if executor.live and not store.get("selftest_ok") and os.environ.get("BINANCE_SELFTEST", "on") != "off":
         # Egyszer, az első induláskor: egy kis valódi kör a demószámlán, hogy minden lépés igazolva legyen.
         lines = selftest(executor.c, cfg.symbols[0])
