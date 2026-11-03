@@ -77,7 +77,10 @@ class Agent:
         if push is None and os.environ.get("PUSH_ALL", "off").lower() == "on":
             push = 2       # minden lépésről szól, a kevésbé fontosakról halkan
         if push is not None and self.push is not None:
-            self.push.send(title, "\n".join(lines[1:]) or title, priority=push)
+            # A link nem fér el olvashatóan az értesítésben: rákoppintva nyílik meg.
+            links = [l.strip() for l in lines[1:] if l.strip().startswith("http")]
+            body = "\n".join(l for l in lines[1:] if not l.strip().startswith("http"))
+            self.push.send(title, body or " ", priority=push, click=links[0] if links else None)
         if self.bot is not None and self.bot.chat_id:
             try:
                 self.bot.send(text)

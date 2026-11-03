@@ -28,7 +28,7 @@ class Push:
     def send(self, title: str, text: str, priority: int = 3, click: str | None = None) -> None:
         # A fejlécek latin-1-ek: az ékezetes cím UTF-8 bájtként, RFC 2047 nélkül nem menne át,
         # ezért JSON-ként küldünk (az ntfy ezt támogatja).
-        body = {"topic": self.topic, "title": title[:120], "message": text[:900], "priority": priority}
+        body = {"topic": self.topic, "title": title[:120], "message": (text or " ")[:900], "priority": priority}
         if click:
             body["click"] = click
         try:
