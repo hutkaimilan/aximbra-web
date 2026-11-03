@@ -10,7 +10,7 @@ import unicodedata
 
 import httpx
 
-from playbook import BLOCKED_TLDS, COUNTRIES, country_ready, MAX_SENTENCE_WORDS, MAX_WORDS, OPT_OUT, PAIN_KEYS
+from playbook import BLOCKED_TLDS, COUNTRIES, country_ready, MAX_SENTENCE_WORDS, MAX_WORDS, OFFER, OPT_OUT, PAIN_KEYS
 
 FETCH_TIMEOUT = 15
 MAX_BYTES = 1_500_000
@@ -373,7 +373,11 @@ def rule_violations(lead: dict) -> list[str]:
     v = target_problems(lead) + check_letter(lead)
     if _REFERENCE_RE.search(text):
         v.append("ügyfélre/referenciára hivatkozik")
-    if _STAT_RE.search(text):
+    # Az ajánlat rögzített mondata (a 30%) a tulajdonos döntése, nem állítás.
+    plain = text
+    for offer in OFFER.values():
+        plain = plain.replace(offer, "")
+    if _STAT_RE.search(plain):
         v.append("számot/statisztikát állít")
     if _NAME_RE.search(text):
         v.append("munkatársat nevez meg")

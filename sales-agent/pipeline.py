@@ -502,3 +502,26 @@ def _scan_replies(store: Store, log: RunLog, *, llm, mailbox_factory, slots_fn) 
                      "auto": "automatikus válasz", "other": "válaszolt"}[kind]
             log.say(f"• {lead['company']}: {label}")
     return log
+
+
+def refresh_offers(store) -> int:
+    """A régi, „az ár fele” ajánlat cseréje az új szövegre a még el nem küldött
+    levélvázlatokban és utánkövetésekben. Elküldött levélhez nem nyúl."""
+    n = 0
+    for lead in store.list("draft"):
+        body = lead.get("body") or ""
+        new = body
+        for lang, old in playbook.OFFER_PREVIOUS.items():
+            new = new.replace(old, playbook.OFFER[lang])
+        if new != body and store.edit(lead["id"], lead.get("subject") or "", new):
+            n += 1
+    for lead in store.list():
+        if lead.get("followup_status") != "draft":
+            continue
+        body = lead.get("followup_body") or ""
+        new = body
+        for lang, old in playbook.OFFER_PREVIOUS.items():
+            new = new.replace(old, playbook.OFFER[lang])
+        if new != body and store.update_followup_draft(lead["id"], new):
+            n += 1
+    return n

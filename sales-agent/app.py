@@ -1174,4 +1174,10 @@ def _startup():
     stuck = store.list("sending")
     if stuck:
         logger.warning("%d levél 'sending' állapotban maradt — kézi ellenőrzés kell", len(stuck))
+    try:
+        n = pipeline.refresh_offers(store)
+        if n:
+            logger.info("az ajánlat szövege frissítve %d vázlatban", n)
+    except Exception:  # noqa: BLE001 — a frissítés hibája nem állíthatja le az indulást
+        logger.exception("az ajánlat frissítése nem sikerült")
     threading.Thread(target=_scheduler, daemon=True).start()

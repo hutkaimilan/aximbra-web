@@ -115,11 +115,27 @@ OPT_OUT = {
 }
 
 # Az ajánlat, a tulajdonos döntése: egy hónap ingyen; ha bármi baj van, nem
-# fizetnek semmit, és leállítjuk az agentet; ha marad, csak az ár felét kérjük.
+# fizetnek semmit, és leállítjuk az agentet; ha marad, a megegyezett ár 30%-át
+# kérjük, utána havi karbantartási díj jön (előre megbeszélve).
 # Fix mondat minden nyelven (a modell nem fogalmazza át): az első levél
-# utóiratában, az utánkövetésben és a demóoldalon ugyanez áll. Szám és
-# százalékjel nincs benne, hogy az ár- és statisztika-szabály ne akadjon rá.
+# utóiratában, az utánkövetésben és a demóoldalon ugyanez áll. A százalék miatt
+# a verify.rule_violations a mondatot kiveszi a statisztika-szabály elől.
 OFFER = {
+    "hu": "Egy hónapig ingyen kipróbálható. Ha bármi nem tetszik, nem kell fizetni semmit, és leállítjuk; ha marad, a megegyezett ár 30%-át kérjük, utána havi karbantartási díj jön, amit előre megbeszélünk.",
+    "sk": "Mesiac ho môžete používať zadarmo. Ak vám niečo nebude vyhovovať, nezaplatíte nič a agenta vypneme; ak si ho necháte, zaplatíte 30 % dohodnutej ceny a potom mesačný poplatok za údržbu, ktorý si dohodneme vopred.",
+    "ro": "Îl puteți folosi gratuit o lună. Dacă ceva nu vă convine, nu plătiți nimic și îl oprim; dacă îl păstrați, plătiți 30% din prețul convenit, apoi o taxă lunară de întreținere, stabilită dinainte.",
+    "hr": "Mjesec dana ga možete koristiti besplatno. Ako vam nešto ne odgovara, ne plaćate ništa i isključujemo ga; ako ga zadržite, plaćate 30 % dogovorene cijene, a zatim mjesečnu naknadu za održavanje koju dogovaramo unaprijed.",
+    "sl": "Mesec dni ga lahko uporabljate brezplačno. Če vam kaj ne ustreza, ne plačate ničesar in ga izklopimo; če ga obdržite, plačate 30 % dogovorjene cene, nato pa mesečno vzdrževalnino, o kateri se vnaprej dogovorimo.",
+    "en": "You can use the agent free for a month. If anything is not right, you pay nothing and we switch it off; if you keep it, you pay 30% of the agreed price, then a monthly maintenance fee we agree on in advance.",
+    "fr": "Vous l’utilisez gratuitement pendant un mois. Si quelque chose ne vous convient pas, vous ne payez rien et nous l’arrêtons ; si vous le gardez, vous payez 30 % du prix convenu, puis des frais de maintenance mensuels fixés à l’avance.",
+    "nl": "U gebruikt de agent een maand gratis. Als er iets niet bevalt, betaalt u niets en zetten we hem uit; als u hem houdt, betaalt u 30% van de afgesproken prijs, daarna een maandelijkse onderhoudsvergoeding die we vooraf afspreken.",
+    "sv": "Ni använder agenten gratis i en månad. Om något inte passar betalar ni ingenting och vi stänger av den; om ni behåller den betalar ni 30 % av det överenskomna priset, därefter en månatlig underhållsavgift som vi kommer överens om i förväg.",
+    "fi": "Voitte käyttää agenttia kuukauden ilmaiseksi. Jos jokin ei miellytä, ette maksa mitään ja suljemme sen; jos pidätte sen, maksatte 30 % sovitusta hinnasta ja sen jälkeen kuukausittaisen ylläpitomaksun, josta sovimme etukäteen.",
+    "pt": "Podem usar o agente gratuitamente durante um mês. Se algo não vos agradar, não pagam nada e desligamos o agente; se ficarem com ele, pagam 30% do preço acordado e depois uma mensalidade de manutenção combinada de antemão.",
+}
+# A korábbi, „az ár fele” szöveg: a már megírt, még el nem küldött vázlatokban
+# ezt cseréli le az új (pipeline.refresh_offers).
+OFFER_PREVIOUS = {
     "hu": "Egy hónapig ingyen kipróbálható. Ha bármi nem tetszik, nem kell fizetni semmit, és leállítjuk; ha marad, akkor is csak az ár felét kérjük.",
     "sk": "Mesiac ho môžete používať zadarmo. Ak vám niečo nebude vyhovovať, nezaplatíte nič a agenta vypneme; ak si ho necháte, zaplatíte len polovicu ceny.",
     "ro": "Îl puteți folosi gratuit o lună. Dacă ceva nu vă convine, nu plătiți nimic și îl oprim; dacă îl păstrați, plătiți doar jumătate din preț.",
