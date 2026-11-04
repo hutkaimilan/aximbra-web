@@ -698,10 +698,18 @@ class Agent:
                    "védekező_mód": self.entries_paused(),
                    "világpiaci_számla": [p.report() for p in self.peers],
                    "korábbi_beszélgetés": self.store.recent_chat(8)}
-        reply = self._explain(
-            f"A megbízó kérdése: „{question}”. Válaszolj neki az adatok alapján. Ha árelőrejelzést kér, mondd ki "
-            "őszintén, hogy az irányt nem tudod megbízhatóan megjósolni; helyette add meg, mi történik most, "
-            "mi szokatlan, és mik a kockázatok.", context)
+        history = "\n".join(f"{'Milán' if m['role'] == 'user' else 'Bot'}: {m['content'][:600]}"
+                             for m in self.store.recent_chat(10))
+        context.pop("korábbi_beszélgetés", None)
+        prompt = (f"Élő adatok (csak ezekre hivatkozhatsz):\n"
+                  f"{json.dumps(context, ensure_ascii=False, default=str, indent=1)}\n\n"
+                  f"Eddigi beszélgetés:\n{history or '(még nincs)'}\n\nMilán most ezt írta: {question}")
+        try:
+            from llm import CHAT_PERSONA
+            reply = self.llm.ask(prompt, system=CHAT_PERSONA).replace("**", "")[:3000]
+        except LLMError as e:
+            logger.warning("a chat válasza elmaradt: %s", e)
+            reply = ""
         if not reply:
             return "A modell most nem elérhető, ezért csak a számokat tudom adni:\n\n" + self.report()
         self.store.add_chat("user", question)

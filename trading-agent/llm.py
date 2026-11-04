@@ -23,6 +23,18 @@ TIMEOUT = 60
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 OPENAI_MODEL = os.environ.get("TRADING_OPENAI_MODEL", "gpt-4.1-mini")
 
+CHAT_PERSONA = (
+    "Te Milán személyes trader-botja vagy, és vele beszélgetsz a saját alkalmazásában. Milán teljesen kezdő a "
+    "tőzsdében. Tegeződj, beszélj természetesen és röviden, mint egy jó barát, aki ért a piacokhoz. "
+    "Pontosan arra válaszolj, amit kérdez: köszönésre köszönj és mondd el egy-két mondatban a lényeget; "
+    "konkrét kérdésre konkrétan. Szakszót csak magyarázattal használj. "
+    "Csak a kapott adatokban szereplő számokat használd, semmit ne találj ki. Ne ismételgesd minden üzenetben a "
+    "figyelmeztetéseket és a szabályokat — csak akkor említsd őket, ha a kérdéshez tartoznak. "
+    "Ha azt kérdezi, mi lesz az árral, mondd meg őszintén, hogy biztosan nem tudod, de mondd el, mit látsz most "
+    "és mit csinál a bot. Ha olyat kér, amit a bot nem tud, mondd meg, és javasolj megoldást. "
+    "Formázás: rövid bekezdések, ha kell, egyszerű felsorolás; Markdown-csillagokat ne használj."
+)
+
 PERSONA = (
     "Tapasztalt, fegyelmezett kriptó-bróker vagy, aki a megbízójának magyarul, tömören és őszintén "
     "számol be. Szabályok: (1) csak a megadott számokat használhatod, árat vagy százalékot nem találhatsz "
@@ -73,16 +85,16 @@ class LLM:
         chain[0].fallback = chain[1] if len(chain) > 1 else None   # a másik szolgáltató tartaléknak
         return chain[0]
 
-    def ask(self, prompt: str) -> str:
+    def ask(self, prompt: str, system: str | None = None) -> str:
         try:
-            return self._ask_once(prompt)
+            return self._ask_once(prompt, system)
         except LLMError as first:
             if self.fallback is None:
                 raise
             logger.warning("a(z) %s modell nem válaszolt (%s), tartalék: %s", self.provider, first, self.fallback.provider)
-            return self.fallback._ask_once(prompt)
+            return self.fallback._ask_once(prompt, system)
 
-    def _ask_once(self, prompt: str) -> str:
+    def _ask_once(self, prompt: str, system: str | None = None) -> str:
         """Gemininél a GEMINI_MODELS lista modelljein megy végig: túlterhelésnél a következő jön."""
         models = [m.strip() for m in os.environ.get("GEMINI_MODELS", "").split(",") if m.strip()] or [GEMINI_MODEL]
         if self.provider != "gemini":
@@ -90,16 +102,16 @@ class LLM:
         last = None
         for model in models:
             try:
-                return self._ask_model(prompt, model)
+                return self._ask_model(prompt, model, system)
             except LLMError as e:
                 last = e
                 logger.warning("modell %s: %s", model, str(e)[:120])
         raise last
 
-    def _ask_model(self, prompt: str, model: str | None) -> str:
+    def _ask_model(self, prompt: str, model: str | None, system: str | None = None) -> str:
         for attempt in range(2):
             try:
-                r = self._request(prompt, model)
+                r = self._request(prompt, model, system)
             except httpx.HTTPError as e:
                 raise LLMError(f"a modell nem érhető el ({type(e).__name__})") from None
             if r.status_code in (429, 500, 502, 503) and attempt < 1:
@@ -128,14 +140,15 @@ class LLM:
         except (httpx.HTTPError, ValueError, KeyError):
             return []
 
-    def _request(self, prompt: str, model: str | None = None) -> httpx.Response:
+    def _request(self, prompt: str, model: str | None = None, system: str | None = None) -> httpx.Response:
         if self.provider == "gemini":
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model or GEMINI_MODEL}:generateContent"
-            body = {"systemInstruction": {"parts": [{"text": PERSONA}]},
+            body = {"systemInstruction": {"parts": [{"text": system or PERSONA}]},
                     "contents": [{"role": "user", "parts": [{"text": prompt}]}]}
             return self.client.post(url, headers={"x-goog-api-key": self._key}, json=body)
         body = {"model": OPENAI_MODEL,
-                "messages": [{"role": "system", "content": PERSONA}, {"role": "user", "content": prompt}]}
+                "messages": [{"role": "system", "content": system or PERSONA},
+                             {"role": "user", "content": prompt}]}
         return self.client.post("https://api.openai.com/v1/chat/completions",
                                 headers={"Authorization": f"Bearer {self._key}"}, json=body)
 
