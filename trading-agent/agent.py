@@ -63,6 +63,8 @@ class Agent:
         self.kinds: dict[str, set[str]] = {}     # instrumentumonként engedélyezett fogadástípusok
         self.default_kinds: set[str] = {"trend_long"}
         self.stale_seconds: float | None = None  # None: 2 gyertya + 2 perc
+        self.batch_checks = False                # True: a gyertyánkénti döntésekből egy összesítő értesítés
+        self._checks: list[str] = []
         self.executor = executor or PaperExecutor(cfg.fee, cfg.slippage)
         self.label = PAPER if not self.executor.live else f"🧪 {self.executor.name.upper()}" + (
             " — játékpénz" if "demó" in self.executor.name else " — VALÓDI PÉNZ")
@@ -169,11 +171,15 @@ class Agent:
             self._maybe_force_entry(prices)
         except (MarketError, ExchangeError) as e:
             logger.warning("kézi indítás: %s", e)
+        self._checks = []
         for sym in self.cfg.symbols:
             try:
                 self._tick_symbol(sym, prices)
             except MarketError as e:
                 self._data_problem(sym, str(e))
+        if self.batch_checks and self._checks:
+            self.notify(f"🔍 Napi döntések ({len(self._checks)} piac)\n" + "\n".join(self._checks),
+                        email=False, kind="check", push=None)
         self._maybe_daily_report(prices)
         self._log_equity(prices)
 
@@ -474,6 +480,12 @@ class Agent:
             why = "a trend emelkedő, de az EMA20 még az EMA50 alatt van: várom a felfelé keresztezést"
         else:
             why = "a trend emelkedő, az EMA20 az EMA50 felett van, de a keresztezés nem most történt"
+        if self.batch_checks:
+            short = ("pozícióban" if pos is not None else
+                     "nem veszek, esik" if close <= r else "várok, a lendület még gyenge" if f <= sl
+                     else "várok jobb belépőre")
+            self._checks.append(f"• {self.name_of(sym)}: {close:,.2f} — {short}")
+            return
         self.notify(f"🔍 {sym} döntés ({close:,.2f})\nTrend: {trend}. Döntés: {why}.",
                     email=False, kind="check", push=None)
 

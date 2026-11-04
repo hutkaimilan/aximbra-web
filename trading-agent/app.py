@@ -95,7 +95,8 @@ if os.environ.get("WORLD_BOOK", "on").lower() != "off":
     world = Agent(wcfg, wstore, YahooMarket(), None, llm, mailer=None,
                   executor=PaperExecutor(wcfg.fee, wcfg.slippage), push=push)
     world.label = "🌍 VILÁGPIACI DEMÓ — játékpénz"
-    world.stale_seconds = 4 * 86400            # hétvégén és ünnepnapon nincs új napi gyertya
+    world.stale_seconds = 4 * 86400
+    world.batch_checks = True            # hétvégén és ünnepnapon nincs új napi gyertya
     world.kinds = {s: WORLD_KINDS[c] for s, c in WORLD_SYMBOLS.items()}
     world.radar = agent.radar
     agent.peers = [world]
