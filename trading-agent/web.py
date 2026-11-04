@@ -91,18 +91,31 @@ def make_router(agent, state: dict) -> APIRouter:
         with cache_lock:
             if cache["data"] and time.time() - cache["at"] < 10:
                 return cache["data"]
-        positions = agent.store.open_positions()
-        prices = agent._prices([p.symbol for p in positions] + list(agent.cfg.symbols), {})
-        equity = agent.equity(prices)
-        start = agent.store.start_equity()
-        pos_out = []
-        for p in positions:
-            px = prices.get(p.symbol)
-            pos_out.append({"symbol": p.symbol, "qty": p.qty, "entry": p.entry_price, "stop": p.stop,
-                            "target": p.target, "price": px, "opened_at": p.opened_at,
+        def book(a, all_prices: bool):
+            positions = a.store.open_positions()
+            syms = [p.symbol for p in positions] + (list(a.cfg.symbols) if all_prices else [])
+            prices = a._prices(syms, {})
+            out = []
+            for p in positions:
+                px = prices.get(p.symbol)
+                out.append({"symbol": a.name_of(p.symbol), "qty": p.qty, "entry": p.entry_price, "stop": p.stop,
+                            "target": p.target, "price": px, "opened_at": p.opened_at, "side": p.side, "kind": p.kind,
                             "entry_value": p.qty * p.entry_price + p.entry_fee,
                             "value": p.qty * px if px else None,
-                            "pnl": p.qty * (px - p.entry_price) - p.entry_fee if px else None})
+                            "pnl": p.side * p.qty * (px - p.entry_price) - p.entry_fee if px else None})
+            closed = a.store.closed_positions(limit=200)
+            return prices, {"label": a.label, "equity": a.equity(prices), "start": a.store.start_equity(),
+                            "cash": a.store.cash(), "positions": out, "closed": len(closed),
+                            "closed_pnl": sum(p.pnl or 0 for p in closed), "started_at": a.store.get("started_at"),
+                            "history": a.store.equity_history(int(time.time()) - 30 * 86400)}
+        prices, main = book(agent, True)
+        equity, start, pos_out = main["equity"], main["start"], main["positions"]
+        worlds = []
+        for peer in agent.peers:
+            try:
+                worlds.append(book(peer, False)[1])
+            except Exception:
+                worlds.append({"label": peer.label, "error": "az adatok most nem érhetők el"})
         snap = agent.radar.snapshot() if agent.radar else {}
         moves = {}
         if agent.radar:
@@ -116,7 +129,7 @@ def make_router(agent, state: dict) -> APIRouter:
                 "started_at": agent.store.get("started_at"),
                 "history": agent.store.equity_history(int(time.time()) - 30 * 86400),
                 "last_tick_age": None if state.get("last_tick") is None else round(time.time() - state["last_tick"]),
-                "server_time": time.time()}
+                "server_time": time.time(), "books": worlds}
         with cache_lock:
             cache.update(at=time.time(), data=data)
         return data

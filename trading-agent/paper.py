@@ -51,10 +51,16 @@ def exit_on_bar(stop: float, target: float, bar: Candle) -> tuple[float, str] | 
     return None
 
 
-def exit_on_price(stop: float, target: float, price: float) -> tuple[float, str] | None:
-    if price <= stop:
+def exit_on_price(stop: float, target: float, price: float, side: int = 1) -> tuple[float, str] | None:
+    if side == 1:
+        if price <= stop:
+            return price, "stop"
+        if price >= target:
+            return price, "cél"
+        return None
+    if price >= stop:
         return price, "stop"
-    if price >= target:
+    if price <= target:
         return price, "cél"
     return None
 

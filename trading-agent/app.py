@@ -21,6 +21,7 @@ from mailer import Mailer
 from push import Push
 from radar import Radar
 from web import make_router
+from world import YahooMarket
 from market import Market
 from store import Store
 from telegram import Telegram, TelegramError
@@ -70,6 +71,37 @@ agent = Agent(cfg, store, Market(), bot, llm, mailer=mailer, executor=executor, 
 state = {"started": time.time(), "last_tick": None, "last_error": None, "radar_tick": None, "radar_error": None}
 agent.radar = Radar(store, llm, emit=agent.radar_emit)
 
+# --- világpiaci számla: részvény, index, nyersanyag, kripto (játékpénz, valódi árakon) -----------------
+# A fogadástípusok a 15 éves visszateszt alapján (research/multi.py): ami ott veszített, az itt nincs bekapcsolva.
+WORLD_KINDS = {
+    "stock": {"trend_long", "pull_long", "dip_long"}, "index": {"trend_long", "pull_long", "dip_long"},
+    "commodity": {"trend_long"}, "crypto": {"trend_long", "pull_long", "trend_short", "dip_long"},
+}
+WORLD_SYMBOLS = {
+    "AAPL": "stock", "MSFT": "stock", "NVDA": "stock", "AMZN": "stock", "GOOGL": "stock", "META": "stock",
+    "TSLA": "stock", "JPM": "stock", "^GSPC": "index", "^IXIC": "index", "^GDAXI": "index",
+    "CL=F": "commodity", "GC=F": "commodity", "SI=F": "commodity",
+    "BTC-USD": "crypto", "ETH-USD": "crypto", "SOL-USD": "crypto",
+}
+world = None
+if os.environ.get("WORLD_BOOK", "on").lower() != "off":
+    wcfg = config.Config(symbols=tuple(WORLD_SYMBOLS), interval="1d", start_equity=10_000.0, risk_per_trade=0.01,
+                         max_open=6, daily_loss_limit=0.03, fee=0.0005, slippage=0.0003, poll_seconds=300,
+                         report_hour=cfg.report_hour, timezone=cfg.timezone,
+                         db_path=os.environ.get("WORLD_DB_PATH", "/data/world.db"))
+    wstore = Store(wcfg.db_path, wcfg.start_equity)
+    if not wstore.get("started_at"):
+        wstore.set("started_at", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+    world = Agent(wcfg, wstore, YahooMarket(), None, llm, mailer=None,
+                  executor=PaperExecutor(wcfg.fee, wcfg.slippage), push=push)
+    world.label = "🌍 VILÁGPIACI DEMÓ — játékpénz"
+    world.stale_seconds = 4 * 86400            # hétvégén és ünnepnapon nincs új napi gyertya
+    world.kinds = {s: WORLD_KINDS[c] for s, c in WORLD_SYMBOLS.items()}
+    world.radar = agent.radar
+    agent.peers = [world]
+# A kriptó-számla spot: esésre nem tud fogadni, a visszapattanást viszont igen.
+agent.default_kinds = {"trend_long", "pull_long", "dip_long"}
+
 app = FastAPI(title="AXIMBRA trading agent")
 app.include_router(make_router(agent, state))
 
@@ -107,6 +139,17 @@ def _market_loop() -> None:
             logger.exception("a ciklus hibával állt le")
             state["last_error"] = f"{type(e).__name__}: {e}"[:300]
         time.sleep(max(1.0, cfg.poll_seconds - (time.time() - started)))
+
+
+def _world_loop() -> None:
+    while True:
+        started = time.time()
+        try:
+            world.tick()
+            state["world_tick"] = time.time()
+        except Exception:
+            logger.exception("a világpiaci számla ciklusa hibával állt le")
+        time.sleep(max(5.0, world.cfg.poll_seconds - (time.time() - started)))
 
 
 def _radar_loop() -> None:
@@ -166,6 +209,8 @@ def _startup() -> None:
         logger.info("TRADING_LOOP=off: a háttérszálak nem indulnak")
         return
     threading.Thread(target=_market_loop, name="market", daemon=True).start()
+    if world is not None:
+        threading.Thread(target=_world_loop, name="world", daemon=True).start()
     if os.environ.get("RADAR", "on").lower() != "off":
         threading.Thread(target=_radar_loop, name="radar", daemon=True).start()
     if bot is not None:

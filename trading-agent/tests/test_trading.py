@@ -608,3 +608,77 @@ def test_equity_is_logged_and_served():
     assert len(hist) == 1 and hist[0][1] == pytest.approx(ag.equity({"BTCUSDT": market.price_}), rel=1e-6)
     ag.tick()                                   # 5 percen belül nem ír új pontot
     assert len(ag.store.equity_history(0)) == 1
+
+
+# --- irány, fogadástípus, világpiaci számla -----------------------------------------------
+def test_short_paper_accounting_and_exit():
+    st = Store(":memory:", 10_000)
+    pid = st.open_position("BTC-USD", 1.0, 100.0, 0.1, 104.0, 92.0, 1, side=-1, kind="trend")
+    assert st.cash() == pytest.approx(10_000 + 100 - 0.1)            # az eladás bevétele bejön
+    p = st.get_position(pid)
+    assert p.side == -1 and p.risk_amount == pytest.approx(4.0)
+    assert paper.exit_on_price(p.stop, p.target, 105, -1) == (105, "stop")
+    assert paper.exit_on_price(p.stop, p.target, 91, -1) == (91, "cél")
+    assert paper.exit_on_price(p.stop, p.target, 100, -1) is None
+    pnl = -1 * 1.0 * (92 - 100) - 0.1 - 0.09
+    assert st.close_position(pid, 92.0, 0.09, "cél", pnl)
+    assert st.cash() == pytest.approx(10_000 + 100 - 0.1 - 92 - 0.09)
+    assert st.cash() - 10_000 == pytest.approx(pnl)                    # a számla pont a nyereséggel nőtt
+
+
+def _mk(closes):
+    return make_candles(closes)
+
+
+def test_evaluate_short_and_dip_signals():
+    down = [200 - i * 0.5 for i in range(260)]                         # hosszú esés: EMA200 felett az ár
+    bounce = [down[-1] + i * 1.0 for i in range(1, 25)]
+    closes = down + bounce
+    while strategy.evaluate(_mk(closes), None, {"trend_short"}) is None:
+        closes.append(closes[-1] * 0.985)
+        assert len(closes) < 400
+    sig = strategy.evaluate(_mk(closes), None, {"trend_short"})
+    assert sig.side == -1 and sig.stop > sig.price
+    assert strategy.evaluate(_mk(closes), None, {"trend_long"}) is None   # nem engedélyezett típus nem jelez
+    up = [100 + i * 0.6 for i in range(260)]
+    dip = up + [up[-1] * (1 - 0.02 * k) for k in range(1, 8)]
+    sig = strategy.evaluate(_mk(dip), None, {"dip_long"})
+    assert sig is not None and sig.kind == "dip" and sig.side == 1
+
+
+def test_news_block_on_opposite_severe_news():
+    st = Store(":memory:", 1000)
+    nid = st.add_news("https://x/1", "T", "Tesla recalls million cars", None)
+    st.set_news_analysis(nid, _json.dumps({"sev": 5, "dir": "down", "assets": ["TSLA"], "hu": "Tesla visszahívás"}))
+    assert radar.news_conflict(st, "TSLA", 1)                  # emelkedésre nem fogad
+    assert radar.news_conflict(st, "TSLA", -1) is None         # esésre igen
+    assert radar.news_conflict(st, "AAPL", 1) is None
+
+
+def test_world_market_drops_forming_daily_bar():
+    import httpx
+
+    from world import YahooMarket
+    now = 1_800_000_000
+    ts = [now - 86400 * (40 - i) for i in range(40)] + [now - 3600]    # utolsó: ma nyílt
+    data = {"chart": {"result": [{"timestamp": ts, "meta": {"regularMarketPrice": 123.4},
+                                   "indicators": {"quote": [{"open": [1.0] * 41, "high": [2.0] * 41, "low": [0.5] * 41,
+                                                              "close": [1.5] * 41, "volume": [10] * 41}]}}]}}
+    m = YahooMarket(client=httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, json=data))),
+                    clock=lambda: now)
+    c = m.candles("TSLA", "1d")
+    assert len(c) == 40 and all(x.close_time < now * 1000 for x in c)
+    assert m.price("TSLA") == 123.4
+
+
+def test_pullback_entry_in_running_uptrend():
+    up = [100 * (1.004 ** i) for i in range(300)]
+    closes = up + [up[-1] * 0.995]            # kis visszalépés az EMA20 közelébe
+    sig = strategy.evaluate(_mk(closes), None, {"pull_long"})
+    ind = strategy.compute(_mk(closes))
+    if sig is None:                           # ha még túl messze van az EMA20-tól, tovább lépünk vissza
+        while sig is None and closes[-1] > ind["fast"][-1]:
+            closes.append(closes[-1] * 0.997)
+            sig = strategy.evaluate(_mk(closes), None, {"pull_long"})
+            ind = strategy.compute(_mk(closes))
+    assert sig is not None and sig.kind == "pull" and sig.side == 1

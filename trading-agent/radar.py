@@ -298,3 +298,41 @@ class Radar:
                 "vix": round(vix.price, 1) if vix else None,
                 "legszokatlanabb_mozgások": [{"név": m.name, "napi_%": round(m.day_pct, 2), "z": round(m.z, 1)} for m in top],
                 "friss_hírek": news}
+
+
+# Melyik hírben szereplő szó melyik instrumentumot érinti (a modell "assets" mezője és a cím alapján).
+ALIASES: dict[str, list[str]] = {
+    "AAPL": ["apple", "aapl", "iphone"], "MSFT": ["microsoft", "msft"], "NVDA": ["nvidia", "nvda"],
+    "AMZN": ["amazon", "amzn"], "GOOGL": ["alphabet", "google", "googl"], "META": ["meta", "facebook"],
+    "TSLA": ["tesla", "tsla", "musk"], "JPM": ["jpmorgan", "jpm"],
+    "^GSPC": ["s&p", "s&p500", "sp500", "wall street", "us stocks", "részvény"], "^IXIC": ["nasdaq", "tech stocks"],
+    "^GDAXI": ["dax", "germany", "german"], "CL=F": ["oil", "olaj", "crude", "opec", "wti", "brent"],
+    "GC=F": ["gold", "arany"], "SI=F": ["silver", "ezüst"],
+    "BTC-USD": ["bitcoin", "btc", "crypto", "kripto"], "BTCUSDT": ["bitcoin", "btc", "crypto", "kripto"],
+    "ETH-USD": ["ethereum", "eth", "crypto", "kripto"], "ETHUSDT": ["ethereum", "eth", "crypto", "kripto"],
+    "SOL-USD": ["solana", "sol", "crypto", "kripto"],
+}
+
+
+def news_conflict(store, symbol: str, side: int, hours: float = 12) -> str | None:
+    """Szöveges ok, ha az elmúlt órákban súlyos (4-5) hír jött az eszközről a fogadással ellentétes irányba."""
+    words = ALIASES.get(symbol)
+    if not words:
+        return None
+    cutoff = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - hours * 3600))
+    for n in store.recent_news(150):
+        if (n.get("seen_at") or "") < cutoff or not n.get("analysis"):
+            continue
+        try:
+            a = json.loads(n["analysis"])
+        except ValueError:
+            continue
+        if int(a.get("sev", 0)) < 4:
+            continue
+        hay = " ".join([n["title"], a.get("hu", ""), " ".join(a.get("assets") or [])]).lower()
+        if not any(w in hay for w in words):
+            continue
+        d = a.get("dir")
+        if (side == 1 and d == "down") or (side == -1 and d == "up"):
+            return f"súlyos ellentétes hír ({n['source']}): {a.get('hu') or n['title']}"
+    return None

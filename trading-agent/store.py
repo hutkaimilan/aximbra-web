@@ -106,6 +106,8 @@ class Position:
     pnl: float | None
     r_multiple: float | None
     stop_cid: str | None = None
+    side: int = 1          # 1: long (emelkedésre), -1: short (esésre)
+    kind: str = "trend"
 
 
 class Store:
@@ -127,6 +129,10 @@ class Store:
             cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(positions)")}
             if "stop_cid" not in cols:
                 self._conn.execute("ALTER TABLE positions ADD COLUMN stop_cid TEXT")
+            if "side" not in cols:
+                self._conn.execute("ALTER TABLE positions ADD COLUMN side INTEGER NOT NULL DEFAULT 1")
+            if "kind" not in cols:
+                self._conn.execute("ALTER TABLE positions ADD COLUMN kind TEXT NOT NULL DEFAULT 'trend'")
             # Csak az első induláskor: a meglévő számla kezdőtőkéjét nem írja felül.
             self._conn.execute("INSERT OR IGNORE INTO kv(key, value) VALUES ('cash', ?)", (repr(float(start_equity)),))
             self._conn.execute("INSERT OR IGNORE INTO kv(key, value) VALUES ('start_equity', ?)",
@@ -175,22 +181,24 @@ class Store:
     # --- pozíciók ------------------------------------------------------------
     def open_position(self, symbol: str, qty: float, entry_price: float, entry_fee: float, stop: float,
                       target: float, entry_candle: int, stop_cid: str | None = None,
-                      force: bool = False) -> int | None:
+                      force: bool = False, side: int = 1, kind: str = "trend") -> int | None:
         """Megnyitja a pozíciót és levonja a költséget. None, ha már van nyitott
         pozíció ezen az instrumentumon, vagy nincs rá fedezet. force: a tőzsdén már
         teljesült vételt mindenképp könyvelni kell, a napló fedezete ilyenkor nem dönthet."""
-        cost = qty * entry_price + entry_fee
+        # Long: a vételár és a díj megy ki. Short: az eladás bevétele bejön, a díj kimegy;
+        # a visszavásárlás a záráskor terheli a számlát.
+        cost = qty * entry_price + entry_fee if side == 1 else entry_fee - qty * entry_price
         with self._lock:
             try:
                 with self._conn:
                     cash = float(self._conn.execute("SELECT value FROM kv WHERE key = 'cash'").fetchone()["value"])
-                    if cost > cash + 1e-9 and not force:
+                    if side == 1 and cost > cash + 1e-9 and not force:
                         return None
                     cur = self._conn.execute(
                         "INSERT INTO positions(symbol, qty, entry_price, entry_fee, stop, target, risk_amount, "
-                        "entry_candle, opened_at, stop_cid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        (symbol, qty, entry_price, entry_fee, stop, target, max(qty * (entry_price - stop), 0.0),
-                         entry_candle, now_iso(), stop_cid))
+                        "entry_candle, opened_at, stop_cid, side, kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        (symbol, qty, entry_price, entry_fee, stop, target, qty * abs(entry_price - stop),
+                         entry_candle, now_iso(), stop_cid, side, kind))
                     self._conn.execute("UPDATE kv SET value = ? WHERE key = 'cash'", (repr(cash - cost),))
                     return cur.lastrowid
             except sqlite3.IntegrityError:
@@ -198,7 +206,7 @@ class Store:
 
     def close_position(self, pos_id: int, exit_price: float, exit_fee: float, reason: str, pnl: float) -> bool:
         with self._lock, self._conn:
-            row = self._conn.execute("SELECT qty, risk_amount FROM positions WHERE id = ? AND status = 'open'",
+            row = self._conn.execute("SELECT qty, risk_amount, side FROM positions WHERE id = ? AND status = 'open'",
                                      (pos_id,)).fetchone()
             if row is None:
                 return False
@@ -209,7 +217,8 @@ class Store:
                 (exit_price, exit_fee, reason, now_iso(), pnl, r_multiple, pos_id))
             if cur.rowcount != 1:
                 return False
-            proceeds = row["qty"] * exit_price - exit_fee
+            # Long: eladás bevétele. Short: visszavásárlás költsége (negatív).
+            proceeds = (row["qty"] * exit_price - exit_fee) if row["side"] == 1 else -(row["qty"] * exit_price + exit_fee)
             self._conn.execute("UPDATE kv SET value = CAST(CAST(value AS REAL) + ? AS TEXT) WHERE key = 'cash'",
                                (proceeds,))
             return True
