@@ -408,6 +408,23 @@ class Agent:
         self.store.log_equity(now, self.equity(prices), self.store.cash())
         self.store.set("equity_logged_at", now)
 
+    def decision(self, sym: str) -> str:
+        """Egy mondatban: mit döntött a bot az adott piacon, és miért."""
+        try:
+            candles = self.market.candles(sym, self.cfg.interval, limit=300)
+        except MarketError:
+            return "nincs friss adat, ezért nem döntök"
+        if len(candles) < strategy.MIN_BARS:
+            return "kevés az adat a döntéshez"
+        ind = strategy.compute(candles)
+        f, sl, r, close = ind["fast"][-1], ind["slow"][-1], ind["regime"][-1], candles[-1].close
+        if close <= r:
+            return (f"NEM VESZEK — esik a piac (az ár {r / close - 1:.1%}-kal a hosszú távú átlag alatt). "
+                    f"Esésben vásárolni a leggyakoribb veszteségforrás; akkor veszek, ha {r:,.0f} fölé megy")
+        if f <= sl:
+            return "MÉG NEM VESZEK — a hosszú trend emelkedő, de a rövid távú lendület még gyenge"
+        return "NEM VESZEK MOST — emelkedik, de a belépési pont már elment; a következő lendületnél lépek"
+
     def _report_check(self, sym: str, candles, pos, price: float) -> None:
         """Minden lezárt gyertyánál: mit látott a bot, és miért nem lépett."""
         ind = strategy.compute(candles)
@@ -423,7 +440,7 @@ class Agent:
             why = "a trend emelkedő, de az EMA20 még az EMA50 alatt van: várom a felfelé keresztezést"
         else:
             why = "a trend emelkedő, az EMA20 az EMA50 felett van, de a keresztezés nem most történt"
-        self.notify(f"🔍 {sym} {self.cfg.interval} gyertya lezárult: {close:,.2f}\nTrend: {trend}. {why}.",
+        self.notify(f"🔍 {sym} döntés ({close:,.2f})\nTrend: {trend}. Döntés: {why}.",
                     email=False, kind="check", push=None)
 
     # --- radar és védekezés -----------------------------------------------------
@@ -522,7 +539,9 @@ class Agent:
                 lines.append(f"• {p.symbol}: belépés {p.entry_price:,.2f}, stop {p.stop:,.2f}, "
                              f"cél {p.target:,.2f}, most {unreal}")
         else:
-            lines.append("Nincs nyitott pozíció — a stratégia vár a következő jelzésre.")
+            lines.append("Nincs nyitott pozíció. Döntéseim:")
+            for sym in self.cfg.symbols:
+                lines.append(f"• {sym}: {self.decision(sym)}")
         if last_day:
             lines.append(f"Elmúlt 24 óra: {len(last_day)} zárás, {sum(p.pnl or 0 for p in last_day):+,.2f} USDT")
         alerts = [s for s in self.cfg.symbols if self.store.get(f"data_alert:{s}")]
