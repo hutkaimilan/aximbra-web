@@ -147,19 +147,27 @@ def make_router(agent, state: dict) -> APIRouter:
     @router.post("/api/chat")
     def chat(body: Chat, mtb_session: str | None = Cookie(default=None)):
         auth(mtb_session)
-        if not chat_lock.acquire(timeout=90):
-            raise HTTPException(429, "még dolgozom az előző kérdésen")
-        try:
-            reply = agent.respond(body.text) or "Ezt nem értettem. /help"
-        except Exception:
-            raise HTTPException(500, "a válasz összeállítása nem sikerült") from None
-        finally:
-            chat_lock.release()
-        if not body.text.startswith("/"):
-            pass  # a szabad kérdéseket az agent.answer már elmentette
-        else:
-            agent.store.add_chat("user", body.text)
-            agent.store.add_chat("assistant", reply)
-        return {"reply": reply}
+        # A telefon böngészője kb. egy perc után feladja a kérést. Ha a modell lassú (túlterhelt),
+        # 45 mp után válaszolunk, a modell pedig a háttérben befejezi, és a válasz bekerül a chatbe.
+        result: dict = {}
+
+        def work():
+            with chat_lock:
+                try:
+                    reply = agent.respond(body.text) or "Ezt nem értettem. /help"
+                except Exception:
+                    reply = "A válasz összeállítása nem sikerült, próbáld újra."
+                if body.text.startswith("/"):
+                    agent.store.add_chat("user", body.text)
+                    agent.store.add_chat("assistant", reply)
+                result["reply"] = reply
+
+        t = threading.Thread(target=work, daemon=True)
+        t.start()
+        t.join(timeout=45)
+        if "reply" in result:
+            return {"reply": result["reply"], "pending": False}
+        return {"reply": "⏳ Az AI most lassan válaszol. A válaszom pár perc múlva megjelenik itt magától.",
+                "pending": True}
 
     return router

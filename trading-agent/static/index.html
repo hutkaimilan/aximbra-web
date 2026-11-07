@@ -30,6 +30,7 @@ input,button.go{font:inherit;color:var(--tx);background:var(--card);border:1px s
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}.chips button{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:99px;padding:6px 11px;font:inherit;font-size:13px}
 #login{display:none;margin:20vh auto 0;max-width:320px;padding:0 16px;width:100%}
 .small{font-size:12px;color:var(--mut);margin:8px 0}
+body.chatmode .bal,body.chatmode #poss,body.chatmode #books,body.chatmode #paused{display:none}
 .bal{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px}
 .lbl{font-size:12px;color:var(--mut)}.lbl b{color:var(--tx);font-weight:600}.chg{font-size:18px;font-weight:700}
 </style>
@@ -70,7 +71,7 @@ function showLogin(){$('#app').style.display='none';$('#login').style.display='b
 function showApp(){$('#login').style.display='none';$('#app').style.display='flex';setTab(tab)}
 $('#lf').onsubmit=async e=>{e.preventDefault();$('#le').textContent='';try{await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#pw').value})});$('#pw').value='';boot()}catch(x){if(x!==0)$('#le').textContent=x.message||'Hiba'}};
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.t));
-function setTab(t){tab=t;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+function setTab(t){tab=t;document.body.classList.toggle('chatmode',t==='chat');document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
  $('#feed').style.display=t==='feed'?'block':'none';$('#market').style.display=t==='market'?'block':'none';$('#chat').style.display=t==='chat'?'flex':'none';$('#sf').style.display=t==='chat'?'flex':'none';
  if(t==='chat')setTimeout(()=>{$('#msgs').scrollTop=1e9},50)}
 function evHtml(e){const d=new Date(e.created_at+(e.created_at.endsWith('Z')||e.created_at.includes('+')?'':'Z'));return `<div class="ev ${esc(e.kind)}"><div class="ts">${d.toLocaleString('hu-HU',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div><div class="t">${esc(e.title)}</div>${e.body?`<div class="b">${esc(e.body)}</div>`:''}</div>`}
@@ -108,7 +109,11 @@ function bookHtml(b){if(b.error)return `<div class="bal"><b>${esc(b.label)}</b><
  ${b.positions.map(posHtml).join('')||'<div class="small">Nincs nyitott pozíció — a bot döntése szerint most nincs jó belépő.</div>'}</div>`}
 async function loadChat(){const r=await api('/api/chat');$('#msgs').innerHTML='';r.messages.forEach(m=>addMsg(m.role==='user'?'user':'bot',m.content))}
 function addMsg(c,t){const d=document.createElement('div');d.className='m '+c;d.textContent=t;$('#msgs').appendChild(d);$('#msgs').scrollTop=1e9;return d}
-async function send(text){if(!text.trim())return;addMsg('user',text);const w=addMsg('bot','…');try{const r=await api('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});w.textContent=r.reply}catch(e){w.textContent='Hiba: '+(e.message||e)}}
+async function send(text){if(!text.trim())return;addMsg('user',text);const w=addMsg('bot','✍️ gondolkodom…');
+ for(let a=0;a<2;a++){try{const r=await api('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+   w.textContent=r.reply;if(r.pending)waitReply(w);return}catch(e){if(e===0)return;if(a===0){w.textContent='🔄 megszakadt a kapcsolat, újrapróbálom…';await new Promise(r=>setTimeout(r,3000))}else w.textContent='Nem sikerült elküldeni (nincs kapcsolat a bottal). Próbáld újra pár másodperc múlva.'}}}
+async function waitReply(w){const before=(await api('/api/chat')).messages.length;for(let i=0;i<20;i++){await new Promise(r=>setTimeout(r,10000));
+ try{const m=(await api('/api/chat')).messages;const last=m[m.length-1];if(m.length>before&&last&&last.role==='assistant'){w.textContent=last.content;return}}catch{}}}
 $('#sf').onsubmit=e=>{e.preventDefault();const v=$('#tx').value;$('#tx').value='';send(v)};
 document.querySelectorAll('.chips button').forEach(b=>b.onclick=()=>send(b.textContent));
 let timers=[];async function boot(){timers.forEach(clearInterval);try{await api('/api/state');showApp();lastId=0;first=true;$('#feed').innerHTML='';await Promise.all([pollEvents(),pollState(),loadChat()]);
