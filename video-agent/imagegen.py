@@ -3,8 +3,9 @@
 A Gemini képmodelljét hívja. Ha a kulcsnak nincs rá kerete, None jön
 vissza, és a videó képgenerálás nélkül készül el — nem áll meg miatta.
 
-Ember arcát nem generáltatjuk valódi személyről: a prompt kifejezetten
-elkéri, hogy felismerhető valódi személy ne legyen a képen.
+Ember SEMMILYEN formában nem kerülhet a képre (arc, kéz, sziluett, tömeg sem):
+a prompt ezt kéri, és minden generált képet meg is nézünk (contains_person);
+ha ember látszik, vagy a vizsgálat nem futott le, a kép eldobódik.
 """
 from __future__ import annotations
 
@@ -21,7 +22,9 @@ import stop
 logger = logging.getLogger(__name__)
 
 MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
-GUARD = ("No recognisable real person, no celebrity, no logo of another company, no readable text. ")
+GUARD = ("NO PEOPLE AT ALL: no person, no face, no hands, no body parts, no silhouettes, no crowd, no staff, "
+         "no customers, no portrait. No celebrity, no logo of another company, no readable text. "
+         "Only objects, screens, interfaces, places without people, or abstract shapes. ")
 SIZES = {"9:16": (768, 1344), "4:5": (896, 1120), "1:1": (1024, 1024), "16:9": (1344, 768)}
 # Ingyenes tartalék, kulcs nélkül. Vízjelet tesz a képre, ezért csak akkor
 # hívjuk, ha a Geminire nincs keret, és a felületen jelezzük is.
@@ -99,12 +102,31 @@ def generate(prompt: str, aspect: str = "9:16") -> tuple[bytes, str] | None:
     return fallback()
 
 
+PERSON_QUESTION = ("Look at this image. Does it show ANY person or part of a person: a face, a head, hands, "
+                   "arms, a body, a silhouette, a shadow of a person, a crowd, a statue or a drawn or cartoon "
+                   "person? Answer ONLY with JSON: {\"person\": true} or {\"person\": false}.")
+
+
+def contains_person(raw: bytes) -> bool:
+    """True, ha ember látszik a képen — és True akkor is, ha a vizsgálat nem futott
+    le: bizonytalanság esetén a kép nem kerülhet ki."""
+    try:
+        data = llm.extract_json(llm.ask_about_media(PERSON_QUESTION, raw, "image/jpeg" if raw[:2] == b"\xff\xd8" else "image/png"))
+    except Exception as e:  # noqa: BLE001 — nem tudjuk megnézni, tehát nem használjuk
+        logger.info("a képen lévő ember vizsgálata nem futott le: %s", e)
+        return True
+    return not (isinstance(data, dict) and data.get("person") is False)
+
+
 def generate_into_library(prompt: str, aspect: str, name: str) -> dict | None:
     """Generált kép a médiatárba; onnantól ugyanúgy használható, mint a feltöltött."""
     out = generate(prompt, aspect)
     if not out:
         return None
     raw, eng = out
+    if contains_person(raw):
+        logger.info("generált kép eldobva: ember látszik rajta, vagy nem lehetett megnézni")
+        return None
     try:
         # A vízjeles, ingyenes forrást külön jelöljük, hogy a felületen látszódjon.
         return media.add_image(raw, name=name, note=prompt[:200],

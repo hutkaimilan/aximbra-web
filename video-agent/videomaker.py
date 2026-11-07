@@ -161,7 +161,7 @@ def director_prompt(brief: str, ctx: dict, seconds: int, lang: str, aspect: str,
             "point of the brief:\n" + "\n".join(_shelf_line(m) for m in attached)) if attached else ""
     pages = "\n\n".join(f"TEXT OF {p['url']}:\n{p['text']}" for p in ctx["pages"] if p["text"]) or "(none)"
     web = "\n\n".join(f"WEB: {w['title']} — {w['url']}\n{w['text']}" for w in ctx["web"]) or "(none)"
-    return f"""You are an award-winning creative director making social content from a brief. No person appears on camera.
+    return f"""You are an award-winning creative director making social content from a brief. No person appears on camera, and NO image may show a person: when you write an "image_prompt", describe objects, screens, interfaces, empty rooms or abstract shapes only. Never write people, staff, employees, customers, a woman, a man, hands, faces or a crowd in an image_prompt, even if the brief describes people.
 Everything is graphics, a real website shown on a phone, or UI.
 
 THE BRIEF (this is what the client wants — follow it closely; it overrides the defaults below):
@@ -1327,9 +1327,20 @@ def use_all_attached(script: dict, attach: list, say=lambda m: None) -> dict:
     return script
 
 
+def text_only(script: dict) -> dict:
+    """Önállóan készülő (ember által nem látott) posztokhoz: kép és klip nélkül.
+    Minden képes jelenet szöveges lesz, így ember sem generált, sem tárból vett
+    képen nem kerülhet ki magától."""
+    for sc in script["scenes"]:
+        if sc["kind"] in ("photo", "gallery", "clip"):
+            sc["kind"] = "statement"
+        sc["media"], sc["medias"], sc["image_prompt"] = "", [], ""
+    return script
+
+
 def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", voice: bool = True,
          male: bool = False, research: bool = False, form: str = "auto", say=lambda m: None,
-         attach: list | None = None, captions: bool = False) -> dict:
+         attach: list | None = None, captions: bool = False, autonomous: bool = False) -> dict:
     brief = (brief or "").strip()[:12000]
     if len(brief) < 8:
         raise VideoError("írd le, mit készítsek")
@@ -1352,6 +1363,8 @@ def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", 
             say("Angol videó: az aximbra.hu angol változatát veszem fel.")
             ctx["urls"] = en
     ctx["attached"] = attach
+    if autonomous:
+        ctx["library"] = []          # önálló poszthoz a médiatárból sem választhat
     if attach:
         say(f"Csatolt média: {len(attach)} db — a rendező mindet felhasználja.")
     if form == "logo":
@@ -1361,7 +1374,11 @@ def make(brief: str, seconds: int = 30, lang: str = "hu", aspect: str = "9:16", 
     say("Forgatókönyv írása…")
     script = write_script(brief, ctx, seconds, lang, aspect, voice, say, form)
     script = use_all_attached(script, attach, say)
-    script = fill_images(script, aspect, say)
+    if autonomous:
+        script = text_only(script)
+        say("Önálló poszt: képek és klipek nélkül, szöveges jelenetekből készül.")
+    else:
+        script = fill_images(script, aspect, say)
     say(f"Forgatókönyv kész: {script['title']} ({len(script['scenes'])} "
         f"{'dia' if form != 'video' else 'jelenet'}, {script['theme']} stílus).")
     return _finish(script, opts, ctx, say)

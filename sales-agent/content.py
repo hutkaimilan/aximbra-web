@@ -245,6 +245,9 @@ Szabályok (marketingkutatás alapján):
    Egyedi, egy céghez köthető részletet (postafiók-nevek, termékek, rendszerek neve) se vegyél át: általánosíts.
    Ne írd bele, hogy "az értékesítő agent mutatja be" — a téma a nézőnek szól, nem rólad.
 5. A formát fent megkaptad; ne írj mást.
+5/b. A képi világban EMBER SEMMILYEN formában nem szerepel: nincs arc, kéz, sziluett, tömeg, „munkatársak",
+   „ügyfelek", „egy nő/férfi". Tárgyakat, képernyőket, felületeket, üres tereket, üzeneteket mutass.
+   A helyzetet a feliratok, üzenetbuborékok és a képernyők meséljék el, nem emberek.
 6. "hu": magyar nyelven, magyar kkv-vezetőknek, LinkedInre: szakmai, nyugodt, a végén kérdés az olvasónak.
    "en": angolul írd, Instagramra: vizuálisabb, rövidebb, erős első kép. Ugyanez a videó magyarul és angolul is
    kimegy, ezért magyar és nemzetközi cégvezetőknek egyaránt szóljon: ne legyen benne csak egy országra

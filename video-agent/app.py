@@ -384,7 +384,8 @@ def _inbox_round(it: dict):
             if "instagram" in it["targets"] and form != "video":
                 aspect = "4:5"
             meta = videomaker.make(it["brief"], it.get("seconds") or s["seconds"], it["lang"], aspect,
-                                   s["voice"], s["male"], research=False, form=form, say=say)
+                                   s["voice"], s["male"], research=False, form=form, say=say,
+                                   autonomous=True)
         except stop.Cancelled:
             raise
         except Exception as e:  # noqa: BLE001

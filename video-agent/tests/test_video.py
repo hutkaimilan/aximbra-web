@@ -1478,3 +1478,32 @@ def test_a_failed_translation_still_posts_the_main_video(tmp_path, monkeypatch):
     video_app._inbox_round(inbox.next_due())(lambda m: None)
     it = inbox._load()[0]
     assert posted == ["v1"] and it["status"] == "done" and "en:" in it["error"]
+
+
+def test_automatic_posts_never_use_images_or_library_media():
+    """Egy generált háttérkép egyszer egy embert tett egy poszt hátterébe. Az önálló
+    (ember által nem látott) posztok ezért kép és klip nélkül készülnek."""
+    script = {"scenes": [{"kind": "photo", "media": "abc123def456", "medias": [], "image_prompt": "busy office, a woman"},
+                         {"kind": "gallery", "media": "", "medias": ["abc123def456"], "image_prompt": ""},
+                         {"kind": "clip", "media": "abc123def456", "medias": [], "image_prompt": ""},
+                         {"kind": "hook", "media": "", "medias": [], "image_prompt": ""}]}
+    out = videomaker.text_only(script)
+    assert [s["kind"] for s in out["scenes"]] == ["statement", "statement", "statement", "hook"]
+    assert all(not s["media"] and not s["medias"] and not s["image_prompt"] for s in out["scenes"])
+
+
+def test_generated_images_with_a_person_or_unchecked_are_dropped(monkeypatch):
+    import imagegen
+    monkeypatch.setattr(imagegen, "generate", lambda prompt, aspect="9:16": (b"\xff\xd8img", "gemini"))
+    saved = []
+    monkeypatch.setattr(imagegen.media, "add_image", lambda raw, **k: saved.append(raw) or {"id": "x"})
+    monkeypatch.setattr(imagegen.llm, "provider", lambda: "gemini")
+    for reply, kept in (('{"person": false}', True), ('{"person": true}', False), ("nem json", False)):
+        saved.clear()
+        monkeypatch.setattr(imagegen.llm, "_gemini", lambda prompt, parts, r=reply: r)
+        assert bool(imagegen.generate_into_library("empty office", "9:16", "t")) is kept
+        assert bool(saved) is kept
+    monkeypatch.setattr(imagegen.llm, "provider", lambda: "openai")      # nem lehet megnézni: nem használjuk
+    saved.clear()
+    assert imagegen.generate_into_library("empty office", "9:16", "t") is None and not saved
+    assert "NO PEOPLE" in imagegen.GUARD
