@@ -742,7 +742,10 @@ class Agent:
                   f"Eddigi beszélgetés:\n{history or '(még nincs)'}\n\nMilán most ezt írta: {question}")
         try:
             from llm import CHAT_PERSONA
-            reply = self.llm.ask(prompt, system=CHAT_PERSONA).replace("**", "")[:3000]
+            fast = [m.strip() for m in os.environ.get(
+                "GEMINI_CHAT_MODELS", "gemini-3.5-flash,gemini-flash-latest,gemini-3.5-flash-lite,gemini-3.8-flash"
+            ).split(",") if m.strip()]
+            reply = self.llm.ask(prompt, system=CHAT_PERSONA, models=fast, timeout=18).replace("**", "")[:3000]
         except LLMError as e:
             logger.warning("a chat válasza elmaradt: %s", e)
             reply = ""

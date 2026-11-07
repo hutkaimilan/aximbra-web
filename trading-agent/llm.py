@@ -89,33 +89,38 @@ class LLM:
         chain[0].fallback = chain[1] if len(chain) > 1 else None   # a másik szolgáltató tartaléknak
         return chain[0]
 
-    def ask(self, prompt: str, system: str | None = None) -> str:
+    def ask(self, prompt: str, system: str | None = None, models: list[str] | None = None,
+            timeout: float | None = None) -> str:
+        """models: a Gemini-modellek sorrendje erre a hívásra (pl. a chat a gyorsakat kéri);
+        timeout: modellenkénti időkorlát másodpercben."""
         try:
-            return self._ask_once(prompt, system)
+            return self._ask_once(prompt, system, models, timeout)
         except LLMError as first:
             if self.fallback is None:
                 raise
             logger.warning("a(z) %s modell nem válaszolt (%s), tartalék: %s", self.provider, first, self.fallback.provider)
-            return self.fallback._ask_once(prompt, system)
+            return self.fallback._ask_once(prompt, system, None, timeout)
 
-    def _ask_once(self, prompt: str, system: str | None = None) -> str:
-        """Gemininél a GEMINI_MODELS lista modelljein megy végig: túlterhelésnél a következő jön."""
-        models = [m.strip() for m in os.environ.get("GEMINI_MODELS", "").split(",") if m.strip()] or [GEMINI_MODEL]
+    def _ask_once(self, prompt: str, system: str | None = None, models: list[str] | None = None,
+                  timeout: float | None = None) -> str:
+        """Gemininél a modelllista elemein megy végig: túlterhelésnél a következő jön."""
+        models = models or [m.strip() for m in os.environ.get("GEMINI_MODELS", "").split(",") if m.strip()] or [GEMINI_MODEL]
         if self.provider != "gemini":
             models = [None]
         last = None
         for model in models:
             try:
-                return self._ask_model(prompt, model, system)
+                return self._ask_model(prompt, model, system, timeout)
             except LLMError as e:
                 last = e
                 logger.warning("modell %s: %s", model, str(e)[:120])
         raise last
 
-    def _ask_model(self, prompt: str, model: str | None, system: str | None = None) -> str:
-        for attempt in range(2):
+    def _ask_model(self, prompt: str, model: str | None, system: str | None = None,
+                   timeout: float | None = None) -> str:
+        for attempt in range(1 if timeout else 2):
             try:
-                r = self._request(prompt, model, system)
+                r = self._request(prompt, model, system, timeout)
             except httpx.HTTPError as e:
                 raise LLMError(f"a modell nem érhető el ({type(e).__name__})") from None
             if r.status_code in (429, 500, 502, 503) and attempt < 1:
@@ -144,17 +149,19 @@ class LLM:
         except (httpx.HTTPError, ValueError, KeyError):
             return []
 
-    def _request(self, prompt: str, model: str | None = None, system: str | None = None) -> httpx.Response:
+    def _request(self, prompt: str, model: str | None = None, system: str | None = None,
+                 timeout: float | None = None) -> httpx.Response:
+        kw = {"timeout": timeout} if timeout else {}
         if self.provider == "gemini":
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model or GEMINI_MODEL}:generateContent"
             body = {"systemInstruction": {"parts": [{"text": system or PERSONA}]},
                     "contents": [{"role": "user", "parts": [{"text": prompt}]}]}
-            return self.client.post(url, headers={"x-goog-api-key": self._key}, json=body)
+            return self.client.post(url, headers={"x-goog-api-key": self._key}, json=body, **kw)
         body = {"model": OPENAI_MODEL,
                 "messages": [{"role": "system", "content": system or PERSONA},
                              {"role": "user", "content": prompt}]}
         return self.client.post("https://api.openai.com/v1/chat/completions",
-                                headers={"Authorization": f"Bearer {self._key}"}, json=body)
+                                headers={"Authorization": f"Bearer {self._key}"}, json=body, **kw)
 
     def _text(self, data: dict) -> str:
         if self.provider == "gemini":

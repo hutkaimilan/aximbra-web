@@ -6,6 +6,10 @@ Hibás próbálkozásból legfeljebb 8 lehet 10 percen belül (nyers erő ellen)
 from __future__ import annotations
 
 import hashlib
+import re
+from urllib.parse import quote
+
+import httpx
 import hmac
 import json
 import os
@@ -98,7 +102,7 @@ def make_router(agent, state: dict) -> APIRouter:
             out = []
             for p in positions:
                 px = prices.get(p.symbol)
-                out.append({"symbol": a.name_of(p.symbol), "qty": p.qty, "entry": p.entry_price, "stop": p.stop,
+                out.append({"symbol": a.name_of(p.symbol), "sym": p.symbol, "qty": p.qty, "entry": p.entry_price, "stop": p.stop,
                             "target": p.target, "price": px, "opened_at": p.opened_at, "side": p.side, "kind": p.kind,
                             "entry_value": p.qty * p.entry_price + p.entry_fee,
                             "value": p.qty * px if px else None,
@@ -128,7 +132,7 @@ def make_router(agent, state: dict) -> APIRouter:
         snap = agent.radar.snapshot() if agent.radar else {}
         moves = {}
         if agent.radar:
-            moves = sorted(({"name": m.name, "cls": m.cls, "price": m.price, "day": m.day_pct, "week": m.week_pct,
+            moves = sorted(({"name": m.name, "sym": m.symbol, "cls": m.cls, "price": m.price, "day": m.day_pct, "week": m.week_pct,
                              "z": m.z} for m in (agent.radar.moves or {}).values()), key=lambda m: -abs(m["z"]))
         closed = agent.store.closed_positions(limit=200)
         data = {"mode": agent.executor.name, "label": agent.label, "equity": equity, "start": start,
@@ -146,6 +150,57 @@ def make_router(agent, state: dict) -> APIRouter:
         with cache_lock:
             cache.update(at=time.time(), data=data)
         return data
+
+    chart_cache: dict[tuple[str, str], tuple[float, list]] = {}
+    chart_lock = threading.Lock()
+    http = httpx.Client(timeout=15, headers={"User-Agent": "Mozilla/5.0 (milan-trader)"})
+    RANGES = {   # (Binance intervallum, darab), (Yahoo range, intervallum)
+        "1D": (("15m", 96), ("1d", "5m")), "1W": (("1h", 168), ("5d", "30m")),
+        "1M": (("4h", 180), ("1mo", "60m")), "3M": (("1d", 90), ("3mo", "1d")), "1Y": (("1d", 365), ("1y", "1d")),
+    }
+
+    def series(sym: str, rng: str) -> list:
+        (b_int, b_n), (y_rng, y_int) = RANGES[rng]
+        if sym.endswith("USDT"):
+            candles = agent.market.candles(sym, b_int, limit=b_n, closed_only=False)
+            return [[c.close_time // 1000, c.close] for c in candles]
+        r = http.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{quote(sym)}",
+                     params={"range": y_rng, "interval": y_int})
+        if r.status_code != 200:
+            raise HTTPException(502, f"az árfolyam most nem érhető el (HTTP {r.status_code})")
+        res = r.json()["chart"]["result"][0]
+        closes = res["indicators"]["quote"][0]["close"]
+        return [[t, c] for t, c in zip(res.get("timestamp") or [], closes) if c is not None]
+
+    @router.get("/api/chart")
+    def chart(sym: str, range: str = "1M", mtb_session: str | None = Cookie(default=None)):
+        auth(mtb_session)
+        if range not in RANGES or not re.fullmatch(r"[A-Za-z0-9^=.\-]{1,20}", sym):
+            raise HTTPException(400, "hibás paraméter")
+        key = (sym, range)
+        with chart_lock:
+            hit = chart_cache.get(key)
+        if hit and time.time() - hit[0] < 60:
+            pts = hit[1]
+        else:
+            try:
+                pts = series(sym, range)
+            except HTTPException:
+                raise
+            except Exception:
+                raise HTTPException(502, "az árfolyam most nem érhető el") from None
+            with chart_lock:
+                chart_cache[key] = (time.time(), pts)
+                if len(chart_cache) > 300:
+                    chart_cache.clear()
+        pos = None
+        for a in [agent] + list(agent.peers):
+            p = a.store.open_position_for(sym) if sym in a.cfg.symbols else None
+            if p:
+                pos = {"entry": p.entry_price, "stop": p.stop, "target": p.target, "qty": p.qty, "side": p.side,
+                       "kind": p.kind, "opened_at": p.opened_at, "entry_value": p.qty * p.entry_price + p.entry_fee,
+                       "fee": p.entry_fee}
+        return {"sym": sym, "name": agent.name_of(sym), "range": range, "points": pts, "position": pos}
 
     @router.get("/api/news")
     def news(mtb_session: str | None = Cookie(default=None)):
