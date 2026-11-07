@@ -147,7 +147,13 @@ def research_run(store: Store, plan: dict[str, int], log: RunLog, *, llm=llm_mod
                 for cand in cands:
                     if got >= want:
                         break
-                    if _consider(store, cand, country, log, llm=llm, fetch=fetch, mailbox=mailbox):
+                    try:
+                        ok = _consider(store, cand, country, log, llm=llm, fetch=fetch, mailbox=mailbox)
+                    except Exception as e:  # noqa: BLE001 — egy rossz jelölt ne állítsa le a kört
+                        log.say(f"  ✗ {str((cand or {}).get('company') or '?')[:40]}: feldolgozási hiba ({type(e).__name__})")
+                        log.rejected += 1
+                        continue
+                    if ok:
                         got += 1
             log.say(f"{country}: {got}/{want} vázlat.")
     finally:
@@ -157,6 +163,11 @@ def research_run(store: Store, plan: dict[str, int], log: RunLog, *, llm=llm_mod
 
 
 def _consider(store, cand, country, log, *, llm, fetch, mailbox) -> bool:
+    # Minden szöveges mezőt szöveggé teszünk: a modell néha objektumot ad vissza.
+    for key in ("company", "country", "email", "observation", "website", "town", "email_url",
+                "observation_url", "pain", "sector", "signal", "signal_note", "signal_url"):
+        if key in cand and not isinstance(cand[key], str):
+            cand[key] = verify.as_text(cand[key])
     name = (cand.get("company") or "?").strip()
     cand["country"] = (cand.get("country") or country).upper()
     cand["email"] = (cand.get("email") or "").strip().lower()

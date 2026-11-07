@@ -161,10 +161,25 @@ def quote_on_page(quote: str, text: str) -> bool:
     return False
 
 
+def as_text(v) -> str:
+    """A modell néha szöveg helyett objektumot vagy listát ad egy mezőben
+    ({"text": ...}). Abból a szöveges részeket vesszük, a többit eldobjuk —
+    egy rossz alakú mező ne állítsa le az egész kutatási kört."""
+    if v is None:
+        return ""
+    if isinstance(v, str):
+        return v.strip()
+    if isinstance(v, dict):
+        v = list(v.values())
+    if isinstance(v, (list, tuple)):
+        return " ".join(t for t in (as_text(x) for x in v) if t)
+    return str(v).strip()
+
+
 def candidate_problems(c: dict) -> list[str]:
     """Kemény kizárások a letöltés előtt. Üres lista = mehet tovább."""
     p = []
-    email = (c.get("email") or "").strip().lower()
+    email = as_text(c.get("email")).lower()
     if not EMAIL_RE.match(email):
         p.append("hibás e-mail cím")
     if c.get("country") not in COUNTRIES:
@@ -176,7 +191,7 @@ def candidate_problems(c: dict) -> list[str]:
             break
     if c.get("pain") not in PAIN_KEYS:
         p.append("ismeretlen igény")
-    if not (c.get("observation") or "").strip():
+    if not as_text(c.get("observation")):
         p.append("nincs megfigyelés")
     return p
 

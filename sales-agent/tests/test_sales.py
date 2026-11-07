@@ -1796,3 +1796,15 @@ def test_refresh_offers_replaces_the_old_text_in_unsent_drafts_only(store):
     body = store.get(a)["body"]
     assert playbook.OFFER["hu"] in body and old not in body and "30%" in body
     assert pipeline.refresh_offers(store) == 0          # másodszor nincs mit cserélni
+
+
+def test_a_candidate_with_object_fields_does_not_stop_the_round(store):
+    """Két körben is „'dict' object has no attribute 'strip'" állította le a kutatást:
+    a modell a megfigyelést objektumként adta. Most szöveggé alakul, és ha mégis hibázik
+    egy jelölt, a többi tovább megy."""
+    assert verify.as_text({"text": " Nyitva tartás hétfőtől ", "n": 3}) == "Nyitva tartás hétfőtől 3"
+    assert verify.as_text(["a", None, " b "]) == "a b" and verify.as_text(None) == ""
+    odd = {**CAND, "observation": {"text": "Az oldalon telefonszám az egyetlen elérhetőség."}}
+    assert verify.candidate_problems(odd) == [] or "nincs megfigyelés" not in verify.candidate_problems(odd)
+    log = run(store, [odd, {**CAND, "company": "Más Kft.", "email": "info@mas-kft.hu"}])
+    assert not any("feldolgozási hiba" in m for m in log.lines if hasattr(log, "lines"))
