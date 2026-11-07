@@ -111,7 +111,7 @@ async function loadChat(){const r=await api('/api/chat');$('#msgs').innerHTML=''
 function addMsg(c,t){const d=document.createElement('div');d.className='m '+c;d.textContent=t;$('#msgs').appendChild(d);$('#msgs').scrollTop=1e9;return d}
 async function send(text){if(!text.trim())return;addMsg('user',text);const w=addMsg('bot','✍️ gondolkodom…');
  for(let a=0;a<2;a++){try{const r=await api('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
-   w.textContent=r.reply;if(r.pending)waitReply(w);return}catch(e){if(e===0)return;if(a===0){w.textContent='🔄 megszakadt a kapcsolat, újrapróbálom…';await new Promise(r=>setTimeout(r,3000))}else w.textContent='Nem sikerült elküldeni (nincs kapcsolat a bottal). Próbáld újra pár másodperc múlva.'}}}
+   w.textContent=r.reply;w.scrollIntoView({block:'start'});if(r.pending)waitReply(w);return}catch(e){if(e===0)return;if(a===0){w.textContent='🔄 megszakadt a kapcsolat, újrapróbálom…';await new Promise(r=>setTimeout(r,3000))}else w.textContent='Nem sikerült elküldeni (nincs kapcsolat a bottal). Próbáld újra pár másodperc múlva.'}}}
 async function waitReply(w){const before=(await api('/api/chat')).messages.length;for(let i=0;i<20;i++){await new Promise(r=>setTimeout(r,10000));
  try{const m=(await api('/api/chat')).messages;const last=m[m.length-1];if(m.length>before&&last&&last.role==='assistant'){w.textContent=last.content;return}}catch{}}}
 $('#sf').onsubmit=e=>{e.preventDefault();const v=$('#tx').value;$('#tx').value='';send(v)};

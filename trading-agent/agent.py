@@ -699,7 +699,7 @@ class Agent:
                    "világpiaci_számla": [p.report() for p in self.peers],
                    "korábbi_beszélgetés": self.store.recent_chat(8)}
         history = "\n".join(f"{'Milán' if m['role'] == 'user' else 'Bot'}: {m['content'][:600]}"
-                             for m in self.store.recent_chat(10))
+                             for m in self.store.recent_chat(6))
         context.pop("korábbi_beszélgetés", None)
         prompt = (f"Élő adatok (csak ezekre hivatkozhatsz):\n"
                   f"{json.dumps(context, ensure_ascii=False, default=str, indent=1)}\n\n"
