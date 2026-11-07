@@ -40,6 +40,12 @@ UNIVERSE: dict[str, tuple[str, str]] = {
     "AAPL": ("Apple", "stock"), "MSFT": ("Microsoft", "stock"), "NVDA": ("Nvidia", "stock"),
     "AMZN": ("Amazon", "stock"), "GOOGL": ("Alphabet", "stock"), "META": ("Meta", "stock"),
     "TSLA": ("Tesla", "stock"), "JPM": ("JPMorgan", "stock"),
+    "AMD": ("AMD", "stock"), "NFLX": ("Netflix", "stock"), "AVGO": ("Broadcom", "stock"), "PLTR": ("Palantir", "stock"),
+    "COIN": ("Coinbase", "stock"), "V": ("Visa", "stock"), "KO": ("Coca-Cola", "stock"), "XOM": ("ExxonMobil", "stock"),
+    "WMT": ("Walmart", "stock"), "BRK-B": ("Berkshire Hathaway", "stock"),
+    "DOGE-USD": ("Dogecoin", "crypto"),
+    "BTCUSDT": ("Bitcoin", "crypto"), "ETHUSDT": ("Ethereum", "crypto"), "SOLUSDT": ("Solana", "crypto"),
+    "BNBUSDT": ("BNB", "crypto"), "XRPUSDT": ("XRP", "crypto"), "DOGEUSDT": ("Dogecoin", "crypto"),
     "BTC-USD": ("Bitcoin", "crypto"), "ETH-USD": ("Ethereum", "crypto"), "SOL-USD": ("Solana", "crypto"),
     "BNB-USD": ("BNB", "crypto"), "XRP-USD": ("XRP", "crypto"),
     "^VIX": ("VIX (félelemindex)", "macro"), "DX-Y.NYB": ("Dollárindex", "macro"), "^TNX": ("USA 10 éves hozam", "macro"),
@@ -178,6 +184,8 @@ class Radar:
     def scan_markets(self) -> list[Move]:
         moves: dict[str, Move] = {}
         for sym in UNIVERSE:
+            if sym.endswith("USDT"):
+                continue
             series = self.fetch_series(sym)
             if series:
                 m = measure(sym, series)
@@ -310,7 +318,12 @@ ALIASES: dict[str, list[str]] = {
     "GC=F": ["gold", "arany"], "SI=F": ["silver", "ezüst"],
     "BTC-USD": ["bitcoin", "btc", "crypto", "kripto"], "BTCUSDT": ["bitcoin", "btc", "crypto", "kripto"],
     "ETH-USD": ["ethereum", "eth", "crypto", "kripto"], "ETHUSDT": ["ethereum", "eth", "crypto", "kripto"],
-    "SOL-USD": ["solana", "sol", "crypto", "kripto"],
+    "SOL-USD": ["solana", "sol", "crypto", "kripto"], "SOLUSDT": ["solana", "sol", "crypto", "kripto"],
+    "XRP-USD": ["xrp", "ripple", "crypto"], "XRPUSDT": ["xrp", "ripple", "crypto"],
+    "BNB-USD": ["bnb", "binance"], "BNBUSDT": ["bnb", "binance"], "DOGE-USD": ["doge", "dogecoin"],
+    "DOGEUSDT": ["doge", "dogecoin"], "AMD": ["amd"], "NFLX": ["netflix"], "AVGO": ["broadcom"],
+    "PLTR": ["palantir"], "COIN": ["coinbase"], "XOM": ["exxon"], "^DJI": ["dow jones", "dow"],
+    "^FTSE": ["ftse", "london"], "^N225": ["nikkei", "japan"], "KO": ["coca-cola"], "WMT": ["walmart"],
 }
 
 

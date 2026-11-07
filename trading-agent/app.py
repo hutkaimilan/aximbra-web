@@ -78,15 +78,22 @@ WORLD_KINDS = {
     "commodity": {"trend_long"}, "crypto": {"trend_long", "pull_long", "trend_short", "dip_long"},
 }
 WORLD_SYMBOLS = {
+    # részvények
     "AAPL": "stock", "MSFT": "stock", "NVDA": "stock", "AMZN": "stock", "GOOGL": "stock", "META": "stock",
-    "TSLA": "stock", "JPM": "stock", "^GSPC": "index", "^IXIC": "index", "^GDAXI": "index",
+    "TSLA": "stock", "JPM": "stock", "AMD": "stock", "NFLX": "stock", "AVGO": "stock", "PLTR": "stock",
+    "COIN": "stock", "V": "stock", "KO": "stock", "XOM": "stock", "WMT": "stock", "BRK-B": "stock",
+    # indexek
+    "^GSPC": "index", "^IXIC": "index", "^DJI": "index", "^GDAXI": "index", "^FTSE": "index", "^N225": "index",
+    # nyersanyagok
     "CL=F": "commodity", "GC=F": "commodity", "SI=F": "commodity",
-    "BTC-USD": "crypto", "ETH-USD": "crypto", "SOL-USD": "crypto",
+    # kripto
+    "BTC-USD": "crypto", "ETH-USD": "crypto", "SOL-USD": "crypto", "XRP-USD": "crypto", "BNB-USD": "crypto",
+    "DOGE-USD": "crypto",
 }
 world = None
 if os.environ.get("WORLD_BOOK", "on").lower() != "off":
     wcfg = config.Config(symbols=tuple(WORLD_SYMBOLS), interval="1d", start_equity=10_000.0, risk_per_trade=0.01,
-                         max_open=6, daily_loss_limit=0.03, fee=0.0005, slippage=0.0003, poll_seconds=300,
+                         max_open=int(os.environ.get("WORLD_MAX_OPEN", "12")), daily_loss_limit=0.03, fee=0.0005, slippage=0.0003, poll_seconds=300,
                          report_hour=cfg.report_hour, timezone=cfg.timezone,
                          db_path=os.environ.get("WORLD_DB_PATH", "/data/world.db"))
     wstore = Store(wcfg.db_path, wcfg.start_equity)
