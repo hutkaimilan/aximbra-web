@@ -35,7 +35,7 @@ main{padding:14px 14px calc(84px + env(safe-area-inset-bottom));max-width:1180px
 .chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:99px;border:1px solid var(--line2);color:var(--mut);background:var(--bg2)}
 .chip.up{color:var(--up);border-color:rgba(22,199,132,.35);background:rgba(22,199,132,.08)}.chip.dn{color:var(--dn);border-color:rgba(234,57,67,.35);background:rgba(234,57,67,.08)}
 .chip.acc{color:var(--acc);border-color:rgba(240,185,11,.35);background:rgba(240,185,11,.08)}.chip.cy{color:var(--cy);border-color:rgba(34,211,238,.3);background:rgba(34,211,238,.07)}.chip.vi{color:var(--vi);border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.07)}
-.grid{display:grid;gap:10px}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.grid{display:grid;gap:10px}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(2,minmax(0,1fr))}@media(min-width:600px){.g3{grid-template-columns:repeat(3,minmax(0,1fr))}}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
 .kpi{background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:10px 11px}.kpi .l{font-size:10px;color:var(--mut);letter-spacing:.08em;text-transform:uppercase}.kpi .v{font:600 16px/1.35 "JetBrains Mono",monospace;margin-top:2px}.kpi .s{font-size:11px;color:var(--dim)}
 @media(min-width:900px){.cols{display:grid;grid-template-columns:1.35fr 1fr;gap:12px}.cols>div>.card:first-child{margin-top:0}}
 .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:2px}.seg button{border:0;background:none;color:var(--mut);font:600 11px Inter;padding:5px 10px;border-radius:7px;letter-spacing:.04em}.seg button.on{background:var(--card2);color:var(--tx);box-shadow:inset 0 0 0 1px var(--line2)}
@@ -56,7 +56,7 @@ td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;font-fam
 .news{display:flex;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}.news:last-child{border:0}.sev{flex:0 0 30px;height:30px;border-radius:8px;display:grid;place-items:center;font:700 13px "JetBrains Mono"}
 .news a{color:var(--tx);text-decoration:none;font-weight:600}.news .m{font-size:11.5px;color:var(--mut);margin-top:3px}
 .ev{padding:10px 0 10px 12px;border-left:2px solid var(--line2);margin-left:4px;position:relative}.ev:before{content:"";position:absolute;left:-5px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--line2)}
-.ev.trade:before{background:var(--up)}.ev.riskoff:before{background:var(--dn)}.ev.news:before{background:var(--cy)}.ev.move:before{background:var(--acc)}.ev.check:before{background:var(--vi)}
+.ev.k-trade:before{background:var(--up)}.ev.k-riskoff:before{background:var(--dn)}.ev.k-news:before{background:var(--cy)}.ev.k-move:before{background:var(--acc)}.ev.k-check:before{background:var(--vi)}
 .ev .t{font-weight:600;font-size:13px}.ev .b{white-space:pre-wrap;color:var(--mut);font-size:12px;margin-top:2px;word-break:break-word}.ev .ts{font:500 10px "JetBrains Mono";color:var(--dim)}
 .filters{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px}.filters button{flex:0 0 auto;border:1px solid var(--line);background:var(--bg2);color:var(--mut);font:600 11px Inter;border-radius:99px;padding:6px 11px}.filters button.on{color:var(--tx);border-color:var(--cy);background:rgba(34,211,238,.08)}
 .dec{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12.5px}.dec:last-child{border:0}
@@ -184,13 +184,15 @@ function posHtml(p){const s=p.side===-1,lo=s?p.target:p.stop,hi=s?p.stop:p.targe
  return `<div class="pos"><div class="row"><div><b>${esc(p.symbol)}</b> ${kind}</div><div class="mono ${cls(p.pnl)}" style="font-weight:700">${sg(p.pnl)}${nf(p.pnl)} $</div></div>
  <div class="row mono" style="font-size:11.5px;margin-top:4px"><span class="mut">be ${px(p.entry)} → most <span style="color:var(--tx)">${px(p.price)}</span></span><span class="${cls(ch)}">${pct(ch)}</span></div>
  <div class="range"><div class="track"></div><div class="en" style="left:${pos(p.entry)}%"></div><div class="mk" style="left:calc(${pos(p.price??p.entry)}% - 1px)"></div>
- <div class="lb" style="left:3%">${s?'cél':'stop'} ${px(lo)}</div><div class="lb" style="left:97%">${s?'stop':'cél'} ${px(hi)}</div></div>
+ <div class="lb" style="left:0;transform:none">${s?'cél':'stop'} ${px(lo)}</div><div class="lb" style="right:0;left:auto;transform:none">${s?'stop':'cél'} ${px(hi)}</div></div>
  <div class="row dim" style="font-size:10.5px;margin-top:14px"><span>stopig ${dS==null?'–':nf(dS,1)+'%'} · célig ${dT==null?'–':nf(dT,1)+'%'}</span><span>${nf(p.entry_value,0)} $ · ${tm(p.opened_at)}</span></div></div>`}
 function drawChart(B){const svg=$('#chart'),W=600,H=190,P=8;let series;const since=Date.now()/1000-range*86400;
  const sel=book==='all'?B:B.filter(b=>b.key===book);const pts=new Map();
- sel.forEach(b=>{(b.history||[]).forEach(([t,v])=>{if(t<since)return;const k=Math.round(t/300)*300;pts.set(k,(pts.get(k)||0)+v)})});
- series=[...pts.entries()].sort((a,b)=>a[0]-b[0]);const now=sel.reduce((a,b)=>a+b.equity,0),start=sel.reduce((a,b)=>a+b.start,0);
- if(book==='all'&&B.length>1){series=series.filter(([t])=>sel.every(b=>(b.history||[]).some(([x])=>Math.abs(x-t)<600)))}
+ const hs=sel.map(b=>(b.history||[]).slice().sort((a,c)=>a[0]-c[0])),ts=[...new Set(hs.flat().map(x=>x[0]))].filter(t=>t>=since).sort((a,b)=>a-b);
+ const idx=hs.map(()=>0),last=sel.map(b=>null);series=[];
+ for(const t of ts){hs.forEach((h,i)=>{while(idx[i]<h.length&&h[idx[i]][0]<=t){last[i]=h[idx[i]][1];idx[i]++}});
+  if(last.every(v=>v!=null))series.push([t,last.reduce((a,v)=>a+v,0)])}
+ const now=sel.reduce((a,b)=>a+b.equity,0),start=sel.reduce((a,b)=>a+b.start,0);
  series.push([Date.now()/1000,now]);
  if(series.length<2){svg.innerHTML=`<text x="12" y="100" fill="#4f5d6b" font-size="13" font-family="Inter">Az egyenleggörbe 5 percenként kap új pontot.</text>`;return}
  const vs=series.map(x=>x[1]).concat([start]),lo=Math.min(...vs),hi=Math.max(...vs),pad=(hi-lo)*.12||1,a=lo-pad,b=hi+pad;
@@ -205,7 +207,8 @@ $$('#rangeseg button').forEach(x=>x.onclick=()=>{range=+x.dataset.r;$$('#rangese
 const EK={all:'Minden',trade:'Kötések',riskoff:'Védekezés',news:'Hírek',move:'Mozgások',check:'Döntések',pulse:'Helyzetkép'};
 $('#ef').innerHTML=Object.entries(EK).map(([k,v])=>`<button data-k="${k}" class="${k==='all'?'on':''}">${v}</button>`).join('');
 $$('#ef button').forEach(b=>b.onclick=()=>{efilter=b.dataset.k;$$('#ef button').forEach(x=>x.classList.toggle('on',x===b));renderEvents()});
-const evHtml=e=>`<div class="ev ${esc(e.kind)}"><div class="ts">${tm(e.created_at)} · ${EK[e.kind]||e.kind}</div><div class="t">${esc(e.title)}</div>${e.body?`<div class="b">${esc(e.body)}</div>`:''}</div>`;
+const evBody=b=>{const u=(b.match(/https?:\/\/\S+/)||[])[0];const t=b.replace(/https?:\/\/\S+/g,'').trim();return esc(t)+(u?` <a class="cy" href="${esc(u)}" target="_blank" rel="noopener">↗ cikk</a>`:'')};
+const evHtml=e=>`<div class="ev k-${esc(e.kind)}"><div class="ts">${tm(e.created_at)} · ${EK[e.kind]||e.kind}</div><div class="t">${esc(e.title)}</div>${e.body?`<div class="b">${evBody(e.body)}</div>`:''}</div>`;
 function renderEvents(){const xs=events.filter(e=>efilter==='all'||e.kind===efilter).slice(-120).reverse();$('#evlist').innerHTML=xs.map(evHtml).join('')||'<div class="empty">Nincs ilyen esemény.</div>';
  $('#homeev').innerHTML=events.filter(e=>['trade','riskoff','news','move'].includes(e.kind)).slice(-6).reverse().map(evHtml).join('')||'<div class="empty">Még nincs riasztás.</div>'}
 async function pollEvents(){const r=await api('/api/events?after='+lastId);const loud=[];for(const e of r.events){lastId=Math.max(lastId,e.id);events.push(e);if(!first&&['trade','riskoff'].includes(e.kind))loud.push(e)}
