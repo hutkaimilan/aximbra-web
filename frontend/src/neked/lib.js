@@ -67,6 +67,7 @@ const OFFER = {
   pt: ["Sem risco", "Para os nossos primeiros 15 clientes: podem usar o agente gratuitamente durante um mês. Se algo não vos agradar, não pagam nada e desligamos o agente; se ficarem com ele, pagam apenas 20% do preço estimado segundo as vossas necessidades, e a mensalidade de manutenção combinamos de antemão."],
   de: ["Ohne Risiko", "Für unsere ersten 15 Kunden: Sie nutzen den Agenten einen Monat lang kostenlos. Wenn etwas nicht passt, zahlen Sie nichts und wir schalten ihn ab; wenn Sie ihn behalten, zahlen Sie nur 20 % des nach Ihrem Bedarf geschätzten Preises, die monatliche Wartungsgebühr vereinbaren wir vorab."],
   es: ["Sin riesgo", "Para nuestros primeros 15 clientes: puede usar el agente gratis durante un mes. Si algo no le convence, no paga nada y lo desactivamos; si se lo queda, paga solo el 20 % del precio estimado según sus necesidades, y la cuota mensual de mantenimiento la acordamos de antemano."],
+  zh: ["零风险", "我们的前15位客户：可免费试用一个月。如有任何不满意，无需付费，我们会停用该代理；如继续使用，只需支付根据您的需求估算价格的20%，每月维护费用提前商定。"],
   it: ["Senza rischi", "Per i nostri primi 15 clienti: potete usare l’agente gratis per un mese. Se qualcosa non va, non pagate nulla e lo spegniamo; se lo tenete, pagate solo il 20% del prezzo stimato in base alle vostre esigenze, e il canone mensile di manutenzione lo concordiamo in anticipo."],
 };
 

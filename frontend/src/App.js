@@ -17,6 +17,7 @@ import { Contact, Footer } from "@/components/Contact";
 import { WebShowcase } from "@/components/WebShowcase";
 import { Founder } from "@/components/Founder";
 import { Payback } from "@/components/Payback";
+import { OfferBand } from "@/components/OfferBand";
 import { LanguageProvider, useLang, PREFIXED_LANGS } from "@/i18n";
 import { useDocumentMeta, organizationJsonLd } from "@/seo";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -103,6 +104,7 @@ function Site() {
             után jönnek, mert ott fogalmazódnak meg; a folyamat és a készítő
             utánuk válaszol rájuk, az ár pedig a legvégén áll, amikor már van
             mihez viszonyítani. */}
+        <OfferBand />
         <Proof scrollTo={scrollTo} />
         <Agents />
         <CaseStudy />

@@ -893,6 +893,15 @@ textarea:focus-visible,
   font-family: var(--mono); font-size: 13px;
 }
 
+/* ===== AJÁNLAT-SÁV (főoldal, a nyitókép alatt) ===== */
+.offer-band {
+  display: grid; gap: 10px; padding: 22px 26px; margin: 8px 0 40px;
+  border: 1px solid var(--border); border-left: 3px solid var(--cyan); border-radius: 14px;
+  background: rgba(255,255,255,.03);
+}
+.offer-band .tag { justify-self: start; }
+.offer-band-text { margin: 0; color: var(--text); font-size: clamp(15.5px, 2vw, 18px); line-height: 1.7; max-width: 80ch; }
+
 /* ===== LÁBLÉC: KI ÁLL MÖGÖTTE ===== */
 /* Három hasáb: ki, hogyan éred el, és hol van leírva jogilag. A Stanford
    hitelességi vizsgálata szerint ezt a hármat keresi az ember, ha el akarja
