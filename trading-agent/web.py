@@ -104,10 +104,19 @@ def make_router(agent, state: dict) -> APIRouter:
                             "value": p.qty * px if px else None,
                             "pnl": p.side * p.qty * (px - p.entry_price) - p.entry_fee if px else None})
             closed = a.store.closed_positions(limit=200)
-            return prices, {"label": a.label, "equity": a.equity(prices), "start": a.store.start_equity(),
+            eq = a.equity(prices)
+            st = a.stats()
+            exposure = sum(abs(p["value"] or p["entry_value"]) for p in out)
+            at_risk = sum(max(0.0, (pp.side * (prices.get(pp.symbol, pp.entry_price) - pp.stop)) * pp.qty)
+                          for pp in positions)
+            return prices, {"label": a.label, "mode": a.executor.name, "equity": eq, "start": a.store.start_equity(),
                             "cash": a.store.cash(), "positions": out, "closed": len(closed),
                             "closed_pnl": sum(p.pnl or 0 for p in closed), "started_at": a.store.get("started_at"),
-                            "history": a.store.equity_history(int(time.time()) - 30 * 86400)}
+                            "history": a.store.equity_history(int(time.time()) - 30 * 86400),
+                            "exposure": exposure, "at_risk": at_risk, "max_open": a.cfg.max_open,
+                            "risk_per_trade": a.cfg.risk_per_trade, "symbols": len(a.cfg.symbols),
+                            "interval": a.cfg.interval, "stats": st, "decisions": a.decisions(),
+                            "paused": a.entries_paused()}
         prices, main = book(agent, True)
         equity, start, pos_out = main["equity"], main["start"], main["positions"]
         worlds = []
@@ -129,10 +138,25 @@ def make_router(agent, state: dict) -> APIRouter:
                 "started_at": agent.store.get("started_at"),
                 "history": agent.store.equity_history(int(time.time()) - 30 * 86400),
                 "last_tick_age": None if state.get("last_tick") is None else round(time.time() - state["last_tick"]),
-                "server_time": time.time(), "books": worlds}
+                "server_time": time.time(), "books": worlds, "main": main,
+                "system": {"llm": agent.llm.provider if agent.llm else None, "push": agent.push is not None,
+                           "radar_age": None if not state.get("radar_tick") else round(time.time() - state["radar_tick"]),
+                           "world_age": None if not state.get("world_tick") else round(time.time() - state["world_tick"]),
+                           "last_error": state.get("last_error"), "radar_error": state.get("radar_error")}}
         with cache_lock:
             cache.update(at=time.time(), data=data)
         return data
+
+    @router.get("/api/news")
+    def news(mtb_session: str | None = Cookie(default=None)):
+        auth(mtb_session)
+        out = []
+        for n in agent.store.recent_news(80):
+            a = json.loads(n["analysis"]) if n.get("analysis") else {}
+            out.append({"id": n["id"], "title": n["title"], "hu": a.get("hu"), "source": n["source"], "link": n["link"],
+                        "seen_at": n["seen_at"], "published": n.get("published"), "sev": a.get("sev"),
+                        "dir": a.get("dir"), "assets": a.get("assets") or [], "why": a.get("why")})
+        return {"news": out}
 
     @router.get("/api/events")
     def events(after: int = 0, mtb_session: str | None = Cookie(default=None)):

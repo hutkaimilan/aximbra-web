@@ -2,123 +2,237 @@
 <html lang="hu">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b0f14">
-<title>Milán Trader Bot</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#06090d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Milán Trader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0b0f14;--card:#131a22;--line:#1f2a36;--tx:#e6edf3;--mut:#8b98a5;--up:#2ebd85;--dn:#f6465d;--acc:#f0b90b;--blue:#4c9aff}
-*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-body{display:flex;flex-direction:column;max-width:900px;margin:0 auto;padding-bottom:env(safe-area-inset-bottom)}
-header{padding:12px 16px 8px;position:sticky;top:0;background:var(--bg);z-index:5;border-bottom:1px solid var(--line)}
-.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-h1{font-size:16px;margin:0}.badge{font-size:11px;padding:2px 8px;border-radius:99px;background:#2a2410;color:var(--acc);border:1px solid #4a3d10}
-.big{font-size:26px;font-weight:700}.up{color:var(--up)}.dn{color:var(--dn)}.mut{color:var(--mut)}
-.pos{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-top:8px;font-size:13px}
-.warn{background:#2b1418;border:1px solid #5b2430;color:#ff9aa6;border-radius:10px;padding:8px 12px;margin-top:8px;font-size:13px}
-nav{display:flex;border-bottom:1px solid var(--line);position:sticky;top:0}
-nav button{flex:1;padding:11px;background:none;border:0;color:var(--mut);font:inherit;border-bottom:2px solid transparent}
-nav button.on{color:var(--tx);border-color:var(--acc)}
-main{flex:1;overflow:auto;padding:12px 16px}
-.ev{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:8px}
-.ev.trade{border-left-color:var(--up)}.ev.riskoff{border-left-color:var(--dn)}.ev.news{border-left-color:var(--blue)}.ev.move{border-left-color:var(--acc)}.ev.pulse{opacity:.7}
-.ev .t{font-weight:600}.ev .b{white-space:pre-wrap;color:var(--mut);font-size:13px;margin-top:3px;word-break:break-word}.ev .ts{font-size:11px;color:var(--mut)}
-table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:right}td:first-child,th:first-child{text-align:left}th{color:var(--mut);font-weight:500}
-#chat{display:none;flex-direction:column;height:100%}.msgs{flex:1;overflow:auto}
-.m{max-width:88%;padding:9px 12px;border-radius:14px;margin:6px 0;white-space:pre-wrap;word-break:break-word}.m.user{margin-left:auto;background:#1d3a5f}.m.bot{background:var(--card);border:1px solid var(--line)}
-form.send{display:flex;gap:8px;padding:10px 16px;border-top:1px solid var(--line);background:var(--bg);position:sticky;bottom:0}
-input,button.go{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 12px}input{flex:1;min-width:0}button.go{background:var(--acc);color:#111;font-weight:600;border:0}
-.chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}.chips button{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:99px;padding:6px 11px;font:inherit;font-size:13px}
-#login{display:none;margin:20vh auto 0;max-width:320px;padding:0 16px;width:100%}
-.small{font-size:12px;color:var(--mut);margin:8px 0}
-body.chatmode .bal,body.chatmode #poss,body.chatmode #books,body.chatmode #paused{display:none}
-.bal{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px}
-.lbl{font-size:12px;color:var(--mut)}.lbl b{color:var(--tx);font-weight:600}.chg{font-size:18px;font-weight:700}
+:root{--bg:#06090d;--bg2:#0b1118;--card:#0e151d;--card2:#121b25;--line:#1a2633;--line2:#243445;--tx:#e8eef5;--mut:#7d8b9a;--dim:#4f5d6b;
+--up:#16c784;--up2:#0f8a5c;--dn:#ea3943;--dn2:#a3262e;--acc:#f0b90b;--cy:#22d3ee;--vi:#a78bfa;--glow:0 0 0 1px rgba(34,211,238,.08),0 8px 30px rgba(0,0,0,.45)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100vh;background:radial-gradient(1200px 500px at 80% -10%,rgba(34,211,238,.07),transparent),radial-gradient(900px 400px at -10% 10%,rgba(167,139,250,.06),transparent),var(--bg)}
+.mono,.num{font-family:"JetBrains Mono",ui-monospace,monospace;font-feature-settings:"tnum"}
+.up{color:var(--up)}.dn{color:var(--dn)}.mut{color:var(--mut)}.dim{color:var(--dim)}.acc{color:var(--acc)}.cy{color:var(--cy)}
+/* felső sáv */
+.top{position:sticky;top:0;z-index:20;background:rgba(6,9,13,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding:calc(env(safe-area-inset-top) + 8px) 14px 8px}
+.brand{display:flex;align-items:center;gap:10px}.logo{width:28px;height:28px;border-radius:8px;background:conic-gradient(from 210deg,var(--cy),var(--vi),var(--acc),var(--cy));display:grid;place-items:center;font:800 13px Inter;color:#06090d;box-shadow:0 0 18px rgba(34,211,238,.35)}
+.brand b{font-weight:800;letter-spacing:.08em;font-size:13px}.brand small{display:block;color:var(--mut);font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}.wrap{flex-wrap:wrap}
+.leds{display:flex;gap:10px;font-size:10px;color:var(--mut);letter-spacing:.06em;text-transform:uppercase}.led{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:1px;background:var(--dim)}
+.led.on{background:var(--up);box-shadow:0 0 8px var(--up)}.led.warn{background:var(--acc);box-shadow:0 0 8px var(--acc)}.led.off{background:var(--dn)}
+.tape{overflow:hidden;white-space:nowrap;border-bottom:1px solid var(--line);background:var(--bg2);mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent)}
+.tape .in{display:inline-block;padding:6px 0;animation:tape 70s linear infinite}.tape span{margin:0 14px;font-size:12px}.tape b{font-weight:600;color:var(--tx);margin-right:6px;font-family:Inter}
+@keyframes tape{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+main{padding:14px 14px calc(84px + env(safe-area-inset-bottom));max-width:1180px;margin:0 auto}
+.view{display:none}.view.on{display:block;animation:fade .25s ease}@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+/* kártyák */
+.card{background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:var(--glow)}
+.h{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);font-weight:600;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.big{font:700 34px/1.1 "JetBrains Mono",monospace;letter-spacing:-.02em}.mid{font:700 20px/1.2 "JetBrains Mono",monospace}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:99px;border:1px solid var(--line2);color:var(--mut);background:var(--bg2)}
+.chip.up{color:var(--up);border-color:rgba(22,199,132,.35);background:rgba(22,199,132,.08)}.chip.dn{color:var(--dn);border-color:rgba(234,57,67,.35);background:rgba(234,57,67,.08)}
+.chip.acc{color:var(--acc);border-color:rgba(240,185,11,.35);background:rgba(240,185,11,.08)}.chip.cy{color:var(--cy);border-color:rgba(34,211,238,.3);background:rgba(34,211,238,.07)}.chip.vi{color:var(--vi);border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.07)}
+.grid{display:grid;gap:10px}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.kpi{background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:10px 11px}.kpi .l{font-size:10px;color:var(--mut);letter-spacing:.08em;text-transform:uppercase}.kpi .v{font:600 16px/1.35 "JetBrains Mono",monospace;margin-top:2px}.kpi .s{font-size:11px;color:var(--dim)}
+@media(min-width:900px){.cols{display:grid;grid-template-columns:1.35fr 1fr;gap:12px}.cols>div>.card:first-child{margin-top:0}}
+.seg{display:inline-flex;background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:2px}.seg button{border:0;background:none;color:var(--mut);font:600 11px Inter;padding:5px 10px;border-radius:7px;letter-spacing:.04em}.seg button.on{background:var(--card2);color:var(--tx);box-shadow:inset 0 0 0 1px var(--line2)}
+.bar{height:6px;border-radius:99px;background:var(--bg2);overflow:hidden;border:1px solid var(--line)}.bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--cy),var(--vi))}
+.banner{border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:13px;border:1px solid rgba(234,57,67,.4);background:linear-gradient(90deg,rgba(234,57,67,.16),rgba(234,57,67,.04));color:#ffb4ba}
+/* pozíciók */
+.pos{border:1px solid var(--line);background:var(--bg2);border-radius:12px;padding:12px;margin-bottom:10px}
+.range{position:relative;height:30px;margin:10px 2px 2px}.range .track{position:absolute;left:0;right:0;top:12px;height:6px;border-radius:99px;background:linear-gradient(90deg,rgba(234,57,67,.55),rgba(125,139,154,.25) 50%,rgba(22,199,132,.55))}
+.range .mk{position:absolute;top:6px;width:2px;height:18px;background:var(--tx);border-radius:2px;box-shadow:0 0 10px var(--cy)}.range .en{position:absolute;top:9px;width:2px;height:12px;background:var(--mut)}
+.range .lb{position:absolute;top:24px;font:500 10px "JetBrains Mono";color:var(--dim);transform:translateX(-50%);white-space:nowrap}
+/* piac */
+.heat{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px}.tile{border-radius:10px;padding:8px 9px;border:1px solid rgba(255,255,255,.05);min-height:64px}
+.tile .n{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tile .p{font:600 14px "JetBrains Mono"}.tile .c{font:500 11px "JetBrains Mono";opacity:.9}
+table{width:100%;border-collapse:collapse;font-size:12.5px}th{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);font-weight:600;text-align:right;padding:6px 6px;border-bottom:1px solid var(--line)}
+td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;font-family:"JetBrains Mono";white-space:nowrap}td:first-child,th:first-child{text-align:left;font-family:Inter}
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+/* hírek, események */
+.news{display:flex;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}.news:last-child{border:0}.sev{flex:0 0 30px;height:30px;border-radius:8px;display:grid;place-items:center;font:700 13px "JetBrains Mono"}
+.news a{color:var(--tx);text-decoration:none;font-weight:600}.news .m{font-size:11.5px;color:var(--mut);margin-top:3px}
+.ev{padding:10px 0 10px 12px;border-left:2px solid var(--line2);margin-left:4px;position:relative}.ev:before{content:"";position:absolute;left:-5px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--line2)}
+.ev.trade:before{background:var(--up)}.ev.riskoff:before{background:var(--dn)}.ev.news:before{background:var(--cy)}.ev.move:before{background:var(--acc)}.ev.check:before{background:var(--vi)}
+.ev .t{font-weight:600;font-size:13px}.ev .b{white-space:pre-wrap;color:var(--mut);font-size:12px;margin-top:2px;word-break:break-word}.ev .ts{font:500 10px "JetBrains Mono";color:var(--dim)}
+.filters{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px}.filters button{flex:0 0 auto;border:1px solid var(--line);background:var(--bg2);color:var(--mut);font:600 11px Inter;border-radius:99px;padding:6px 11px}.filters button.on{color:var(--tx);border-color:var(--cy);background:rgba(34,211,238,.08)}
+.dec{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12.5px}.dec:last-child{border:0}
+/* chat */
+#vchat.on{display:flex;flex-direction:column;height:calc(100vh - 150px - env(safe-area-inset-bottom))}.msgs{flex:1;overflow:auto;padding-bottom:8px}
+.msg{max-width:86%;padding:10px 13px;border-radius:14px;margin:7px 0;white-space:pre-wrap;word-break:break-word;font-size:14px}.msg.user{margin-left:auto;background:linear-gradient(135deg,#1f4b7a,#1a3a5f);border-bottom-right-radius:4px}.msg.bot{background:var(--card2);border:1px solid var(--line);border-bottom-left-radius:4px}
+.qs{display:flex;gap:6px;overflow-x:auto;padding:6px 0}.qs button{flex:0 0 auto;border:1px solid var(--line);background:var(--bg2);color:var(--tx);font:500 12px Inter;border-radius:99px;padding:7px 11px}
+form.send{display:flex;gap:8px;padding-top:6px}input{font:inherit;color:var(--tx);background:var(--bg2);border:1px solid var(--line2);border-radius:12px;padding:12px;flex:1;min-width:0;outline:none}input:focus{border-color:var(--cy)}
+button.go{font:700 13px Inter;border:0;border-radius:12px;padding:0 16px;color:#06090d;background:linear-gradient(135deg,var(--cy),var(--vi))}
+/* alsó menü */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;justify-content:space-around;background:rgba(6,9,13,.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+nav button{flex:1;border:0;background:none;color:var(--dim);font:600 10px Inter;letter-spacing:.04em;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0}nav button svg{width:21px;height:21px}nav button.on{color:var(--cy)}
+#login{display:none;max-width:340px;margin:22vh auto 0;padding:0 18px}
+.empty{color:var(--dim);font-size:12.5px;padding:8px 0}
 </style>
 </head>
 <body>
-<div id="login">
-  <h1 style="margin-bottom:14px">Milán Trader Bot</h1>
-  <form id="lf" style="display:flex;gap:8px"><input id="pw" type="password" placeholder="Jelszó" autocomplete="current-password"><button class="go">Belép</button></form>
-  <div id="le" class="small dn"></div>
-</div>
-<div id="app" style="display:none;flex-direction:column;height:100%">
-<header>
-  <div class="row"><h1>Milán Trader Bot</h1><span class="badge" id="mode">…</span></div>
-  <div class="bal">
-    <div class="row"><div><div class="lbl">Jelenlegi egyenleg</div><div class="big" id="eq">–</div></div>
-      <div style="text-align:right"><div class="lbl">Változás</div><div class="chg" id="chg">–</div></div></div>
-    <div class="row" style="margin-top:6px"><div class="lbl">Kezdőösszeg: <b id="st">–</b> <span id="stdate"></span></div><div class="lbl" id="meta"></div></div>
-    <div class="row lbl" style="margin-top:2px"><span>Szabad készpénz: <b id="cash">–</b></span><span>Lezárt kötések: <b id="cl">–</b></span></div>
-    <svg id="spark" viewBox="0 0 300 54" preserveAspectRatio="none" style="width:100%;height:54px;margin-top:6px"></svg>
+<div id="login"><div class="brand" style="margin-bottom:18px"><div class="logo">M</div><div><b>MILÁN // TRADER</b><small>Belépés</small></div></div>
+<form id="lf" class="row"><input id="pw" type="password" placeholder="Jelszó" autocomplete="current-password"><button class="go" style="height:44px">Belép</button></form><div id="le" class="dn" style="margin-top:10px;font-size:12px"></div></div>
+
+<div id="app" style="display:none">
+<div class="top"><div class="row">
+  <div class="brand"><div class="logo">M</div><div><b>MILÁN // TRADER</b><small id="clock">–</small></div></div>
+  <div class="leds"><span><i class="led" id="l-data"></i>Adat</span><span><i class="led" id="l-radar"></i>Radar</span><span><i class="led" id="l-ai"></i>AI</span></div>
+</div></div>
+<div class="tape"><div class="in mono" id="tape"></div></div>
+<main>
+<!-- ÁTTEKINTÉS -->
+<section class="view on" id="vhome">
+  <div id="banner"></div>
+  <div class="cols"><div>
+  <div class="card">
+    <div class="h"><span>Teljes vagyon · játékpénz</span><span class="chip cy" id="nbooks">2 számla</span></div>
+    <div class="big" id="tot">–</div>
+    <div class="row" style="margin-top:4px"><div id="totchg" class="mono">–</div><div class="mut mono" style="font-size:12px" id="totstart"></div></div>
+    <div class="row" style="margin:14px 0 6px"><div class="seg" id="bookseg"></div><div class="seg" id="rangeseg"><button data-r="1">1N</button><button data-r="7" class="on">7N</button><button data-r="30">30N</button></div></div>
+    <svg id="chart" viewBox="0 0 600 190" preserveAspectRatio="none" style="width:100%;height:190px;display:block"></svg>
   </div>
-  <div id="paused"></div><div id="poss"></div><div id="books"></div>
-</header>
-<nav><button data-t="feed" class="on">Élő</button><button data-t="market">Piac</button><button data-t="chat">Chat</button></nav>
-<main id="feed"></main>
-<main id="market" style="display:none"></main>
-<main id="chat">
+  <div class="grid g2" id="bookcards"></div>
+  <div class="card" style="margin-top:12px"><div class="h"><span>Kockázat és teljesítmény</span></div><div class="grid g3" id="kpis"></div></div>
+  </div><div>
+  <div class="card"><div class="h"><span>Nyitott pozíciók</span><span class="chip" id="npos">0</span></div><div id="homepos"></div></div>
+  <div class="card"><div class="h"><span>Legfrissebb riasztások</span><span class="chip acc">élő</span></div><div id="homeev"></div></div>
+  </div></div>
+</section>
+<!-- POZÍCIÓK -->
+<section class="view" id="vpos"><div id="posall"></div><div class="card"><div class="h"><span>A bot döntései eszközönként</span><span class="chip vi" id="ndec"></span></div><div id="decs"></div></div></section>
+<!-- PIAC -->
+<section class="view" id="vmkt">
+  <div class="card"><div class="h"><span>Piaci hőtérkép · napi változás</span><span class="chip" id="vixchip">VIX –</span></div><div id="heat"></div></div>
+  <div class="card"><div class="h"><span>Legszokatlanabb mozgások</span><span class="chip">z = szórás-szorzó</span></div><div class="tscroll"><table id="movt"></table></div></div>
+</section>
+<!-- HÍREK -->
+<section class="view" id="vnews"><div class="card"><div class="h"><span>Hírek · AI-értékeléssel</span><span class="chip cy" id="nnews"></span></div><div class="filters" id="nf"></div><div id="newslist"></div></div></section>
+<!-- NAPLÓ -->
+<section class="view" id="vlog">
+  <div class="card"><div class="h"><span>Lezárt kötések</span><span class="chip" id="ntr"></span></div><div class="tscroll"><table id="trt"></table></div></div>
+  <div class="card"><div class="h"><span>Eseménynapló</span></div><div class="filters" id="ef"></div><div id="evlist"></div></div>
+</section>
+<!-- CHAT -->
+<section class="view" id="vchat">
   <div class="msgs" id="msgs"></div>
-  <div class="chips"><button>/status</button><button>/vilag</button><button>/radar</button><button>/journal</button><button>Mi történik most a piacon?</button><button>/vedekezes</button></div>
+  <div class="qs"><button>Mibe van most pénzed?</button><button>Mi történik a piacon?</button><button>Miért nem vettél még?</button><button>/vilag</button><button>/radar</button><button>/vedekezes</button></div>
+  <form class="send" id="sf"><input id="tx" placeholder="Kérdezd a botot…" autocomplete="off"><button class="go">Küld</button></form>
+</section>
 </main>
-<form class="send" id="sf" style="display:none"><input id="tx" placeholder="Írj a botnak…" autocomplete="off"><button class="go">Küld</button></form>
+<nav id="nav">
+  <button data-v="vhome" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 13h4l3-8 4 14 3-6h4"/></svg>Áttekintés</button>
+  <button data-v="vpos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M9 4v16"/></svg>Pozíciók</button>
+  <button data-v="vmkt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/></svg>Piac</button>
+  <button data-v="vnews"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h13v14H6a2 2 0 0 1-2-2zM17 9h3v8a2 2 0 0 1-2 2"/><path d="M8 9h5M8 13h5"/></svg>Hírek</button>
+  <button data-v="vlog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Napló</button>
+  <button data-v="vchat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat</button>
+</nav>
 </div>
 <script>
-const $=s=>document.querySelector(s),fmt=(n,d=2)=>n==null?'–':Number(n).toLocaleString('hu-HU',{minimumFractionDigits:d,maximumFractionDigits:d});
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let lastId=0,tab='feed',first=true,sound=null;
+const nf=(n,d=2)=>n==null||isNaN(n)?'–':Number(n).toLocaleString('hu-HU',{minimumFractionDigits:d,maximumFractionDigits:d});
+const px=n=>n==null?'–':nf(n,Math.abs(n)<10?4:2), sg=n=>n==null?'':(n>=0?'+':''), cls=n=>n==null?'':n>=0?'up':'dn';
+const pct=(n,d=2)=>n==null?'–':sg(n)+nf(n,d)+'%', tm=t=>{if(!t)return'';const d=new Date(t+(String(t).match(/Z|[+-]\d\d:?\d\d$/)?'':'Z'));return d.toLocaleString('hu-HU',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})};
+let S=null,lastId=0,events=[],first=true,book='all',range=7,efilter='all',nfilter='all',NEWS=[],audio;
 async function api(p,o){const r=await fetch(p,{credentials:'same-origin',...o});if(r.status===401){showLogin();throw 0}if(!r.ok){let m='';try{m=(await r.json()).detail}catch{}throw new Error(m||r.status)}return r.json()}
 function showLogin(){$('#app').style.display='none';$('#login').style.display='block'}
-function showApp(){$('#login').style.display='none';$('#app').style.display='flex';setTab(tab)}
-$('#lf').onsubmit=async e=>{e.preventDefault();$('#le').textContent='';try{await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#pw').value})});$('#pw').value='';boot()}catch(x){if(x!==0)$('#le').textContent=x.message||'Hiba'}};
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.t));
-function setTab(t){tab=t;document.body.classList.toggle('chatmode',t==='chat');document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
- $('#feed').style.display=t==='feed'?'block':'none';$('#market').style.display=t==='market'?'block':'none';$('#chat').style.display=t==='chat'?'flex':'none';$('#sf').style.display=t==='chat'?'flex':'none';
- if(t==='chat')setTimeout(()=>{$('#msgs').scrollTop=1e9},50)}
-function evHtml(e){const d=new Date(e.created_at+(e.created_at.endsWith('Z')||e.created_at.includes('+')?'':'Z'));return `<div class="ev ${esc(e.kind)}"><div class="ts">${d.toLocaleString('hu-HU',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div><div class="t">${esc(e.title)}</div>${e.body?`<div class="b">${esc(e.body)}</div>`:''}</div>`}
-async function pollEvents(){const r=await api('/api/events?after='+lastId);const loud=[];
- for(const e of r.events){lastId=Math.max(lastId,e.id);$('#feed').insertAdjacentHTML('afterbegin',evHtml(e));if(!first&&['trade','riskoff','news','move'].includes(e.kind))loud.push(e)}
- if(loud.length){beep();if(Notification.permission==='granted')loud.slice(-3).forEach(e=>new Notification(e.title,{body:(e.body||'').slice(0,140)}))}first=false}
-function beep(){try{sound=sound||new (window.AudioContext||window.webkitAudioContext)();const o=sound.createOscillator(),g=sound.createGain();o.connect(g);g.connect(sound.destination);o.frequency.value=880;g.gain.value=.08;o.start();o.stop(sound.currentTime+.25)}catch{}}
-async function pollState(){const s=await api('/api/state');
- $('#mode').textContent=s.mode;const pnl=s.equity-s.start,cls=pnl>=0?'up':'dn';$('#eq').textContent=fmt(s.equity)+' USDT';
- $('#chg').innerHTML=`<span class="${cls}">${pnl>=0?'+':''}${fmt(pnl)} USDT<br><span style="font-size:13px">${pnl>=0?'+':''}${fmt(pnl/s.start*100)}%</span></span>`;
- $('#st').textContent=fmt(s.start)+' USDT';$('#stdate').textContent=s.started_at?'('+new Date(s.started_at).toLocaleDateString('hu-HU')+')':'';
- $('#cash').textContent=fmt(s.cash)+' USDT';$('#cl').textContent=`${s.closed} db, ${s.closed_pnl>=0?'+':''}${fmt(s.closed_pnl)} USDT`;
- drawSpark(s.history,s.start,s.equity);
- $('#books').innerHTML=(s.books||[]).map(bookHtml).join('');
- $('#meta').innerHTML=(s.vix?`VIX ${s.vix}<br>`:'')+(s.last_tick_age!=null?`adat ${s.last_tick_age} mp-es`:'');
- $('#paused').innerHTML=s.paused?`<div class="warn">⏸ Védekező mód: ${esc(s.paused)} — feloldás: /folytat</div>`:'';
- $('#poss').innerHTML=s.positions.map(p=>`<div class="pos"><div class="row"><b>${p.side===-1?'🔻 ESÉSRE ':'🟢 '}${esc(p.symbol)} • ${fmt(p.qty,5)} db</b><span class="${(p.pnl||0)>=0?'up':'dn'}"><b>${p.pnl==null?'–':(p.pnl>=0?'+':'')+fmt(p.pnl)} USDT</b></span></div>
- <div class="row"><span>Belépéskor: <b>${fmt(p.entry_value)} USDT</b> <span class="mut">(${fmt(p.entry)})</span></span><span>Most: <b>${fmt(p.value)} USDT</b> <span class="mut">(${fmt(p.price)})</span></span></div>
- <span class="mut">stop ${fmt(p.stop)} • cél ${fmt(p.target)}${p.opened_at?' • nyitva '+new Date(p.opened_at).toLocaleString('hu-HU',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</span></div>`).join('')||'<div class="small">Nincs nyitott pozíció.</div>';
- $('#market').innerHTML=`<div class="small">Szokatlansági sorrend: z = a mai mozgás a szokásos napi ingadozás hányszorosa. Ez leírás, nem előrejelzés.</div><table><tr><th>Eszköz</th><th>Ár</th><th>Nap</th><th>Hét</th><th>z</th></tr>${s.moves.map(m=>`<tr><td>${esc(m.name)}</td><td>${fmt(m.price,m.price<10?4:2)}</td><td class="${m.day>=0?'up':'dn'}">${fmt(m.day)}%</td><td class="${m.week>=0?'up':'dn'}">${fmt(m.week,1)}%</td><td class="${Math.abs(m.z)>=2.5?'dn':'mut'}">${fmt(m.z,1)}</td></tr>`).join('')}</table>`}
-function drawSpark(h,start,now){const el=$('#spark');const pts=(h||[]).map(x=>x[1]);pts.push(now);
- if(pts.length<2){el.innerHTML=`<text x="0" y="30" fill="#8b98a5" font-size="11">Az egyenleg-grafikon 5 percenként kap új pontot.</text>`;return}
- const all=pts.concat([start]),lo=Math.min(...all),hi=Math.max(...all),span=(hi-lo)||1,W=300,H=54,y=v=>H-3-(v-lo)/span*(H-6);
- const d=pts.map((v,i)=>`${i?'L':'M'}${(i/(pts.length-1)*W).toFixed(1)},${y(v).toFixed(1)}`).join(' ');const c=now>=start?'#2ebd85':'#f6465d';
- el.innerHTML=`<line x1="0" x2="${W}" y1="${y(start)}" y2="${y(start)}" stroke="#3a4654" stroke-dasharray="3 3"/><path d="${d}" fill="none" stroke="${c}" stroke-width="1.8"/>`}
-function posHtml(p){const c=(p.pnl||0)>=0?'up':'dn';const dir=p.side===-1?'🔻 esésre':(p.kind==='dip'?'🟢 visszapattanásra':'🟢 emelkedésre');
- return `<div class="pos"><div class="row"><b>${esc(p.symbol)}</b><span class="${c}"><b>${p.pnl==null?'–':(p.pnl>=0?'+':'')+fmt(p.pnl)}</b></span></div>
- <div class="row"><span>${dir}</span><span class="mut">belépés ${fmt(p.entry,p.entry<10?4:2)} • most ${fmt(p.price,p.price<10?4:2)}</span></div>
- <span class="mut">belépéskor ${fmt(p.entry_value)} • most ${fmt(p.value)} • stop ${fmt(p.stop,p.stop<10?4:2)} • cél ${fmt(p.target,p.target<10?4:2)}</span></div>`}
-function bookHtml(b){if(b.error)return `<div class="bal"><b>${esc(b.label)}</b><div class="lbl">${esc(b.error)}</div></div>`;
- const pnl=b.equity-b.start,c=pnl>=0?'up':'dn';
- return `<div class="bal"><div class="row"><div><div class="lbl">${esc(b.label)}</div><div class="chg">${fmt(b.equity)} USD</div></div>
- <div style="text-align:right" class="${c}"><b>${pnl>=0?'+':''}${fmt(pnl)}</b><br><span style="font-size:13px">${pnl>=0?'+':''}${fmt(pnl/b.start*100)}%</span></div></div>
- <div class="row lbl"><span>Kezdőösszeg: <b>${fmt(b.start)} USD</b></span><span>Lezárt: <b>${b.closed} db, ${b.closed_pnl>=0?'+':''}${fmt(b.closed_pnl)}</b></span></div>
- ${b.positions.map(posHtml).join('')||'<div class="small">Nincs nyitott pozíció — a bot döntése szerint most nincs jó belépő.</div>'}</div>`}
+$('#lf').onsubmit=async e=>{e.preventDefault();try{await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#pw').value})});boot()}catch(x){if(x!==0)$('#le').textContent=x.message}};
+$$('#nav button').forEach(b=>b.onclick=()=>{$$('#nav button').forEach(x=>x.classList.toggle('on',x===b));$$('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vchat')setTimeout(()=>$('#msgs').scrollTop=1e9,50);if(b.dataset.v==='vnews')loadNews();window.scrollTo(0,0)});
+setInterval(()=>{$('#clock').textContent=new Date().toLocaleString('hu-HU',{weekday:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'})},1000);
+function books(){return S?[{key:'main',...S.main},...(S.books||[]).filter(b=>!b.error).map((b,i)=>({key:'w'+i,...b}))]:[]}
+const short=l=>(l||'').replace(/^[^\p{L}]+/u,'').split('—')[0].trim();
+function led(id,state){const e=$(id);e.className='led '+(state===true?'on':state===false?'off':state==='warn'?'warn':'')}
+function renderState(){const B=books();if(!B.length)return;
+ const tot=B.reduce((a,b)=>a+b.equity,0),st=B.reduce((a,b)=>a+b.start,0),ch=tot-st;
+ $('#tot').textContent=nf(tot)+' $';$('#totchg').innerHTML=`<span class="${cls(ch)}">${sg(ch)}${nf(ch)} $ · ${pct(ch/st*100)}</span>`;$('#totstart').textContent='kezdés '+nf(st,0)+' $';$('#nbooks').textContent=B.length+' számla';
+ led('#l-data',S.last_tick_age!=null&&S.last_tick_age<300);led('#l-radar',S.system.radar_age==null?'warn':S.system.radar_age<1500);led('#l-ai',S.system.llm?true:false);
+ $('#banner').innerHTML=B.filter(b=>b.paused).map(b=>`<div class="banner">🛑 <b>Védekező mód</b> · ${esc(short(b.label))}: ${esc(b.paused)} <span class="mut">— feloldás a chatben: /folytat</span></div>`).join('');
+ $('#bookseg').innerHTML=[`<button data-b="all">Összes</button>`,...B.map(b=>`<button data-b="${b.key}">${b.key==='main'?'Kripto':'Világ'}</button>`)].join('');
+ $$('#bookseg button').forEach(x=>{x.classList.toggle('on',x.dataset.b===book);x.onclick=()=>{book=x.dataset.b;renderState()}});
+ drawChart(B);
+ $('#bookcards').innerHTML=B.map(b=>{const c=b.equity-b.start;return `<div class="card" style="margin:0"><div class="h"><span>${b.key==='main'?'₿ Kripto · Binance':'🌍 Világpiac'}</span><span class="chip ${b.key==='main'?'acc':'cy'}">${b.key==='main'?'demó':'papír'}</span></div>
+  <div class="mid">${nf(b.equity)}</div><div class="mono ${cls(c)}" style="font-size:12px">${sg(c)}${nf(c)} · ${pct(c/b.start*100)}</div>
+  <div class="mut" style="font-size:11px;margin-top:6px">${b.positions.length}/${b.max_open} pozíció · ${b.symbols} piac · ${b.interval}</div>
+  <div class="bar" style="margin-top:6px"><i style="width:${Math.min(100,b.exposure/b.equity*100)}%"></i></div><div class="dim" style="font-size:10px;margin-top:3px">befektetve ${pct(b.exposure/b.equity*100,0).replace('+','')}</div></div>`}).join('');
+ const all=B.flatMap(b=>b.positions.map(p=>({...p,bk:b.key}))),risk=B.reduce((a,b)=>a+b.at_risk,0),exp=B.reduce((a,b)=>a+b.exposure,0);
+ const trades=B.reduce((a,b)=>a+b.stats.trades,0),wins=B.reduce((a,b)=>a+(b.stats.win_rate||0)*b.stats.trades,0),rs=B.filter(b=>b.stats.avg_r!=null);
+ const realized=B.reduce((a,b)=>a+b.stats.realized,0),today=B.reduce((a,b)=>a+b.stats.today,0),unreal=all.reduce((a,p)=>a+(p.pnl||0),0);
+ const avgR=rs.length?rs.reduce((a,b)=>a+b.stats.avg_r*b.stats.trades,0)/rs.reduce((a,b)=>a+b.stats.trades,0):null;
+ const k=[['Befektetve',nf(exp,0)+' $',pct(exp/tot*100,0).replace('+','')+' a vagyonból'],['Kockázatban',nf(risk,0)+' $','ha minden stop kiüt'],['Nyitott eredmény',`<span class="${cls(unreal)}">${sg(unreal)}${nf(unreal)}</span>`,all.length+' pozíció'],
+  ['Mai realizált',`<span class="${cls(today)}">${sg(today)}${nf(today)}</span>`,'lezárt kötésekből'],['Összes realizált',`<span class="${cls(realized)}">${sg(realized)}${nf(realized)}</span>`,trades+' lezárt kötés'],
+  ['Találati arány',trades?nf(wins/trades*100,0)+'%':'–',avgR==null?'átlag R: –':'átlag '+sg(avgR)+nf(avgR)+'R']];
+ $('#kpis').innerHTML=k.map(x=>`<div class="kpi"><div class="l">${x[0]}</div><div class="v">${x[1]}</div><div class="s">${x[2]}</div></div>`).join('');
+ $('#npos').textContent=all.length;$('#homepos').innerHTML=all.length?all.map(posHtml).join(''):'<div class="empty">Nincs nyitott pozíció — a bot most nem lát jó belépőt.</div>';
+ $('#posall').innerHTML=B.map(b=>`<div class="card"><div class="h"><span>${b.key==='main'?'₿ Kripto · Binance demó':'🌍 Világpiaci számla'}</span><span class="chip">${b.positions.length}/${b.max_open}</span></div>${b.positions.map(posHtml).join('')||'<div class="empty">Nincs nyitott pozíció.</div>'}</div>`).join('');
+ const decs=B.flatMap(b=>b.decisions);$('#ndec').textContent=decs.length+' piac';
+ $('#decs').innerHTML=decs.sort((a,b)=>(b.position-a.position)||(a.trend==='up'?-1:1)).map(d=>`<div class="dec"><div><b>${esc(d.symbol)}</b> <span class="chip ${d.trend==='up'?'up':'dn'}">${d.trend==='up'?'▲ trend':'▼ trend'}</span>${d.position?' <span class="chip cy">pozícióban</span>':''}<div class="mut" style="font-size:11.5px;margin-top:3px">${esc(d.text)}</div></div><div class="mono mut" style="text-align:right;font-size:11px">${px(d.price)}<br>${tm(new Date(d.ts*1000).toISOString())}</div></div>`).join('')||'<div class="empty">A döntések a következő lezárt gyertyánál jelennek meg.</div>';
+ const mv=S.moves||[];$('#vixchip').textContent='VIX '+(S.vix??'–');
+ $('#tape').innerHTML=(mv.map(m=>`<span><b>${esc(m.name)}</b><span class="${cls(m.day)}">${px(m.price)} ${pct(m.day)}</span></span>`).join('')).repeat(2);
+ const groups={index:'Indexek',stock:'Részvények',commodity:'Nyersanyagok',crypto:'Kripto',forex:'Devizák',macro:'Makró'};
+ $('#heat').innerHTML=Object.entries(groups).map(([g,t])=>{const xs=mv.filter(m=>m.cls===g).sort((a,b)=>b.day-a.day);if(!xs.length)return'';return `<div class="h" style="margin-top:6px"><span>${t}</span></div><div class="heat">${xs.map(m=>{const a=Math.min(1,Math.abs(m.day)/(g==='forex'?1:4));const c=m.day>=0?`rgba(22,199,132,${.12+a*.5})`:`rgba(234,57,67,${.12+a*.5})`;return `<div class="tile" style="background:${c}"><div class="n">${esc(m.name)}</div><div class="p">${px(m.price)}</div><div class="c">${pct(m.day)} · hét ${pct(m.week,1)}</div></div>`}).join('')}</div>`}).join('');
+ $('#movt').innerHTML='<tr><th>Eszköz</th><th>Ár</th><th>Nap</th><th>Hét</th><th>z</th></tr>'+mv.slice(0,25).map(m=>`<tr><td>${esc(m.name)}</td><td>${px(m.price)}</td><td class="${cls(m.day)}">${pct(m.day)}</td><td class="${cls(m.week)}">${pct(m.week,1)}</td><td class="${Math.abs(m.z)>=2.5?'acc':'mut'}">${nf(m.z,1)}</td></tr>`).join('');
+ const hist=B.flatMap(b=>b.stats.history.map(h=>({...h,bk:b.key}))).sort((a,b)=>(b.closed_at||'').localeCompare(a.closed_at||''));$('#ntr').textContent=hist.length;
+ $('#trt').innerHTML='<tr><th>Eszköz</th><th>Irány</th><th>Belépés</th><th>Kilépés</th><th>Eredm.</th><th>R</th><th>Zárva</th></tr>'+(hist.map(h=>`<tr><td>${esc(h.symbol)}<div class="dim" style="font-size:10px">${esc(h.reason||'')}</div></td><td>${h.side===-1?'<span class="dn">▼ short</span>':'<span class="up">▲ long</span>'}</td><td>${px(h.entry)}</td><td>${px(h.exit)}</td><td class="${cls(h.pnl)}">${sg(h.pnl)}${nf(h.pnl)}</td><td class="${cls(h.r)}">${h.r==null?'–':sg(h.r)+nf(h.r)}</td><td class="mut">${tm(h.closed_at)}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Még nincs lezárt kötés.</td></tr>')}
+function posHtml(p){const s=p.side===-1,lo=s?p.target:p.stop,hi=s?p.stop:p.target,span=hi-lo||1,pos=v=>Math.max(0,Math.min(100,(v-lo)/span*100));
+ const kind=s?'<span class="chip dn">▼ esésre</span>':p.kind==='dip'?'<span class="chip vi">↺ visszapattanás</span>':p.kind==='pull'?'<span class="chip up">▲ trend-visszalépés</span>':'<span class="chip up">▲ trend</span>';
+ const dS=p.price?Math.abs(p.price-p.stop)/p.price*100:null,dT=p.price?Math.abs(p.target-p.price)/p.price*100:null,ch=p.price?(p.price/p.entry-1)*100*(s?-1:1):null;
+ return `<div class="pos"><div class="row"><div><b>${esc(p.symbol)}</b> ${kind}</div><div class="mono ${cls(p.pnl)}" style="font-weight:700">${sg(p.pnl)}${nf(p.pnl)} $</div></div>
+ <div class="row mono" style="font-size:11.5px;margin-top:4px"><span class="mut">be ${px(p.entry)} → most <span style="color:var(--tx)">${px(p.price)}</span></span><span class="${cls(ch)}">${pct(ch)}</span></div>
+ <div class="range"><div class="track"></div><div class="en" style="left:${pos(p.entry)}%"></div><div class="mk" style="left:calc(${pos(p.price??p.entry)}% - 1px)"></div>
+ <div class="lb" style="left:3%">${s?'cél':'stop'} ${px(lo)}</div><div class="lb" style="left:97%">${s?'stop':'cél'} ${px(hi)}</div></div>
+ <div class="row dim" style="font-size:10.5px;margin-top:14px"><span>stopig ${dS==null?'–':nf(dS,1)+'%'} · célig ${dT==null?'–':nf(dT,1)+'%'}</span><span>${nf(p.entry_value,0)} $ · ${tm(p.opened_at)}</span></div></div>`}
+function drawChart(B){const svg=$('#chart'),W=600,H=190,P=8;let series;const since=Date.now()/1000-range*86400;
+ const sel=book==='all'?B:B.filter(b=>b.key===book);const pts=new Map();
+ sel.forEach(b=>{(b.history||[]).forEach(([t,v])=>{if(t<since)return;const k=Math.round(t/300)*300;pts.set(k,(pts.get(k)||0)+v)})});
+ series=[...pts.entries()].sort((a,b)=>a[0]-b[0]);const now=sel.reduce((a,b)=>a+b.equity,0),start=sel.reduce((a,b)=>a+b.start,0);
+ if(book==='all'&&B.length>1){series=series.filter(([t])=>sel.every(b=>(b.history||[]).some(([x])=>Math.abs(x-t)<600)))}
+ series.push([Date.now()/1000,now]);
+ if(series.length<2){svg.innerHTML=`<text x="12" y="100" fill="#4f5d6b" font-size="13" font-family="Inter">Az egyenleggörbe 5 percenként kap új pontot.</text>`;return}
+ const vs=series.map(x=>x[1]).concat([start]),lo=Math.min(...vs),hi=Math.max(...vs),pad=(hi-lo)*.12||1,a=lo-pad,b=hi+pad;
+ const t0=series[0][0],t1=series[series.length-1][0],X=t=>P+(t-t0)/(t1-t0||1)*(W-2*P),Y=v=>H-P-(v-a)/(b-a)*(H-2*P);
+ const d=series.map(([t,v],i)=>`${i?'L':'M'}${X(t).toFixed(1)},${Y(v).toFixed(1)}`).join(' '),up=now>=start,col=up?'#16c784':'#ea3943';
+ const grid=[0,1,2,3].map(i=>{const v=a+(b-a)*(i+.5)/4;return `<line x1="0" x2="${W}" y1="${Y(v)}" y2="${Y(v)}" stroke="#1a2633"/><text x="${W-4}" y="${Y(v)-3}" fill="#4f5d6b" font-size="10" text-anchor="end" font-family="JetBrains Mono">${nf(v,0)}</text>`}).join('');
+ svg.innerHTML=`<defs><linearGradient id="gf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".35"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>${grid}
+ <line x1="0" x2="${W}" y1="${Y(start)}" y2="${Y(start)}" stroke="#7d8b9a" stroke-dasharray="4 4" opacity=".6"/><path d="${d} L${X(t1)},${H} L${X(t0)},${H} Z" fill="url(#gf)"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2" vector-effect="non-scaling-stroke"/>
+ <circle cx="${X(t1)}" cy="${Y(now)}" r="4" fill="${col}"><animate attributeName="r" values="3;6;3" dur="1.6s" repeatCount="indefinite"/></circle>`}
+$$('#rangeseg button').forEach(x=>x.onclick=()=>{range=+x.dataset.r;$$('#rangeseg button').forEach(y=>y.classList.toggle('on',y===x));renderState()});
+/* események */
+const EK={all:'Minden',trade:'Kötések',riskoff:'Védekezés',news:'Hírek',move:'Mozgások',check:'Döntések',pulse:'Helyzetkép'};
+$('#ef').innerHTML=Object.entries(EK).map(([k,v])=>`<button data-k="${k}" class="${k==='all'?'on':''}">${v}</button>`).join('');
+$$('#ef button').forEach(b=>b.onclick=()=>{efilter=b.dataset.k;$$('#ef button').forEach(x=>x.classList.toggle('on',x===b));renderEvents()});
+const evHtml=e=>`<div class="ev ${esc(e.kind)}"><div class="ts">${tm(e.created_at)} · ${EK[e.kind]||e.kind}</div><div class="t">${esc(e.title)}</div>${e.body?`<div class="b">${esc(e.body)}</div>`:''}</div>`;
+function renderEvents(){const xs=events.filter(e=>efilter==='all'||e.kind===efilter).slice(-120).reverse();$('#evlist').innerHTML=xs.map(evHtml).join('')||'<div class="empty">Nincs ilyen esemény.</div>';
+ $('#homeev').innerHTML=events.filter(e=>['trade','riskoff','news','move'].includes(e.kind)).slice(-6).reverse().map(evHtml).join('')||'<div class="empty">Még nincs riasztás.</div>'}
+async function pollEvents(){const r=await api('/api/events?after='+lastId);const loud=[];for(const e of r.events){lastId=Math.max(lastId,e.id);events.push(e);if(!first&&['trade','riskoff'].includes(e.kind))loud.push(e)}
+ if(events.length>600)events=events.slice(-600);if(r.events.length)renderEvents();if(loud.length){beep();if(window.Notification&&Notification.permission==='granted')loud.forEach(e=>new Notification(e.title,{body:(e.body||'').slice(0,140)}))}first=false}
+function beep(){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();o.connect(g);g.connect(audio.destination);o.frequency.value=880;g.gain.value=.06;o.start();o.stop(audio.currentTime+.2)}catch{}}
+/* hírek */
+const NK={all:'Minden',hi:'Súlyos (4–5)',crypto:'Kripto',stock:'Részvény',macro:'Makró'};
+$('#nf').innerHTML=Object.entries(NK).map(([k,v])=>`<button data-k="${k}" class="${k==='all'?'on':''}">${v}</button>`).join('');
+$$('#nf button').forEach(b=>b.onclick=()=>{nfilter=b.dataset.k;$$('#nf button').forEach(x=>x.classList.toggle('on',x===b));renderNews()});
+async function loadNews(){try{NEWS=(await api('/api/news')).news;renderNews()}catch{}}
+function renderNews(){const kw={crypto:/btc|eth|bitcoin|kripto|crypto|sol|xrp/i,stock:/apple|tesla|nvidia|microsoft|amazon|meta|google|stock|részvény|s&p|nasdaq|dax/i,macro:/fed|ecb|ekb|kamat|rate|infl|usd|dollár|gdp|munkan|jegybank/i};
+ const xs=NEWS.filter(n=>nfilter==='all'||(nfilter==='hi'?(n.sev||0)>=4:kw[nfilter].test((n.hu||'')+' '+n.title+' '+(n.assets||[]).join(' '))));$('#nnews').textContent=xs.length;
+ $('#newslist').innerHTML=xs.map(n=>{const s=n.sev||0,c=s>=5?'var(--dn)':s>=4?'#f97316':s>=3?'var(--acc)':'var(--dim)';const d=n.dir==='up'?'<span class="up">▲</span>':n.dir==='down'?'<span class="dn">▼</span>':n.dir==='mixed'?'<span class="acc">◆</span>':'';
+  return `<div class="news"><div class="sev" style="background:${c}22;color:${c};border:1px solid ${c}55">${s||'–'}</div><div style="min-width:0"><a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.hu||n.title)}</a>
+  ${n.hu?`<div class="dim" style="font-size:11px;margin-top:2px">${esc(n.title)}</div>`:''}<div class="m">${d} ${esc(n.source)} · ${tm(n.seen_at)}${(n.assets||[]).length?' · '+(n.assets||[]).map(a=>`<span class="chip" style="padding:1px 6px">${esc(a)}</span>`).join(' '):''}</div>${n.why?`<div class="m">${esc(n.why)}</div>`:''}</div></div>`}).join('')||'<div class="empty">Nincs hír.</div>'}
+/* chat */
 async function loadChat(){const r=await api('/api/chat');$('#msgs').innerHTML='';r.messages.forEach(m=>addMsg(m.role==='user'?'user':'bot',m.content))}
-function addMsg(c,t){const d=document.createElement('div');d.className='m '+c;d.textContent=t;$('#msgs').appendChild(d);$('#msgs').scrollTop=1e9;return d}
+function addMsg(c,t){const d=document.createElement('div');d.className='msg '+c;d.textContent=t;$('#msgs').appendChild(d);$('#msgs').scrollTop=1e9;return d}
 async function send(text){if(!text.trim())return;addMsg('user',text);const w=addMsg('bot','✍️ gondolkodom…');
- for(let a=0;a<2;a++){try{const r=await api('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
-   w.textContent=r.reply;w.scrollIntoView({block:'start'});if(r.pending)waitReply(w);return}catch(e){if(e===0)return;if(a===0){w.textContent='🔄 megszakadt a kapcsolat, újrapróbálom…';await new Promise(r=>setTimeout(r,3000))}else w.textContent='Nem sikerült elküldeni (nincs kapcsolat a bottal). Próbáld újra pár másodperc múlva.'}}}
-async function waitReply(w){const before=(await api('/api/chat')).messages.length;for(let i=0;i<20;i++){await new Promise(r=>setTimeout(r,10000));
- try{const m=(await api('/api/chat')).messages;const last=m[m.length-1];if(m.length>before&&last&&last.role==='assistant'){w.textContent=last.content;return}}catch{}}}
-$('#sf').onsubmit=e=>{e.preventDefault();const v=$('#tx').value;$('#tx').value='';send(v)};
-document.querySelectorAll('.chips button').forEach(b=>b.onclick=()=>send(b.textContent));
-let timers=[];async function boot(){timers.forEach(clearInterval);try{await api('/api/state');showApp();lastId=0;first=true;$('#feed').innerHTML='';await Promise.all([pollEvents(),pollState(),loadChat()]);
- timers=[setInterval(()=>pollEvents().catch(()=>{}),5000),setInterval(()=>pollState().catch(()=>{}),10000)];
- if('Notification'in window&&Notification.permission==='default')document.addEventListener('click',()=>Notification.requestPermission(),{once:true})}catch(e){if(e!==0){$('#le').textContent=e.message||''}}}
+ for(let a=0;a<2;a++){try{const r=await api('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});w.textContent=r.reply;w.scrollIntoView({block:'start'});if(r.pending)waitReply(w);return}
+ catch(e){if(e===0)return;if(a===0){w.textContent='🔄 megszakadt a kapcsolat, újrapróbálom…';await new Promise(r=>setTimeout(r,3000))}else w.textContent='Nem sikerült elküldeni. Próbáld újra pár másodperc múlva.'}}}
+async function waitReply(w){const before=(await api('/api/chat')).messages.length;for(let i=0;i<20;i++){await new Promise(r=>setTimeout(r,10000));try{const m=(await api('/api/chat')).messages,l=m[m.length-1];if(m.length>before&&l&&l.role==='assistant'){w.textContent=l.content;return}}catch{}}}
+$('#sf').onsubmit=e=>{e.preventDefault();const v=$('#tx').value;$('#tx').value='';send(v)};$$('.qs button').forEach(b=>b.onclick=()=>send(b.textContent));
+async function pollState(){S=await api('/api/state');renderState()}
+let timers=[];async function boot(){timers.forEach(clearInterval);try{await pollState();$('#login').style.display='none';$('#app').style.display='block';
+ await Promise.all([pollEvents(),loadChat(),loadNews()]);timers=[setInterval(()=>pollEvents().catch(()=>{}),5000),setInterval(()=>pollState().catch(()=>{}),10000),setInterval(()=>loadNews(),120000)];
+ if(window.Notification&&Notification.permission==='default')document.addEventListener('click',()=>Notification.requestPermission(),{once:true})}catch(e){if(e!==0)$('#le').textContent=e.message||''}}
 boot();
 </script>
 </body>

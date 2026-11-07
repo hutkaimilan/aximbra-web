@@ -153,6 +153,11 @@ class Store:
         with self._lock, self._conn:
             self._conn.execute("DELETE FROM kv WHERE key = ?", (key,))
 
+    def get_prefix(self, prefix: str) -> dict[str, str]:
+        with self._lock:
+            rows = self._conn.execute("SELECT key, value FROM kv WHERE key LIKE ?", (prefix + "%",)).fetchall()
+        return {r["key"][len(prefix):]: r["value"] for r in rows}
+
     def cash(self) -> float:
         return float(self.get("cash", "0"))
 

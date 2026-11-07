@@ -257,6 +257,9 @@ class Agent:
             return
 
         self.store.set_signal_outcome(sym, candle_time, "enter", "nyitva")
+        self.store.set(f"decision:{sym}", json.dumps({"ts": int(self.clock()), "price": price, "text": f"BELÉPTEM: {sig.reason}",
+                                                     "position": True, "trend": "up" if sig.side == 1 else "down",
+                                                     "momentum": "up" if sig.side == 1 else "down"}, ensure_ascii=False))
         p = self.store.get_position(pos_id)
         risk_pct = p.risk_amount / equity if equity > 0 else 0.0
         facts = {"instrumentum": sym, "idősík": self.cfg.interval, "belépés": p.entry_price, "stop": p.stop,
@@ -432,6 +435,36 @@ class Agent:
         self.store.log_equity(now, self.equity(prices), self.store.cash())
         self.store.set("equity_logged_at", now)
 
+    def stats(self) -> dict:
+        closed = self.store.closed_positions(limit=500)
+        wins = [p for p in closed if (p.pnl or 0) > 0]
+        rs = [p.r_multiple for p in closed if p.r_multiple is not None]
+        gross_w = sum(p.pnl for p in wins)
+        gross_l = -sum(p.pnl or 0 for p in closed if (p.pnl or 0) <= 0)
+        return {"trades": len(closed), "win_rate": len(wins) / len(closed) if closed else None,
+                "avg_r": sum(rs) / len(rs) if rs else None,
+                "profit_factor": gross_w / gross_l if gross_l > 0 else None,
+                "best": max((p.pnl or 0 for p in closed), default=None),
+                "worst": min((p.pnl or 0 for p in closed), default=None),
+                "realized": sum(p.pnl or 0 for p in closed),
+                "today": self.store.realized_since(self._day_start_iso()),
+                "history": [{"symbol": self.name_of(p.symbol), "side": p.side, "kind": p.kind, "entry": p.entry_price,
+                             "exit": p.exit_price, "qty": p.qty, "pnl": p.pnl, "r": p.r_multiple, "reason": p.exit_reason,
+                             "opened_at": p.opened_at, "closed_at": p.closed_at} for p in closed[:60]]}
+
+    def decisions(self) -> list[dict]:
+        out = []
+        for sym, raw in self.store.get_prefix("decision:").items():
+            if sym not in self.cfg.symbols:
+                continue
+            try:
+                d = json.loads(raw)
+            except ValueError:
+                continue
+            d["symbol"] = self.name_of(sym)
+            out.append(d)
+        return sorted(out, key=lambda d: -d.get("ts", 0))
+
     def name_of(self, sym: str) -> str:
         try:
             from radar import UNIVERSE
@@ -480,6 +513,9 @@ class Agent:
             why = "a trend emelkedő, de az EMA20 még az EMA50 alatt van: várom a felfelé keresztezést"
         else:
             why = "a trend emelkedő, az EMA20 az EMA50 felett van, de a keresztezés nem most történt"
+        self.store.set(f"decision:{sym}", json.dumps({
+            "ts": int(self.clock()), "price": close, "trend": "up" if close > r else "down",
+            "momentum": "up" if f > sl else "down", "text": why, "position": pos is not None}, ensure_ascii=False))
         if self.batch_checks:
             short = ("pozícióban" if pos is not None else
                      "nem veszek, esik" if close <= r else "várok, a lendület még gyenge" if f <= sl
