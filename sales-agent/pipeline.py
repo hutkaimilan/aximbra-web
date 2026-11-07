@@ -522,8 +522,9 @@ def refresh_offers(store) -> int:
     for lead in store.list("draft"):
         body = lead.get("body") or ""
         new = body
-        for lang, old in playbook.OFFER_PREVIOUS.items():
-            new = new.replace(old, playbook.OFFER[lang])
+        for previous in playbook.OFFERS_PREVIOUS:
+            for lang, old in previous.items():
+                new = new.replace(old, playbook.OFFER[lang])
         if new != body and store.edit(lead["id"], lead.get("subject") or "", new):
             n += 1
     for lead in store.list():
@@ -531,8 +532,9 @@ def refresh_offers(store) -> int:
             continue
         body = lead.get("followup_body") or ""
         new = body
-        for lang, old in playbook.OFFER_PREVIOUS.items():
-            new = new.replace(old, playbook.OFFER[lang])
+        for previous in playbook.OFFERS_PREVIOUS:
+            for lang, old in previous.items():
+                new = new.replace(old, playbook.OFFER[lang])
         if new != body and store.update_followup_draft(lead["id"], new):
             n += 1
     return n
