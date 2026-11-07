@@ -228,6 +228,14 @@ class Store:
                                (proceeds,))
             return True
 
+    def set_stop(self, pos_id: int, stop: float, cid: str | None = None) -> None:
+        with self._lock, self._conn:
+            if cid is None:
+                self._conn.execute("UPDATE positions SET stop = ? WHERE id = ? AND status = 'open'", (stop, pos_id))
+            else:
+                self._conn.execute("UPDATE positions SET stop = ?, stop_cid = ? WHERE id = ? AND status = 'open'",
+                                   (stop, cid, pos_id))
+
     def set_stop_cid(self, pos_id: int, cid: str) -> None:
         with self._lock, self._conn:
             self._conn.execute("UPDATE positions SET stop_cid = ? WHERE id = ?", (cid, pos_id))

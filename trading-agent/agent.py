@@ -63,7 +63,10 @@ class Agent:
         self.kinds: dict[str, set[str]] = {}     # instrumentumonként engedélyezett fogadástípusok
         self.default_kinds: set[str] = {"trend_long"}
         self.stale_seconds: float | None = None  # None: 2 gyertya + 2 perc
-        self.batch_checks = False                # True: a gyertyánkénti döntésekből egy összesítő értesítés
+        self.batch_checks = False
+        self.pos_frac: float | None = None      # egy pozíció legfeljebb ekkora része a tőkének (None: 1/max_open)
+        self.leverage = 1.0                      # összes kitettség / tőke felső korlátja (papíron)
+        self.kill_dd = 0.20                      # ennyi visszaesés a csúcstól: vészfék                # True: a gyertyánkénti döntésekből egy összesítő értesítés
         self._checks: list[str] = []
         self.executor = executor or PaperExecutor(cfg.fee, cfg.slippage)
         self.label = PAPER if not self.executor.live else f"🧪 {self.executor.name.upper()}" + (
@@ -182,6 +185,7 @@ class Agent:
                         email=False, kind="check", push=None)
         self._maybe_daily_report(prices)
         self._log_equity(prices)
+        self._kill_switch(prices)
 
     def _tick_symbol(self, sym: str, prices: dict[str, float]) -> None:
         candles = self.market.candles(sym, self.cfg.interval, limit=300)
@@ -199,6 +203,8 @@ class Agent:
         self._reconcile_pending(sym, prices)
         pos = self.store.open_position_for(sym)
         if pos is not None:
+            self._trail(pos, candles, prices)
+            pos = self.store.open_position_for(sym)
             self._check_exit(pos, price, prices)
 
         key = f"last_candle:{sym}"
@@ -239,8 +245,16 @@ class Agent:
         if ok and (fill - sig.stop) * sig.side <= 0:
             ok, why = False, "az ár a jelzés óta már a stopon túl van"
         risk_unit = abs(fill - sig.stop)
-        qty = paper.size(equity, max(self.store.cash(), equity), fill, fill - risk_unit, self.cfg.risk_per_trade,
-                         self.cfg.max_open, self.cfg.fee) if ok else 0.0
+        qty = 0.0
+        if ok and risk_unit > 0:
+            qty = equity * self.cfg.risk_per_trade / risk_unit
+            frac = self.pos_frac or 1 / self.cfg.max_open
+            room = self.leverage * equity - sum(p.qty * prices.get(p.symbol, p.entry_price)
+                                                for p in self.store.open_positions())
+            cap = min(equity * frac, room)
+            if self.executor.live:                  # spot: csak a ténylegesen szabad készpénzből
+                cap = min(cap, self.store.cash() / (1 + self.cfg.fee))
+            qty = max(0.0, min(qty, cap / fill))
         try:
             qty = self.executor.round_qty(sym, qty) if ok else 0.0
             min_notional = max(paper.MIN_NOTIONAL, self.executor.min_notional(sym))
@@ -376,8 +390,56 @@ class Agent:
                         f"({fill.qty:.6f} @ {fill.price:,.2f}), és leadom a stopot.")
             self._protect_or_exit(pos_id, prices)
 
+    def _trail(self, pos: Position, candles, prices: dict[str, float]) -> None:
+        ind = strategy.compute(candles) if len(candles) > strategy.ATR_N + 1 else None
+        a = ind["atr"][-1] if ind else None
+        new = strategy.trail_stop(pos, candles, a)
+        if new is None:
+            return
+        old = pos.stop
+        if self.executor.live:
+            # Spot-számlán a stop lefoglalja a coint, ezért két stop nem lehet egyszerre: előbb a régit
+            # töröljük, aztán az újat adjuk le. Ha az új nem megy át, visszatesszük a régit; ha az sem,
+            # a pozíciót azonnal zárjuk (védelem nélkül nem maradhat).
+            cid = f"mtb-p{pos.id}-t{int(self.clock()) % 1000000}"
+            try:
+                self.executor.unprotect(pos.symbol, pos.stop_cid)
+            except ExchangeError as e:
+                logger.warning("%s: a régi stop törlése nem ment át, maradunk a régin: %s", pos.symbol, e)
+                return
+            state = self.executor.stop_state(pos.symbol, pos.stop_cid)
+            if state is not None and state[0] == "filled":       # a törlés előtt kiütött: azt könyveljük
+                self._book_exit(pos, state[1], "stop (tőzsdei)", prices)
+                return
+            try:
+                self.executor.protect(pos.symbol, pos.qty, new, cid)
+            except ExchangeError as e:
+                logger.error("%s: az új stop nem ment át (%s), visszateszem a régit", pos.symbol, e)
+                back = f"mtb-p{pos.id}-r{int(self.clock()) % 1000000}"
+                try:
+                    self.executor.protect(pos.symbol, pos.qty, old, back)
+                    self.store.set_stop_cid(pos.id, back)
+                except ExchangeError:
+                    self._close(pos, prices.get(pos.symbol, old), "biztonsági zárás", prices,
+                                "a követő stop cseréje nem sikerült, és a régi stop sem állt vissza")
+                return
+            self.store.set_stop(pos.id, new, cid)
+        else:
+            self.store.set_stop(pos.id, new)
+        locked = pos.qty * (new - pos.entry_price) - pos.entry_fee
+        self.notify(f"{self.label}\n🔒 {self.name_of(pos.symbol)}: a stopot felhúztam {old:,.2f} → {new:,.2f}\n"
+                    + (f"Ennyi nyereség már biztosítva: {locked:+,.2f}" if locked > 0 else
+                       "A pozíció innen már nem zárhat veszteséggel (a díjat leszámítva)."),
+                    email=False, kind="trade", push=3)
+
     def _check_exit(self, pos: Position, price: float, prices: dict[str, float]) -> None:
+        trailing = pos.side == 1 and pos.kind in strategy.TRAIL_KINDS
         if not self.executor.live:
+            if trailing:
+                hit = (price, "követő stop" if pos.stop >= pos.entry_price else "stop") if price <= pos.stop else None
+                if hit:
+                    self._close(pos, hit[0], hit[1], prices)
+                return
             hit = paper.exit_on_price(pos.stop, pos.target, price, pos.side)
             if hit:
                 self._close(pos, hit[0], hit[1], prices)
@@ -387,7 +449,7 @@ class Agent:
             self._book_exit(pos, state[1], "stop (tőzsdei)", prices)
         elif state is not None:
             self._close(pos, price, "biztonsági zárás", prices, "a tőzsdei stop eltűnt vagy törlődött")
-        elif price >= pos.target:
+        elif price >= pos.target and not trailing:
             self._close(pos, price, "cél", prices)
 
     def _exit_fill(self, pos: Position, raw_price: float):
@@ -424,6 +486,17 @@ class Agent:
         self.notify(f"{self.label}\n⚠️ {pos.symbol}: a zárás nem sikerült ({error}). "
                     + ("A pozíciót újra védi a tőzsdei stop; a következő ciklusban újrapróbálom."
                        if protected else "A pozíció JELENLEG STOP NÉLKÜL van — nézd meg a tőzsdén!"))
+
+    def _kill_switch(self, prices: dict[str, float]) -> None:
+        if any(p.symbol not in prices for p in self.store.open_positions()):
+            return
+        eq = self.equity(prices)
+        peak = max(float(self.store.get("equity_peak", "0") or 0), eq)
+        self.store.set("equity_peak", peak)
+        if peak > 0 and eq <= peak * (1 - self.kill_dd) and not self.entries_paused():
+            self.risk_off(f"vészfék: a számla {eq / peak - 1:.0%}-ot esett a csúcsától ({peak:,.0f} → {eq:,.0f})",
+                          hours=72)
+            self.store.set("equity_peak", eq)   # újraindulás után az új szinthez mérünk
 
     def _log_equity(self, prices: dict[str, float]) -> None:
         """5 percenként egy pont az egyenleg-grafikonhoz (csak friss árakkal, hogy ne torzítson)."""

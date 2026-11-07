@@ -42,6 +42,24 @@ KINDS = {
 }
 TARGET_R_BY_KIND = {"trend": TARGET_R, "dip": 3.0}   # a dip fő kilépése az EMA20 visszaérése, a cél csak vészfék
 DIP_MAX_BARS = 10
+TRAIL_KINDS = {"trend", "pull"}      # emelkedésre ezeknél követő stop van, fix cél nélkül
+TRAIL_ATR = 3.0
+
+
+def trail_stop(pos, candles, atr_now: float) -> float | None:
+    """Új (magasabb) stop a követő szabály szerint, vagy None. +1R után nullszaldó, utána a pozíció óta
+    látott legmagasabb záró alatt 3 ATR-rel. A stop soha nem megy lefelé."""
+    if pos.side != 1 or pos.kind not in TRAIL_KINDS or not atr_now or pos.qty <= 0:
+        return None
+    r0 = pos.risk_amount / pos.qty
+    closes = [c.close for c in candles if c.open_time > pos.entry_candle]
+    if not closes or r0 <= 0:
+        return None
+    hi = max(closes)
+    if hi - pos.entry_price < r0:
+        return None
+    new = max(pos.stop, pos.entry_price, hi - TRAIL_ATR * atr_now)
+    return new if new > pos.stop + 0.1 * atr_now else None
 
 
 def ema(values: list[float], n: int) -> list[float | None]:
@@ -145,6 +163,8 @@ def evaluate(candles: list[Candle], pos=None, allowed: set[str] | frozenset = fr
             if age >= DIP_MAX_BARS:
                 return Signal("exit", c[i], f"{DIP_MAX_BARS} gyertya alatt sem pattant vissza: időkorlát")
             return None
+        if side == 1 and kind in TRAIL_KINDS:
+            return None   # a kilépést a követő stop végzi (research: +0,14R → +0,28R)
         if side == 1 and f[i] < s[i]:
             return Signal("exit", c[i], "az EMA20 az EMA50 alá került: az emelkedő lendület elfogyott")
         if side == -1 and f[i] > s[i]:

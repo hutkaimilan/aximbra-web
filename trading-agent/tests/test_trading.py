@@ -682,3 +682,42 @@ def test_pullback_entry_in_running_uptrend():
             sig = strategy.evaluate(_mk(closes), None, {"pull_long"})
             ind = strategy.compute(_mk(closes))
     assert sig is not None and sig.kind == "pull" and sig.side == 1
+
+
+# --- követő stop, bátor méretezés, vészfék -------------------------------------------------
+def test_trailing_stop_moves_up_and_never_down():
+    from store import Position as P
+    candles = make_candles([100.0] * 220 + [104, 108, 112])
+    pos = P(id=1, symbol="X", qty=1.0, entry_price=100.0, entry_fee=0.0, stop=96.0, target=108.0, risk_amount=4.0,
+            entry_candle=candles[219].open_time, opened_at="", status="open", exit_price=None, exit_fee=None,
+            exit_reason=None, closed_at=None, pnl=None, r_multiple=None, side=1, kind="trend")
+    new = strategy.trail_stop(pos, candles, atr_now=2.0)
+    assert new == pytest.approx(max(100.0, 112 - 6.0))           # +1R felett: a csúcs alatt 3 ATR, legalább nullszaldó
+    low = P(**{**pos.__dict__, "stop": 107.0})
+    assert strategy.trail_stop(low, candles, atr_now=2.0) is None  # lefelé soha
+    early = make_candles([100.0] * 220 + [101, 102])
+    assert strategy.trail_stop(pos, early, atr_now=2.0) is None    # +1R előtt nem mozdul
+
+
+def test_live_trailing_replaces_exchange_stop_safely():
+    ag, market, bot = make_live_agent()
+    ag.tick()
+    pos = ag.store.open_positions()[0]
+    old_cid = pos.stop_cid
+    up = market.candles_ + make_candles([pos.entry_price * (1 + 0.02 * k) for k in range(1, 6)],
+                                        start=market.candles_[-1].open_time + H4)
+    market.candles_ = up
+    market.price_ = up[-1].close
+    ag.clock = lambda: (up[-1].close_time + 60_000) / 1000
+    ag.tick()
+    p2 = ag.store.open_positions()[0]
+    assert p2.stop > pos.stop and p2.stop_cid != old_cid
+    assert ag.executor.stops[old_cid] == "gone" and ag.executor.stops[p2.stop_cid] == "open"
+    assert any("felhúztam" in m for m in bot.sent)
+
+
+def test_kill_switch_triggers_on_drawdown():
+    ag, market, bot = make_agent()
+    ag.store.set("equity_peak", 20_000)          # a csúcs 20 000 volt, most 10 000: −50%
+    ag._kill_switch({})
+    assert ag.entries_paused() and "vészfék" in ag.entries_paused()

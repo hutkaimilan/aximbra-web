@@ -92,7 +92,8 @@ WORLD_SYMBOLS = {
 }
 world = None
 if os.environ.get("WORLD_BOOK", "on").lower() != "off":
-    wcfg = config.Config(symbols=tuple(WORLD_SYMBOLS), interval="1d", start_equity=10_000.0, risk_per_trade=0.01,
+    wcfg = config.Config(symbols=tuple(WORLD_SYMBOLS), interval="1d", start_equity=10_000.0,
+                         risk_per_trade=float(os.environ.get("WORLD_RISK", "0.02")),
                          max_open=int(os.environ.get("WORLD_MAX_OPEN", "12")), daily_loss_limit=0.03, fee=0.0005, slippage=0.0003, poll_seconds=300,
                          report_hour=cfg.report_hour, timezone=cfg.timezone,
                          db_path=os.environ.get("WORLD_DB_PATH", "/data/world.db"))
@@ -103,12 +104,15 @@ if os.environ.get("WORLD_BOOK", "on").lower() != "off":
                   executor=PaperExecutor(wcfg.fee, wcfg.slippage), push=push)
     world.label = "🌍 VILÁGPIACI DEMÓ — játékpénz"
     world.stale_seconds = 4 * 86400
-    world.batch_checks = True            # hétvégén és ünnepnapon nincs új napi gyertya
+    world.batch_checks = True
+    world.pos_frac = float(os.environ.get("WORLD_POS_FRAC", "0.30"))
+    world.leverage = float(os.environ.get("WORLD_LEVERAGE", "2.0"))            # hétvégén és ünnepnapon nincs új napi gyertya
     world.kinds = {s: WORLD_KINDS[c] for s, c in WORLD_SYMBOLS.items()}
     world.radar = agent.radar
     agent.peers = [world]
 # A kriptó-számla spot: esésre nem tud fogadni, a visszapattanást viszont igen.
 agent.default_kinds = {"trend_long", "pull_long", "dip_long"}
+agent.pos_frac = float(os.environ.get("CRYPTO_POS_FRAC", "0.30"))
 
 app = FastAPI(title="AXIMBRA trading agent")
 app.include_router(make_router(agent, state))
