@@ -181,7 +181,7 @@ function renderState(){const B=books();if(!B.length)return;
 function posHtml(p){const s=p.side===-1,lo=s?p.target:p.stop,hi=s?p.stop:p.target,span=hi-lo||1,pos=v=>Math.max(0,Math.min(100,(v-lo)/span*100));
  const kind=s?'<span class="chip dn">▼ esésre</span>':p.kind==='dip'?'<span class="chip vi">↺ visszapattanás</span>':p.kind==='pull'?'<span class="chip up">▲ trend-visszalépés</span>':'<span class="chip up">▲ trend</span>';
  const dS=p.price?Math.abs(p.price-p.stop)/p.price*100:null,dT=p.price?Math.abs(p.target-p.price)/p.price*100:null,ch=p.price?(p.price/p.entry-1)*100*(s?-1:1):null;
- return `<div class="pos"><div class="row"><div><b>${esc(p.symbol)}</b> ${kind}</div><div class="mono ${cls(p.pnl)}" style="font-weight:700">${sg(p.pnl)}${nf(p.pnl)} $</div></div>
+ return `<div class="pos"><div class="row"><div><b>${esc(p.symbol)}</b> ${kind}</div><div class="mono ${cls(p.pnl)}" style="font-weight:700;white-space:nowrap">${sg(p.pnl)}${nf(p.pnl)} $</div></div>
  <div class="row mono" style="font-size:11.5px;margin-top:4px"><span class="mut">be ${px(p.entry)} → most <span style="color:var(--tx)">${px(p.price)}</span></span><span class="${cls(ch)}">${pct(ch)}</span></div>
  <div class="range"><div class="track"></div><div class="en" style="left:${pos(p.entry)}%"></div><div class="mk" style="left:calc(${pos(p.price??p.entry)}% - 1px)"></div>
  <div class="lb" style="left:0;transform:none">${s?'cél':'stop'} ${px(lo)}</div><div class="lb" style="right:0;left:auto;transform:none">${s?'stop':'cél'} ${px(hi)}</div></div>
