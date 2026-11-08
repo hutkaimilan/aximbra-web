@@ -721,3 +721,24 @@ def test_kill_switch_triggers_on_drawdown():
     ag.store.set("equity_peak", 20_000)          # a csúcs 20 000 volt, most 10 000: −50%
     ag._kill_switch({})
     assert ag.entries_paused() and "vészfék" in ag.entries_paused()
+
+
+def test_manual_buy_and_sell_from_chat():
+    ag, market, bot = make_agent()
+    ag.store.set("last_candle:BTCUSDT", 10**15)
+    reply = ag.respond("vegyél bitcoint")
+    assert reply.startswith("✅ Megvettem") and ag.store.open_positions()
+    assert "már van" in ag.respond("/vesz BTC")
+    out = ag.respond("adj el bitcoint")
+    assert out.startswith("✅ Eladtam") and not ag.store.open_positions()
+    assert "Nem találtam" in ag.respond("vegyél valami nemlétezőt")
+
+
+def test_resolve_prefers_longest_alias():
+    ag, _, _ = make_agent()
+    w, _, _ = make_agent()
+    w.cfg = config.Config(symbols=("XOM", "CL=F", "TSLA"), db_path=":memory:")
+    ag.peers = [w]
+    assert ag.resolve("vegyél olaj részvényt")[1] == "XOM"
+    assert ag.resolve("vegyél olajat")[1] == "CL=F"
+    assert ag.resolve("vegyél Teslát")[1] == "TSLA"

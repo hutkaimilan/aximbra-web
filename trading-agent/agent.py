@@ -36,6 +36,8 @@ HELP = (
     "/journal — lezárt kötések és statisztika\n"
     "/backtest [SYMBOL] — visszateszt valódi múltbeli adatokon\n"
     "/radar — világpiaci radar: szokatlan mozgások és friss hírek\n"
+    "/vesz NÉV — azonnali vétel (pl. /vesz Tesla), vagy írd: „vegyél olajat”\n"
+    "/elad NÉV — pozíció zárása (pl. /elad Tesla)\n"
     "/vedekezes — minden pozíció azonnali lezárása, új nyitás tiltva\n"
     "/folytat — a védekező mód feloldása\n"
     "/help — ez a lista\n"
@@ -167,6 +169,67 @@ class Agent:
         sig = strategy.Signal("enter", price, "KÉZI INDÍTÁS (nem stratégiai jelzés): a megbízó kérésére, játékpénzzel",
                               stop=price - strategy.STOP_ATR * a, atr=a)
         self._handle(sym, sig, int(self.clock() * 1000), None, price, prices)
+
+    def manual_entry(self, sym: str) -> str:
+        """Vétel a megbízó kérésére, stratégiai jelzés nélkül, de ugyanazon a kockázati kapun át
+        (pozícióméret, kitettségi korlát, tőzsdei vagy követő stop)."""
+        if self.store.open_position_for(sym) is not None:
+            return f"{self.name_of(sym)}: már van benne pozíciónk."
+        try:
+            candles = self.market.candles(sym, self.cfg.interval, limit=300)
+            price = self.market.price(sym)
+        except MarketError as e:
+            return f"{self.name_of(sym)}: most nem érem el az árfolyamot ({e})."
+        ind = strategy.compute(candles)
+        a = ind["atr"][-1] if candles else None
+        if not a:
+            return f"{self.name_of(sym)}: kevés az adat a stop kiszámításához."
+        prices = {sym: price}
+        before = {p.id for p in self.store.open_positions()}
+        sig = strategy.Signal("enter", price, "KÉZI VÉTEL a megbízó kérésére (nem stratégiai jelzés)",
+                              stop=price - strategy.STOP_ATR * a, atr=a)
+        self._handle(sym, sig, int(self.clock() * 1000), None, price, prices)
+        new = [p for p in self.store.open_positions() if p.id not in before]
+        if not new:
+            out = self.store.recent_signals(1)
+            why = (out[0].get("outcome") or "") if out else ""
+            return f"{self.name_of(sym)}: nem nyitottam. {why}"
+        p = new[0]
+        return (f"✅ Megvettem: {self.name_of(sym)}\n{p.qty:.4f} db @ {p.entry_price:,.2f} = {p.qty * p.entry_price:,.0f} $\n"
+                f"Stop: {p.stop:,.2f} (követő stop: ha nő az ár, a stop is felmegy).")
+
+    def manual_exit(self, sym: str) -> str:
+        pos = self.store.open_position_for(sym)
+        if pos is None:
+            return f"{self.name_of(sym)}: nincs benne pozíciónk."
+        try:
+            price = self.market.price(sym)
+        except MarketError as e:
+            return f"{self.name_of(sym)}: most nem érem el az árfolyamot ({e})."
+        self._close(pos, price, "kézi eladás", {sym: price}, "a megbízó kérésére")
+        closed = self.store.get_position(pos.id)
+        if closed.status != "closed":
+            return f"{self.name_of(sym)}: az eladás nem sikerült, a pozíció nyitva maradt."
+        return f"✅ Eladtam: {self.name_of(sym)} @ {closed.exit_price:,.2f}, eredmény {closed.pnl:+,.2f} $"
+
+    def resolve(self, text: str):
+        """Szövegből (név, jel, becenév) a hozzá tartozó számla és instrumentum. (agent, sym) vagy None."""
+        from radar import ALIASES, UNIVERSE
+        t = " " + text.lower().replace("-", " ") + " "
+        best = None
+        for ag in [self] + list(self.peers):
+            for sym in ag.cfg.symbols:
+                words = {sym.lower(), sym.lower().replace("-usd", "").replace("usdt", "").lstrip("^")}
+                name = UNIVERSE.get(sym, (None,))[0]
+                if name:
+                    words.add(name.lower())
+                words.update(w.lower() for w in ALIASES.get(sym, []))
+                for w in words:
+                    if len(w) >= 2 and f" {w}" in t:
+                        score = len(w) + (1 if ag is self else 0)
+                        if best is None or score > best[0]:
+                            best = (score, ag, sym)
+        return (best[1], best[2]) if best else None
 
     def tick(self) -> None:
         prices: dict[str, float] = {}
@@ -761,6 +824,15 @@ class Agent:
             return self.journal()
         if cmd == "/radar":
             return self.radar_text()
+        low = text.lower()
+        buy = cmd in ("/vesz", "/vegyel") or low.startswith(("vegyél", "vegyel", "vásárolj", "vasarolj", "vedd meg", "vegyen"))
+        sell = cmd in ("/elad", "/zar") or low.startswith(("adj el", "add el", "adjd el", "zárd", "zard", "add el"))
+        if buy or sell:
+            hit = self.resolve(arg if cmd.startswith("/") else text)
+            if not hit:
+                return "Nem találtam ilyen eszközt a figyelt listában. Írd a nevét vagy a jelét, pl. „vegyél Teslát” vagy „/vesz XOM”."
+            ag, sym = hit
+            return ag.manual_entry(sym) if buy else ag.manual_exit(sym)
         if cmd in ("/vilag", "/világ"):
             return "\n\n".join(p.report() for p in self.peers) or "Nincs világpiaci számla."
         if cmd == "/folytat":
@@ -800,9 +872,13 @@ class Agent:
             return "Szabad kérdésre csak modellkulccsal tudok válaszolni (GEMINI_API_KEY vagy OPENAI_API_KEY).\n" + HELP
         context = {"állapot": self.report(), "utolsó_jelzések": self.store.recent_signals(5),
                    "stratégia": strategy.NAME,
-                   "kockázati_szabályok": {"kockázat_kötésenként": self.cfg.risk_per_trade,
-                                           "max_nyitott": self.cfg.max_open,
-                                           "napi_veszteséglimit": self.cfg.daily_loss_limit},
+                   "kockázati_szabályok": {
+                       "kripto_számla": {"kockázat_kötésenként": self.cfg.risk_per_trade, "max_nyitott": self.cfg.max_open,
+                                         "napi_veszteséglimit": self.cfg.daily_loss_limit},
+                       **{"világpiaci_számla": {"kockázat_kötésenként": p.cfg.risk_per_trade, "max_nyitott": p.cfg.max_open,
+                                                "max_tőkeáttétel": p.leverage, "egy_pozíció_max_aránya": p.pos_frac}
+                          for p in self.peers}},
+                   "kézi_parancsok": "Milán kérésre vásárolhatok: 'vegyél X' vagy '/vesz X', eladás: 'adj el X' vagy '/elad X'.",
                    "világpiaci_radar": self.radar.snapshot() if self.radar else None,
                    "védekező_mód": self.entries_paused(),
                    "világpiaci_számla": [p.report() for p in self.peers],

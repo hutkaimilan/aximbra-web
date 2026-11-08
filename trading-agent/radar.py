@@ -312,17 +312,17 @@ class Radar:
 ALIASES: dict[str, list[str]] = {
     "AAPL": ["apple", "aapl", "iphone"], "MSFT": ["microsoft", "msft"], "NVDA": ["nvidia", "nvda"],
     "AMZN": ["amazon", "amzn"], "GOOGL": ["alphabet", "google", "googl"], "META": ["meta", "facebook"],
-    "TSLA": ["tesla", "tsla", "musk"], "JPM": ["jpmorgan", "jpm"],
+    "TSLA": ["tesla", "teslát", "teslat", "tsla", "musk"], "JPM": ["jpmorgan", "jpm"],
     "^GSPC": ["s&p", "s&p500", "sp500", "wall street", "us stocks", "részvény"], "^IXIC": ["nasdaq", "tech stocks"],
-    "^GDAXI": ["dax", "germany", "german"], "CL=F": ["oil", "olaj", "crude", "opec", "wti", "brent"],
-    "GC=F": ["gold", "arany"], "SI=F": ["silver", "ezüst"],
+    "^GDAXI": ["dax", "germany", "german"], "CL=F": ["oil", "olaj", "olajat", "crude", "opec", "wti", "brent"],
+    "GC=F": ["gold", "arany", "aranyat"], "SI=F": ["silver", "ezüst"],
     "BTC-USD": ["bitcoin", "btc", "crypto", "kripto"], "BTCUSDT": ["bitcoin", "btc", "crypto", "kripto"],
     "ETH-USD": ["ethereum", "eth", "crypto", "kripto"], "ETHUSDT": ["ethereum", "eth", "crypto", "kripto"],
     "SOL-USD": ["solana", "sol", "crypto", "kripto"], "SOLUSDT": ["solana", "sol", "crypto", "kripto"],
     "XRP-USD": ["xrp", "ripple", "crypto"], "XRPUSDT": ["xrp", "ripple", "crypto"],
     "BNB-USD": ["bnb", "binance"], "BNBUSDT": ["bnb", "binance"], "DOGE-USD": ["doge", "dogecoin"],
     "DOGEUSDT": ["doge", "dogecoin"], "AMD": ["amd"], "NFLX": ["netflix"], "AVGO": ["broadcom"],
-    "PLTR": ["palantir"], "COIN": ["coinbase"], "XOM": ["exxon"], "^DJI": ["dow jones", "dow"],
+    "PLTR": ["palantir"], "COIN": ["coinbase"], "XOM": ["exxon", "olaj részvény", "olajrészvény", "olaj reszveny", "olajcég", "olajceg"], "^DJI": ["dow jones", "dow"],
     "^FTSE": ["ftse", "london"], "^N225": ["nikkei", "japan"], "KO": ["coca-cola"], "WMT": ["walmart"],
 }
 

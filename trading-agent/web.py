@@ -236,7 +236,8 @@ def make_router(agent, state: dict) -> APIRouter:
                     reply = agent.respond(body.text) or "Ezt nem értettem. /help"
                 except Exception:
                     reply = "A válasz összeállítása nem sikerült, próbáld újra."
-                if body.text.startswith("/"):
+                last = agent.store.recent_chat(1)
+                if not last or last[-1]["content"] != reply[:4000]:   # a szabad kérdést az agent már elmentette
                     agent.store.add_chat("user", body.text)
                     agent.store.add_chat("assistant", reply)
                 result["reply"] = reply
