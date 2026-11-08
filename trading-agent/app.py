@@ -6,6 +6,7 @@ az értesítéseket, és két külön SQLite-fájlba könyvelne.
 from __future__ import annotations
 
 import hmac
+import json
 import logging
 import os
 import threading
@@ -15,6 +16,7 @@ from fastapi import FastAPI, Header, HTTPException
 
 import config
 from agent import Agent
+import ai_trader
 from exchange import BinanceClient, BinanceExecutor, ExchangeError, PaperExecutor, selftest
 from llm import LLM
 from mailer import Mailer
@@ -94,7 +96,7 @@ world = None
 if os.environ.get("WORLD_BOOK", "on").lower() != "off":
     wcfg = config.Config(symbols=tuple(WORLD_SYMBOLS), interval="1d", start_equity=10_000.0,
                          risk_per_trade=float(os.environ.get("WORLD_RISK", "0.02")),
-                         max_open=int(os.environ.get("WORLD_MAX_OPEN", "12")), daily_loss_limit=0.03, fee=0.0005, slippage=0.0003, poll_seconds=300,
+                         max_open=int(os.environ.get("WORLD_MAX_OPEN", "100")), daily_loss_limit=1.0, fee=0.0005, slippage=0.0003, poll_seconds=300,
                          report_hour=cfg.report_hour, timezone=cfg.timezone,
                          db_path=os.environ.get("WORLD_DB_PATH", "/data/world.db"))
     wstore = Store(wcfg.db_path, wcfg.start_equity)
@@ -106,13 +108,32 @@ if os.environ.get("WORLD_BOOK", "on").lower() != "off":
     world.stale_seconds = 4 * 86400
     world.batch_checks = True
     world.pos_frac = float(os.environ.get("WORLD_POS_FRAC", "0.30"))
-    world.leverage = float(os.environ.get("WORLD_LEVERAGE", "2.0"))            # hétvégén és ünnepnapon nincs új napi gyertya
+    world.leverage = float(os.environ.get("WORLD_LEVERAGE", "3.0"))
+    world.kill_dd = float(os.environ.get("KILL_DD", "1.01"))            # hétvégén és ünnepnapon nincs új napi gyertya
     world.kinds = {s: WORLD_KINDS[c] for s, c in WORLD_SYMBOLS.items()}
     world.radar = agent.radar
     agent.peers = [world]
 # A kriptó-számla spot: esésre nem tud fogadni, a visszapattanást viszont igen.
 agent.default_kinds = {"trend_long", "pull_long", "dip_long"}
 agent.pos_frac = float(os.environ.get("CRYPTO_POS_FRAC", "0.30"))
+agent.kill_dd = float(os.environ.get("KILL_DD", "1.01"))     # 1.01: kikapcsolva (a megbízó kérésére)
+
+
+def _cls_of(sym: str) -> str:
+    return "crypto" if sym.endswith("USDT") else WORLD_SYMBOLS.get(sym, "stock")
+
+
+def _recent_news() -> list[dict]:
+    out = []
+    cutoff = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - 12 * 3600))
+    for n in store.recent_news(120):
+        if (n.get("seen_at") or "") < cutoff or not n.get("analysis"):
+            continue
+        a = json.loads(n["analysis"])
+        if int(a.get("sev", 0)) >= 3:
+            out.append({"hír": a.get("hu") or n["title"], "súly": a.get("sev"), "irány": a.get("dir"),
+                        "érintett": a.get("assets")})
+    return out[:15]
 
 app = FastAPI(title="AXIMBRA trading agent")
 app.include_router(make_router(agent, state))
@@ -151,6 +172,20 @@ def _market_loop() -> None:
             logger.exception("a ciklus hibával állt le")
             state["last_error"] = f"{type(e).__name__}: {e}"[:300]
         time.sleep(max(1.0, cfg.poll_seconds - (time.time() - started)))
+
+
+def _ai_loop() -> None:
+    """AI-kereskedő: óránként mindkét számlán dönt (AI_TRADER_MINUTES)."""
+    time.sleep(90)    # indulás után előbb legyen friss adat
+    while True:
+        started = time.time()
+        for ag in [agent] + ([world] if world is not None else []):
+            try:
+                ai_trader.run_once(ag, _cls_of, _recent_news)
+            except Exception:
+                logger.exception("az AI-kereskedő köre hibával állt le")
+        state["ai_tick"] = time.time()
+        time.sleep(max(60.0, float(os.environ.get("AI_TRADER_MINUTES", "60")) * 60 - (time.time() - started)))
 
 
 def _world_loop() -> None:
@@ -223,6 +258,8 @@ def _startup() -> None:
     threading.Thread(target=_market_loop, name="market", daemon=True).start()
     if world is not None:
         threading.Thread(target=_world_loop, name="world", daemon=True).start()
+    if os.environ.get("AI_TRADER", "on").lower() != "off" and llm is not None:
+        threading.Thread(target=_ai_loop, name="ai-trader", daemon=True).start()
     if os.environ.get("RADAR", "on").lower() != "off":
         threading.Thread(target=_radar_loop, name="radar", daemon=True).start()
     if bot is not None:

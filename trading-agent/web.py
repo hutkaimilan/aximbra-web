@@ -113,7 +113,28 @@ def make_router(agent, state: dict) -> APIRouter:
             exposure = sum(abs(p["value"] or p["entry_value"]) for p in out)
             at_risk = sum(max(0.0, (pp.side * (prices.get(pp.symbol, pp.entry_price) - pp.stop)) * pp.qty)
                           for pp in positions)
+            flows = []
+            week = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - 7 * 86400))
+            for pp in a.store.closed_positions(limit=300) + positions:
+                if (pp.opened_at or "") >= week:
+                    flows.append({"ts": pp.opened_at, "type": "VÉTEL" if pp.side == 1 else "SHORT",
+                                  "symbol": a.name_of(pp.symbol), "sym": pp.symbol, "kind": pp.kind,
+                                  "amount": -(pp.qty * pp.entry_price + pp.entry_fee) if pp.side == 1
+                                  else pp.qty * pp.entry_price - pp.entry_fee,
+                                  "price": pp.entry_price})
+                if pp.status == "closed" and (pp.closed_at or "") >= week:
+                    flows.append({"ts": pp.closed_at, "type": "ELADÁS" if pp.side == 1 else "FEDEZÉS",
+                                  "symbol": a.name_of(pp.symbol), "sym": pp.symbol, "kind": pp.kind,
+                                  "amount": (pp.qty * pp.exit_price - (pp.exit_fee or 0)) if pp.side == 1
+                                  else -(pp.qty * pp.exit_price + (pp.exit_fee or 0)),
+                                  "price": pp.exit_price, "pnl": pp.pnl, "reason": pp.exit_reason})
+            flows.sort(key=lambda f: f["ts"] or "", reverse=True)
+            try:
+                ai_last = json.loads(a.store.get("ai_last", "null") or "null")
+            except ValueError:
+                ai_last = None
             return prices, {"label": a.label, "mode": a.executor.name, "equity": eq, "start": a.store.start_equity(),
+                            "flows": flows[:60], "ai_last": ai_last,
                             "cash": a.store.cash(), "positions": out, "closed": len(closed),
                             "closed_pnl": sum(p.pnl or 0 for p in closed), "started_at": a.store.get("started_at"),
                             "history": a.store.equity_history(int(time.time()) - 30 * 86400),

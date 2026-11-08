@@ -198,7 +198,42 @@ class Agent:
         return (f"✅ Megvettem: {self.name_of(sym)}\n{p.qty:.4f} db @ {p.entry_price:,.2f} = {p.qty * p.entry_price:,.0f} $\n"
                 f"Stop: {p.stop:,.2f} (követő stop: ha nő az ár, a stop is felmegy).")
 
-    def manual_exit(self, sym: str) -> str:
+    def ai_entry(self, sym: str, side: int, frac: float, stop_pct: float, reason: str) -> str:
+        """Az AI-kereskedő vétele (vagy shortja): a számla értékének frac része, stop_pct távolságú stoppal."""
+        name = self.name_of(sym)
+        if self.store.open_position_for(sym) is not None:
+            return f"{name}: már van benne pozíció"
+        try:
+            price = self.market.price(sym)
+        except MarketError as e:
+            return f"{name}: nincs ár ({e})"
+        prices = self._prices([p.symbol for p in self.store.open_positions()], {sym: price})
+        equity = self.equity(prices)
+        qty = equity * frac / price
+        if side == 1:
+            qty = min(qty, self.store.cash() * 0.995 / (price * (1 + self.cfg.fee)))
+        try:
+            qty = self.executor.round_qty(sym, qty)
+            min_notional = max(paper.MIN_NOTIONAL, self.executor.min_notional(sym))
+        except ExchangeError as e:
+            return f"{name}: a tőzsde nem érhető el ({e})"
+        if qty * price < min_notional:
+            return f"{name}: nincs elég szabad készpénz a vételhez"
+        stop = price * (1 - side * stop_pct)
+        pos_id, why = self._enter(sym, qty, price, stop, int(self.clock() * 1000), prices, side, "ai")
+        if pos_id is None:
+            return f"{name}: nem nyitottam ({why})"
+        p = self.store.get_position(pos_id)
+        self.store.set(f"decision:{sym}", json.dumps({"ts": int(self.clock()), "price": price, "position": True,
+                                                     "text": f"AI {'VÉTEL' if side == 1 else 'SHORT'}: {reason}",
+                                                     "trend": "up" if side == 1 else "down", "momentum": ""},
+                                                    ensure_ascii=False))
+        self.notify(f"{self.label}\n{'🟢 VÉTEL' if side == 1 else '🔻 SHORT'} (AI) — {name}\n"
+                    f"{p.qty:.4f} db @ {p.entry_price:,.2f} = {p.qty * p.entry_price:,.0f} $ | stop {p.stop:,.2f}\n"
+                    f"Ok: {reason}", kind="trade", push=4)
+        return f"{'vétel' if side == 1 else 'short'} {name}: {p.qty * p.entry_price:,.0f} $ @ {p.entry_price:,.2f}"
+
+    def manual_exit(self, sym: str, reason: str = "a megbízó kérésére") -> str:
         pos = self.store.open_position_for(sym)
         if pos is None:
             return f"{self.name_of(sym)}: nincs benne pozíciónk."
@@ -206,7 +241,7 @@ class Agent:
             price = self.market.price(sym)
         except MarketError as e:
             return f"{self.name_of(sym)}: most nem érem el az árfolyamot ({e})."
-        self._close(pos, price, "kézi eladás", {sym: price}, "a megbízó kérésére")
+        self._close(pos, price, "AI-eladás" if reason.startswith("AI") else "kézi eladás", {sym: price}, reason)
         closed = self.store.get_position(pos.id)
         if closed.status != "closed":
             return f"{self.name_of(sym)}: az eladás nem sikerült, a pozíció nyitva maradt."

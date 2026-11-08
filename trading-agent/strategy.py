@@ -42,7 +42,7 @@ KINDS = {
 }
 TARGET_R_BY_KIND = {"trend": TARGET_R, "dip": 3.0}   # a dip fő kilépése az EMA20 visszaérése, a cél csak vészfék
 DIP_MAX_BARS = 10
-TRAIL_KINDS = {"trend", "pull"}      # emelkedésre ezeknél követő stop van, fix cél nélkül
+TRAIL_KINDS = {"trend", "pull", "ai"}      # emelkedésre ezeknél követő stop van, fix cél nélkül
 TRAIL_ATR = 3.0
 
 
@@ -156,6 +156,8 @@ def evaluate(candles: list[Candle], pos=None, allowed: set[str] | frozenset = fr
         return None
     if pos is not None:
         side, kind = getattr(pos, "side", 1) or 1, getattr(pos, "kind", "trend") or "trend"
+        if kind == "ai":
+            return None   # az AI-kereskedő pozícióiról az AI dönt (és a stop véd)
         if kind == "dip":
             age = sum(1 for x in candles if x.open_time > pos.entry_candle)
             if c[i] > f[i]:

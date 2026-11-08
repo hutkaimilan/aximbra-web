@@ -111,6 +111,8 @@ input.slider::-moz-range-track{height:4px;border-radius:99px;background:var(--li
   <div class="grid g2" id="bookcards"></div>
   <div class="card" style="margin-top:12px"><div class="h"><span>Kockázat és teljesítmény</span></div><div class="grid g3" id="kpis"></div></div>
   </div><div>
+  <div class="card"><div class="h"><span>🧠 AI-kereskedő</span><span class="chip vi" id="aiTime">óránként dönt</span></div><div id="aiBox"></div></div>
+  <div class="card"><div class="h"><span>💸 Pénzmozgás</span><span class="seg" id="flowSeg"><button data-f="1" class="on">Ma</button><button data-f="7">7 nap</button></span></div><div class="grid g3" id="flowKpi"></div><div id="flowList" style="margin-top:8px"></div></div>
   <div class="card"><div class="h"><span>Nyitott pozíciók</span><span class="chip" id="npos">0</span></div><div id="homepos"></div></div>
   <div class="card"><div class="h"><span>Legfrissebb riasztások</span><span class="chip acc">élő</span></div><div id="homeev"></div></div>
   </div></div>
@@ -179,7 +181,7 @@ function renderState(){const B=books();if(!B.length)return;
  $('#banner').innerHTML=B.filter(b=>b.paused).map(b=>`<div class="banner">🛑 <b>Védekező mód</b> · ${esc(short(b.label))}: ${esc(b.paused)} <span class="mut">— feloldás a chatben: /folytat</span></div>`).join('');
  $('#bookseg').innerHTML=[`<button data-b="all">Összes</button>`,...B.map(b=>`<button data-b="${b.key}">${b.key==='main'?'Kripto':'Világ'}</button>`)].join('');
  $$('#bookseg button').forEach(x=>{x.classList.toggle('on',x.dataset.b===book);x.onclick=()=>{book=x.dataset.b;renderState()}});
- drawChart(B);
+ drawChart(B);renderFlows(B);
  $('#bookcards').innerHTML=B.map(b=>{const c=b.equity-b.start;return `<div class="card" style="margin:0"><div class="h"><span>${b.key==='main'?'₿ Kripto · Binance':'🌍 Világpiac'}</span><span class="chip ${b.key==='main'?'acc':'cy'}">${b.key==='main'?'demó':'papír'}</span></div>
   <div class="mid">${nf(b.equity)}</div><div class="mono ${cls(c)}" style="font-size:12px">${sg(c)}${nf(c)} · ${pct(c/b.start*100)}</div>
   <div class="mut" style="font-size:11px;margin-top:6px">${b.positions.length}/${b.max_open} pozíció · ${b.symbols} piac · ${b.interval}</div>
@@ -236,6 +238,18 @@ function drawChart(B){const since=Date.now()/1000-range*86400,sel=book==='all'?B
  const key=book+range+series.length;if(drawChart.k===key)return;drawChart.k=key;
  ichart($('#chart'),series,{base:start,lines:[{v:start,c:'#7d8b9a',label:'kezdés'}],fmt:v=>nf(v)+' $',sub:v=>`<span class="${cls(v-start)}">${sg(v-start)}${nf(v-start)}</span>`,empty:'Az egyenleggörbe 5 percenként kap új pontot.'})}
 $$('#rangeseg button').forEach(x=>x.onclick=()=>{range=+x.dataset.r;$$('#rangeseg button').forEach(y=>y.classList.toggle('on',y===x));renderState()});
+let flowDays=1;
+function renderFlows(B){const d=new Date();const since=new Date(flowDays===1?new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime():Date.now()-flowDays*86400e3).toISOString().slice(0,19);
+ const fl=B.flatMap(b=>(b.flows||[]).map(f=>({...f,bk:b.key}))).filter(f=>(f.ts||'')>=since).sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
+ const out=fl.filter(f=>f.amount<0).reduce((a,f)=>a-f.amount,0),inn=fl.filter(f=>f.amount>0).reduce((a,f)=>a+f.amount,0),pnl=fl.reduce((a,f)=>a+(f.pnl||0),0);
+ $('#flowKpi').innerHTML=[['Kiment (vétel)',`<span class="dn">−${nf(out,0)} $</span>`,fl.filter(f=>f.amount<0).length+' kötés'],['Bejött (eladás)',`<span class="up">+${nf(inn,0)} $</span>`,fl.filter(f=>f.amount>0).length+' kötés'],['Realizált',`<span class="${cls(pnl)}">${sg(pnl)}${nf(pnl)} $</span>`,'lezárt kötésekből']]
+  .map(x=>`<div class="kpi"><div class="l">${x[0]}</div><div class="v">${x[1]}</div><div class="s">${x[2]}</div></div>`).join('');
+ $('#flowList').innerHTML=fl.slice(0,25).map(f=>`<div class="dec click" data-sym="${esc(f.sym)}"><div><b>${f.amount<0?'↘':'↗'} ${esc(f.type)}</b> · ${esc(f.symbol)}${f.kind==='ai'?' <span class="chip vi">AI</span>':''}<div class="mut" style="font-size:11px">${tm(f.ts)} · ${px(f.price)}${f.reason?' · '+esc(f.reason):''}</div></div>
+  <div class="mono" style="text-align:right"><span class="${f.amount>=0?'up':'dn'}">${sg(f.amount)}${nf(f.amount,0)} $</span>${f.pnl!=null?`<div class="${cls(f.pnl)}" style="font-size:11px">${sg(f.pnl)}${nf(f.pnl)} eredm.</div>`:''}</div></div>`).join('')||'<div class="empty">Ebben az időszakban még nem volt pénzmozgás.</div>';
+ const ai=B.map(b=>b.ai_last&&{...b.ai_last,bk:b.key}).filter(Boolean).sort((a,b)=>b.ts-a.ts);
+ $('#aiTime').textContent=ai.length?'utoljára '+new Date(ai[0].ts*1000).toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'}):'óránként dönt';
+ $('#aiBox').innerHTML=ai.map(a=>`<div style="margin-bottom:10px"><div class="chip ${a.bk==='main'?'acc':'cy'}">${a.bk==='main'?'₿ Kripto':'🌍 Világ'}</div><div style="margin-top:6px;font-size:13px">${esc(a.summary||'')}</div>${(a.done||[]).length?`<div class="mut" style="font-size:12px;margin-top:4px">${a.done.map(x=>'• '+esc(x)).join('<br>')}</div>`:''}</div>`).join('')||'<div class="empty">Az első AI-döntés az indulás után pár perccel jön.</div>'}
+$$('#flowSeg button').forEach(x=>x.onclick=()=>{flowDays=+x.dataset.f;$$('#flowSeg button').forEach(y=>y.classList.toggle('on',y===x));renderFlows(books())});
 /* eszköz részletnézet */
 let A={sym:null,range:'1M',data:null};
 async function openAsset(sym){if(!sym)return;A.sym=sym;$('#sheet').classList.add('on');$('#aName').textContent='…';$('#aChart').innerHTML='<div class="empty" style="padding:40px 8px">Betöltés…</div>';await loadAsset()}
@@ -259,7 +273,7 @@ $('#cSl').addEventListener('input',calc);$('#aClose').onclick=()=>$('#sheet').cl
 $$('#aRange button').forEach(b=>b.onclick=()=>{A.range=b.dataset.r;A.pick=null;$$('#aRange button').forEach(x=>x.classList.toggle('on',x===b));loadAsset()});
 document.addEventListener('click',e=>{const t=e.target.closest('[data-sym]');if(t&&!e.target.closest('a'))openAsset(t.dataset.sym)});
 /* események */
-const EK={all:'Minden',trade:'Kötések',riskoff:'Védekezés',news:'Hírek',move:'Mozgások',check:'Döntések',pulse:'Helyzetkép'};
+const EK={all:'Minden',trade:'Kötések',ai:'AI-döntések',riskoff:'Védekezés',news:'Hírek',move:'Mozgások',check:'Döntések',pulse:'Helyzetkép'};
 $('#ef').innerHTML=Object.entries(EK).map(([k,v])=>`<button data-k="${k}" class="${k==='all'?'on':''}">${v}</button>`).join('');
 $$('#ef button').forEach(b=>b.onclick=()=>{efilter=b.dataset.k;$$('#ef button').forEach(x=>x.classList.toggle('on',x===b));renderEvents()});
 const evBody=b=>{const u=(b.match(/https?:\/\/\S+/)||[])[0];const t=b.replace(/https?:\/\/\S+/g,'').trim();return esc(t)+(u?` <a class="cy" href="${esc(u)}" target="_blank" rel="noopener">↗ cikk</a>`:'')};
