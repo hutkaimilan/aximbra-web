@@ -20,7 +20,7 @@ const hu = {
   },
   hero: {
     eyebrow: "AI ügynökség · egyedi agentek",
-    h1: ["Nem chatbotot", "építünk. Hanem", "munkatársat."],
+    h1: ["Nem chatbotot", "építünk, hanem", "munkatársat."],
     sub: "Hétfő reggel kétszáz olvasatlan levél, elmaradt hívások, kézzel begépelt számlák? Olyan AI agenteket építünk, amelyek ezt a munkát átveszik. Nem demót adunk át, hanem működő rendszert, amit mi tartunk életben.",
     ctaPrimary: "Próbáld ki élőben",
     ctaGhost: "Működés közben",
