@@ -1417,17 +1417,13 @@ def test_the_sector_rotates_too_instead_of_always_manufacturing(store, monkeypat
 
 
 def test_forms_alternate_so_both_platforms_get_videos_and_images():
-    """LinkedInre csak kép, Instagramra csak videó ment, mert a modell így
-    választott. A kód most platformonként fele-fele arányban váltogat, és egy
-    napon az egyik platform videót, a másik állóképet kap."""
+    """A formát a kód adja: mindkét platformra videó megy."""
     import content
     from datetime import date
     days = [date(2026, 10, 8) + timedelta(days=i) for i in range(28)]
-    # LinkedIn (magyar): fele videó, fele állókép, két videó nem jön egymás után.
+    # LinkedIn (magyar) is csak videó: a kép- és körhinta-poszt nem jutott el oda.
     forms = [content.pick_form("hu", d) for d in days]
-    assert forms.count("video") == len(days) // 2
-    assert forms.count("image") + forms.count("carousel") == len(days) // 2
-    assert all(a != b or a != "video" for a, b in zip(forms, forms[1:]))
+    assert forms == ["video"] * len(days)
     # Instagram: minden nap videó (egy videó, magyarul és angolul).
     forms = [content.pick_form("en", d) for d in days]
     assert forms == ["video"] * len(days)

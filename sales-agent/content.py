@@ -148,8 +148,10 @@ SECTOR_KEYS = tuple(SECTORS)
 # az egyik platform videót, a másik állóképet kap.
 FORM_CYCLE = ("video", "image", "video", "carousel")
 FORM_OFFSET = {"hu": 0, "en": 1}
-# Instagramra minden nap videó megy (a tulajdonos kérése: napi egy videó két nyelven).
-FORM_CYCLES = {"en": ("video",)}
+# Mindkét platformra minden alkalommal videó megy: Instagramra napi egy videó két nyelven,
+# LinkedInre a kedd–csütörtöki magyar videó. A kép- és körhinta-poszt LinkedInre nem
+# jutott el (nov. 5-én egy állókép a Make-nél elakadt, a videók viszont mennek).
+FORM_CYCLES = {"hu": ("video",), "en": ("video",)}
 
 HU_DAYS = ("hétfő", "kedd", "szerda", "csütörtök", "péntek", "szombat", "vasárnap")
 EN_DAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
