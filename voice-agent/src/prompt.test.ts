@@ -244,6 +244,7 @@ test('telefonos/foglalo agentre nem az ugyfelszolgalati arat mondja, es benne az
   assert.match(prompt, /egy első agent jellemzően két-három hét/);
   assert.match(prompt, /NAGYSÁGRENDET kér/);
   assert.match(prompt, /NEM a hívás vége/);
+  assert.match(prompt, /alapból magázol/);
 });
 
 /* ------------------------------------------------------------------ */
