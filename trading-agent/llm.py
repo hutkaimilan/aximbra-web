@@ -82,7 +82,7 @@ class LLM:
     def from_env(cls) -> "LLM | None":
         wanted = (os.environ.get("LLM_PROVIDER") or "").strip().lower()
         gemini = os.environ.get("GEMINI_API_KEY", "").strip()
-        openai = os.environ.get("OPENAI_API_KEY", "").strip()
+        openai = "" if os.environ.get("LLM_FALLBACK", "on").lower() == "off" else os.environ.get("OPENAI_API_KEY", "").strip()
         gem = cls("gemini", gemini) if gemini else None
         oai = cls("openai", openai) if openai else None
         order = [oai, gem] if wanted == "openai" else [gem, oai]
