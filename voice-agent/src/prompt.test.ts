@@ -60,7 +60,7 @@ test('ismeretlen hivoszambol nem lesz kitalalt adat', () => {
 
 test('a rendszerprompt kimondja, hogy nev nelkul nem igerunk ajanlatot', () => {
   const prompt = buildSystemPrompt(0, facts(), '+36301300242');
-  assert.match(prompt, /NE ÍGÉRJ SEMMIT NÉV ÉS CÉG NÉLKÜL/);
+  assert.match(prompt, /A NEVET ÉS A CÉGET A HÍVÁS ALATT LEGFELJEBB EGYSZER KÉRDEZD MEG/);
   // ...es azt is, hogy a mar ismert szamot ne kerje el ujra.
   assert.match(prompt, /HA A TELEFONSZÁM MÁR MEGVAN/);
 });
@@ -225,12 +225,21 @@ test('nem kerdezi meg ketszer egymas utan', () => {
   assert.doesNotMatch(buildFactsBlock(facts(), '', asked), /AMI MÉG HIÁNYZIK/);
 });
 
-test('ket fordulo utan ujra felhozhatja', () => {
+test('egy hivasban egyszer kerdezi meg, akkor sem ujra, ha mar regen volt', () => {
+  // Eles hivas, 2026-11-09: harmadszor is elhangzott a "Kihez cimezzem".
   const asked = [
     { role: 'assistant' as const, content: 'Kihez címezzem, és melyik cégnél?' },
     ...turns(6),
   ];
-  assert.match(buildFactsBlock(facts(), '', asked), /AMI MÉG HIÁNYZIK/);
+  assert.doesNotMatch(buildFactsBlock(facts(), '', asked), /AMI MÉG HIÁNYZIK/);
+});
+
+test('telefonos/foglalo agentre nem az ugyfelszolgalati arat mondja, es benne az ajanlat', () => {
+  const prompt = buildSystemPrompt(0, facts(), '');
+  assert.match(prompt, /TELEFONOS AGENT ÉS IDŐPONTFOGLALÁS/);
+  assert.match(prompt, /SOHA ne mondd az ügyfélszolgálati agent árát/);
+  assert.match(prompt, /első tizenöt ügyfelünknek/);
+  assert.match(prompt, /LEGFELJEBB EGYSZER/);
 });
 
 /* ------------------------------------------------------------------ */

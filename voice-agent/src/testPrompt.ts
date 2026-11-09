@@ -97,6 +97,25 @@ export const SCENARIOS: Record<string, Scenario> = {
       'Hol tarolodnak az adatok. Ember vagy gep beszel veled most. Ki felel, ' +
       'ha az agent hibazik. Kell-e adatfeldolgozoi szerzodes.',
   },
+  fodraszat: {
+    key: 'fodraszat',
+    label: 'Fodraszat (foglalas + telefonos agent)',
+    lang: 'hu',
+    contact: 'ez a telefonszám, amiről hívsz, a neved Kiss István, a cég a Kiss Hajstúdió',
+    persona:
+      'Kiss Istvan vagy, egy budapesti fodraszat, a Kiss Hajstudio tulajdonosa. ' +
+      'Harom szek, ket alkalmazott. Most papir naptarban foglaltok, naponta ' +
+      'tizenot-huszonot hivas jon idopont miatt, sokszor munka kozben kell ' +
+      'felvenni. Kozvetlen, kicsit turelmetlen vagy: ha az agent nem valaszol ' +
+      'a kerdesedre, rakerdezel ujra.',
+    reason:
+      'Weboldalt szeretnel online foglalassal, es egy telefonos agentet, ami ' +
+      'felveszi a hivast es idopontot foglal (pl. csutortok este hatra). A ' +
+      'foglalasrol te e-mailt kapsz, az ugyfel megerosito uzenetet.',
+    questions:
+      'Kivitelezheto-e, amit leirtal. Nagyjabol mennyibe kerul. Mennyi ido, ' +
+      'amig mukodik.',
+  },
   kulfoldi: {
     key: 'kulfoldi',
     label: 'English caller (foreign number)',
