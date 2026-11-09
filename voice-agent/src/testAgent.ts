@@ -149,15 +149,23 @@ export function testAgentEnabled(): boolean {
 }
 
 /** Idozites-biztos token-osszehasonlitas. */
-function tokenMatches(given: string | null): boolean {
-  const expected = testCfg().token;
-  if (!expected || !given) return false;
+function sameToken(given: string, expected: string): boolean {
   const a = Buffer.from(given);
   const b = Buffer.from(expected);
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a[i]! ^ b[i]!;
   return diff === 0;
+}
+
+/** A fo kulcs mellett egy masodik, kulon visszavonhato kulcs is ervenyes
+ *  (TEST_AGENT_TOKEN_2, pl. az automatikus ellenorzeshez), hogy a tulajdonos
+ *  sajat linkjet ne kelljen lecserelni. Ures erteknel nincs masodik kulcs. */
+function tokenMatches(given: string | null): boolean {
+  if (!given) return false;
+  const keys = [testCfg().token, process.env['TEST_AGENT_TOKEN_2']?.trim() ?? ''].filter((k) => k.length >= 16);
+  if (keys.length === 0 || !testCfg().token) return false;
+  return keys.some((k) => sameToken(given, k));
 }
 
 function escapeXml(s: string): string {
