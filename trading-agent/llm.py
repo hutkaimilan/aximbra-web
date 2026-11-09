@@ -121,14 +121,18 @@ class LLM:
 
     def _ask_model(self, prompt: str, model: str | None, system: str | None = None,
                    timeout: float | None = None) -> str:
-        for attempt in range(1 if timeout else 2):
+        tries = 1 if timeout else 2
+        for attempt in range(tries):
             try:
                 r = self._request(prompt, model, system, timeout)
             except httpx.HTTPError as e:
                 raise LLMError(f"a modell nem érhető el ({type(e).__name__})") from None
-            if r.status_code in (429, 500, 502, 503) and attempt < 1:
+            if r.status_code in (429, 500, 502, 503) and attempt < tries - 1:
                 time.sleep(3)
                 continue
+            if r.status_code == 429:
+                quota = "quota" in r.text.lower() or "exhausted" in r.text.lower()
+                raise LLMError(f"{'elfogyott a keret' if quota else 'túl sok kérés'} (HTTP 429): {r.text[:160]}")
             if r.status_code >= 400:
                 raise LLMError(f"modellhiba (HTTP {r.status_code}): {r.text[:200]}")
             try:
