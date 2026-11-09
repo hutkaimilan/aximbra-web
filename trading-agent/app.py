@@ -212,7 +212,7 @@ def _radar_loop() -> None:
     while True:
         now = time.time()
         try:
-            if now - last_news >= 300:
+            if now - last_news >= float(os.environ.get("NEWS_SECONDS", "900")):
                 agent.radar.scan_news()
                 last_news = time.time()
             if now - last_markets >= 600:

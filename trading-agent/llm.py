@@ -110,13 +110,21 @@ class LLM:
         models = models or [m.strip() for m in os.environ.get("GEMINI_MODELS", "").split(",") if m.strip()] or [GEMINI_MODEL]
         if self.provider != "gemini":
             models = [None]
-        last = None
+        # Kerethiány-fék: ha minden modell "elfogyott a keret" választ adott, egy óráig nem
+        # próbálkozunk (percenkénti hiábavaló hívások csak a keret visszatöltődését késleltetnék).
+        if time.time() < getattr(self, "_quota_until", 0):
+            raise LLMError("elfogyott az AI napi kerete, kb. egy óra múlva újrapróbálom")
+        last, quota_hits = None, 0
         for model in models:
             try:
                 return self._ask_model(prompt, model, system, timeout)
             except LLMError as e:
                 last = e
+                quota_hits += "elfogyott a keret" in str(e)
                 logger.warning("modell %s: %s", model, str(e)[:120])
+        if quota_hits == len(models):
+            self._quota_until = time.time() + 3600
+            logger.warning("az AI kerete minden modellen elfogyott: egy óra szünet")
         raise last
 
     def _ask_model(self, prompt: str, model: str | None, system: str | None = None,
