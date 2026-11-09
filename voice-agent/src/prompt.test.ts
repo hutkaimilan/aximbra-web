@@ -242,6 +242,8 @@ test('telefonos/foglalo agentre nem az ugyfelszolgalati arat mondja, es benne az
   assert.match(prompt, /LEGFELJEBB EGYSZER/);
   assert.match(prompt, /MÁR elmondta bármikor a hívásban/);
   assert.match(prompt, /egy első agent jellemzően két-három hét/);
+  assert.match(prompt, /NAGYSÁGRENDET kér/);
+  assert.match(prompt, /NEM a hívás vége/);
 });
 
 /* ------------------------------------------------------------------ */
