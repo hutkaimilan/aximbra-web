@@ -155,6 +155,9 @@ export function openerFor(scenario: Scenario): string {
   if (scenario.key === 'nehez') {
     return 'Jó napot, Tóth Gábor vagyok, könyvelő irodát vezetek. A számlafeldolgozás automatizálása miatt hívom önöket.';
   }
+  if (scenario.key === 'fodraszat') {
+    return 'Jó napot, Kiss István vagyok, a budapesti Kiss Hajstúdió tulajdonosa. Weboldal és telefonos időpontfoglalás miatt hívom önöket.';
+  }
   if (scenario.key === 'kulfoldi') {
     return "Hi, this is Sarah Bennett, I run a design studio in the UK. I'm calling about automating our email inbox.";
   }

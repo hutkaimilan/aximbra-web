@@ -240,6 +240,8 @@ test('telefonos/foglalo agentre nem az ugyfelszolgalati arat mondja, es benne az
   assert.match(prompt, /SOHA ne mondd az ügyfélszolgálati agent árát/);
   assert.match(prompt, /első tizenöt ügyfelünknek/);
   assert.match(prompt, /LEGFELJEBB EGYSZER/);
+  assert.match(prompt, /MÁR elmondta bármikor a hívásban/);
+  assert.match(prompt, /egy első agent jellemzően két-három hét/);
 });
 
 /* ------------------------------------------------------------------ */
