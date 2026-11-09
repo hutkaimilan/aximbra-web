@@ -126,14 +126,16 @@ def _cls_of(sym: str) -> str:
 def _recent_news() -> list[dict]:
     out = []
     cutoff = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - 12 * 3600))
-    for n in store.recent_news(120):
-        if (n.get("seen_at") or "") < cutoff or not n.get("analysis"):
+    cutoff_big = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - 72 * 3600))
+    for n in store.recent_news(600):
+        if (n.get("seen_at") or "") < cutoff_big or not n.get("analysis"):
             continue
         a = json.loads(n["analysis"])
-        if int(a.get("sev", 0)) >= 3:
+        sev = int(a.get("sev", 0))
+        if sev >= 4 or (sev >= 3 and (n.get("seen_at") or "") >= cutoff):
             out.append({"hír": a.get("hu") or n["title"], "súly": a.get("sev"), "irány": a.get("dir"),
                         "érintett": a.get("assets")})
-    return out[:15]
+    return out[:25]
 
 app = FastAPI(title="AXIMBRA trading agent")
 app.include_router(make_router(agent, state))
@@ -185,7 +187,12 @@ def _ai_loop() -> None:
             except Exception:
                 logger.exception("az AI-kereskedő köre hibával állt le")
         state["ai_tick"] = time.time()
-        time.sleep(max(60.0, float(os.environ.get("AI_TRADER_MINUTES", "60")) * 60 - (time.time() - started)))
+        store.set("ai_wakeup_done", int(time.time()))
+        wait_until = started + float(os.environ.get("AI_TRADER_MINUTES", "60")) * 60
+        while time.time() < wait_until:     # ha Milán közben írt valamit, nem várunk az óra végéig
+            if int(store.get("ai_wakeup", "0") or 0) > int(store.get("ai_wakeup_done", "0") or 0):
+                break
+            time.sleep(20)
 
 
 def _world_loop() -> None:

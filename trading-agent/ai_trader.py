@@ -67,6 +67,16 @@ def snapshot(agent, cls_of) -> dict:
     return {"gyertya": agent.cfg.interval, "piacok": rows}
 
 
+def owner_notes(agent) -> list[str]:
+        """A megbízó chatüzenetei az utolsó 24 órából (a parancsok nélkül)."""
+        cutoff = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - 86400))
+        store = agent.radar.store if agent.radar is not None else agent.store
+        with store._lock:
+            rows = store._conn.execute("SELECT content FROM chat WHERE role = 'user' AND created_at >= ? "
+                                       "ORDER BY id DESC LIMIT 10", (cutoff,)).fetchall()
+        return [r["content"][:300] for r in rows if not r["content"].startswith("/")]
+
+
 def decide(agent, cls_of, news: list[dict]) -> dict:
     snap = snapshot(agent, cls_of)
     eq = agent.equity({r["jel"]: r["ár"] for r in snap["piacok"]})
@@ -76,7 +86,9 @@ def decide(agent, cls_of, news: list[dict]) -> dict:
     prompt = (
         f"Számla: {json.dumps(acct, ensure_ascii=False)}\n"
         f"Piacok (változás %-ban, '{snap['gyertya']}' gyertyákon): {json.dumps(snap['piacok'], ensure_ascii=False)}\n"
-        f"Friss hírek: {json.dumps(news, ensure_ascii=False)}\n\n"
+        f"Friss hírek: {json.dumps(news, ensure_ascii=False)}\n"
+        f"Milán (a megbízó) üzenetei az elmúlt 24 órából — ha hírt vagy tippet ad, vedd komolyan, de ne vakon: "
+        f"{json.dumps(owner_notes(agent), ensure_ascii=False)}\n\n"
         "Döntsd el, mit csinálsz MOST. Lehetséges lépések:\n"
         '- {"lépés":"vesz","jel":"...","összeg_százalék":5-40,"stop_százalék":2-15,"ok":"egy mondat magyarul"}\n'
         '- {"lépés":"elad","jel":"...","ok":"..."}  (csak nyitott long pozícióra)\n'

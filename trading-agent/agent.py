@@ -886,6 +886,23 @@ class Agent:
                 return f"A backtest most nem futott le: {e}"
         return self.answer(text)
 
+    def search_news(self, text: str, limit: int = 8) -> list[dict]:
+        """A kérdés szavaira illeszkedő hírek a teljes hírarchívumból (a legfrissebb elöl)."""
+        import re as _re
+        stems = {w[:6] for w in _re.findall(r"\w{5,}", (text or "").lower())}
+        if not stems:
+            return []
+        out = []
+        for n in self.store.recent_news(3000):
+            a = json.loads(n["analysis"]) if n.get("analysis") else {}
+            hay = f"{n['title']} {a.get('hu', '')}".lower()
+            if any(st in hay for st in stems):
+                out.append({"dátum": n["seen_at"][:16], "hír": a.get("hu") or n["title"], "forrás": n["source"],
+                            "súly": a.get("sev"), "irány": a.get("dir"), "érintett": a.get("assets")})
+                if len(out) >= limit:
+                    break
+        return out
+
     def radar_text(self) -> str:
         if not self.radar:
             return "A radar nincs bekapcsolva."
@@ -906,6 +923,7 @@ class Agent:
         if self.llm is None:
             return "Szabad kérdésre csak modellkulccsal tudok válaszolni (GEMINI_API_KEY vagy OPENAI_API_KEY).\n" + HELP
         context = {"állapot": self.report(), "utolsó_jelzések": self.store.recent_signals(5),
+                   "kapcsolódó_hírek_az_archívumból": self.search_news(question),
                    "stratégia": strategy.NAME,
                    "kockázati_szabályok": {
                        "kripto_számla": {"kockázat_kötésenként": self.cfg.risk_per_trade, "max_nyitott": self.cfg.max_open,
@@ -927,7 +945,7 @@ class Agent:
         try:
             from llm import CHAT_PERSONA
             fast = [m.strip() for m in os.environ.get(
-                "GEMINI_CHAT_MODELS", "gemini-3.5-flash,gemini-flash-latest,gemini-3.5-flash-lite,gemini-3.8-flash"
+                "GEMINI_CHAT_MODELS", "gemini-3.8-flash,gemini-3.7-flash,gemini-3.5-flash,gemini-flash-latest"
             ).split(",") if m.strip()]
             reply = self.llm.ask(prompt, system=CHAT_PERSONA, models=fast, timeout=18).replace("**", "")[:3000]
         except LLMError as e:
@@ -937,4 +955,5 @@ class Agent:
             return "A modell most nem elérhető, ezért csak a számokat tudom adni:\n\n" + self.report()
         self.store.add_chat("user", question)
         self.store.add_chat("assistant", reply)
+        self.store.set("ai_wakeup", int(self.clock()))   # az AI-kereskedő a következő percben újradönt
         return reply

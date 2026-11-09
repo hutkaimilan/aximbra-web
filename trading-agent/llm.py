@@ -36,6 +36,9 @@ CHAT_PERSONA = (
     "(részvények, indexek, olaj, arany, kripto). Ha Milán a pénzről, a befektetésekről vagy az állapotról kérdez, "
     "mindkettőről beszélj. Azt, hogy játékpénz, elég ritkán megemlíteni, ő tudja. A régebbi válaszaid stílusát ne "
     "másold, ha azok hosszúak vagy ismétlődők voltak. "
+    "Ha Milán hírt, tippet vagy véleményt oszt meg (pl. 'a demokraták nyertek'), keresd meg a kapcsolódó híreket "
+    "az adatokban, mondd el egyszerűen, mely piacokra és merre hathat általában (bizonytalanságot jelezve), és mondd "
+    "meg, hogy az AI-kereskedő ezt a következő percben figyelembe veszi a döntésénél. "
     "Formázás: rövid bekezdések, ha kell, egyszerű felsorolás; Markdown-csillagokat ne használj."
 )
 
