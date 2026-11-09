@@ -55,8 +55,7 @@ DEFAULT_URL = "https://aximbra-video-production.up.railway.app/api/inbox"
 _lock = threading.Lock()
 
 # Platformonként külön idő (budapesti idő), a B2B-közönség munkaritmusához:
-# LinkedIn kedd–csütörtök délelőtt, Instagram minden nap ebédidőben; LinkedInen hétvégén
-# semmi. A témát néhány perccel korábban küldjük, mert a videós agentnek
+# LinkedIn minden nap délelőtt, Instagram minden nap ebédidőben. A témát néhány perccel korábban küldjük, mert a videós agentnek
 # 1–5 perc a gyártás, és utána azonnal posztol. Ha a szolgáltatás a kezdés
 # után WINDOW_MIN percen belül nem jut el a küldésig, aznap kimarad: egy
 # délutánra csúszott LinkedIn-poszt többet árt, mint ha nincs.
@@ -76,7 +75,8 @@ def _hm(raw: str, default: tuple[int, int]) -> tuple[int, int]:
 def schedule() -> dict[str, tuple[tuple[int, int], set[int]]]:
     """lang -> ((óra, perc), hétköznapok 0=hétfő). Az idő környezeti változóval
     állítható (CONTENT_LI_TIME, CONTENT_IG_TIME)."""
-    return {"hu": (_hm(os.environ.get("CONTENT_LI_TIME", ""), (9, 50)), {1, 2, 3}),
+    # LinkedIn és Instagram is a hét minden napján (a tulajdonos kérése).
+    return {"hu": (_hm(os.environ.get("CONTENT_LI_TIME", ""), (9, 50)), set(range(7))),
             # Instagram a hét minden napján (a tulajdonos kérése): magyarul és angolul, egymás után.
             "en": (_hm(os.environ.get("CONTENT_IG_TIME", ""), (12, 20)), set(range(7)))}
 
@@ -149,7 +149,7 @@ SECTOR_KEYS = tuple(SECTORS)
 FORM_CYCLE = ("video", "image", "video", "carousel")
 FORM_OFFSET = {"hu": 0, "en": 1}
 # Mindkét platformra minden alkalommal videó megy: Instagramra napi egy videó két nyelven,
-# LinkedInre a kedd–csütörtöki magyar videó. A kép- és körhinta-poszt LinkedInre nem
+# LinkedInre a napi magyar videó. A kép- és körhinta-poszt LinkedInre nem
 # jutott el (nov. 5-én egy állókép a Make-nél elakadt, a videók viszont mennek).
 FORM_CYCLES = {"hu": ("video",), "en": ("video",)}
 

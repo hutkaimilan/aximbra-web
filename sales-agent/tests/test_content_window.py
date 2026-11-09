@@ -1,4 +1,4 @@
-"""Platformonként külön posztidő: LinkedIn kedd–csütörtök 9:50-től,
+"""Platformonként külön posztidő: LinkedIn minden nap 9:50-től,
 Instagram hétköznap 12:20-tól, hétvégén semmi; két órás ablakon túl kimarad."""
 import os
 import sys
@@ -24,14 +24,14 @@ def at(day, h, m):
     return datetime(2026, 11, day, h, m, tzinfo=TZ)  # 2026-11-02 hétfő
 
 
-def test_linkedin_only_tuesday_to_thursday_morning():
+def test_linkedin_every_day_in_the_morning():
     s = _Store()
-    assert not content.lang_due("hu", at(2, 10, 0), s)        # hétfő
+    assert content.lang_due("hu", at(2, 10, 0), s)            # hétfő is
     assert not content.lang_due("hu", at(3, 9, 49), s)        # kedd, kezdés előtt
     assert content.lang_due("hu", at(3, 9, 50), s)
     assert content.lang_due("hu", at(5, 11, 30), s)           # csütörtök
     assert not content.lang_due("hu", at(3, 11, 50), s)       # két óra után kimarad
-    assert not content.lang_due("hu", at(6, 10, 0), s)        # péntek
+    assert content.lang_due("hu", at(6, 10, 0), s)            # péntek is
 
 
 def test_instagram_every_day_at_lunch():
@@ -41,7 +41,7 @@ def test_instagram_every_day_at_lunch():
     assert not content.lang_due("en", at(3, 10, 0), s)        # délelőtt még nem
     assert content.lang_due("en", at(7, 12, 30), s)           # szombat is
     assert content.due(at(8, 12, 30), s)                      # vasárnap is
-    assert not content.lang_due("hu", at(7, 10, 0), s)        # a LinkedIn hétvégén nem
+    assert content.lang_due("hu", at(7, 10, 0), s)            # hétvégén is
 
 
 def test_sent_today_is_not_sent_again():
