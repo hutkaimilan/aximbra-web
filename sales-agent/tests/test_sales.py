@@ -1653,7 +1653,7 @@ def test_us_and_canada_need_a_postal_address(monkeypatch):
     monkeypatch.setenv("POSTAL_ADDRESS", "1 Example Street, 1000 Budapest, Hungary")
     assert playbook.country_ready("US") and not verify.target_problems(lead)
     body = pipeline.followup_body({"lang": "en", "lang2": None, "country": "US"})
-    assert body.endswith("1 Example Street, 1000 Budapest, Hungary")
+    assert body.endswith("1 Example Street, 1000 Budapest, Hungary\n" + playbook.legal_line("en"))
     assert "Example Street" not in pipeline.followup_body({"lang": "en", "lang2": None, "country": "GB"})
 
 
@@ -1674,7 +1674,7 @@ def test_compose_puts_the_offer_back_if_the_model_drops_it(monkeypatch):
         {"subject": "Kérdés", "body": "Jó napot!\n\nLáttam az oldalukat.\n\nUi.: Élő demók vannak.\n\n" + OPT_OUT["hu"]}))
     out = llm.compose({"lang": "hu", "country": "HU", "pain": "phone", "company": "X", "observation": "o"})
     body = out["body"]
-    assert playbook.OFFER["hu"] in body and body.rstrip().endswith(OPT_OUT["hu"])
+    assert playbook.OFFER["hu"] in body and body.rstrip().endswith(OPT_OUT["hu"] + "\n" + playbook.legal_line("hu"))
     assert body.index(playbook.OFFER["hu"]) < body.index(OPT_OUT["hu"])
 
 
@@ -1804,3 +1804,14 @@ def test_a_candidate_with_object_fields_does_not_stop_the_round(store):
     assert verify.candidate_problems(odd) == [] or "nincs megfigyelés" not in verify.candidate_problems(odd)
     log = run(store, [odd, {**CAND, "company": "Más Kft.", "email": "info@mas-kft.hu"}])
     assert not any("feldolgozási hiba" in m for m in log.lines if hasattr(log, "lines"))
+
+
+def test_every_email_ends_with_the_business_identity():
+    """A NAV 2026.10.31-től nyilvántartja: adószám magyarul, közösségi adószám máshol."""
+    import playbook
+    assert "92521683-1-43" in playbook.legal_line("hu")
+    assert "HU92521683" in playbook.legal_line("sk")
+    for lang in playbook.OFFER:
+        body = pipeline.followup_body({"lang": lang, "lang2": None, "country": "HU"}, "https://aximbra.hu/neked/x")
+        assert body.endswith(playbook.legal_line(lang)), lang
+        assert not verify.has_price(body), lang

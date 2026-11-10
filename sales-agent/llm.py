@@ -249,6 +249,9 @@ def compose(lead: dict) -> dict:
     postal = playbook.postal_line(lead.get("country") or "")
     if postal and postal not in body:
         body = body.rstrip() + "\n" + postal
+    legal = playbook.legal_line(lead["lang"])
+    if legal not in body:
+        body = body.rstrip() + "\n" + legal
     return {"subject": (data.get("subject") or "").strip(), "body": body}
 
 

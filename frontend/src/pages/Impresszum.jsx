@@ -49,13 +49,19 @@ function ImpresszumHu({ lang }) {
             {CONTROLLER.taxNumber && (
               <div><dt>Adószám</dt><dd>{CONTROLLER.taxNumber}</dd></div>
             )}
+            {CONTROLLER.euVatNumber && (
+              <div><dt>Közösségi adószám</dt><dd>{CONTROLLER.euVatNumber}</dd></div>
+            )}
+            {CONTROLLER.chamberNumber && (
+              <div><dt>Kamarai nyilvántartási szám</dt><dd>{CONTROLLER.chamberNumber} (Budapesti Kereskedelmi és Iparkamara)</dd></div>
+            )}
           </dl>
           {/* Egy nem létező társaság látszatát kelteni pontosan az a bizalmi
               hiba lenne, amit ez az oldal orvosolni hivatott. */}
           <p className="legal-note">
-            Az AXIMBRA márkanév, nem bejegyzett gazdasági társaság. Az oldalt és a
-            rajta elérhető bemutató rendszereket {CONTROLLER.name} természetes
-            személy üzemelteti.
+            Az AXIMBRA márkanév, nem gazdasági társaság. Az oldalt és a rajta
+            elérhető bemutató rendszereket {CONTROLLER.name} egyéni vállalkozó
+            üzemelteti (alanyi adómentes).
           </p>
         </section>
 

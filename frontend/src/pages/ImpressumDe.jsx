@@ -51,10 +51,13 @@ export default function ImpressumDe({ lang }) {
             {CONTROLLER.taxNumber && (
               <div><dt>Steuernummer</dt><dd>{CONTROLLER.taxNumber}</dd></div>
             )}
+            {CONTROLLER.euVatNumber && (
+              <div><dt>USt-IdNr.</dt><dd>{CONTROLLER.euVatNumber}</dd></div>
+            )}
           </dl>
           <p className="legal-note">
-            AXIMBRA ist ein Markenname, kein eingetragenes Unternehmen. Website und
-            Demo-Systeme werden von {CONTROLLER.name} als natürlicher Person betrieben.
+            AXIMBRA ist ein Markenname, keine Gesellschaft. Website und Demo-Systeme
+            werden von {CONTROLLER.name} als Einzelunternehmer (Ungarn) betrieben.
           </p>
         </section>
 

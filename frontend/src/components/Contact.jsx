@@ -69,6 +69,11 @@ export const Footer = () => {
               {f.taxLabel}: {CONTROLLER.taxNumber}
             </span>
           )}
+          {CONTROLLER.euVatNumber && (
+            <span className="footer-sub" data-testid="footer-euvat">
+              {f.euVatLabel || "EU VAT"}: {CONTROLLER.euVatNumber}
+            </span>
+          )}
         </div>
 
         <div className="footer-col" data-testid="footer-reach">

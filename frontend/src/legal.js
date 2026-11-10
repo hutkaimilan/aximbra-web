@@ -15,9 +15,12 @@ export const CONTROLLER = {
   postcode: "1195",
   city: "Budapest",
   country: "Magyarország",
-  // Adószám / nyilvántartási szám: amint van, ide kerül, és a két oldalon
-  // magától megjelenik. Üresen hagyva egyik oldal sem állít róla semmit.
-  taxNumber: "",
+  // Egyéni vállalkozó (NAV, 2026.10.31-től). Az adószám és a közösségi adószám
+  // innen jelenik meg az impresszumban, a láblécben és a demóoldalakon.
+  taxNumber: "92521683-1-43",
+  euVatNumber: "HU92521683",
+  // Kamarai nyilvántartási szám (BKIK, 2026.11.03.).
+  chamberNumber: "BU92521683",
 };
 
 export const CONTROLLER_ADDRESS =

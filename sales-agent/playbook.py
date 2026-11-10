@@ -53,6 +53,18 @@ def postal_line(country: str) -> str:
     return os.environ.get("POSTAL_ADDRESS", "").strip() if COUNTRIES.get(country, {}).get("postal") else ""
 
 
+# A vállalkozás azonosítója a levelek végén (NAV, 2026.10.31-től): magyarul az
+# adószám, máshol a közösségi adószám. A bizalomhoz kell, nem a szabályokhoz.
+LEGAL_LINE = {
+    "hu": "Hutkai Milán egyéni vállalkozó · adószám: 92521683-1-43",
+    "other": "Milán Hutkai, sole trader (Hungary) · EU VAT: HU92521683",
+}
+
+
+def legal_line(lang: str) -> str:
+    return LEGAL_LINE["hu" if lang == "hu" else "other"]
+
+
 def country_ready(country: str) -> bool:
     """Postacímet kérő országba csak beállított POSTAL_ADDRESS mellett írunk."""
     c = COUNTRIES.get(country)

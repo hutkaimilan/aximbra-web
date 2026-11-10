@@ -403,7 +403,9 @@ def followup_body(lead: dict, demo_url: str | None = None) -> str:
         parts.append("\n\n".join(paras[:at] + [offer] + paras[at:]))
     body = f"\n\n{verify.SEPARATOR}\n\n".join(parts)
     postal = playbook.postal_line(lead.get("country") or "")
-    return body + "\n" + postal if postal else body
+    body = body + "\n" + postal if postal else body
+    legal = playbook.legal_line(lead["lang"])
+    return body if legal in body else body + "\n" + legal
 
 
 def prepare_followups(store: Store, now: datetime | None = None, demo_url=None) -> int:
