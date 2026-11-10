@@ -113,6 +113,7 @@ Nézd meg:
 - Elkérte az agent az elérhetőséget?
 - Mondott-e az agent olyat, ami nyilvánvalóan hibás (kevert nyelv, értelmetlen szó)?
 - Tegezett-e az agent BÁRMIKOR (pl. "nálatok", "szeretnél", "neked", "tudod")? Az agentnek mindig magáznia kell, akkor is, ha a hívó tegez. Egyetlen tegező szó is HIBA — idézd.
+  Csak az AGENT sorait nézd: a HÍVÓ tegezhet, az nem hiba, és a hívó szavait soha ne tulajdonítsd az agentnek. Az egyes szám első személy ("folytassam", "küldjem", "ajánlanám") NEM tegezés. A szöveg gépi beszédfelismerés, ezért egy értelmetlen vagy furcsa szóalak (pl. "olvasd ki" az "olvassa ki" helyett) lehet félrehallás: csak akkor nevezd tegezésnek, ha egyértelmű.
 - Siettette-e a zárást: ajánlatot, nevet/céget, SMS-t vagy e-mailt kért vagy ajánlott fel, MIELŐTT a hívó jelezte volna, hogy nincs több kérdése? Megkérdezte-e a végén: "Van még kérdése?" Ha a hívó még kérdezett vagy mesélt, és az agent közben ajánlatot/nevet kért, az HIBA — idézd.
 
 CSAK JSON-t adj vissza, semmi mást:
