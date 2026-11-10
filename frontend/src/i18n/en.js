@@ -92,7 +92,6 @@ const en = {
     heading: "One thing separates persuasion from pressure: whether it is true",
     sub: "If a claim is true, that is persuasion. If it isn't, it is pressure — and it comes out within weeks, usually when it is already expensive for both of us. So you won't find any of this here:",
     items: [
-      { head: "Countdowns and \"only 2 slots left\"", body: "There aren't that many slots, and if there were, they wouldn't run out at midnight tonight. Taking few projects at a time is a real limit, not a sales device." },
       { head: "Invented references", body: "The four reference sites belong to invented brands, and each one says so. A wall of logos you cannot phone is not evidence." },
       { head: "Prices that are only valid today", body: "What the packages say today, they say tomorrow. If something gets more expensive, we say so in advance, not with a countdown." },
       { head: "Numbers we never measure again", body: "The last step of the process is the re-measurement. Whatever comes out, we tell you — including when it is less than we expected." },

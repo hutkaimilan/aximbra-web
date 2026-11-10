@@ -95,7 +95,6 @@ const de = {
     heading: "Überzeugung und Druck trennt eine Sache: ob es stimmt",
     sub: "Stimmt eine Aussage, ist das Überzeugung. Stimmt sie nicht, ist es Druck — und das fliegt nach wenigen Wochen auf, meist dann, wenn es für beide Seiten schon teuer ist. Deshalb finden Sie hier nichts davon:",
     items: [
-      { head: "Countdowns und „nur noch 2 Plätze frei“", body: "So viele Plätze gibt es nicht, und wenn, dann laufen sie nicht heute um Mitternacht ab. Dass wir nur wenige Projekte gleichzeitig annehmen, ist eine echte Grenze, kein Verkaufstrick." },
       { head: "Erfundene Referenzen", body: "Die vier Referenzseiten gehören zu erfundenen Marken, und jede sagt das. Eine Logowand, bei der Sie nicht anrufen können, ist kein Beleg." },
       { head: "Preise, die nur heute gelten", body: "Was heute in den Paketen steht, steht auch morgen dort. Wird etwas teurer, sagen wir es vorher — nicht mit einem Countdown." },
       { head: "Zahlen, die nie nachgemessen werden", body: "Der letzte Schritt im Ablauf ist die Nachmessung. Was dabei herauskommt, sagen wir Ihnen — auch wenn es weniger ist als erwartet." },

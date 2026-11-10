@@ -92,7 +92,6 @@ const hu = {
     heading: "A meggyőzés és a rábeszélés között egy különbség van: igaz-e",
     sub: "Ha egy állítás igaz, az meggyőzés. Ha nem igaz, az rábeszélés — és néhány hét múlva úgyis kiderül, általában akkor, amikor már mindkettőnknek drága. Ezért ezen az oldalon nem találsz ilyet:",
     items: [
-      { head: "Visszaszámlálót és „már csak 2 hely\"-et", body: "Nincs annyi hely, és ha lenne, nem ma éjfélkor fogyna el. Az egyszerre kevés projekt valódi korlát, de nem akciós fogás." },
       { head: "Kitalált referenciát", body: "A négy bemutatóoldal kitalált márkáké, és mindegyik ki is írja magáról. Egy logófal, amit nem lehet felhívni, nem bizonyíték." },
       { head: "Árat, ami csak ma érvényes", body: "Ami a csomagoknál ki van írva, az holnap is annyi. Ha valami drágul, azt előre megmondjuk, nem visszaszámlálóval." },
       { head: "Számot, amit nem mérünk vissza", body: "A folyamat utolsó lépése a visszamérés. Ami kijön, azt akkor is megmondjuk, ha kevesebb, mint amit vártunk." },
