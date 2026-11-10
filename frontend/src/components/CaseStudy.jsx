@@ -7,8 +7,6 @@ const MediaFallback = ({ big, sm }) => (
   <div className="media-box"><div className="big">{big}</div><div className="sm">{sm}</div></div>
 );
 
-const EPISTEME_PHONE = "+1 949 810 7263";
-
 export const CaseStudy = () => {
   const { t } = useLang();
   const c = t.caseStudy;
@@ -57,13 +55,6 @@ export const CaseStudy = () => {
                 )}
               </div>
 
-              {/* EPISTEME's own voice line, not AXIMBRA's — this is its case study.
-                  AXIMBRA's number lives in src/contact.js. */}
-              <div className="phone-card" data-testid="phone-card">
-                <div className="lbl">{c.phoneLabel}</div>
-                <a className="num" href={`tel:${EPISTEME_PHONE.replace(/\s/g, "")}`}>{EPISTEME_PHONE}</a>
-                <div className="hint">{c.phoneHint[0]}<br />{c.phoneHint[1]}</div>
-              </div>
             </div>
           </div>
         </div>
