@@ -36,6 +36,15 @@ import {
 } from './llm.js';
 import { sendSummary } from './email.js';
 import { sendContactSms } from './sms.js';
+import { HOLD_MS, looksUnfinished } from './turn.js';
+
+/** Atmeneti modellhiba-e: ezt erdemes egyszer ujraprobalni. */
+function isRetryable(err: unknown): boolean {
+  const e = err as { status?: number; name?: string; code?: string } | null;
+  if (!e) return false;
+  if (typeof e.status === 'number' && [408, 429, 500, 502, 503, 504].includes(e.status)) return true;
+  return /Timeout|Connection/i.test(e.name ?? '') || e.code === 'ETIMEDOUT' || e.code === 'ECONNRESET';
+}
 import { handleTestRoute, handleTestRelay, startTestCall } from './testAgent.js';
 import {
   FAILURE_MESSAGE,
@@ -712,6 +721,8 @@ interface Session {
   timer: NodeJS.Timeout | null;
   /** Elkoszones utan a bontas idozitoje; uj hivoi mondat leallitja. */
   hangup: NodeJS.Timeout | null;
+  /** Befejezetlen hivoi mondat utan: ennyit varunk a folytatasra (turn.ts). */
+  hold: NodeJS.Timeout | null;
   closed: boolean;
   /** Amit a hivas soran mar megtudtunk a hivorol. */
   facts: CallFacts;
@@ -767,6 +778,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     streamed: '',
     timer: null,
     hangup: null,
+    hold: null,
     closed: false,
     facts: emptyFacts(),
     extracting: false,
@@ -887,8 +899,8 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
 
     // A bontas jele (END_CALL_MARKER) nem hangozhat el: a szuro kiveszi.
     const filter = new MarkerFilter();
-    try {
-      const full = await replyStream(
+    const ask = (timeoutMs: number): Promise<string> =>
+      replyStream(
         s.history,
         buildSystemPrompt(cfg.currentProjects, s.facts, s.from, s.lang, s.history),
         (delta) => {
@@ -897,8 +909,23 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
           s.streamed += out;
           send(out, false);
         },
-        { signal: ac.signal, maxTokens: 200, temperature: 0.3, timeoutMs: 12_000 },
+        { signal: ac.signal, maxTokens: 200, temperature: 0.3, timeoutMs },
       );
+    try {
+      let full: string;
+      try {
+        full = await ask(12_000);
+      } catch (first) {
+        // A modellszolgaltato atmeneti hibaja (503, idotullepes): egyszer
+        // ujraprobaljuk, mielott a hivot ismetlesre kernenk. Egy eles hivasban
+        // ketszer egymas utan elhangzott a "megszakadt a kapcsolat,
+        // megismetelne?", pedig a vonallal semmi baj nem volt - a hivo
+        // feleslegesen mondta el ujra, amit mar egyszer elmondott.
+        if (ac.signal.aborted || s.streamed.trim() || !isRetryable(first)) throw first;
+        console.warn(`[ws] modellhiba, ujraprobalas callSid=${s.callSid}:`, String(first));
+        send(say().hold, true);
+        full = await ask(10_000);
+      }
       const rest = filter.flush();
       if (rest) {
         s.streamed += rest;
@@ -1094,6 +1121,11 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
       const text = typeof msg['voicePrompt'] === 'string' ? msg['voicePrompt'].trim() : '';
       if (!text) return;
 
+      if (s.hold) {
+        clearTimeout(s.hold);
+        s.hold = null;
+      }
+
       // Elkoszontunk, de a hivo meg mond valamit: nem bontunk ra. Ha csak
       // visszakoszont, a modell ujra elkoszon, es akkor bontunk.
       if (s.hangup) {
@@ -1103,6 +1135,17 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
       }
 
       s.queue.push(text);
+
+      // Felbehagyott mondat ("Megjon a termek. Teszem azt,"): rovid ideig
+      // varunk a folytatasra, es azzal egyutt valaszolunk. Lasd turn.ts.
+      if (!s.draining && looksUnfinished(s.queue.join(' '))) {
+        console.log(`[ws] befejezetlen mondat, varunk ${HOLD_MS}ms callSid=${s.callSid}`);
+        s.hold = setTimeout(() => {
+          s.hold = null;
+          void drain();
+        }, HOLD_MS);
+        return;
+      }
       await drain();
     })();
   });
@@ -1112,6 +1155,10 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     s.closed = true;
 
     s.abort?.abort();
+    if (s.hold) {
+      clearTimeout(s.hold);
+      s.hold = null;
+    }
     if (s.timer) {
       clearTimeout(s.timer);
       s.timer = null;

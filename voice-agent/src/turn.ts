@@ -1,0 +1,77 @@
+/**
+ * Mikor fejezte be a hivo a mondatat?
+ *
+ * A ConversationRelay a csendbol dont: ha a hivo `speechTimeout` ideig hallgat,
+ * a felismert szoveget vegleges mondatkent kuldi. Aki gondolkodik beszed
+ * kozben ("Megjon a termek. Teszem azt,"), az ennel tovabb is hallgathat - es
+ * ilyenkor az agent egy felmondatra valaszolt, belevagott a hivoba. Egy eles
+ * hivasban a hivo ezt mondta: "Ne, ne, ne, pofazol bele."
+ *
+ * Ez a modul csak a szovegbol becsul. Ha a mondat befejezetlennek tunik, a
+ * hivas egy rovid ideig var a folytatasra, mielott valaszolna.
+ */
+
+/** Ennyit varunk egy befejezetlennek tuno mondat folytatasara (ms). */
+export const HOLD_MS = 1800;
+
+/** Rovid, de onmagukban teljes valaszok - ezekre nem varunk. */
+const COMPLETE_SHORT = new Set([
+  'igen', 'nem', 'jó', 'jo', 'rendben', 'értem', 'ertem', 'persze', 'köszönöm',
+  'koszonom', 'oké', 'oke', 'ok', 'okés', 'hello', 'halló', 'hallo', 'szia',
+  'viszontlátásra', 'viszonthallásra', 'ennyi', 'nincs', 'van', 'pontosan',
+  'yes', 'no', 'okay', 'sure', 'thanks', 'bye', 'right', 'exactly',
+]);
+
+/**
+ * Szavak, amik utan a mondat nem erhet veget: kotoszavak, nevelok,
+ * toltelekszavak. Ha a felismert szoveg ezek egyikevel zarul, a hivo
+ * folytatni fogja.
+ */
+const DANGLING = new Set([
+  'a', 'az', 'egy', 'és', 'es', 'meg', 'hogy', 'de', 'mert', 'tehát', 'tehat',
+  'ugye', 'ami', 'amit', 'amire', 'amely', 'akkor', 'szóval', 'szoval', 'hát',
+  'hat', 'például', 'peldaul', 'mint', 'vagy', 'illetve', 'is', 'pedig', 'ha',
+  'amikor', 'ahol', 'aki', 'ööö', 'öö', 'ő', 'hmm', 'izé', 'ize', 'teszem',
+  'mondjuk', 'valamint', 'továbbá', 'tovabba', 'csak', 'így', 'igy',
+  'the', 'and', 'so', 'because', 'but', 'or', 'that', 'which', 'like', 'um', 'uh',
+  'with', 'to', 'of', 'for', 'if', 'when',
+]);
+
+/** A mondat vegerol levagjuk a zaro irasjelet, es kisbetusitunk. */
+function words(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[.!?…"„”'’]+$/u, '')
+    .split(/\s+/u)
+    .map((w) => w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''))
+    .filter(Boolean);
+}
+
+/**
+ * Igaz, ha a szoveg valoszinuleg egy felbehagyott mondat, amit a hivo
+ * folytatni fog. Kerdesre (?) es egyertelmu lezarasra soha nem igaz.
+ */
+export function looksUnfinished(raw: string): boolean {
+  const text = raw.trim();
+  if (!text) return false;
+  if (/[?]$/u.test(text)) return false;
+
+  // Vesszo, gondolatjel, kettospont, harom pont a vegen: a mondat folytatodik.
+  if (/[,;:\-–—]$/u.test(text) || /(\.\.\.|…)$/u.test(text)) return true;
+
+  const w = words(text);
+  if (w.length === 0) return false;
+
+  const last = w[w.length - 1]!;
+  if (w.length === 1) {
+    if (COMPLETE_SHORT.has(last)) return false;
+    // Egyetlen betu vagy toltelek ("A", "Ööö"): biztosan nem a teljes mondat.
+    if (last.length <= 2 || DANGLING.has(last)) return true;
+    return false;
+  }
+
+  if (DANGLING.has(last)) return true;
+  // "teszem azt" - a folytatas jon.
+  if (w.length >= 2 && w[w.length - 2] === 'teszem' && last === 'azt') return true;
+  return false;
+}
