@@ -94,7 +94,8 @@ export const Payback = () => {
   useEffect(() => {
     const el = boxRef.current;
     if (!el || typeof ResizeObserver === "undefined") return undefined;
-    const ro = new ResizeObserver(([e]) => setW(Math.max(280, Math.round(e.contentRect.width))));
+    // Rejtett fooldalon a szelesseg 0 - azt nem vesszuk at, a grafikon maradjon.
+    const ro = new ResizeObserver(([e]) => { if (e.contentRect.width > 0) setW(Math.max(280, Math.round(e.contentRect.width))); });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);

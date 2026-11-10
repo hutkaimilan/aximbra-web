@@ -21,7 +21,10 @@ const Preview = ({ src, title }) => {
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    const fit = () => setScale(el.clientWidth / W);
+    // Rejtett fooldalon (belso lapon vagyunk) a szelesseg 0: ilyenkor a regi
+    // meretet tartjuk, kulonben az elonezet osszeesik, es visszaterve a
+    // magassaga ujra no - a lap ettol ugrott egyet.
+    const fit = () => { if (el.clientWidth > 0) setScale(el.clientWidth / W); };
     fit();
     const ro = new ResizeObserver(fit);
     ro.observe(el);

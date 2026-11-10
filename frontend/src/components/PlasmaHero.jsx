@@ -193,6 +193,7 @@ export const PlasmaHero = () => {
     let order = [];
     let ready = false;
     let alive = true;
+    let idle = 0; // a rejtett allapot ritkitott idozitoje
 
     function attr(name, data, size) {
       const b = gl.createBuffer();
@@ -314,13 +315,17 @@ export const PlasmaHero = () => {
         gl.uniform1f(u.halo, 0);
         gl.drawArrays(gl.POINTS, 0, N);
       }
-      if (!reduce && !document.hidden) raf = requestAnimationFrame(frame);
+      // Rejtett fooldal (belso lapon vagyunk): nem rajzolunk 60-szor
+      // masodpercenkent egy lathatatlan vasznat, csak neha nezunk ra.
+      if (!reduce && !document.hidden && document.body.classList.contains("site-hidden")) {
+        idle = setTimeout(() => { idle = 0; if (alive) raf = requestAnimationFrame(frame); }, 400);
+      } else if (!reduce && !document.hidden) raf = requestAnimationFrame(frame);
       else if (!ready) setTimeout(() => requestAnimationFrame(frame), 200);
     }
     raf = requestAnimationFrame(frame);
 
     function onVisibility() {
-      if (!document.hidden && !reduce) { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); }
+      if (!document.hidden && !reduce) { clearTimeout(idle); idle = 0; cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); }
     }
     document.addEventListener("visibilitychange", onVisibility);
     function onScrollStatic() { if (reduce) requestAnimationFrame(frame); }
@@ -328,6 +333,7 @@ export const PlasmaHero = () => {
 
     return () => {
       alive = false;
+      clearTimeout(idle);
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
       window.removeEventListener("mousemove", onMove);

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import Lenis from "lenis";
 import "@/index.css";
 import { Intro } from "@/components/Intro";
@@ -19,7 +19,7 @@ import { Payback } from "@/components/Payback";
 import { OfferBand } from "@/components/OfferBand";
 import { LanguageProvider, useLang, PREFIXED_LANGS } from "@/i18n";
 import { useDocumentMeta, organizationJsonLd } from "@/seo";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, matchPath } from "react-router-dom";
 import NotFound from "./pages/NotFound";
 import { useVisitBeacon } from "./visits";
 import Etterem from "@/demos/Etterem";
@@ -34,16 +34,19 @@ import Neked from "@/pages/Neked";
 
 let reloadChecked = false;
 
-function Site() {
+function Site({ visible = true }) {
   const { t, lang } = useLang();
   useDocumentMeta({
-    title: t.seo.title,
+    // Ures cim = "most nem en vagyok a lap": rejtve ne irja felul az impresszum
+    // cimet, visszaterve pedig (a cim valtozasa miatt) ujra beallitja a sajatjat.
+    title: visible ? t.seo.title : "",
     description: t.seo.description,
     path: "/",
     lang,
     jsonLd: organizationJsonLd(t.seo.description),
   });
   const lenisRef = useRef(null);
+  const visibleRef = useRef(visible);
   const returningRef = useRef((() => {
     try {
       // F5-nel a teljes nyitas jar (animacioval, a lap tetejen): egy kattintas
@@ -68,6 +71,8 @@ function Site() {
   // rovidebb uj laphoz igazitotta a gorgetest, az a szam rossz lenne.
   useEffect(() => {
     const onClick = (e) => {
+      // Rejtve (az impresszumon vagyunk) az ottani kattintas nem a mi helyunk.
+      if (!visibleRef.current) return;
       const a = e.target.closest && e.target.closest("a[href]");
       if (!a || a.target === "_blank") return;
       const href = a.getAttribute("href") || "";
@@ -118,6 +123,34 @@ function Site() {
     };
   }, []);
 
+  // A fooldal belso lapra lepve nem szunik meg, csak elrejtodik (lasd Shell).
+  // Elrejteskor a masik lap a tetejen kezdodik; visszaterve egyetlen ugrassal
+  // ott vagyunk, ahol a latogato kattintott - a lap mar teljes magassagu, nincs
+  // ujrarajzolas, animacio vagy tobbszori igazitas.
+  const firstVisibility = useRef(true);
+  // Layout effect: a gorgetes a festes elott a helyere kerul, egy kocka
+  // erejeig sem latszik a rossz pozicio.
+  useLayoutEffect(() => {
+    visibleRef.current = visible;
+    if (firstVisibility.current) { firstVisibility.current = false; return; }
+    const lenis = lenisRef.current;
+    if (!visible) {
+      document.body.classList.add("site-hidden");
+      if (lenis) lenis.scrollTo(0, { immediate: true, force: true });
+      else window.scrollTo(0, 0);
+      return;
+    }
+    document.body.classList.remove("site-hidden");
+    let y = 0;
+    try {
+      y = parseInt(sessionStorage.getItem("aximbra:return"), 10) || 0;
+      sessionStorage.removeItem("aximbra:return");
+    } catch { /* privat mod */ }
+    if (lenis) { lenis.resize(); lenis.scrollTo(y, { immediate: true, force: true }); }
+    else window.scrollTo(0, y);
+  }, [visible]);
+  useEffect(() => () => document.body.classList.remove("site-hidden"), []);
+
   const scrollTo = (id) => {
     if (id === "top") {
       lenisRef.current ? lenisRef.current.scrollTo(0) : window.scrollTo({ top: 0, behavior: "smooth" });
@@ -135,7 +168,7 @@ function Site() {
   };
 
   return (
-    <div className={`App${returningRef.current ? " restore" : ""}`}>
+    <div className={`App${returningRef.current ? " restore" : ""}`} style={visible ? undefined : { display: "none" }}>
       <Intro skip={returningRef.current} />
       <PlasmaHero />
       <div className="plasma-veil" />
@@ -202,6 +235,69 @@ function VisitBeacon() {
   return null;
 }
 
+// A gorgetest mi allitjuk vissza (Site, aximbra:return). A bongeszo sajat
+// visszaallitasa ugyanarra a pillanatra egy masik, korabbi erteket tenne, es
+// a lap visszalepeskor egyet ugrana.
+if (typeof window !== "undefined" && "scrollRestoration" in window.history) {
+  window.history.scrollRestoration = "manual";
+}
+
+const HOME_PATTERNS = ["/", "/agent/:slug",
+  ...PREFIXED_LANGS.flatMap((c) => [`/${c}`, `/${c}/agent/:slug`])];
+const isHomePath = (pathname) => HOME_PATTERNS.some((p) => matchPath({ path: p, end: true }, pathname));
+const HOME_PAGES = PAGES.filter((p) => p.path === "" || p.path === "agent/:slug");
+const OTHER_PAGES = PAGES.filter((p) => !HOME_PAGES.includes(p));
+
+/**
+ * A fooldal egyszer felepul, es belso lapra (impresszum, adatkezeles, demo,
+ * weboldal) lepve csak elrejtodik. Korabban minden visszalepesnel ujraepult:
+ * ujra lefutott a nyitoanimacio, a lap nulla magassagrol nott vissza, es a
+ * gorgetes ugralt, amig utolerte. A rejtett fooldal az utolso sajat cimen
+ * marad (Routes location), igy az /agent/:slug parameter sem vesz el.
+ */
+function Shell() {
+  const location = useLocation();
+  const home = isHomePath(location.pathname);
+  const lastHome = useRef(home ? location : null);
+  if (home) lastHome.current = location;
+
+  const homeRoutes = (visible) => (
+    <>
+      {HOME_PAGES.map((p) => (
+        <Route key={p.path} path={`/${p.path}`} element={<Site visible={visible} />} />
+      ))}
+      {PREFIXED_LANGS.map((code) =>
+        HOME_PAGES.map((p) => (
+          <Route key={`${code}/${p.path}`} path={`/${code}/${p.path}`} element={<Site visible={visible} />} />
+        ))
+      )}
+    </>
+  );
+
+  return (
+    <>
+      {lastHome.current && <Routes location={lastHome.current}>{homeRoutes(home)}</Routes>}
+      {!home && (
+        <Routes>
+          {OTHER_PAGES.map((p) => (
+            <Route key={p.path} path={`/${p.path}`} element={p.element} />
+          ))}
+          {PREFIXED_LANGS.map((code) =>
+            OTHER_PAGES.map((p) => (
+              <Route key={`${code}/${p.path}`} path={`/${code}/${p.path}`} element={p.element} />
+            ))
+          )}
+          {/* Egy cégnek készült demóoldal. Nyelvi előtag nélkül: a nyelvét a cég
+              oldala dönti el, nem az URL. */}
+          <Route path="/neked/:slug" element={<Neked />} />
+          {/* Ismeretlen cim: sajat lap, `noindex`-szel. */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      )}
+    </>
+  );
+}
+
 export default function App() {
   return (
     // The router wraps the provider, not the other way round: the language now
@@ -209,23 +305,7 @@ export default function App() {
     <BrowserRouter>
       <LanguageProvider>
         <VisitBeacon />
-        <Routes>
-          {PAGES.map((p) => (
-            <Route key={p.path} path={`/${p.path}`} element={p.element} />
-          ))}
-          {PREFIXED_LANGS.map((code) =>
-            PAGES.map((p) => (
-              <Route key={`${code}/${p.path}`} path={`/${code}/${p.path}`} element={p.element} />
-            ))
-          )}
-          {/* Egy cégnek készült demóoldal. Nyelvi előtag nélkül: a nyelvét a cég
-              oldala dönti el, nem az URL. */}
-          <Route path="/neked/:slug" element={<Neked />} />
-          {/* Unknown path: hand it to the homepage rather than a blank screen. */}
-          {/* Ismeretlen cim: sajat lap, `noindex`-szel. Eddig a fooldal jott vissza
-              200-as valasszal, amit a Google "soft 404"-kent bunteti. */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <Shell />
       </LanguageProvider>
     </BrowserRouter>
   );
