@@ -132,3 +132,48 @@ export class FormalFilter {
     return out;
   }
 }
+
+/** "Van meg kerdese?" es rokonai - egy hivasban egyszer hangozhat el. */
+export const MORE_QUESTIONS_RE =
+  /\b(van|lenne) (még|esetleg)( még)? (más |egyéb )?(kérdése|kérdés)\b|\bany (other|more) questions\b|\banything else (i can|to) help\b/iu;
+
+/**
+ * Mondatonkent szuri a streamelt kimenetet: az `drop` mintara illeszkedo
+ * mondat nem megy ki. Csak akkor kapcsoljuk be, ha a mondat mar elhangzott a
+ * hivasban - a promptszabaly ("egyszer kerdezd") egy teszthivasban harom
+ * egymast koveto valasznal sem tartott.
+ *
+ * Amig a szuro aktiv, a szoveg mondatonkent megy ki, nem tokenenkent: ez a
+ * felolvasas inditasat egy mondatnyit kesleltetheti.
+ */
+export class SentenceDropFilter {
+  private buf = '';
+  constructor(private readonly drop: RegExp | null) {}
+  push(delta: string): string {
+    if (!this.drop) return delta;
+    this.buf += delta;
+    let out = '';
+    for (;;) {
+      const m = /[.!?…](\s+)/u.exec(this.buf);
+      if (!m) break;
+      const end = m.index + m[0].length;
+      const sentence = this.buf.slice(0, end);
+      this.buf = this.buf.slice(end);
+      if (!this.drop.test(sentence)) out += sentence;
+    }
+    return out;
+  }
+  flush(): string {
+    if (!this.drop) return '';
+    const rest = this.buf;
+    this.buf = '';
+    return this.drop.test(rest) ? '' : rest;
+  }
+}
+
+/** Ugyanez kesz szovegre (a tortenetbe ez kerul). */
+export function dropSentences(text: string, drop: RegExp | null): string {
+  if (!drop) return text;
+  const f = new SentenceDropFilter(drop);
+  return (f.push(text) + f.flush()).trim();
+}

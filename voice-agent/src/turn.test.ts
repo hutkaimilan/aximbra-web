@@ -39,3 +39,15 @@ test('streamelve, darabokra torve is cserel', () => {
   const out = ['Hány ember ', 'foglalkozik ezzel nála', 'tok', '?'].map((d) => f.push(d)).join('') + f.flush();
   assert.equal(out, 'Hány ember foglalkozik ezzel Önöknél?');
 });
+
+import { MORE_QUESTIONS_RE, SentenceDropFilter, dropSentences } from './turn.js';
+
+test('a mar elhangzott "Van meg kerdese?" kimarad, a tobbi marad', () => {
+  const text = 'A havi díjról előre megállapodunk. Van még kérdése, amiben segíthetek?';
+  assert.equal(dropSentences(text, MORE_QUESTIONS_RE), 'A havi díjról előre megállapodunk.');
+  const f = new SentenceDropFilter(MORE_QUESTIONS_RE);
+  const out = ['A havi díjról ', 'előre megállapodunk. Van ', 'még kérdése, amiben segíthetek?'].map((d) => f.push(d)).join('') + f.flush();
+  assert.equal(out.trim(), 'A havi díjról előre megállapodunk.');
+  // Kikapcsolva mindent atenged.
+  assert.equal(dropSentences(text, null), text);
+});

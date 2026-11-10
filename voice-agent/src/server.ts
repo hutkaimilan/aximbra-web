@@ -36,7 +36,15 @@ import {
 } from './llm.js';
 import { sendSummary } from './email.js';
 import { sendContactSms } from './sms.js';
-import { FormalFilter, HOLD_MS, formalize, looksUnfinished } from './turn.js';
+import {
+  FormalFilter,
+  HOLD_MS,
+  MORE_QUESTIONS_RE,
+  SentenceDropFilter,
+  dropSentences,
+  formalize,
+  looksUnfinished,
+} from './turn.js';
 
 /** Atmeneti modellhiba-e: ezt erdemes egyszer ujraprobalni. */
 function isRetryable(err: unknown): boolean {
@@ -901,17 +909,21 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     const filter = new MarkerFilter();
     // Tegezo nevmas soha nem mehet ki a vonalra (turn.ts).
     const formal = new FormalFilter();
+    // Ha a "Van meg kerdese?" mar elhangzott, ujra nem mehet ki (turn.ts).
+    const askedMore = s.history.some((t) => t.role === 'assistant' && MORE_QUESTIONS_RE.test(t.content));
+    const dropRe = askedMore ? MORE_QUESTIONS_RE : null;
+    const once = new SentenceDropFilter(dropRe);
     const ask = (timeoutMs: number): Promise<string> =>
       replyStream(
         s.history,
         buildSystemPrompt(cfg.currentProjects, s.facts, s.from, s.lang, s.history),
         (delta) => {
-          const out = formal.push(filter.push(delta));
+          const out = once.push(formal.push(filter.push(delta)));
           if (!out) return;
           s.streamed += out;
           send(out, false);
         },
-        { signal: ac.signal, maxTokens: 200, temperature: 0.3, timeoutMs },
+        { signal: ac.signal, maxTokens: 500, temperature: 0.3, timeoutMs },
       );
     try {
       let full: string;
@@ -928,13 +940,13 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         send(say().hold, true);
         full = await ask(10_000);
       }
-      const rest = formal.push(filter.flush()) + formal.flush();
+      const rest = once.push(formal.push(filter.flush()) + formal.flush()) + once.flush();
       if (rest) {
         s.streamed += rest;
         send(rest, false);
       }
       send('', true);
-      const spoken = formalize(stripMarker(full));
+      const spoken = dropSentences(formalize(stripMarker(full)), dropRe);
       s.history.push({ role: 'assistant', content: spoken });
       if (filter.found) scheduleHangup(spoken);
     } catch (err) {
