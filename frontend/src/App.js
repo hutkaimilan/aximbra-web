@@ -77,7 +77,12 @@ function Site() {
       return;
     }
     const el = document.getElementById(id);
-    if (!el) return;
+    // A visszahivo urlap csak akkor letezik, ha a telefon-agent el; ha nincs
+    // ott, a lap teteje (a telefonszam) a legkozelebbi ertelmes cel.
+    if (!el) {
+      if (id === "visszahivas") scrollTo("top");
+      return;
+    }
     if (lenisRef.current) lenisRef.current.scrollTo(el, { offset: -80 });
     else el.scrollIntoView({ behavior: "smooth" });
   };

@@ -82,7 +82,7 @@ const hu = {
     heading: "Három dolog, amit ezen a lapon most ellenőrizhetsz",
     sub: "Egy ígéretet nem lehet ellenőrizni, egy működő rendszert igen. Ezek nem felvételek róla — most is futnak, és most is elronthatják.",
     items: [
-      { n: "01", title: "Hívasd fel magad a telefonos agenttel", desc: "Az oldal tetején add meg a számodat, és az AXIMBRA agent tíz másodpercen belül felhív — magyarul vagy angolul. Kérdezz tőle bármit a szolgáltatásainkról, és nézd meg, mit kezd vele.", cta: "Az oldal tetejére →", to: "top" },
+      { n: "01", title: "Hívasd fel magad a telefonos agenttel", desc: "Az oldal tetején add meg a számodat, és az AXIMBRA agent tíz másodpercen belül felhív — magyarul vagy angolul. Kérdezz tőle bármit a szolgáltatásainkról, és nézd meg, mit kezd vele.", cta: "A visszahíváshoz →", to: "visszahivas" },
       { n: "02", title: "Futtasd le az e-mail agentet a saját postafiókodon", desc: "Google-fiókkal, csak olvasási joggal. Nem tárol semmit, és fél óra múlva elfelejt. Ha nem akarsz fiókot adni, a mintapostafiók ugyanezt megmutatja.", cta: "Az e-mail agenthez →", to: "agentek" },
       { n: "03", title: "Nézd meg a négy bemutatóoldalt", desc: "Mind a négy kitalált márkáé, és mindegyik ki is írja magáról. Nem adjuk ki őket ügyfélmunkának, mert nem azok.", cta: "A bemutatóoldalakhoz →", to: "referenciak" },
     ],

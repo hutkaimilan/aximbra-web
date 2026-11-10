@@ -399,12 +399,14 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
 .callback-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 .callback-input {
   flex: 1 1 220px; min-width: 0;
-  padding: 12px 14px; font-size: 15px; font-family: var(--mono);
-  color: var(--text); background: rgba(0,0,0,.28);
-  border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 16px; font-size: 16px; font-family: var(--mono);
+  color: var(--text); background: rgba(0,0,0,.35);
+  border: 2px solid var(--cyan); border-radius: 12px;
+  box-shadow: 0 0 0 4px rgba(0,233,255,.12), 0 0 22px rgba(0,233,255,.22);
 }
-.callback-input::placeholder { color: var(--dim); opacity: .6; }
-.callback-input:focus { outline: none; border-color: var(--cyan); }
+.callback-input::placeholder { color: var(--text); opacity: .45; }
+.callback-input:focus { outline: none; border-color: var(--cyan);
+  box-shadow: 0 0 0 4px rgba(0,233,255,.28), 0 0 28px rgba(0,233,255,.38); }
 .callback-input:disabled { opacity: .6; }
 .callback-btn {
   flex: 0 0 auto; padding: 12px 22px; font-size: 14.5px; font-weight: 600;
@@ -423,6 +425,7 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
 @media (max-width: 420px){
   .callback { padding: 16px 14px 14px; }
   .callback-btn { flex: 1 1 100%; }
+  .callback-input { flex: 1 1 100%; }
 }
 .stats { display: flex; gap: 56px; flex-wrap: wrap; }
 .stat .big { font-family: var(--display); font-weight: 700; font-size: 30px; color: var(--text); }
