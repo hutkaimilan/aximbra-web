@@ -12,7 +12,7 @@ const SEO = {
 const zh = {
   seo: SEO,
   nav: {
-    links: [["AI 代理", "agentek"], ["工作流程", "folyamat"], ["网站建设", "weboldal", "/weboldal"], ["案例", "eset"]],
+    links: [["AI 代理", "agentek"], ["工作流程", "folyamat"], ["网站建设", "weboldal", "/weboldal"]],
     contact: "联系我们",
     callbar: "您的店每天漏接多少电话？",
     callbarHref: CALLBAR,
@@ -247,23 +247,10 @@ const zh = {
     ],
   },
   caseStudy: {
-    tag: "实际运行",
-    heading: "在真实线路上打电话的代理",
-    pill: "我们自己的演示",
-    para: "一个三语餐厅助理：接听电话、预订餐桌，并写入与网站相同的空位计数器。这不是原型：它运行在真实电话号码上，并发送真实的短信确认。",
-    bullets: [
-      "说匈牙利语、英语和西班牙语，可在通话中切换（不说中文）",
-      "电话和网站共享同一预订状态",
-      "可随时打断——不必听它说完",
-      "每日通话额度和通话时长上限，成本可预测",
-    ],
-    link: "打开网站 →",
-    audioCaption: "与 AI 接待员的一次真实通话——约 50 秒。",
-    audioError: "音频暂时无法播放。",
-    videoBig: "▶ 视频——即将推出",
-    videoSm: "网页预订的录屏，从开始到确认。",
-    phoneLabel: "立即拨打",
-    phoneHint: ["用匈牙利语、英语或西班牙语预订餐桌。", "每日额度：20 通电话。"],
+    tag: "我们的第一个项目",
+    heading: "我们的第一个项目——已停止运行",
+    note: "这是我们的第一个代理：一家餐厅的网页订座，从开始到确认。该系统已停止运行，录屏保留了下来。",
+    videoBig: "▶ 视频暂时无法播放",
   },
   contact: {
     heading: "哪项任务占用了您一整周？",
@@ -299,7 +286,6 @@ const zh = {
     imprint: "网站信息",
     privacy: "隐私声明",
     left: "AXIMBRA · aximbra.hu",
-    right: "EPISTEME 是我们自己的内部演示系统，不是客户项目。",
   },
   marquee: ["是代理，不是聊天机器人", "人工审批", "HU · EN · ES", "能运行的系统"],
   demo: {

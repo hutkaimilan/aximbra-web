@@ -11,7 +11,7 @@ const SEO = {
 const fr = {
   seo: SEO,
   nav: {
-    links: [["Agents", "agentek"], ["Processus", "folyamat"], ["Sites web", "weboldal", "/weboldal"], ["Étude de cas", "eset"]],
+    links: [["Agents", "agentek"], ["Processus", "folyamat"], ["Sites web", "weboldal", "/weboldal"]],
     contact: "CONTACT",
     callbar: "Combien d'appels votre établissement manque-t-il ?",
     callbarHref: CALLBAR,
@@ -126,23 +126,10 @@ const fr = {
     agents: "Voir les agents",
   },
   caseStudy: {
-    tag: "En action",
-    heading: "Un agent qui appelle, sur une ligne réelle",
-    pill: "NOTRE DÉMO",
-    para: "Un assistant de restaurant en trois langues qui répond au téléphone, réserve une table et écrit sur le même compteur de places libres que le site. Pas un prototype : il tourne sur un vrai numéro et envoie une vraie confirmation par SMS.",
-    bullets: [
-      "Parle hongrois, anglais et espagnol, et change en cours d'appel",
-      "Téléphone et web partagent le même état de réservation",
-      "Interruptible — pas besoin d'écouter jusqu'au bout",
-      "Quota d'appels quotidien et limite de durée pour un coût prévisible",
-    ],
-    link: "Ouvrir le site web →",
-    audioCaption: "Un vrai appel avec la réception IA — environ 50 secondes.",
-    audioError: "L'audio n'est pas disponible pour le moment.",
-    videoBig: "▶ Vidéo — bientôt",
-    videoSm: "Capture d'écran de la réservation web, du début à la confirmation.",
-    phoneLabel: "Appelez maintenant",
-    phoneHint: ["Demandez une table dans n'importe quelle langue.", "Quota quotidien : 20 appels."],
+    tag: "Notre premier projet",
+    heading: "Notre premier projet — qui ne tourne plus",
+    note: "C'était notre premier agent : la réservation de table en ligne d'un restaurant, du début à la confirmation. Le système ne tourne plus ; l'enregistrement reste.",
+    videoBig: "▶ La vidéo n'est pas disponible pour le moment",
   },
   contact: {
     phoneOrigin: "Numéro américain (Twilio). Les appels de numéros non hongrois sont pris par l'agent IA, en anglais.",
@@ -154,7 +141,6 @@ const fr = {
     imprint: "Mentions légales",
     privacy: "Confidentialité",
     left: "AXIMBRA · aximbra.hu",
-    right: "EPISTEME est notre propre système de démonstration, pas un travail client.",
   },
   marquee: ["DES AGENTS, PAS DES CHATBOTS", "VALIDATION HUMAINE", "HU · EN · ES", "SYSTÈME QUI FONCTIONNE"],
 };

@@ -90,7 +90,6 @@ export const Footer = () => {
             <Link to={pathFor(lang, "/impresszum")}>{t.footer.imprint}</Link>
             <Link to={pathFor(lang, "/adatkezeles")}>{t.footer.privacy}</Link>
           </div>
-          <span className="footer-sub footer-note">{t.footer.right}</span>
         </div>
       </div>
       <div className="container footer-base">

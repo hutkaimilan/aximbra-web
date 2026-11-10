@@ -11,7 +11,7 @@ const SEO = {
 const ro = {
   seo: SEO,
   nav: {
-    links: [["Agenți", "agentek"], ["Proces", "folyamat"], ["Site web", "weboldal", "/weboldal"], ["Studiu de caz", "eset"]],
+    links: [["Agenți", "agentek"], ["Proces", "folyamat"], ["Site web", "weboldal", "/weboldal"]],
     contact: "CONTACT",
     callbar: "Câte apeluri pierde localul tău?",
     callbarHref: CALLBAR,
@@ -126,23 +126,10 @@ const ro = {
     agents: "Vezi agenții",
   },
   caseStudy: {
-    tag: "În acțiune",
-    heading: "Un agent care sună, pe o linie reală",
-    pill: "DEMO PROPRIU",
-    para: "Un asistent de restaurant în trei limbi care răspunde la telefon, rezervă o masă și scrie în același contor de locuri libere ca site-ul. Nu e un prototip: rulează pe un număr de telefon real și trimite o confirmare reală prin SMS.",
-    bullets: [
-      "Vorbește maghiară, engleză și spaniolă, și schimbă în timpul apelului",
-      "Telefonul și web-ul împart aceeași stare de rezervare",
-      "Poate fi întrerupt — nu trebuie ascultat până la capăt",
-      "Cotă zilnică de apeluri și limită de durată pentru un cost previzibil",
-    ],
-    link: "Deschide site-ul →",
-    audioCaption: "Un apel real cu recepția AI — circa 50 de secunde.",
-    audioError: "Înregistrarea audio nu este disponibilă momentan.",
-    videoBig: "▶ Video — în curând",
-    videoSm: "Înregistrare de ecran a rezervării web, de la început până la confirmare.",
-    phoneLabel: "Sună acum",
-    phoneHint: ["Cere o masă în orice limbă.", "Cotă zilnică: 20 de apeluri."],
+    tag: "Primul nostru proiect",
+    heading: "Primul nostru proiect — nu mai rulează",
+    note: "A fost primul nostru agent: rezervarea online a meselor unui restaurant, de la început până la confirmare. Sistemul nu mai rulează; înregistrarea a rămas.",
+    videoBig: "▶ Videoclipul nu este disponibil momentan",
   },
   contact: {
     phoneOrigin: "Număr din SUA (Twilio). Apelurile de pe numere din afara Ungariei le preia agentul AI, în engleză.",
@@ -154,7 +141,6 @@ const ro = {
     imprint: "Informații legale",
     privacy: "Confidențialitate",
     left: "AXIMBRA · aximbra.hu",
-    right: "EPISTEME este propriul nostru sistem demonstrativ, nu muncă pentru client.",
   },
   marquee: ["AGENȚI, NU CHATBOȚI", "APROBARE UMANĂ", "HU · EN · ES", "SISTEM FUNCȚIONAL"],
 };

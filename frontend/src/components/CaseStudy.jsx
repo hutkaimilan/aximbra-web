@@ -1,17 +1,16 @@
 import { useState } from "react";
 import { Reveal } from "./Reveal";
-import { LiquidButton } from "./LiquidButton";
 import { useLang } from "../i18n";
 
-const MediaFallback = ({ big, sm }) => (
-  <div className="media-box"><div className="big">{big}</div><div className="sm">{sm}</div></div>
-);
-
+/**
+ * Our first project, kept only as a recording. The system behind it no longer
+ * runs, so the section carries no name, link, phone number or audio — just the
+ * screen recording and a line that says plainly it is not live any more.
+ */
 export const CaseStudy = () => {
   const { t } = useLang();
   const c = t.caseStudy;
   const [videoOk, setVideoOk] = useState(true);
-  const [audioOk, setAudioOk] = useState(true);
 
   return (
     <section className="container" id="eset" data-testid="case-section">
@@ -21,42 +20,15 @@ export const CaseStudy = () => {
       </Reveal>
       <Reveal>
         <div className="case">
-          <div className="case-grid">
-            <div>
-              <h3>EPISTEME <span className="pill-amber">{c.pill}</span></h3>
-              <p>{c.para}</p>
-              <ul>
-                {c.bullets.map((b, i) => <li key={i}>{b}</li>)}
-              </ul>
-              <LiquidButton ghost as="a" href="https://epistemebudapest.up.railway.app"
-                target="_blank" rel="noopener noreferrer" data-testid="episteme-link">
-                {c.link}
-              </LiquidButton>
-            </div>
-            <div>
-              {videoOk ? (
-                <video className="demo-media" controls preload="metadata" poster="/media/episteme-poster.jpg"
-                  data-testid="episteme-video" onError={() => setVideoOk(false)}>
-                  <source src="/media/episteme-demo.mp4" type="video/mp4" />
-                </video>
-              ) : (
-                <MediaFallback big={c.videoBig} sm={c.videoSm} />
-              )}
-
-              <div className="audio-block" data-testid="audio-block">
-                <div className="audio-caption">{c.audioCaption}</div>
-                {audioOk ? (
-                  <audio className="demo-media" controls preload="none"
-                    data-testid="episteme-audio" onError={() => setAudioOk(false)}>
-                    <source src="/media/episteme-hivas.mp3" type="audio/mpeg" />
-                  </audio>
-                ) : (
-                  <div className="audio-error" data-testid="episteme-audio-error">{c.audioError}</div>
-                )}
-              </div>
-
-            </div>
-          </div>
+          <p className="case-note" data-testid="case-note">{c.note}</p>
+          {videoOk ? (
+            <video className="demo-media" controls preload="metadata" poster="/media/episteme-poster.jpg"
+              data-testid="case-video" onError={() => setVideoOk(false)}>
+              <source src="/media/episteme-demo.mp4" type="video/mp4" />
+            </video>
+          ) : (
+            <div className="media-box"><div className="big">{c.videoBig}</div></div>
+          )}
         </div>
       </Reveal>
     </section>

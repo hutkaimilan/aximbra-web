@@ -11,7 +11,7 @@ const SEO = {
 const en = {
   seo: SEO,
   nav: {
-    links: [["Agents", "agentek"], ["Process", "folyamat"], ["Websites", "weboldal", "/weboldal"], ["Case study", "eset"]],
+    links: [["Agents", "agentek"], ["Process", "folyamat"], ["Websites", "weboldal", "/weboldal"]],
     contact: "CONTACT",
     callbar: "How many calls does your company miss?",
     callbarHref: CALLBAR,
@@ -23,7 +23,7 @@ const en = {
     h1: ["We don't build", "chatbots. We build", "coworkers."],
     sub: "Two hundred unread emails on Monday morning, missed calls, invoices typed in by hand? We build AI agents that take that work over. We don't hand over a demo, but a working system that we keep alive.",
     ctaPrimary: "Try it live",
-    ctaGhost: "Hear a real call",
+    ctaGhost: "See it live",
     phoneCta: { badge: "AI", note: "Answered by an AI agent · in English & Hungarian", origin: "US number (Twilio) — calls from Hungarian numbers ring through to me, and the agent lets you pick Hungarian or English at the start" },
     // A "hivjon vissza" urlap. A lap egy amerikai szamot hirdet; egy
     // magyar cegvezeto azt nem tarcsazza, bejovo hivast viszont felvesz.
@@ -246,23 +246,10 @@ const en = {
     ],
   },
   caseStudy: {
-    tag: "In action",
-    heading: "A calling agent, on a live line",
-    pill: "OUR OWN DEMO",
-    para: "A three-language restaurant assistant that answers the phone, books a table, and writes to the same free-seat counter as the website. Not a prototype: it runs on a real phone number and sends a real SMS confirmation.",
-    bullets: [
-      "Speaks Hungarian, English and Spanish, switching mid-call",
-      "Phone and web share the same booking state",
-      "Interruptible — you don't have to hear it out",
-      "Daily call quota and call-time limit for predictable cost",
-    ],
-    link: "Open the website →",
-    audioCaption: "A real phone call with the AI receptionist — about 50 seconds.",
-    audioError: "The audio is currently unavailable.",
-    videoBig: "▶ Video — coming soon",
-    videoSm: "Screen recording of the web booking, from start to confirmation.",
-    phoneLabel: "Call now",
-    phoneHint: ["Ask for a table in any language.", "Daily quota: 20 calls."],
+    tag: "Our first project",
+    heading: "Our first project — no longer running",
+    note: "This was our first agent: a restaurant's web table booking, from start to confirmation. The system no longer runs; the recording remains.",
+    videoBig: "▶ The video is currently unavailable",
   },
   contact: {
     heading: "Which task eats up your week?",
@@ -298,7 +285,6 @@ const en = {
     imprint: "Imprint",
     privacy: "Privacy",
     left: "AXIMBRA · aximbra.hu",
-    right: "EPISTEME is our own in-house demo system, not client work.",
   },
   marquee: ["AGENTS, NOT CHATBOTS", "HUMAN APPROVAL", "HU · EN · ES", "WORKING SYSTEM"],
   demo: {

@@ -11,7 +11,7 @@ const SEO = {
 const it = {
   seo: SEO,
   nav: {
-    links: [["Agenti", "agentek"], ["Processo", "folyamat"], ["Siti web", "weboldal", "/weboldal"], ["Caso studio", "eset"]],
+    links: [["Agenti", "agentek"], ["Processo", "folyamat"], ["Siti web", "weboldal", "/weboldal"]],
     contact: "CONTATTO",
     callbar: "Quante chiamate perde il tuo locale?",
     callbarHref: CALLBAR,
@@ -126,23 +126,10 @@ const it = {
     agents: "Guarda gli agenti",
   },
   caseStudy: {
-    tag: "In azione",
-    heading: "Un agente che telefona, su una linea reale",
-    pill: "DEMO NOSTRA",
-    para: "Un assistente per ristoranti in tre lingue che risponde al telefono, prenota un tavolo e scrive sullo stesso contatore di posti liberi del sito. Non un prototipo: gira su un numero di telefono reale e invia una conferma reale via SMS.",
-    bullets: [
-      "Parla ungherese, inglese e spagnolo, e cambia durante la chiamata",
-      "Telefono e web condividono lo stesso stato di prenotazione",
-      "Interrompibile — non serve ascoltarlo fino in fondo",
-      "Quota giornaliera di chiamate e limite di durata per un costo prevedibile",
-    ],
-    link: "Apri il sito web →",
-    audioCaption: "Una vera chiamata con la reception AI — circa 50 secondi.",
-    audioError: "L'audio al momento non è disponibile.",
-    videoBig: "▶ Video — presto",
-    videoSm: "Registrazione dello schermo della prenotazione web, dall'inizio alla conferma.",
-    phoneLabel: "Chiama ora",
-    phoneHint: ["Chiedi un tavolo in qualsiasi lingua.", "Quota giornaliera: 20 chiamate."],
+    tag: "Il nostro primo progetto",
+    heading: "Il nostro primo progetto — non più attivo",
+    note: "È stato il nostro primo agente: la prenotazione web dei tavoli di un ristorante, dall'inizio alla conferma. Il sistema non è più attivo; la registrazione resta.",
+    videoBig: "▶ Il video al momento non è disponibile",
   },
   contact: {
     phoneOrigin: "Numero USA (Twilio). Le chiamate da numeri non ungheresi le prende l'agente IA, in inglese.",
@@ -154,7 +141,6 @@ const it = {
     imprint: "Note legali",
     privacy: "Privacy",
     left: "AXIMBRA · aximbra.hu",
-    right: "EPISTEME è il nostro sistema dimostrativo interno, non lavoro per clienti.",
   },
   marquee: ["AGENTI, NON CHATBOT", "APPROVAZIONE UMANA", "HU · EN · ES", "SISTEMA FUNZIONANTE"],
 };

@@ -71,7 +71,7 @@ export const Hero = ({ scrollTo }) => {
       <p className="hero-sub">{h.sub}</p>
       <div className="hero-cta">
         <LiquidButton data-testid="hero-primary" onClick={() => scrollTo("agentek")}>{h.ctaPrimary}</LiquidButton>
-        <LiquidButton ghost data-testid="hero-ghost" onClick={() => scrollTo("eset")}>{h.ctaGhost}</LiquidButton>
+        <LiquidButton ghost data-testid="hero-ghost" onClick={() => scrollTo("bizonyitek")}>{h.ctaGhost}</LiquidButton>
       </div>
       <a className="hero-phone" href={CONTACT.phoneHref} data-testid="hero-phone">
         {/* The badge follows the language: calls from Hungarian numbers ring the

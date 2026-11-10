@@ -11,7 +11,7 @@ const SEO = {
 const hu = {
   seo: SEO,
   nav: {
-    links: [["Agentek", "agentek"], ["Folyamat", "folyamat"], ["Weboldal", "weboldal", "/weboldal"], ["Esettanulmány", "eset"]],
+    links: [["Agentek", "agentek"], ["Folyamat", "folyamat"], ["Weboldal", "weboldal", "/weboldal"]],
     contact: "KAPCSOLAT",
     callbar: "Hány hívást hagy megválaszolatlanul a cége?",
     callbarHref: CALLBAR,
@@ -82,7 +82,7 @@ const hu = {
     heading: "Három dolog, amit ezen a lapon most ellenőrizhetsz",
     sub: "Egy ígéretet nem lehet ellenőrizni, egy működő rendszert igen. Ezek nem felvételek róla — most is futnak, és most is elronthatják.",
     items: [
-      { n: "01", title: "Hívd fel az étterem AI-recepciósát", desc: "A bemutató étterem valódi számán egy agent veszi fel, magyarul, angolul és spanyolul is. Kérj asztalt, és nézd meg, mit kezd vele. A szám az esettanulmánynál van.", cta: "Az esettanulmányhoz →", to: "eset" },
+      { n: "01", title: "Hívasd fel magad a telefonos agenttel", desc: "Az oldal tetején add meg a számodat, és az AXIMBRA agent tíz másodpercen belül felhív — magyarul vagy angolul. Kérdezz tőle bármit a szolgáltatásainkról, és nézd meg, mit kezd vele.", cta: "Az oldal tetejére →", to: "top" },
       { n: "02", title: "Futtasd le az e-mail agentet a saját postafiókodon", desc: "Google-fiókkal, csak olvasási joggal. Nem tárol semmit, és fél óra múlva elfelejt. Ha nem akarsz fiókot adni, a mintapostafiók ugyanezt megmutatja.", cta: "Az e-mail agenthez →", to: "agentek" },
       { n: "03", title: "Nézd meg a négy bemutatóoldalt", desc: "Mind a négy kitalált márkáé, és mindegyik ki is írja magáról. Nem adjuk ki őket ügyfélmunkának, mert nem azok.", cta: "A bemutatóoldalakhoz →", to: "referenciak" },
     ],
@@ -246,23 +246,10 @@ const hu = {
     ],
   },
   caseStudy: {
-    tag: "Működés közben",
-    heading: "Egy telefonáló agent, éles vonalon",
-    pill: "SAJÁT DEMÓ",
-    para: "Háromnyelvű étterem-asszisztens, ami felveszi a telefont, asztalt foglal, és ugyanazt a szabadhely-számlálót írja, amit a weboldal. Nem prototípus: valódi telefonszámon fut, valódi SMS-visszaigazolást küld.",
-    bullets: [
-      "Magyar, angol és spanyol nyelven beszél, hívás közben vált",
-      "Telefon és web ugyanazon a foglalási állapoton osztozik",
-      "Félbeszakítható — nem kell végighallgatni",
-      "Napi híváskeret és hívásidő-korlát a kiszámítható költségért",
-    ],
-    link: "Weboldal megnyitása →",
-    audioCaption: "Valós telefonhívás az AI recepcióssal — kb. 50 másodperc.",
-    audioError: "A hangfelvétel jelenleg nem elérhető.",
-    videoBig: "▶ Videó — hamarosan",
-    videoSm: "Képernyőfelvétel a webes foglalásról, elejétől a visszaigazolásig.",
-    phoneLabel: "Hívd fel most",
-    phoneHint: ["Kérj asztalt bármelyik nyelven.", "Napi keret: 20 hívás."],
+    tag: "Az első projektünk",
+    heading: "Az első, már nem futó projektünk",
+    note: "Ez volt az első agentünk: egy étterem webes asztalfoglalása, elejétől a visszaigazolásig. A rendszer már nem fut, a felvétel megmaradt.",
+    videoBig: "▶ A videó jelenleg nem elérhető",
   },
   contact: {
     heading: "Melyik feladat viszi el a heted?",
@@ -298,7 +285,6 @@ const hu = {
     imprint: "Impresszum",
     privacy: "Adatkezelés",
     left: "AXIMBRA · aximbra.hu",
-    right: "Az EPISTEME saját fejlesztésű bemutató rendszer, nem ügyfélmunka.",
   },
   marquee: ["AGENTEK, NEM CHATBOTOK", "EMBERI JÓVÁHAGYÁS", "HU · EN · ES", "MŰKÖDŐ RENDSZER"],
   demo: {

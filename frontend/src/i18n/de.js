@@ -14,7 +14,7 @@ const SEO = {
 const de = {
   seo: SEO,
   nav: {
-    links: [["Agenten", "agentek"], ["Ablauf", "folyamat"], ["Website", "weboldal", "/weboldal"], ["Fallstudie", "eset"]],
+    links: [["Agenten", "agentek"], ["Ablauf", "folyamat"], ["Website", "weboldal", "/weboldal"]],
     contact: "KONTAKT",
     callbar: "Wie viele Anrufe verpasst Ihr Betrieb?",
     callbarHref: CALLBAR,
@@ -26,7 +26,7 @@ const de = {
     h1: ["Wir bauen keine", "Chatbots. Wir bauen", "Mitarbeiter."],
     sub: "Montagmorgen 200 ungelesene Mails, verpasste Anrufe, Lieferscheine von Hand abgetippt? Fachkräfte fehlen, die Routinearbeit bleibt. Wir bauen KI-Agenten, die diese Arbeit übernehmen — als laufendes System, das wir betreuen.",
     ctaPrimary: "Live ausprobieren",
-    ctaGhost: "Echten Anruf anhören",
+    ctaGhost: "Live ansehen",
     phoneCta: { badge: "KI", note: "Ein KI-Agent nimmt ab · auf Englisch und Ungarisch", origin: "US-Nummer (Twilio). Anrufe aus dem Ausland nimmt der KI-Agent an; zu Beginn wählen Sie Englisch oder Ungarisch. Für Ihr Projekt kann ein Agent auch Deutsch sprechen." },
     // A "hivjon vissza" urlap. Nemet szammal is mukodik, de a demo-agent
     // angolul es magyarul beszel - ezt kimondjuk, nem a hivasban derul ki.
@@ -248,23 +248,10 @@ const de = {
     ],
   },
   caseStudy: {
-    tag: "Im Einsatz",
-    heading: "Ein telefonierender Agent, auf einer echten Leitung",
-    pill: "EIGENE DEMO",
-    para: "Ein dreisprachiger Restaurant-Assistent, der ans Telefon geht, einen Tisch reserviert und denselben Platz-Zähler schreibt wie die Website. Kein Prototyp: Er läuft unter einer echten Telefonnummer und sendet eine echte SMS-Bestätigung.",
-    bullets: [
-      "Spricht Ungarisch, Englisch und Spanisch und wechselt mitten im Gespräch",
-      "Telefon und Website teilen denselben Buchungsstand",
-      "Unterbrechbar — man muss nicht bis zum Ende zuhören",
-      "Tägliches Anruflimit und Gesprächszeitlimit für planbare Kosten",
-    ],
-    link: "Website öffnen →",
-    audioCaption: "Ein echtes Telefongespräch mit der KI-Rezeption — etwa 50 Sekunden.",
-    audioError: "Die Aufnahme ist derzeit nicht verfügbar.",
-    videoBig: "▶ Video — demnächst",
-    videoSm: "Bildschirmaufnahme der Online-Reservierung, vom Anfang bis zur Bestätigung.",
-    phoneLabel: "Jetzt anrufen",
-    phoneHint: ["Bitten Sie um einen Tisch — auf Englisch, Ungarisch oder Spanisch.", "Tageslimit: 20 Anrufe."],
+    tag: "Unser erstes Projekt",
+    heading: "Unser erstes Projekt — läuft nicht mehr",
+    note: "Das war unser erster Agent: die Online-Tischreservierung eines Restaurants, vom Anfang bis zur Bestätigung. Das System läuft nicht mehr, die Aufnahme ist geblieben.",
+    videoBig: "▶ Das Video ist derzeit nicht verfügbar",
   },
   contact: {
     heading: "Welche Aufgabe frisst Ihre Woche?",
@@ -301,7 +288,6 @@ const de = {
     imprint: "Impressum",
     privacy: "Datenschutz",
     left: "AXIMBRA · aximbra.hu",
-    right: "EPISTEME ist unser eigenes Demo-System, keine Kundenarbeit.",
   },
   marquee: ["AGENTEN, KEINE CHATBOTS", "MENSCHLICHE FREIGABE", "IHRE SCHLÜSSEL, IHRE INFRASTRUKTUR", "LAUFENDES SYSTEM"],
   demo: {

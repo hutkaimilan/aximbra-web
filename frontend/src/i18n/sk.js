@@ -11,7 +11,7 @@ const SEO = {
 const sk = {
   seo: SEO,
   nav: {
-    links: [["Agenti", "agentek"], ["Postup", "folyamat"], ["Webstránky", "weboldal", "/weboldal"], ["Prípadová štúdia", "eset"]],
+    links: [["Agenti", "agentek"], ["Postup", "folyamat"], ["Webstránky", "weboldal", "/weboldal"]],
     contact: "KONTAKT",
     callbar: "Koľko hovorov zmešká vaša prevádzka?",
     callbarHref: CALLBAR,
@@ -126,23 +126,10 @@ const sk = {
     agents: "Pozrieť agentov",
   },
   caseStudy: {
-    tag: "V akcii",
-    heading: "Telefonujúci agent na ostrej linke",
-    pill: "VLASTNÉ DEMO",
-    para: "Trojjazyčný reštauračný asistent, ktorý dvíha telefón, rezervuje stôl a zapisuje do rovnakého počítadla voľných miest ako web. Nie je to prototyp: beží na reálnom telefónnom čísle a posiela reálne SMS potvrdenie.",
-    bullets: [
-      "Hovorí po maďarsky, anglicky a španielsky, prepína počas hovoru",
-      "Telefón a web zdieľajú rovnaký stav rezervácie",
-      "Prerušiteľný — nemusíš ho počúvať do konca",
-      "Denný limit hovorov a limit dĺžky hovoru pre predvídateľné náklady",
-    ],
-    link: "Otvoriť web →",
-    audioCaption: "Reálny telefonát s AI recepciou — asi 50 sekúnd.",
-    audioError: "Zvuková nahrávka momentálne nie je dostupná.",
-    videoBig: "▶ Video — čoskoro",
-    videoSm: "Záznam obrazovky z webovej rezervácie, od začiatku po potvrdenie.",
-    phoneLabel: "Zavolaj teraz",
-    phoneHint: ["Požiadaj o stôl v akomkoľvek jazyku.", "Denný limit: 20 hovorov."],
+    tag: "Náš prvý projekt",
+    heading: "Náš prvý projekt — už nebeží",
+    note: "Toto bol náš prvý agent: webová rezervácia stola v reštaurácii, od začiatku po potvrdenie. Systém už nebeží, záznam zostal.",
+    videoBig: "▶ Video momentálne nie je dostupné",
   },
   contact: {
     phoneOrigin: "Číslo v USA (Twilio). Hovory z nemaďarských čísel prijíma AI agent, po anglicky.",
@@ -154,7 +141,6 @@ const sk = {
     imprint: "Právne informácie",
     privacy: "Ochrana údajov",
     left: "AXIMBRA · aximbra.hu",
-    right: "EPISTEME je náš vlastný demo systém, nie klientska práca.",
   },
   marquee: ["AGENTI, NIE CHATBOTY", "ĽUDSKÉ SCHVÁLENIE", "HU · EN · ES", "FUNKČNÝ SYSTÉM"],
 };
