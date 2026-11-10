@@ -140,6 +140,23 @@ export const SCENARIOS: Record<string, Scenario> = {
       'Mennyibe kerul es mennyi ido. A vegen, ha az agent megkerdezi, kersz ' +
       'ajanlatot.',
   },
+  // A tulajdonos kerese, 2026-11-10: az agent soha senkit nem tegezhet, akkor
+  // sem, ha a hivo tegez. Ez a hivo vegig tegez.
+  tegezo: {
+    key: 'tegezo',
+    label: 'Tegezo hivo (az agentnek akkor is magaznia kell)',
+    lang: 'hu',
+    contact: 'ez a telefonszám, amiről hívsz, a neved Nagy Bence, a cég a Nagy Logisztika',
+    persona:
+      'Nagy Bence vagy, egy 25 fos fuvarozo ceg fiatal ugyvezetoje. VEGIG ' +
+      'TEGEZED az agentet ("mit ajanlanal?", "mennyibe kerulne nalatok?", ' +
+      '"mondd, hogy mukodik"). Lazan, baratsagosan beszelsz.',
+    reason:
+      'Sok az e-mail es a papir a fuvarmegbizasok korul, erdekel, mit tudna ' +
+      'egy agent atvenni.',
+    questions:
+      'Mit ajanlanal egy ilyen cegnek. Hogy mukodik. Mennyibe kerulne.',
+  },
   kulfoldi: {
     key: 'kulfoldi',
     label: 'English caller (foreign number)',
@@ -184,6 +201,9 @@ export function openerFor(scenario: Scenario): string {
   }
   if (scenario.key === 'tajekozodo') {
     return 'Jó napot! Azt szeretném kérdezni, hogy multiagent rendszert milyen vállalatoknak ajánlanak?';
+  }
+  if (scenario.key === 'tegezo') {
+    return 'Szia, Nagy Bence vagyok egy fuvarozó cégtől. Mondd, mit tudnátok nekünk ajánlani?';
   }
   if (scenario.key === 'kulfoldi') {
     return "Hi, this is Sarah Bennett, I run a design studio in the UK. I'm calling about automating our email inbox.";
