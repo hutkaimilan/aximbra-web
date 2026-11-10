@@ -112,13 +112,13 @@ function Site() {
         <OfferBand />
         <Proof scrollTo={scrollTo} />
         <Agents />
+        <Pricing />
         <CaseStudy />
         <div className="container"><WebShowcase /></div>
         <Objections />
         <Payback />
         <Process />
         <Founder />
-        <Pricing />
         <NoTricks />
         <FirstStep />
         <Contact />

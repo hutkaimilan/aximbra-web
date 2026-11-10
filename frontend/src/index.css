@@ -601,6 +601,8 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
 /* Az elso projekt szekcio: a felette levo agent-lista gombja ne csusszon ra a
    cimkere, es a leiras ne tapadjon a keret szelere. */
 #eset { padding-top: clamp(72px, 10vw, 120px); }
+/* Az agent-lista alatt all: a 'tovabbi agentek' gomb ne erjen hozza a kerethez. */
+#weboldal-sav { margin-top: clamp(56px, 8vw, 96px); }
 .case-body { padding: 40px 46px 46px; }
 .case-body .case-note { margin: 0 0 24px; }
 @media (max-width: 860px){ .case-body { padding: 26px 22px 22px; } }

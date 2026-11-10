@@ -174,7 +174,7 @@ const hu = {
   },
   pricing: {
     tag: "Árazás",
-    heading: "Weboldalkészítés és -fejlesztés",
+    heading: "Weboldalkészítés és ‑fejlesztés",
     sub: "Modern, gyors, mobilra optimalizált oldalak — valós tartalommal, éles üzemben.",
     netNote: "nettó ár, tárhely és domain nélkül",
     // A "{p}" helyere a money.js teszi be a kesz arat; a szorend
