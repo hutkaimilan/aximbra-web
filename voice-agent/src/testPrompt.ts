@@ -116,6 +116,28 @@ export const SCENARIOS: Record<string, Scenario> = {
       'Kivitelezheto-e, amit leirtal. Nagyjabol mennyibe kerul. Mennyi ido, ' +
       'amig mukodik.',
   },
+  // Eles hivas, 2026-11-10: a hivo egyetlen altalanos kerdest tett fel, az agent
+  // ugyanabban a valaszban arat mondott es mar az ajanlat cimzettjet kerdezte.
+  tajekozodo: {
+    key: 'tajekozodo',
+    label: 'Tajekozodo (multiagent, sok kerdes)',
+    lang: 'hu',
+    contact: 'ez a telefonszám, amiről hívsz, a neved Szabó Anna, a cég a Szabó Logisztika Kft.',
+    persona:
+      'Szabo Anna vagy, egy 60 fos budapesti logisztikai ceg operativ vezetoje. ' +
+      'Meg csak tajekozodsz, nem akarsz rogton ajanlatot. Egymas utan tobb ' +
+      'kerdest teszel fel, es a nevedet csak akkor mondod meg, ha a beszelgetes ' +
+      'vegen kerdezik. Ha az agent tul koran ajanlatot vagy nevet ker, mondd: ' +
+      '"Varjon, meg nem tartunk ott, inkabb kerdeznek."',
+    reason:
+      'Hallottal a multiagent rendszerekrol, es meg akarod erteni, nalatok mire ' +
+      'lenne jo (fuvarszervezes, ugyfel-e-mailek, szamlak).',
+    questions:
+      'Milyen cegeknek ajanljak a multiagent rendszert. Hogyan mukodik a ' +
+      'gyakorlatban, mondjanak peldat. Hol futna, ki fer hozza az adatokhoz. ' +
+      'Mennyibe kerul es mennyi ido. A vegen, ha az agent megkerdezi, kersz ' +
+      'ajanlatot.',
+  },
   kulfoldi: {
     key: 'kulfoldi',
     label: 'English caller (foreign number)',
@@ -157,6 +179,9 @@ export function openerFor(scenario: Scenario): string {
   }
   if (scenario.key === 'fodraszat') {
     return 'Jó napot, Kiss István vagyok, a budapesti Kiss Hajstúdió tulajdonosa. Weboldal és telefonos időpontfoglalás miatt hívom önöket.';
+  }
+  if (scenario.key === 'tajekozodo') {
+    return 'Jó napot! Azt szeretném kérdezni, hogy multiagent rendszert milyen vállalatoknak ajánlanak?';
   }
   if (scenario.key === 'kulfoldi') {
     return "Hi, this is Sarah Bennett, I run a design studio in the UK. I'm calling about automating our email inbox.";
