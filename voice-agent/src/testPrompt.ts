@@ -127,7 +127,9 @@ export const SCENARIOS: Record<string, Scenario> = {
       'Szabo Anna vagy, egy 60 fos budapesti logisztikai ceg operativ vezetoje. ' +
       'Meg csak tajekozodsz, nem akarsz rogton ajanlatot. Egymas utan tobb ' +
       'kerdest teszel fel, es a nevedet csak akkor mondod meg, ha a beszelgetes ' +
-      'vegen kerdezik. Ha az agent tul koran ajanlatot vagy nevet ker, mondd: ' +
+      'vegen kerdezik. A helyzetedre vonatkozo kerdesekre (hany fuvar, milyen ' +
+      'rendszer) roviden valaszolsz. Csak akkor, ha az agent tul koran ' +
+      'ajanlatot, nevet, ceget vagy SMS-t ker, mondd: ' +
       '"Varjon, meg nem tartunk ott, inkabb kerdeznek."',
     reason:
       'Hallottal a multiagent rendszerekrol, es meg akarod erteni, nalatok mire ' +
