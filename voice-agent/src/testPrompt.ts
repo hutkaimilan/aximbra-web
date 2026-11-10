@@ -157,6 +157,22 @@ export const SCENARIOS: Record<string, Scenario> = {
     questions:
       'Mit ajanlanal egy ilyen cegnek. Hogy mukodik. Mennyibe kerulne.',
   },
+  // Eles hivas, 2026-11-10 14:27: a hivo az osszes agent felsorolasat kerte,
+  // a valasz a hosszkorlatnal felbeszakadt.
+  lista: {
+    key: 'lista',
+    label: 'Osszes agent felsorolasa',
+    lang: 'hu',
+    contact: 'ez a telefonszám, amiről hívsz, a neved Kovács Éva, a cég a Kovács és Társa Bt.',
+    persona:
+      'Kovacs Eva vagy, egy 15 fos keresked cég irodavezetoje. Magazol. ' +
+      'Roviden es figyelmesen hallgatsz; ha az agent megkerdezi, folytassa-e, ' +
+      'mondd, hogy igen.',
+    reason: 'Atfogo kepet akarsz arrol, milyen agentek leteznek.',
+    questions:
+      'Sorolja fel az osszes agentet, mindegyikrol egy mondatban. A vegen: ' +
+      'melyik lenne jo egy kis kereskedo cegnek.',
+  },
   kulfoldi: {
     key: 'kulfoldi',
     label: 'English caller (foreign number)',
@@ -204,6 +220,9 @@ export function openerFor(scenario: Scenario): string {
   }
   if (scenario.key === 'tegezo') {
     return 'Szia, Nagy Bence vagyok egy fuvarozó cégtől. Mondd, mit tudnátok nekünk ajánlani?';
+  }
+  if (scenario.key === 'lista') {
+    return 'Jó napot! Azt szeretném kérni, hogy sorolja fel az összes agentet, ami elérhető, és dióhéjban mondja el, melyik mire jó.';
   }
   if (scenario.key === 'kulfoldi') {
     return "Hi, this is Sarah Bennett, I run a design studio in the UK. I'm calling about automating our email inbox.";
