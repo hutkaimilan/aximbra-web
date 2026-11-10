@@ -395,7 +395,7 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
 }
 .callback-title { margin: 0; font-family: var(--display); font-weight: 700;
   font-size: 17px; line-height: 1.3; color: var(--text); }
-.callback-lead { margin: 6px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--dim); }
+.callback-lead { margin: 8px 0 0; font-size: 15px; line-height: 1.55; color: var(--text); opacity: .86; }
 .callback-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 .callback-input {
   flex: 1 1 220px; min-width: 0;
