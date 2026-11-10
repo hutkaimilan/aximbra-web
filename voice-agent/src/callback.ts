@@ -141,7 +141,8 @@ export function admitCallback(raw: string | null | undefined, maxPerDay: number)
   rollDay();
 
   if (maxPerDay <= 0 || state.total >= maxPerDay) return { ok: false, reason: 'daily' };
-  if ((state.perNumber.get(to) ?? 0) >= 1) return { ok: false, reason: 'repeat' };
+  // Szamonkenti korlat nincs (a tulajdonos kerese, 2026-11-10): egy szam
+  // barhanyszor kerhet visszahivast. A koltseget a napi osszkeret zarja.
 
   state.total += 1;
   state.perNumber.set(to, (state.perNumber.get(to) ?? 0) + 1);

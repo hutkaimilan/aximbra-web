@@ -81,17 +81,12 @@ test('az engedelyezett elotagok mind ervenyes alakuak', () => {
 
 /* ---------------- keretek ---------------- */
 
-test('egy szamot naponta egyszer hivunk vissza', () => {
+test('ugyanaz a szam egy napon barhanyszor visszahivhato', () => {
   resetCallbackState();
   assert.deepEqual(admitCallback('+36301234567', 10), { ok: true, to: '+36301234567' });
-
-  const second = admitCallback('+36301234567', 10);
-  assert.equal(second.ok, false);
-  assert.equal(second.ok === false && second.reason, 'repeat');
-
-  // Ugyanaz a szam mas alakban irva sem masodik hivas.
-  const third = admitCallback('06 30 123 4567', 10);
-  assert.equal(third.ok === false && third.reason, 'repeat');
+  assert.deepEqual(admitCallback('+36301234567', 10), { ok: true, to: '+36301234567' });
+  // Mas alakban irva is ugyanaz a szam, es az is atmegy.
+  assert.deepEqual(admitCallback('06 30 123 4567', 10), { ok: true, to: '+36301234567' });
 });
 
 test('a napi keret felulrol zarja a koltseget', () => {
