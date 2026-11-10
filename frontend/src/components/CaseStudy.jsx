@@ -19,7 +19,7 @@ export const CaseStudy = () => {
         <h2 className="h-sec">{c.heading}</h2>
       </Reveal>
       <Reveal>
-        <div className="case">
+        <div className="case case-body">
           <p className="case-note" data-testid="case-note">{c.note}</p>
           {videoOk ? (
             <video className="demo-media" controls preload="metadata" poster="/media/episteme-poster.jpg"

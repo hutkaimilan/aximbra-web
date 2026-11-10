@@ -126,9 +126,9 @@ const ro = {
     agents: "Vezi agenții",
   },
   caseStudy: {
-    tag: "Primul nostru proiect",
-    heading: "Primul nostru proiect — nu mai rulează",
-    note: "A fost primul nostru agent: rezervarea online a meselor unui restaurant, de la început până la confirmare. Sistemul nu mai rulează; înregistrarea a rămas.",
+    tag: "Primul meu proiect",
+    heading: "Primul meu proiect — nu mai rulează",
+    note: "A fost primul meu agent: rezervarea online a meselor unui restaurant, de la început până la confirmare. Sistemul nu mai rulează; înregistrarea a rămas.",
     videoBig: "▶ Videoclipul nu este disponibil momentan",
   },
   contact: {

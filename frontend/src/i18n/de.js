@@ -248,9 +248,9 @@ const de = {
     ],
   },
   caseStudy: {
-    tag: "Unser erstes Projekt",
-    heading: "Unser erstes Projekt — läuft nicht mehr",
-    note: "Das war unser erster Agent: die Online-Tischreservierung eines Restaurants, vom Anfang bis zur Bestätigung. Das System läuft nicht mehr, die Aufnahme ist geblieben.",
+    tag: "Mein erstes Projekt",
+    heading: "Mein erstes Projekt — läuft nicht mehr",
+    note: "Das war mein erster Agent: die Online-Tischreservierung eines Restaurants, vom Anfang bis zur Bestätigung. Das System läuft nicht mehr, die Aufnahme ist geblieben.",
     videoBig: "▶ Das Video ist derzeit nicht verfügbar",
   },
   contact: {

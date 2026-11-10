@@ -598,6 +598,12 @@ section { position: relative; padding: clamp(80px, 12vw, 160px) 0; }
   background: linear-gradient(90deg, var(--magenta), var(--cyan)); box-shadow: 0 0 20px var(--cyan); }
 .case-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding: 46px; }
 @media (max-width: 860px){ .case-grid { grid-template-columns: 1fr; padding: 30px; } }
+/* Az elso projekt szekcio: a felette levo agent-lista gombja ne csusszon ra a
+   cimkere, es a leiras ne tapadjon a keret szelere. */
+#eset { padding-top: clamp(72px, 10vw, 120px); }
+.case-body { padding: 40px 46px 46px; }
+.case-body .case-note { margin: 0 0 24px; }
+@media (max-width: 860px){ .case-body { padding: 26px 22px 22px; } }
 .case h3 { font-family: var(--display); font-weight: 700; font-size: 34px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .case p { color: var(--muted); line-height: 1.7; margin: 18px 0; }
 .case ul { list-style: none; padding: 0; margin: 0 0 26px; }

@@ -246,9 +246,9 @@ const hu = {
     ],
   },
   caseStudy: {
-    tag: "Az első projektünk",
-    heading: "Az első, már nem futó projektünk",
-    note: "Ez volt az első agentünk: egy étterem webes asztalfoglalása, elejétől a visszaigazolásig. A rendszer már nem fut, a felvétel megmaradt.",
+    tag: "Az első projektem",
+    heading: "Az első, már nem futó projektem",
+    note: "Ez volt az első agentem: egy étterem webes asztalfoglalása, elejétől a visszaigazolásig. A rendszer már nem fut, a felvétel megmaradt.",
     videoBig: "▶ A videó jelenleg nem elérhető",
   },
   contact: {

@@ -246,9 +246,9 @@ const en = {
     ],
   },
   caseStudy: {
-    tag: "Our first project",
-    heading: "Our first project — no longer running",
-    note: "This was our first agent: a restaurant's web table booking, from start to confirmation. The system no longer runs; the recording remains.",
+    tag: "My first project",
+    heading: "My first project — no longer running",
+    note: "This was my first agent: a restaurant's web table booking, from start to confirmation. The system no longer runs; the recording remains.",
     videoBig: "▶ The video is currently unavailable",
   },
   contact: {

@@ -126,9 +126,9 @@ const sk = {
     agents: "Pozrieť agentov",
   },
   caseStudy: {
-    tag: "Náš prvý projekt",
-    heading: "Náš prvý projekt — už nebeží",
-    note: "Toto bol náš prvý agent: webová rezervácia stola v reštaurácii, od začiatku po potvrdenie. Systém už nebeží, záznam zostal.",
+    tag: "Môj prvý projekt",
+    heading: "Môj prvý projekt — už nebeží",
+    note: "Toto bol môj prvý agent: webová rezervácia stola v reštaurácii, od začiatku po potvrdenie. Systém už nebeží, záznam zostal.",
     videoBig: "▶ Video momentálne nie je dostupné",
   },
   contact: {

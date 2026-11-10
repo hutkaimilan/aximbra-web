@@ -126,9 +126,9 @@ const it = {
     agents: "Guarda gli agenti",
   },
   caseStudy: {
-    tag: "Il nostro primo progetto",
-    heading: "Il nostro primo progetto — non più attivo",
-    note: "È stato il nostro primo agente: la prenotazione web dei tavoli di un ristorante, dall'inizio alla conferma. Il sistema non è più attivo; la registrazione resta.",
+    tag: "Il mio primo progetto",
+    heading: "Il mio primo progetto — non più attivo",
+    note: "È stato il mio primo agente: la prenotazione web dei tavoli di un ristorante, dall'inizio alla conferma. Il sistema non è più attivo; la registrazione resta.",
     videoBig: "▶ Il video al momento non è disponibile",
   },
   contact: {
