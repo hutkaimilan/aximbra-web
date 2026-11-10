@@ -36,7 +36,7 @@ import {
 } from './llm.js';
 import { sendSummary } from './email.js';
 import { sendContactSms } from './sms.js';
-import { HOLD_MS, looksUnfinished } from './turn.js';
+import { FormalFilter, HOLD_MS, formalize, looksUnfinished } from './turn.js';
 
 /** Atmeneti modellhiba-e: ezt erdemes egyszer ujraprobalni. */
 function isRetryable(err: unknown): boolean {
@@ -899,12 +899,14 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
 
     // A bontas jele (END_CALL_MARKER) nem hangozhat el: a szuro kiveszi.
     const filter = new MarkerFilter();
+    // Tegezo nevmas soha nem mehet ki a vonalra (turn.ts).
+    const formal = new FormalFilter();
     const ask = (timeoutMs: number): Promise<string> =>
       replyStream(
         s.history,
         buildSystemPrompt(cfg.currentProjects, s.facts, s.from, s.lang, s.history),
         (delta) => {
-          const out = filter.push(delta);
+          const out = formal.push(filter.push(delta));
           if (!out) return;
           s.streamed += out;
           send(out, false);
@@ -926,13 +928,13 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         send(say().hold, true);
         full = await ask(10_000);
       }
-      const rest = filter.flush();
+      const rest = formal.push(filter.flush()) + formal.flush();
       if (rest) {
         s.streamed += rest;
         send(rest, false);
       }
       send('', true);
-      const spoken = stripMarker(full);
+      const spoken = formalize(stripMarker(full));
       s.history.push({ role: 'assistant', content: spoken });
       if (filter.found) scheduleHangup(spoken);
     } catch (err) {

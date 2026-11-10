@@ -75,3 +75,60 @@ export function looksUnfinished(raw: string): boolean {
   if (w.length >= 2 && w[w.length - 2] === 'teszem' && last === 'azt') return true;
   return false;
 }
+
+/**
+ * Utolso vedvonal a tegezes ellen.
+ *
+ * A promptszabaly a fo vedelem; ez csak az egyertelmu, szo szerint csereltheto
+ * tegezo nevmasokat javitja a kimenetben ("nalatok" -> "Önöknél"). Igealakot
+ * ("szeretnel") nem probal javitani: ott a csere nyelvtanilag rossz mondatot
+ * adna. A tulajdonos kifejezetten megtiltotta, hogy az agent barkit tegezzen.
+ */
+const FORMAL: Record<string, string> = {
+  nálatok: 'Önöknél',
+  nektek: 'Önöknek',
+  titeket: 'Önöket',
+  benneteket: 'Önöket',
+  veletek: 'Önökkel',
+  tőletek: 'Önöktől',
+  hozzátok: 'Önökhöz',
+  rólatok: 'Önökről',
+  nálad: 'Önnél',
+  neked: 'Önnek',
+  téged: 'Önt',
+  veled: 'Önnel',
+  tőled: 'Öntől',
+  hozzád: 'Önhöz',
+  rólad: 'Önről',
+};
+
+const FORMAL_RE = new RegExp(`(?<![\\p{L}])(${Object.keys(FORMAL).join('|')})(?![\\p{L}])`, 'giu');
+
+/** Egy kesz szovegreszben lecsereli a tegezo nevmasokat. */
+export function formalize(text: string): string {
+  return text.replace(FORMAL_RE, (m) => {
+    const rep = FORMAL[m.toLowerCase()] ?? m;
+    return rep;
+  });
+}
+
+/**
+ * Streamelt kimenethez: a szo vegeig visszatartja a szoveget, hogy egy
+ * ket darabban erkezo szo ("nála" + "tok") is cserelodjon.
+ */
+export class FormalFilter {
+  private buf = '';
+  push(delta: string): string {
+    this.buf += delta;
+    const cut = Math.max(this.buf.lastIndexOf(' '), this.buf.lastIndexOf('\n'));
+    if (cut < 0) return '';
+    const out = this.buf.slice(0, cut + 1);
+    this.buf = this.buf.slice(cut + 1);
+    return formalize(out);
+  }
+  flush(): string {
+    const out = formalize(this.buf);
+    this.buf = '';
+    return out;
+  }
+}

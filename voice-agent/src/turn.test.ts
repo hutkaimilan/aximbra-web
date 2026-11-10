@@ -24,3 +24,18 @@ test('a teljes mondatokra es rovid valaszokra nem varunk', () => {
   assert.equal(looksUnfinished('Yes'), false);
   assert.equal(looksUnfinished(''), false);
 });
+
+import { FormalFilter, formalize } from './turn.js';
+
+test('a tegezo nevmasok magazora cserelodnek', () => {
+  assert.equal(formalize('Hány ember foglalkozik ezzel nálatok?'), 'Hány ember foglalkozik ezzel Önöknél?');
+  assert.equal(formalize('Küldök nektek egy ajánlatot, neked is jó?'), 'Küldök Önöknek egy ajánlatot, Önnek is jó?');
+  // Mas szavak belsejeben nem nyul hozza.
+  assert.equal(formalize('A nálatoknál szó nem létezik, a nekedvaló sem.'), 'A nálatoknál szó nem létezik, a nekedvaló sem.');
+});
+
+test('streamelve, darabokra torve is cserel', () => {
+  const f = new FormalFilter();
+  const out = ['Hány ember ', 'foglalkozik ezzel nála', 'tok', '?'].map((d) => f.push(d)).join('') + f.flush();
+  assert.equal(out, 'Hány ember foglalkozik ezzel Önöknél?');
+});

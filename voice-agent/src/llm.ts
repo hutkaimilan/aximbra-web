@@ -112,12 +112,13 @@ Nézd meg:
 - Megkapta a hívó, amiért telefonált (ár, határidő, működés)?
 - Elkérte az agent az elérhetőséget?
 - Mondott-e az agent olyat, ami nyilvánvalóan hibás (kevert nyelv, értelmetlen szó)?
+- Tegezett-e az agent BÁRMIKOR (pl. "nálatok", "szeretnél", "neked", "tudod")? Az agentnek mindig magáznia kell, akkor is, ha a hívó tegez. Egyetlen tegező szó is HIBA — idézd.
 - Siettette-e a zárást: ajánlatot, nevet/céget, SMS-t vagy e-mailt kért vagy ajánlott fel, MIELŐTT a hívó jelezte volna, hogy nincs több kérdése? Megkérdezte-e a végén: "Van még kérdése?" Ha a hívó még kérdezett vagy mesélt, és az agent közben ajánlatot/nevet kért, az HIBA — idézd.
 
 CSAK JSON-t adj vissza, semmi mást:
 {"ok": true vagy false, "text": "..."}
 
-"ok" akkor true, ha a hívás használható volt: a két fél értette egymást és a hívó érdemi választ kapott, és az agent nem sürgette a zárást a beszélgetés közben.
+"ok" akkor true, ha a hívás használható volt: a két fél értette egymást és a hívó érdemi választ kapott, az agent nem sürgette a zárást a beszélgetés közben, és egyszer sem tegezett.
 
 A "text" magyarul, legfeljebb 6 rövid sor, gondolatjeles felsorolás. Először egy mondat arról, hogy sikerült-e, aztán a konkrét problémák, idézettel. Ha valami németül vagy angolul hangzott el és számít, fordítsd le zárójelben. Semmi általánosság.`;
 

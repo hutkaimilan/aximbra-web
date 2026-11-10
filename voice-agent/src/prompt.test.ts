@@ -244,7 +244,8 @@ test('telefonos/foglalo agentre nem az ugyfelszolgalati arat mondja, es benne az
   assert.match(prompt, /egy első agent jellemzően két-három hét/);
   assert.match(prompt, /NAGYSÁGRENDET kér/);
   assert.match(prompt, /NEM a hívás vége/);
-  assert.match(prompt, /alapból magázol/);
+  assert.match(prompt, /MINDIG magázol/);
+  assert.match(prompt, /te soha/);
 });
 
 /* ------------------------------------------------------------------ */
@@ -317,4 +318,25 @@ test('az SMS-t egyszer ajanlja fel, utana nem kinalja ujra', () => {
   ]);
   assert.match(utana, /AZ SMS-T MÁR FELAJÁNLOTTAD/);
   assert.doesNotMatch(utana, /Küldjem inkább SMS-ben/);
+});
+
+test('a magyar prompt sehol nem tegez (a tiltolistan kivul)', () => {
+  const p = buildSystemPrompt(0, undefined, '', 'hu', [])
+    .split('\n')
+    .filter((l) => !/^23\. |^Megszólítás:/.test(l))
+    .join('\n');
+  const found = p.match(/(?<![\p{L}])(nálatok|nektek|titeket|veletek|nálad|neked|beszéljétek|csináljátok|szeretnél)(?![\p{L}])/giu);
+  assert.equal(found, null, `tegezo alak a promptban: ${found?.join(', ')}`);
+});
+
+test('arat csak akkor mond, ha kerdeztek; a "van meg kerdese" egyszer hangzik el', () => {
+  const h1 = [
+    { role: 'assistant' as const, content: 'Aximbra, jó napot!' },
+    { role: 'user' as const, content: 'A számlafeldolgozás automatizálása miatt hívom.' },
+  ];
+  assert.match(buildFactsBlock(emptyFacts(), '', h1), /még NEM kérdezte az árat/);
+  const h2 = [...h1, { role: 'user' as const, content: 'És ez mennyibe kerül?' }];
+  assert.doesNotMatch(buildFactsBlock(emptyFacts(), '', h2), /még NEM kérdezte az árat/);
+  const h3 = [...h2, { role: 'assistant' as const, content: 'Kétmillió forinttól. Van még kérdése, amiben segíthetek?' }];
+  assert.match(buildFactsBlock(emptyFacts(), '', h3), /MÁR ELHANGZOTT/);
 });
