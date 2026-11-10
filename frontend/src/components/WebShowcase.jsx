@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLang, pathFor } from "../i18n";
+import { LiquidButton } from "./LiquidButton";
 import "./webshowcase.css";
 
 const SITES = [
@@ -63,6 +64,12 @@ export const WebShowcase = () => {
             </Link>
           );
         })}
+      </div>
+      {/* A csomagok es arak a weboldalak mellett, nem kulon savban. */}
+      <div className="wsc-more">
+        <LiquidButton as={Link} to={pathFor(lang, "/weboldal")} data-testid="pricing-to-page">
+          {t.pricing.bandCta}
+        </LiquidButton>
       </div>
     </section>
   );

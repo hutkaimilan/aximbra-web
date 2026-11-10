@@ -11,7 +11,6 @@ import { Proof } from "@/components/Proof";
 import { NoTricks } from "@/components/NoTricks";
 import { Objections } from "@/components/Objections";
 import { FirstStep } from "@/components/FirstStep";
-import { Pricing } from "@/components/Pricing";
 import { CaseStudy } from "@/components/CaseStudy";
 import { Contact, Footer } from "@/components/Contact";
 import { WebShowcase } from "@/components/WebShowcase";
@@ -112,9 +111,8 @@ function Site() {
         <OfferBand />
         <Proof scrollTo={scrollTo} />
         <Agents />
-        <Pricing />
-        <CaseStudy />
         <div className="container"><WebShowcase /></div>
+        <CaseStudy />
         <Objections />
         <Payback />
         <Process />

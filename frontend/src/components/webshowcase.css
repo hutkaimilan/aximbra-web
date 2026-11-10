@@ -18,3 +18,5 @@
 .wsc-body p { color: var(--muted); line-height: 1.65; margin: 0 0 14px; font-size: 15px; }
 .wsc-cta { font: 600 13px var(--mono); color: var(--accent); }
 @media (max-width: 760px) { .wsc-grid { grid-template-columns: 1fr; } }
+
+.wsc-more { display: flex; justify-content: center; margin-top: 36px; }
