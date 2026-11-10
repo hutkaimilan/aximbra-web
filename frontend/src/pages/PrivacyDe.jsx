@@ -81,7 +81,7 @@ export default function PrivacyDe({ lang }) {
           <p>Der Speicher Ihres Browsers enthält nur auf Ihrem Gerät, ohne dass es uns erreicht:</p>
           <ul>
             <li>die gewählte Sprache (<code>aximbra_lang</code>),</li>
-            <li>die Stelle auf der Seite, an der Sie eine Demo geöffnet haben, damit Sie dorthin
+            <li>die Stelle auf der Startseite, an der Sie eine andere Seite (Demo, Impressum) geöffnet haben, damit Sie dorthin
               zurückkehren (<code>aximbra:return</code>, bis der Tab geschlossen wird),</li>
             <li>die Sitzungskennung des E-Mail-Agenten, falls Sie Ihr Konto verbunden haben
               (<code>aximbra:agent</code>, ebenfalls bis der Tab geschlossen wird).</li>

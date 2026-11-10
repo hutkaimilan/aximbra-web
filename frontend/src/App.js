@@ -32,6 +32,8 @@ import Adatkezeles from "@/pages/Adatkezeles";
 import Weboldal from "@/pages/Weboldal";
 import Neked from "@/pages/Neked";
 
+let reloadChecked = false;
+
 function Site() {
   const { t, lang } = useLang();
   useDocumentMeta({
@@ -42,7 +44,39 @@ function Site() {
     jsonLd: organizationJsonLd(t.seo.description),
   });
   const lenisRef = useRef(null);
-  const returningRef = useRef(sessionStorage.getItem("aximbra:return") !== null);
+  const returningRef = useRef((() => {
+    try {
+      // F5-nel a teljes nyitas jar (animacioval, a lap tetejen): egy kattintas
+      // utan bennmaradt ertek ne ugrassa a latogatot egy regi pozicioba.
+      // Csak a dokumentum elso betoltesekor: a navigation-bejegyzes az egesz
+      // munkamenetben "reload" marad, a kesobbi SPA-visszatereseket nem torolheti.
+      if (!reloadChecked) {
+        reloadChecked = true;
+        const nav = performance.getEntriesByType && performance.getEntriesByType("navigation")[0];
+        if (nav && nav.type === "reload") sessionStorage.removeItem("aximbra:return");
+      }
+      return sessionStorage.getItem("aximbra:return") !== null;
+    } catch {
+      return false;
+    }
+  })());
+
+  // Barmilyen belso lapra lepve (impresszum, adatkezeles, weboldal-csomagok,
+  // demo) megjegyezzuk, hol tartott. Visszafele igy nem fut le ujra a nyito-
+  // animacio, es ugyanoda kerul - kulonben ugy hat, mintha ujratoltott volna a
+  // lap. A kattintas pillanataban mentunk: az unmount utan a bongeszo mar a
+  // rovidebb uj laphoz igazitotta a gorgetest, az a szam rossz lenne.
+  useEffect(() => {
+    const onClick = (e) => {
+      const a = e.target.closest && e.target.closest("a[href]");
+      if (!a || a.target === "_blank") return;
+      const href = a.getAttribute("href") || "";
+      if (!href.startsWith("/") || href.startsWith("//")) return;
+      try { sessionStorage.setItem("aximbra:return", String(window.scrollY)); } catch { /* privat mod */ }
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, []);
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -62,12 +96,26 @@ function Site() {
     sessionStorage.removeItem("aximbra:return");
     const y = parseInt(saved, 10) || 0;
     if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (lenisRef.current) lenisRef.current.scrollTo(y, { immediate: true, force: true });
-        else window.scrollTo(0, y);
-      });
-    });
+    const go = () => {
+      if (lenisRef.current) lenisRef.current.scrollTo(y, { immediate: true, force: true });
+      else window.scrollTo(0, y);
+    };
+    requestAnimationFrame(() => requestAnimationFrame(go));
+    // A lap alja (kepek, demo-elonezetek) kesobb nyeri el a vegleges magassagat;
+    // addig a cel tul lehet a gorgetheto hosszon. Par ujraprobalas, amig a
+    // latogato maga nem gorget.
+    let touched = false;
+    const stop = () => { touched = true; };
+    window.addEventListener("wheel", stop, { passive: true, once: true });
+    window.addEventListener("touchstart", stop, { passive: true, once: true });
+    const timers = [250, 600, 1200].map((ms) => setTimeout(() => {
+      if (!touched && Math.abs(window.scrollY - y) > 40) go();
+    }, ms));
+    return () => {
+      timers.forEach(clearTimeout);
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchstart", stop);
+    };
   }, []);
 
   const scrollTo = (id) => {

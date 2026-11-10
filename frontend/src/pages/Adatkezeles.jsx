@@ -97,7 +97,7 @@ function AdatkezelesHu({ lang }) {
           </p>
           <ul>
             <li>a kiválasztott nyelv (<code>aximbra_lang</code>),</li>
-            <li>hol tartottál a lapon, amikor egy demóra léptél — hogy visszatérve
+            <li>hol tartottál a főoldalon, amikor egy másik lapjára (pl. demóra vagy az impresszumra) léptél — hogy visszatérve
               ugyanoda kerülj (<code>aximbra:return</code>, a fül bezárásáig él),</li>
             <li>az e-mail agent munkamenet-azonosítója, ha csatlakoztattad a fiókodat
               (<code>aximbra:agent</code>, szintén a fül bezárásáig).</li>
