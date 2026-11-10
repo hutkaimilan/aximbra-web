@@ -956,6 +956,11 @@ textarea:focus-visible,
 .pb-field select { background: #070914; color: var(--text); border: 1px solid var(--border);
   border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 14px; min-height: 44px; }
 .pb-field input[type="range"] { accent-color: #00A3B8; min-height: 44px; }
+/* iOS Safari-n a select a leghosszabb opcio szelessegere no (pl. "garantalt
+   berminimum (brutto 373 200 Ft)"), es a csuszkaval egyutt kilogott a kartyabol. */
+.pb-field { min-width: 0; }
+.pb-field select, .pb-field input[type="range"] { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+.pb-field select { text-overflow: ellipsis; }
 .pb-result { margin: 22px 0 6px; }
 .pb-hero { font-family: var(--body); font-weight: 600; font-size: clamp(22px, 3.4vw, 32px);
   color: var(--text); margin: 0; }
@@ -996,7 +1001,7 @@ textarea:focus-visible,
 .pb-notes { margin: 18px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
 .pb-notes li + li { margin-top: 4px; }
 @media (max-width: 760px) {
-  .pb-controls { grid-template-columns: 1fr; }
+  .pb-controls { grid-template-columns: minmax(0, 1fr); }
   .pb-card { padding: 20px 16px; }
 }
 
