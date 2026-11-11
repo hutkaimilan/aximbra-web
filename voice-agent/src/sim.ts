@@ -89,6 +89,7 @@ export interface SimParams {
   scenarios: string[];
   runs: number;
   model?: string;
+  effort?: string;
   testerModel?: string;
   judgeModel?: string;
   judge: boolean;
@@ -300,6 +301,7 @@ async function agentTurn(
   from: string,
   lang: Lang,
   model?: string,
+  effort?: string,
 ): Promise<{ text: string; ended: boolean; ttftMs: number; ms: number }> {
   const askedMore = history.some((t) => t.role === 'assistant' && MORE_QUESTIONS_RE.test(t.content));
   const dropRe = askedMore ? MORE_QUESTIONS_RE : null;
@@ -313,7 +315,7 @@ async function agentTurn(
       () => {
         if (ttft < 0) ttft = Date.now() - t0;
       },
-      { maxTokens: 700, temperature: 0.3, timeoutMs: 20_000, model },
+      { maxTokens: 700, temperature: 0.3, timeoutMs: 20_000, model, reasoningEffort: effort },
     );
   let full: string;
   try {
@@ -352,7 +354,14 @@ async function callerTurn(
 
 export async function simulateCall(
   scenarioKey: string,
-  opts: { model?: string; testerModel?: string; judgeModel?: string; judge: boolean; maxTurns: number },
+  opts: {
+    model?: string;
+    effort?: string;
+    testerModel?: string;
+    judgeModel?: string;
+    judge: boolean;
+    maxTurns: number;
+  },
 ): Promise<SimRun> {
   const scenario = scenarioByKey(scenarioKey);
   const lang: Lang = scenario.lang === 'en' ? 'en' : 'hu';
@@ -378,7 +387,7 @@ export async function simulateCall(
       history.push({ role: 'user', content: callerText });
       turns.push({ who: 'caller', text: callerText });
 
-      const a = await agentTurn(history, facts, from, lang, opts.model);
+      const a = await agentTurn(history, facts, from, lang, opts.model, opts.effort);
       history.push({ role: 'assistant', content: a.text });
       turns.push({ who: 'agent', text: a.text, ttftMs: a.ttftMs, ms: a.ms });
 
@@ -456,6 +465,7 @@ export function startSimBatch(params: SimParams): SimBatch {
         if (k >= jobs.length) return;
         const r = await simulateCall(jobs[k]!, {
           model: params.model,
+          effort: params.effort,
           testerModel: params.testerModel,
           judgeModel: params.judgeModel,
           judge: params.judge,
@@ -480,4 +490,63 @@ export function startSimBatch(params: SimParams): SimBatch {
   })();
 
   return batch;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Valaszido-meres: egyetlen fordulo, tobbszor                          */
+/* ------------------------------------------------------------------ */
+
+export interface ProbeResult {
+  model: string;
+  effort: string;
+  ttftMs: number[];
+  totalMs: number[];
+  errors: string[];
+  sample: string;
+}
+
+/**
+ * Ugyanazt az elso valaszt keri `n`-szer, egymas utan, es meri, mikor jon az
+ * elso token. A valodi rendszerpromptot es egy valodi elso hivoi mondatot
+ * hasznal. Sorban fut, kis szunettel, hogy ne egye meg a percenkenti keretet.
+ */
+export async function probeLatency(opts: { model?: string; effort?: string; n: number }): Promise<ProbeResult> {
+  const history: Turn[] = [
+    { role: 'assistant', content: callbackGreeting('hu') },
+    {
+      role: 'user',
+      content: 'Jó napot, Kovács Péter vagyok a győri Kovács Optikától. Az e-mail-kezelés automatizálása miatt keresem önöket.',
+    },
+  ];
+  const prompt = buildSystemPrompt(env().currentProjects, emptyFacts(), '+36301234567', 'hu', history);
+  const out: ProbeResult = {
+    model: opts.model ?? env().model,
+    effort: opts.effort ?? '',
+    ttftMs: [],
+    totalMs: [],
+    errors: [],
+    sample: '',
+  };
+  for (let i = 0; i < opts.n; i += 1) {
+    const t0 = Date.now();
+    let ttft = -1;
+    try {
+      const full = await replyStream(
+        history,
+        prompt,
+        () => {
+          if (ttft < 0) ttft = Date.now() - t0;
+        },
+        { maxTokens: 700, temperature: 0.3, timeoutMs: 30_000, model: opts.model, reasoningEffort: opts.effort },
+      );
+      out.ttftMs.push(ttft);
+      out.totalMs.push(Date.now() - t0);
+      if (!out.sample) out.sample = full;
+    } catch (err) {
+      out.errors.push(String(err).slice(0, 200));
+    }
+    await new Promise((r) => setTimeout(r, 2500));
+  }
+  return out;
 }

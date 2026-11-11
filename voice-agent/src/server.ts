@@ -219,13 +219,13 @@ const REJECT_MESSAGES: Record<Lang, Record<'daily' | 'concurrent', string>> = {
     concurrent:
       'Köszönjük a hívást. Jelenleg minden vonalunk foglalt, kérjük, próbálja újra néhány perc múlva. Viszonthallásra!',
     daily:
-      'Köszönjük a hívást. A bemutató vonal mai kerete betelt. Kérjük, írjon nekünk az aximbra kukac gmail pont com címre, vagy próbálja meg holnap. Viszonthallásra!',
+      'Köszönjük a hívást. Most nem tudjuk fogadni, de a kollégánk ezen a számon visszahívja. Ha sürgős, írjon nekünk az aximbra kukac gmail pont com címre. Viszonthallásra!',
   },
   en: {
     concurrent:
       'Thank you for calling. All our lines are busy right now, please try again in a few minutes. Goodbye!',
     daily:
-      "Thank you for calling. Today's limit for this demo line has been reached. Please email us at aximbra at gmail dot com, or try again tomorrow. Goodbye!",
+      "Thank you for calling. We cannot take your call right now, but a colleague will call you back on this number. If it is urgent, email us at aximbra at gmail dot com. Goodbye!",
   },
 };
 

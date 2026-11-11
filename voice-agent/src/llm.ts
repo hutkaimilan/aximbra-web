@@ -30,6 +30,18 @@ export interface ReplyOptions {
   timeoutMs?: number;
   /** Felbeszakitaskor ezzel allitjuk le a mar futo streamet. */
   signal?: AbortSignal;
+  /**
+   * A modell "gondolkodasi" ideje (OpenAI-kompatibilis `reasoning_effort`,
+   * pl. Gemininel 'none' | 'low'). Telefonon minden gondolkodasi masodperc
+   * nema vonal, ezert merheto es allithato. Ures = a modell alapertelmezese.
+   */
+  reasoningEffort?: string;
+}
+
+/** A `reasoning_effort` mezo, ha be van allitva (kulonben semmi). */
+function effortParam(opts: ReplyOptions): Record<string, unknown> {
+  const e = opts.reasoningEffort ?? process.env['VOICE_REASONING_EFFORT']?.trim();
+  return e ? { reasoning_effort: e } : {};
 }
 
 let client: OpenAI | null = null;
@@ -242,7 +254,8 @@ export async function replyStream(
       max_tokens: opts.maxTokens ?? 220,
       temperature: opts.temperature ?? 0.3,
       stream: true,
-    },
+      ...effortParam(opts),
+    } as OpenAI.Chat.ChatCompletionCreateParamsStreaming,
     { timeout: opts.timeoutMs ?? 12_000, maxRetries: 0, signal: opts.signal },
   );
 

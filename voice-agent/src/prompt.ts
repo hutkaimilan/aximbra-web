@@ -39,10 +39,10 @@ export const FAILURE_MESSAGE =
 export const HOLD_MESSAGE = 'Egy pillanat.';
 export const HOLD_MESSAGE_EN = 'One moment.';
 
+// Nem "bemutato vonal": ez az erdeklodo-vonal, valodi ugyfelek hivjak.
 export const TIME_LIMIT_MESSAGE =
-  'Sajnos itt le kell zárnom a hívást, mert ez egy bemutató vonal. ' +
-  'Írjon nyugodtan az aximbra kukac gmail pont com címre, és ott folytatjuk. ' +
-  'Köszönöm a hívást, viszonthallásra!';
+  'Elnézést, most le kell zárnom a hívást. A kollégám ezen a számon visszahívja, ' +
+  'vagy írjon nekünk az aximbra kukac gmail pont com címre. Köszönöm a hívást, viszonthallásra!';
 
 /**
  * Az angol változat annak, aki a menüben a kettes gombot nyomta.
@@ -56,9 +56,8 @@ export const FAILURE_MESSAGE_EN =
   'Sorry, the line dropped for a moment. Could you say that again, please?';
 
 export const TIME_LIMIT_MESSAGE_EN =
-  'I am afraid I have to end the call here, because this is a demo line. ' +
-  'Feel free to email us at aximbra at gmail dot com, and we will continue there. ' +
-  'Thank you for calling, goodbye!';
+  'I am sorry, I have to end the call now. My colleague will call you back on this number, ' +
+  'or you can email us at aximbra at gmail dot com. Thank you for calling, goodbye!';
 
 /**
  * Amit a hivo hall, ha a hivas kozben nyelvet valtottunk.
@@ -68,7 +67,9 @@ export const TIME_LIMIT_MESSAGE_EN =
  * ugy, mintha ertettuk volna: megkerjuk, hogy mondja ujra, mar a sajat
  * nyelven. Egy ismetles ara, es onnantol tiszta a vonal.
  */
-export const SWITCHED_MESSAGE = 'Elnezest, most alltam at magyarra. Megismetelned, kerlek?';
+// Magazva: a tulajdonos minden tegezest megtiltott, ez a rogzitett mondat is
+// tegezett (es ekezet nelkul irodott, amit a felolvaso furcsan ejtett).
+export const SWITCHED_MESSAGE = 'Elnézést, most váltottam magyarra. Megismételné, kérem?';
 
 export const SWITCHED_MESSAGE_EN =
   'Sorry - I have just switched to English. Could you say that again, please?';

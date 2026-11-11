@@ -53,7 +53,7 @@ import type { WebSocket } from 'ws';
 import { env } from './env.js';
 import { listModels, reply, reviewCall, type Turn } from './llm.js';
 import { type Lang as AximbraLang } from './routing.js';
-import { getSimBatch, runningSimBatch, startSimBatch } from './sim.js';
+import { getSimBatch, probeLatency, runningSimBatch, startSimBatch } from './sim.js';
 import {
   buildTesterPrompt,
   scenarioByKey,
@@ -974,6 +974,7 @@ export async function handleTestRoute(
       scenarios,
       runs: clamp(get('runs'), 1, 1, 5),
       model: get('model') || undefined,
+      effort: get('effort') || undefined,
       testerModel: get('testerModel') || undefined,
       judgeModel: get('judgeModel') || undefined,
       judge: get('judge') !== '0',
@@ -981,6 +982,16 @@ export async function handleTestRoute(
       concurrency: clamp(get('concurrency'), 2, 1, 4),
     });
     return { status: 202, headers: JSON_H, body: JSON.stringify({ id: batch.id, total: batch.total }) };
+  }
+
+  if (method === 'GET' && path === '/test/probe') {
+    const n = Math.min(8, Math.max(1, Number.parseInt(query.get('n') ?? '4', 10) || 4));
+    const r = await probeLatency({
+      model: query.get('model') || undefined,
+      effort: query.get('effort') || undefined,
+      n,
+    });
+    return { status: 200, headers: JSON_H, body: JSON.stringify(r) };
   }
 
   if (method === 'GET' && path.startsWith('/test/sim/')) {
