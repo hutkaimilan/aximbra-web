@@ -356,3 +356,9 @@ test('tovabblepesi szandek es mondat kozepi ajanlkozo kerdes (szimulator v9)', (
   );
   assert.equal(NUDGE_RE.test('Melyik érdekli ezek közül?'), false);
 });
+
+test('elkoszonesnek szamit a "további szép napot" is (szimulator v10)', () => {
+  assert.equal(GOODBYE_SAID_RE.test('Köszönöm a beszélgetést, Molnár asszony, további szép napot kívánok!'), true);
+  assert.equal(GOODBYE_SAID_RE.test('Thank you, have a nice day!'), true);
+  assert.equal(GOODBYE_SAID_RE.test('Jó napot kívánok! Az Aximbrától keresem.'), false);
+});

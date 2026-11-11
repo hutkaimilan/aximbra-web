@@ -433,7 +433,11 @@ export const NUDGE_RE =
 export const META_RE = /^\s*mivel (?:a nevét|a cégét|a cégnevet|már (?:megadta|ismerem|tudom))/iu;
 
 /** Elhangzott-e elkoszones (a bontas elott kotelezo). */
-export const GOODBYE_SAID_RE = /viszont(?:látásra|hallásra)|good ?bye|(?<![\p{L}])bye(?![\p{L}])/iu;
+// A "további szép napot kívánok!" is elkoszones: a szimulatorban emiatt
+// ketszer koszont el ("... szép napot kívánok! Köszönöm a beszélgetést,
+// viszonthallásra!").
+export const GOODBYE_SAID_RE =
+  /viszont(?:látásra|hallásra)|viszlát|szép (?:napot|estét|hétvégét|délutánt)|jó munkát|minden jót|good ?bye|(?<![\p{L}])bye(?![\p{L}])|have a (?:nice|good|great|lovely) (?:day|evening|weekend)|take care/iu;
 
 /** Ujrakoszones egy kulon mondatban ("Üdvözlöm, Kiss úr."). */
 export const REGREET_SENTENCE_RE =
