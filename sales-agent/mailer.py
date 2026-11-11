@@ -101,12 +101,11 @@ def send(msg: EmailMessage) -> str:
     return msg["Message-ID"]
 
 
-class Mailbox:
-    """IMAP kapcsolat egy futásra. Mindig az 'Összes levél' mappát
+class _Account:
+    """IMAP kapcsolat EGY fiókhoz, egy futásra. Mindig az 'Összes levél' mappát
     választja, a nyelvtől függetlenül (a \\All jelzőből)."""
 
-    def __init__(self):
-        user, pw = _creds()
+    def __init__(self, user: str, pw: str):
         try:
             self.imap = imaplib.IMAP4_SSL(IMAP_HOST, timeout=TIMEOUT)
             self.imap.login(user, pw)
@@ -209,3 +208,94 @@ def strip_quoted(text: str) -> str:
             break
         out.append(line)
     return "\n".join(out).strip()
+
+
+def _accounts() -> list[tuple[str, str]]:
+    """Az osszes olvasando postafiok.
+
+    A tulajdonos kerese (2026-11-11): MINDEN beerkezo levelet olvasni kell -
+    hutkaimilan11, aximbra, aximbra2 (gmail.com) es a milan@aximbra.hu, ami
+    Cloudflare-tovabbitas, tehat valamelyik Gmailbe erkezik. Egy valasz
+    korabban azert veszett el, mert nem abba a fiokba jott, amit olvastunk.
+
+    GMAIL_USER / GMAIL_APP_PASSWORD az elsodleges (ezzel is kuldunk), a
+    GMAIL_ACCOUNTS a tobbi: "cim:alkalmazasjelszo" parok vesszovel.
+    """
+    out: list[tuple[str, str]] = []
+    user = os.environ.get("GMAIL_USER", "").strip()
+    pw = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "")
+    if user and pw:
+        out.append((user, pw))
+    for item in os.environ.get("GMAIL_ACCOUNTS", "").split(","):
+        if ":" not in item:
+            continue
+        u, p = item.split(":", 1)
+        u, p = u.strip(), p.replace(" ", "").strip()
+        if u and p and u.lower() not in {a[0].lower() for a in out}:
+            out.append((u, p))
+    return out
+
+
+class Mailbox:
+    """Az osszes beallitott postafiok egyutt, ugyanazzal a feluelettel.
+
+    Egy fiok hibaja (rossz jelszo, IMAP kikapcsolva) nem allitja meg a
+    tobbit: naplozzuk, es kihagyjuk. Ha egyik sem nyilik meg, hiba.
+    """
+
+    def __init__(self, accounts: list[tuple[str, str]] | None = None, open_account=None):
+        accs = accounts if accounts is not None else _accounts()
+        if not accs:
+            raise AuthError("nincs beállítva a GMAIL_USER / GMAIL_APP_PASSWORD")
+        opener = open_account or _Account
+        self.boxes = []
+        self.failed: list[str] = []
+        last: Exception | None = None
+        for u, p in accs:
+            try:
+                self.boxes.append(opener(u, p))
+            except (AuthError, MailError) as e:
+                logging.getLogger(__name__).warning("postafiók kihagyva (%s): %s", u, e)
+                self.failed.append(u)
+                last = e
+        if not self.boxes:
+            raise last or AuthError("egyik postafiók sem nyílt meg")
+        self.user = self.boxes[0].user
+
+    def close(self):
+        for b in self.boxes:
+            b.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        self.close()
+
+    def ever_contacted(self, address: str, domain: str | None) -> bool:
+        return any(b.ever_contacted(address, domain) for b in self.boxes)
+
+    @staticmethod
+    def _dedup(msgs: list[dict]) -> list[dict]:
+        seen, out = set(), []
+        for m in msgs:
+            key = m.get("message_id") or id(m)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(m)
+        return out
+
+    def messages_from(self, address: str, since_days: int = 30) -> list[dict]:
+        msgs = [m for b in self.boxes for m in b.messages_from(address, since_days)]
+        msgs = self._dedup(msgs)
+        # Idorendben: a hivo a legutolsot ([-1]) veszi valasznak.
+        def when(m):
+            try:
+                return email.utils.parsedate_to_datetime(m.get("date") or "").timestamp()
+            except (TypeError, ValueError, IndexError):
+                return 0.0
+        return sorted(msgs, key=when)
+
+    def bounces_since(self, since_days: int = 14) -> list[dict]:
+        return self._dedup([m for b in self.boxes for m in b.bounces_since(since_days)])

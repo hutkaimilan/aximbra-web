@@ -1827,3 +1827,32 @@ def test_valasz_mas_cimrol_targy_alapjan():
     assert not pipeline._same_thread(lead, {"subject": "Hírlevél novemberre", "in_reply_to": "", "references": ""})
     lead2 = {"email": "a@b.sk", "message_id": "<x@y>", "subject": "Más"}
     assert pipeline._same_thread(lead2, {"subject": "valami", "in_reply_to": "<x@y>", "references": ""})
+
+
+def test_minden_postafiokot_olvas(monkeypatch):
+    import mailer
+
+    class Box:
+        def __init__(self, user, pw):
+            if pw == "rossz":
+                raise mailer.AuthError("rossz jelszo")
+            self.user = user
+            self.msgs = {
+                "a@gmail.com": [{"from": "x@ceg.hu", "message_id": "<1>", "date": "Mon, 09 Nov 2026 10:00:00 +0000", "text": "regi"}],
+                "b@gmail.com": [{"from": "x@ceg.hu", "message_id": "<2>", "date": "Tue, 10 Nov 2026 10:00:00 +0000", "text": "uj"},
+                                {"from": "x@ceg.hu", "message_id": "<1>", "date": "Mon, 09 Nov 2026 10:00:00 +0000", "text": "regi"}],
+            }.get(user, [])
+        def messages_from(self, a, d): return list(self.msgs)
+        def bounces_since(self, d): return []
+        def ever_contacted(self, a, dom): return self.user == "b@gmail.com"
+        def close(self): pass
+
+    monkeypatch.setenv("GMAIL_USER", "a@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "jo")
+    monkeypatch.setenv("GMAIL_ACCOUNTS", "b@gmail.com:jo, c@gmail.com:rossz")
+    assert [u for u, _ in mailer._accounts()] == ["a@gmail.com", "b@gmail.com", "c@gmail.com"]
+    mb = mailer.Mailbox(open_account=Box)
+    assert mb.failed == ["c@gmail.com"]          # a hibas fiok nem allitja meg a tobbit
+    msgs = mb.messages_from("x@ceg.hu", 45)
+    assert [m["text"] for m in msgs] == ["regi", "uj"]   # egyszer, idorendben
+    assert mb.ever_contacted("x@ceg.hu", None)     # barmelyik fiokbol
