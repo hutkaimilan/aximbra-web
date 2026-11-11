@@ -261,18 +261,53 @@ export const PRICE_ASKED_RE =
 export const PRICE_SAID_RE =
   /(?<![\p{L}])(?:forint\p{L}*|ft)(?![\p{L}])|\p{L}*(?:ezer|millió)(?![\p{L}])|százalék|forint|percent|thousand|million/iu;
 
+/** A hivo csak nyugtazott ("Értem.", "Rendben, köszönöm.") - nem kerdezett, nem mesel. */
+export const CALLER_ACK_RE =
+  /^(?:[\s,.!]*(?:hát|na|oké|okés|ok|jó|jól van|értem|rendben|világos|köszönöm|köszönöm szépen|köszi|aha|értettem|szuper|nagyszerű|remek|tökéletes|értem köszönöm|okay|all right|alright|thanks|thank you|got it|i see|right|great|fine))+[\s,.!]*$/iu;
+
+/** A hivo jelezte, hogy vegzett. */
+export const CALLER_DONE_RE =
+  /nincs (?:több|más)|ennyi (?:lenne|volt|elég)|minden világos|ez (?:minden|elég)|nincs kérdés|viszont(?:látásra|hallásra)|that'?s (?:all|everything)|no (?:more|other|further) questions|nothing else|goodbye|(?<![\p{L}])bye(?![\p{L}])/iu;
+
+/** A hivo maga kert ajanlatot, visszahivast vagy embert. */
+export const OFFER_REQUEST_RE =
+  /ajánlat|küldj|küldjenek|küldjön|küldjék|küldené|elérhetőség|felír|a számom|hívjanak|hívjon|keressenek|keressen|visszahív|kolléga|quote|proposal|send me|call me|contact me|colleague/iu;
+
+/** Zaro lepes: nev/ceg kerdese, ajanlat, SMS vagy e-mail felajanlasa. */
+export const CLOSING_RE =
+  /kihez címezzem|melyik cégnél|hogy hívják|mi a (?:neve|cég)|mi az ön neve|a nevét|küldjem|(?<![\p{L}])sms|ajánlatot (?:küld|össze|készít)|elküldöm az ajánlat|felírhatom|felírom|who should i address|which company|your name|text message|send (?:it|you|the quote)/iu;
+
+/** Ujrakoszones egy kulon mondatban ("Üdvözlöm, Kiss úr."). */
+export const REGREET_SENTENCE_RE =
+  /^\s*(?:üdvözlöm|jó napot(?: kívánok)?|szép napot|hello|hi)(?:[\s,]+(?:\p{Lu}\p{L}*\s+)?(?:úr|asszony|hölgyem|uram|\p{Lu}\p{L}*))?\s*[.!]\s*$/iu;
+
 /**
- * A kiszurendo mondatok egy mintaban: a mar elhangzott / korai "Van meg
- * kerdese?", es amig a hivo nem kerdezte, az ar.
+ * A kiszurendo mondatok egy mintaban. Mindegyik egy olyan hiba, amit a
+ * promptszabaly a szimulatorban vagy eles hivasban nem fogott meg:
+ *  - ujrakoszones ("Üdvözlöm, Kiss úr.") a hivas kozepen;
+ *  - "Van meg kerdese?": csak egyszer, es csak ha a hivo nyugtazott vagy
+ *    vegzett - nem a kerdesei kozben;
+ *  - zaro lepes (nev, ajanlat, SMS): csak ha a hivo nyugtazott, vegzett,
+ *    maga kert ajanlatot / visszahivast, vagy fogy az ido. A tulajdonos
+ *    panasza szo szerint: "egybol kuldeni akarja az ajanlatot";
+ *  - ar, amig a hivo nem kerdezte.
  */
-export function dropPattern(history: ReadonlyArray<{ role: string; content: string }>): RegExp | null {
+export function dropPattern(
+  history: ReadonlyArray<{ role: string; content: string }>,
+  secondsLeft?: number,
+): RegExp | null {
   const askedMore = history.some((t) => t.role === 'assistant' && MORE_QUESTIONS_RE.test(t.content));
   const callerTexts = history.filter((t) => t.role === 'user').map((t) => t.content);
   const lastCaller = callerTexts[callerTexts.length - 1] ?? '';
-  const parts: string[] = [];
-  if (askedMore || CALLER_ASKED_RE.test(lastCaller)) parts.push(MORE_QUESTIONS_RE.source);
-  // A tulajdonos: arat csak akkor, ha kerdezik. A promptszabaly a
-  // szimulatorban ketszer sem tartott - ez a gepi zar.
+  const callerWrapping = CALLER_ACK_RE.test(lastCaller) || CALLER_DONE_RE.test(lastCaller);
+  const timeUp = secondsLeft !== undefined && secondsLeft < 75;
+
+  const parts: string[] = [REGREET_SENTENCE_RE.source];
+  const moreOk = !askedMore && (callerWrapping || OFFER_REQUEST_RE.test(lastCaller) || timeUp);
+  if (!moreOk) parts.push(MORE_QUESTIONS_RE.source);
+  const closingOk = callerWrapping || timeUp || callerTexts.some((c) => OFFER_REQUEST_RE.test(c));
+  if (!closingOk) parts.push(CLOSING_RE.source);
+  // Arat csak akkor, ha kerdezik (a "kerdezte" teszt szandekosan tag).
   if (!callerTexts.some((c) => PRICE_ASKED_RE.test(c))) parts.push(PRICE_SAID_RE.source);
-  return parts.length > 0 ? new RegExp(parts.map((p) => `(?:${p})`).join('|'), 'iu') : null;
+  return new RegExp(parts.map((p) => `(?:${p})`).join('|'), 'iu');
 }

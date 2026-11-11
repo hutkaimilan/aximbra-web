@@ -78,3 +78,26 @@ test('ha minden mondat kiesne, az eredeti hangzik el (nincs nema valasz)', () =>
   const f = new SentenceDropFilter(dropPattern(h));
   assert.equal(f.push(only) + f.flush(), only);
 });
+
+test('zaras: nev/ajanlat/SMS csak ha a hivo vegzett vagy maga kerte', () => {
+  const base = [{ role: 'assistant', content: 'Jó napot kívánok!' }];
+  const reply = 'Két-három hét alatt elkészül. Küldjem el az ajánlatot SMS-ben erre a számra?';
+  // Eles panasz: a hivo meg kerdez, az agent mar az ajanlatot kuldene.
+  const asking = [...base, { role: 'user', content: 'És mennyi idő alatt készül el?' }];
+  assert.equal(dropSentences(reply, dropPattern(asking)), 'Két-három hét alatt elkészül.');
+  const done = [...asking, { role: 'assistant', content: 'Két-három hét.' }, { role: 'user', content: 'Értem, köszönöm.' }];
+  assert.equal(dropSentences(reply, dropPattern(done)), reply);
+  const requested = [...base, { role: 'user', content: 'Kérnék egy ajánlatot. Mennyi idő alatt készül el?' }];
+  assert.equal(dropSentences(reply, dropPattern(requested)), reply);
+});
+
+test('van meg kerdese: csak nyugtazas utan, es csak egyszer; ujrakoszones nincs', () => {
+  const base = [{ role: 'assistant', content: 'Jó napot kívánok!' }];
+  const r = 'Értem. Van még kérdése, amiben segíthetek?';
+  const statement = [...base, { role: 'user', content: 'Napi tizenöt-huszonöt hívás jön.' }];
+  assert.equal(dropSentences(r, dropPattern(statement)), 'Értem.');
+  const ack = [...base, { role: 'user', content: 'Értem.' }];
+  assert.equal(dropSentences(r, dropPattern(ack)), r);
+  const greet = 'Üdvözlöm, Kiss úr! Ez kivitelezhető.';
+  assert.equal(dropSentences(greet, dropPattern(statement)), 'Ez kivitelezhető.');
+});

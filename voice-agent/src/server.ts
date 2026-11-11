@@ -970,7 +970,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     // Ha a "Van meg kerdese?" mar elhangzott, ujra nem mehet ki (turn.ts).
     // Kiszurt mondatok (turn.ts dropPattern): a mar elhangzott vagy korai
     // "Van meg kerdese?", es az ar, amig a hivo nem kerdezte.
-    const dropRe = dropPattern(s.history);
+    const dropRe = dropPattern(s.history, maxCallSeconds() - (Date.now() - s.startedAt) / 1000);
     const once = new SentenceDropFilter(dropRe);
 
     // A modell valaszideje ingadozik (merve: 0,7 s es 9 s kozott, egyszer
