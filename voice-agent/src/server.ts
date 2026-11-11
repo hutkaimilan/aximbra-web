@@ -926,9 +926,10 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
    * ha nem, mi koszonunk bele a csendbe. Korabban a Twilio a felvetel
    * pillanataban kimondta a koszonest, es a felvevo "Hallo"-ja belevagott.
    */
-  const greetCallback = (): void => {
+  const greetCallback = (why = 'csend'): void => {
     if (s.greeted || s.closed) return;
     s.greeted = true;
+    console.log(`[ws] visszahivas koszones (${why}) callSid=${s.callSid}`);
     if (s.greetTimer) {
       clearTimeout(s.greetTimer);
       s.greetTimer = null;
@@ -963,7 +964,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
           s.streamed += out;
           send(out, false);
         },
-        { signal: ac.signal, maxTokens: 500, temperature: 0.3, timeoutMs },
+        { signal: ac.signal, maxTokens: 700, temperature: 0.3, timeoutMs },
       );
     try {
       let full: string;
@@ -1219,7 +1220,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
       // koszonunk - kulon valaszt nem adunk ra.
       if (!s.greeted) {
         s.history.push({ role: 'user', content: text });
-        greetCallback();
+        greetCallback('a felvevo szolt');
         return;
       }
 

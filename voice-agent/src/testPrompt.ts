@@ -166,8 +166,8 @@ export const SCENARIOS: Record<string, Scenario> = {
     contact: 'ez a telefonszám, amiről hívsz, a neved Kovács Éva, a cég a Kovács és Társa Bt.',
     persona:
       'Kovacs Eva vagy, egy 15 fos keresked cég irodavezetoje. Magazol. ' +
-      'Roviden es figyelmesen hallgatsz; ha az agent megkerdezi, folytassa-e, ' +
-      'mondd, hogy igen.',
+      'Roviden es figyelmesen hallgatsz. Ha az agent kozben megkerdezi, ' +
+      'folytassa-e, ingerulten mondd: "Mondtam, hogy az osszeset kerem."',
     reason: 'Atfogo kepet akarsz arrol, milyen agentek leteznek.',
     questions:
       'Sorolja fel az osszes agentet, mindegyikrol egy mondatban. A vegen: ' +
