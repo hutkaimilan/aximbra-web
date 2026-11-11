@@ -396,7 +396,9 @@ export async function extractFacts(
         max_tokens: opts.maxTokens ?? 300,
         temperature: 0,
       },
-      { timeout: opts.timeoutMs ?? 10_000, maxRetries: 0, signal: opts.signal },
+      // Egy ujraprobalas: eles hivasokban tobbszor 503-mal szallt el, es
+      // ilyenkor a hivas vegeig nem tudtuk, ki beszel.
+      { timeout: opts.timeoutMs ?? 10_000, maxRetries: 1, signal: opts.signal },
     );
 
     const raw = completion.choices[0]?.message?.content;
@@ -478,6 +480,47 @@ export async function summarize(history: Turn[]): Promise<Summary | null> {
     };
   } catch (err) {
     console.error('[llm] osszefoglalo sikertelen:', err);
+    return null;
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Szimulatorhoz: modell-lista es JSON-valasz                           */
+/* ------------------------------------------------------------------ */
+
+/** Az LLM-vegpont altal kinalt modellek azonositoi (a szimulatorhoz). */
+export async function listModels(): Promise<string[]> {
+  const out: string[] = [];
+  const page = await openai().models.list();
+  for await (const m of page) out.push(m.id);
+  return out.sort();
+}
+
+/** Egy JSON-valaszt kero hivas (ertekeleshez). Hiba eseten null. */
+export async function chatJson(
+  system: string,
+  user: string,
+  opts: ReplyOptions = {},
+): Promise<unknown | null> {
+  try {
+    const completion = await openai().chat.completions.create(
+      {
+        model: opts.model ?? env().model,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        response_format: { type: 'json_object' },
+        max_tokens: opts.maxTokens ?? 1200,
+        temperature: 0,
+      },
+      { timeout: opts.timeoutMs ?? 45_000, maxRetries: 1, signal: opts.signal },
+    );
+    const raw = completion.choices[0]?.message?.content;
+    return raw ? (JSON.parse(raw) as unknown) : null;
+  } catch (err) {
+    console.error('[llm] json-hivas sikertelen:', err);
     return null;
   }
 }

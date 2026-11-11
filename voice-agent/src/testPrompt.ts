@@ -173,6 +173,63 @@ export const SCENARIOS: Record<string, Scenario> = {
       'Sorolja fel az osszes agentet, mindegyikrol egy mondatban. A vegen: ' +
       'melyik lenne jo egy kis kereskedo cegnek.',
   },
+  // A szimulatorhoz (es telefonos teszthez) felvett hivotipusok. Mindegyik egy
+  // olyan helyzet, ahol az agent eddig hibazott, vagy hibazhat.
+  arerzekeny: {
+    key: 'arerzekeny',
+    label: 'Arerzekeny (rogton az arat kerdezi, nagysagrendet kovetel)',
+    lang: 'hu',
+    contact: 'ez a telefonszám, amiről hívsz, a neved Varga Tamás, a cég a Varga Autószerviz',
+    persona:
+      'Varga Tamas vagy, egy 12 fos autoszerviz tulajdonosa. Magazol. Sietsz, ' +
+      'es eloszor az ar erdekel. Ha nem kapsz szamot, rakerdezel: "De nagyjabol?". ' +
+      'Kerdezed, van-e kedvezmeny. Ha konkret szamot kapsz, elfogadod.',
+    reason:
+      'Sok a telefonos idopontkeres es az e-mailes arajanlatkeres, ezt automatizalnad.',
+    questions:
+      'Mennyibe kerul (eloszor ez). Van-e kedvezmeny vagy kiprobalas. Mennyi ido alatt kesz.',
+  },
+  roviden: {
+    key: 'roviden',
+    label: 'Kevesbeszedu, siet (rovid valaszok)',
+    lang: 'hu',
+    contact: 'ez a telefonszám, amiről hívsz, a neved Molnár Zsófia, a cég a Molnár és Fiai Kft.',
+    persona:
+      'Molnar Zsofia vagy, egy 30 fos nagykereskedes irodavezetoje. Magazol. ' +
+      'Nagyon roviden valaszolsz ("igen", "nem tudom", "kb. tizen"), nem ' +
+      'reszletezel. Ha az agent tul sokat kerdez, turelmetlen leszel: ' +
+      '"Ezt most nem tudom, csak egy gyors kepet szeretnek."',
+    reason: 'Sok a beerkezo rendeles e-mailben, ezt kene gyorsitani.',
+    questions:
+      'Egy gyors kep: mit tudna ez az agent, es nagyjabol mennyi ido. Utana be ' +
+      'akarod fejezni a hivast, es ha kerik, megadod a nevedet.',
+  },
+  ajanlatkero: {
+    key: 'ajanlatkero',
+    label: 'Korai ajanlatkeres (rogton ajanlatot ker)',
+    lang: 'hu',
+    contact: 'ez a telefonszám, amiről hívsz, és a horvath.gabor kukac horvathpek pont hu cím, a neved Horváth Gábor, a cég a Horváth Pékség',
+    persona:
+      'Horvath Gabor vagy, egy 4 uzletes pekseg tulajdonosa. Magazol. Mar ' +
+      'korabban olvastad a weboldalt, tudod, mit akarsz: egy e-mail rendezo ' +
+      'agentet a megrendelesekhez. Rogton ajanlatot kersz, es megadod az ' +
+      'e-mail cimedet, ha kerik.',
+    reason: 'Napi 30-50 rendeles jon e-mailben, kezzel valogatjatok.',
+    questions:
+      'Kersz egy irasos ajanlatot. Egy kerdesed van meg: mikor tudnanak kezdeni.',
+  },
+  emberkero: {
+    key: 'emberkero',
+    label: 'Embert ker (nem akar geppel beszelni)',
+    lang: 'hu',
+    contact: 'ez a telefonszám, amiről hívsz, a neved Kiss Ágnes, a cég a Kiss Ingatlan',
+    persona:
+      'Kiss Agnes vagy, egy ingatlaniroda vezetoje. Magazol. Az elejen ' +
+      'megkerdezed, gep vagy-e a vonal tuloldalan, es embert kersz. Ha ' +
+      'visszahivast ajanlanak, elfogadod, es megadod a nevedet.',
+    reason: 'Az ugyfelek e-mailjeire valaszolas viszi el a napodat.',
+    questions: 'Ember vagy-e. Tudna-e egy kollega visszahivni.',
+  },
   kulfoldi: {
     key: 'kulfoldi',
     label: 'English caller (foreign number)',
@@ -223,6 +280,18 @@ export function openerFor(scenario: Scenario): string {
   }
   if (scenario.key === 'lista') {
     return 'Jó napot! Azt szeretném kérni, hogy sorolja fel az összes agentet, ami elérhető, és dióhéjban mondja el, melyik mire jó.';
+  }
+  if (scenario.key === 'arerzekeny') {
+    return 'Jó napot, Varga Tamás vagyok, autószervizem van. Mennyibe kerül egy ilyen agent?';
+  }
+  if (scenario.key === 'roviden') {
+    return 'Jó napot. Molnár Zsófia vagyok. A rendelések miatt keresem, röviden.';
+  }
+  if (scenario.key === 'ajanlatkero') {
+    return 'Jó napot, Horváth Gábor vagyok, a Horváth Pékségtől. Egy e-mail rendező agentre kérnék ajánlatot.';
+  }
+  if (scenario.key === 'emberkero') {
+    return 'Jó napot. Elnézést, gép van a vonalban? Inkább egy kollégával beszélnék.';
   }
   if (scenario.key === 'kulfoldi') {
     return "Hi, this is Sarah Bennett, I run a design studio in the UK. I'm calling about automating our email inbox.";
@@ -364,4 +433,21 @@ A másik fél mondata beszédfelismerővel készül, ezért lehet benne értelme
 - Ha körbe-körbe jártok és nem halad: köszönj el, és írd oda: ${END_MARKER}
 
 A ${END_MARKER} jelzést a másik fél nem hallja. Soha ne mondd ki hangosan, hogy "vége".`;
+}
+
+/** A hivas vege fele: zarja le a beszelgetest, es adja meg az elerhetoseget. */
+export function phaseNote(remaining: number, scenario: Scenario): string {
+  if (remaining > 4) return '';
+  if (scenario.lang === 'en') {
+    return `\n\nWRAP UP THE CALL NOW:
+- You have at most ${remaining} more replies.
+- If they have not asked for your contact details yet, offer them yourself.
+- Your contact details: ${scenario.contact}.
+- Then say a short goodbye, and put this at the END of your reply: ${END_MARKER}`;
+  }
+  return `\n\nMOST ZARD LE A BESZELGETEST:
+- Legfeljebb ${remaining} valaszod van hatra.
+- Ha meg nem kertek el az elerhetosegedet, ajanld fel magadtol.
+- Az elerhetoseged: ${scenario.contact}.
+- Ezutan koszonj el egy rovid mondattal, es a valaszod vegere ird oda: ${END_MARKER}`;
 }

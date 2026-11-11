@@ -51,8 +51,9 @@ import OpenAI from 'openai';
 import type { WebSocket } from 'ws';
 
 import { env } from './env.js';
-import { reply, reviewCall, type Turn } from './llm.js';
+import { listModels, reply, reviewCall, type Turn } from './llm.js';
 import { type Lang as AximbraLang } from './routing.js';
+import { getSimBatch, runningSimBatch, startSimBatch } from './sim.js';
 import {
   buildTesterPrompt,
   scenarioByKey,
@@ -60,6 +61,7 @@ import {
   MENU_DIGIT,
   openerFor,
   END_MARKER,
+  phaseNote,
   type TesterLang,
   type Scenario,
 } from './testPrompt.js';
@@ -544,21 +546,6 @@ async function handleFirstTurn(
  * teszt tenylegesen vegigmenjen a tolcsren (elerhetoseg atadasa), ne pedig
  * a limit vagja el a beszelgetest a legfontosabb pillanatban.
  */
-function phaseNote(remaining: number, scenario: Scenario): string {
-  if (remaining > 4) return '';
-  if (scenario.lang === 'en') {
-    return `\n\nWRAP UP THE CALL NOW:
-- You have at most ${remaining} more replies.
-- If they have not asked for your contact details yet, offer them yourself.
-- Your contact details: ${scenario.contact}.
-- Then say a short goodbye, and put this at the END of your reply: ${END_MARKER}`;
-  }
-  return `\n\nMOST ZARD LE A BESZELGETEST:
-- Legfeljebb ${remaining} valaszod van hatra.
-- Ha meg nem kertek el az elerhetosegedet, ajanld fel magadtol.
-- Az elerhetoseged: ${scenario.contact}.
-- Ezutan koszonj el egy rovid mondattal, es a valaszod vegere ird oda: ${END_MARKER}`;
-}
 
 /** Minden tovabbi fordulo: meghallgatjuk, valaszolunk. */
 async function handleNextTurn(
@@ -928,6 +915,7 @@ export interface TestResponse {
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
 const XML = { 'content-type': 'text/xml' };
 const TEXT = { 'content-type': 'text/plain' };
+const JSON_H = { 'content-type': 'application/json; charset=utf-8' };
 
 /**
  * A /test/* utvonalak kezelese. null = nem ez a modul kezeli a kerest.
@@ -955,6 +943,51 @@ export async function handleTestRoute(
     return { status: 404, headers: TEXT, body: 'not found' };
   }
   const t = token!;
+
+  // Szoveges szimulator (sim.ts): telefon es Twilio-koltseg nelkul.
+  if (method === 'GET' && path === '/test/models') {
+    try {
+      return { status: 200, headers: JSON_H, body: JSON.stringify(await listModels()) };
+    } catch (err) {
+      return { status: 502, headers: JSON_H, body: JSON.stringify({ error: String(err) }) };
+    }
+  }
+
+  if (method === 'POST' && path === '/test/sim') {
+    const running = runningSimBatch();
+    if (running) {
+      return { status: 409, headers: JSON_H, body: JSON.stringify({ error: 'mar fut egy szimulacio', id: running.id }) };
+    }
+    const get = (k: string): string | undefined => form?.get(k) ?? query.get(k) ?? undefined;
+    const scenarios = (get('scenarios') ?? 'alap')
+      .split(',')
+      .map((x) => x.trim())
+      .filter((x) => x in SCENARIOS);
+    if (scenarios.length === 0) {
+      return { status: 400, headers: JSON_H, body: JSON.stringify({ error: 'ismeretlen forgatokonyv' }) };
+    }
+    const clamp = (v: string | undefined, d: number, lo: number, hi: number): number => {
+      const n = Number.parseInt(v ?? '', 10);
+      return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d;
+    };
+    const batch = startSimBatch({
+      scenarios,
+      runs: clamp(get('runs'), 1, 1, 5),
+      model: get('model') || undefined,
+      testerModel: get('testerModel') || undefined,
+      judgeModel: get('judgeModel') || undefined,
+      judge: get('judge') !== '0',
+      maxTurns: clamp(get('maxTurns'), 12, 3, 20),
+      concurrency: clamp(get('concurrency'), 2, 1, 4),
+    });
+    return { status: 202, headers: JSON_H, body: JSON.stringify({ id: batch.id, total: batch.total }) };
+  }
+
+  if (method === 'GET' && path.startsWith('/test/sim/')) {
+    const batch = getSimBatch(path.slice('/test/sim/'.length));
+    if (!batch) return { status: 404, headers: JSON_H, body: JSON.stringify({ error: 'nincs ilyen' }) };
+    return { status: 200, headers: JSON_H, body: JSON.stringify(batch) };
+  }
 
   if (method === 'GET' && (path === '/test' || path === '/test/')) {
     return { status: 200, headers: HTML, body: renderIndex(await listRuns(), t) };
