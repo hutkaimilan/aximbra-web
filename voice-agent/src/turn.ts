@@ -221,3 +221,14 @@ export function dropSentences(text: string, drop: RegExp | null): string {
   const f = new SentenceDropFilter(drop);
   return (f.push(text) + f.flush()).trim();
 }
+
+/**
+ * Kerdezett-e a hivo az utolso mondataban.
+ *
+ * Ha igen, a "Van meg kerdese?" nem mehet ki: a hivo meg kerdez, a zaro
+ * kerdes ilyenkor siettetes. A tulajdonos kerese: "Legyen levezetve vegig a
+ * beszelgetes, es a legvegen kerdezze meg." A szimulatorban a modell mar a
+ * hivo masodik kerdese utan feltette.
+ */
+export const CALLER_ASKED_RE =
+  /\?|(?<![\p{L}])(?:mennyibe|mennyi|hogyan|milyen|mikor|hol|miért|melyik|mi történik|tudna|lehetne|van-e|kell-e|how|what|when|where|why|which)(?![\p{L}])/iu;

@@ -37,6 +37,7 @@ import {
 import { sendMissedCall, sendSummary } from './email.js';
 import { sendContactSms } from './sms.js';
 import {
+  CALLER_ASKED_RE,
   FormalFilter,
   HOLD_MS,
   MORE_QUESTIONS_RE,
@@ -57,10 +58,24 @@ export function isClientSpeakingStart(msg: Record<string, unknown>): boolean {
   return !/"(off|false|stop|stopped|end|ended)"|:\s*false/i.test(raw);
 }
 
+/** Ennyi csend utan mondunk egy rovid "Egy pillanat."-ot (ms). */
+const FILLER_AFTER_MS = 2_000;
+/** Ha eddig sem jott elso token, a tartalek-modellt kerdezzuk (ms). */
+const FIRST_TOKEN_DEADLINE_MS = 7_000;
+
+/** A modell a hatarideig egyetlen tokent sem kuldott. */
+class SlowFirstTokenError extends Error {
+  override name = 'SlowFirstTokenError';
+  constructor() {
+    super('a modell a hatarideig nem kezdett el valaszolni');
+  }
+}
+
 /** Atmeneti modellhiba-e: ezt erdemes egyszer ujraprobalni. */
 function isRetryable(err: unknown): boolean {
   const e = err as { status?: number; name?: string; code?: string } | null;
   if (!e) return false;
+  if (e instanceof SlowFirstTokenError) return true;
   if (typeof e.status === 'number' && [408, 429, 500, 502, 503, 504].includes(e.status)) return true;
   return /Timeout|Connection/i.test(e.name ?? '') || e.code === 'ETIMEDOUT' || e.code === 'ECONNRESET';
 }
@@ -955,10 +970,39 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     const formal = new FormalFilter();
     // Ha a "Van meg kerdese?" mar elhangzott, ujra nem mehet ki (turn.ts).
     const askedMore = s.history.some((t) => t.role === 'assistant' && MORE_QUESTIONS_RE.test(t.content));
-    const dropRe = askedMore ? MORE_QUESTIONS_RE : null;
+    // Akkor sem, ha a hivo eppen kerdezett: o meg nem vegzett (turn.ts).
+    const lastCaller = [...s.history].reverse().find((t) => t.role === 'user')?.content ?? '';
+    const dropRe = askedMore || CALLER_ASKED_RE.test(lastCaller) ? MORE_QUESTIONS_RE : null;
     const once = new SentenceDropFilter(dropRe);
-    const ask = (timeoutMs: number, model?: string): Promise<string> =>
-      replyStream(
+
+    // A modell valaszideje ingadozik (merve: 0,7 s es 9 s kozott, egyszer
+    // 20 s felett). Nema vonal helyett: ket masodperc utan egy rovid
+    // "Egy pillanat.", het masodperc utan pedig a tartalek-modell.
+    let gotFirst = false;
+    let fillerSaid = false;
+    const filler = setTimeout(() => {
+      if (gotFirst || ac.signal.aborted || s.closed) return;
+      fillerSaid = true;
+      send(say().hold, true);
+      console.log(`[ws] lassu modell, "egy pillanat" callSid=${s.callSid}`);
+    }, FILLER_AFTER_MS);
+
+    const ask = (timeoutMs: number, model?: string, firstTokenMs?: number): Promise<string> => {
+      // Kulon megszakito a probalkozasnak: a hivo felbeszakitasa (ac) es a
+      // lassu elso token (deadline) is leallitja, de csak az elobbi szamit
+      // felbeszakitasnak.
+      const attempt = new AbortController();
+      const forward = (): void => attempt.abort();
+      ac.signal.addEventListener('abort', forward, { once: true });
+      let slow = false;
+      const deadline = firstTokenMs
+        ? setTimeout(() => {
+            if (gotFirst) return;
+            slow = true;
+            attempt.abort();
+          }, firstTokenMs)
+        : null;
+      return replyStream(
         s.history,
         buildSystemPrompt(
           cfg.currentProjects,
@@ -969,17 +1013,28 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
           maxCallSeconds() - (Date.now() - s.startedAt) / 1000,
         ),
         (delta) => {
+          gotFirst = true;
+          clearTimeout(filler);
           const out = once.push(formal.push(filter.push(delta)));
           if (!out) return;
           s.streamed += out;
           send(out, false);
         },
-        { signal: ac.signal, maxTokens: 700, temperature: 0.3, timeoutMs, model },
-      );
+        { signal: attempt.signal, maxTokens: 700, temperature: 0.3, timeoutMs, model },
+      )
+        .catch((err: unknown) => {
+          if (slow) throw new SlowFirstTokenError();
+          throw err;
+        })
+        .finally(() => {
+          if (deadline) clearTimeout(deadline);
+          ac.signal.removeEventListener('abort', forward);
+        });
+    };
     try {
       let full: string;
       try {
-        full = await ask(12_000);
+        full = await ask(12_000, undefined, FIRST_TOKEN_DEADLINE_MS);
       } catch (first) {
         // A modellszolgaltato atmeneti hibaja (503, idotullepes): egyszer
         // ujraprobaljuk, mielott a hivot ismetlesre kernenk. Egy eles hivasban
@@ -994,7 +1049,10 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
           `[ws] modellhiba, ujraprobalas${fallback ? ` (${fallback})` : ''} callSid=${s.callSid}:`,
           String(first),
         );
-        send(say().hold, true);
+        if (!fillerSaid) {
+          fillerSaid = true;
+          send(say().hold, true);
+        }
         full = await ask(10_000, fallback);
       }
       const rest = once.push(formal.push(filter.flush()) + formal.flush()) + once.flush();
@@ -1027,6 +1085,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         s.history.push({ role: 'assistant', content: say().failure });
       }
     } finally {
+      clearTimeout(filler);
       s.speaking = false;
       s.abort = null;
     }
@@ -1377,8 +1436,11 @@ server.listen(cfg.port, '0.0.0.0', () => {
   console.log(`[start] AXIMBRA voice agent fut a ${cfg.port} porton`);
   console.log(
     `[start] napi keret=${cfg.maxCallsPerDay} hivashossz=${cfg.maxCallSeconds}s ` +
-      `modell=${cfg.model} alairas-ellenorzes=${cfg.validateSignature} ` +
-      `atkapcsolas=${cfg.ownerPhone !== ''}`,
+      `modell=${cfg.model} hatter=${cfg.auxModel || '-'} tartalek=${cfg.fallbackModel || '-'} ` +
+      `gondolkodas=${process.env['VOICE_REASONING_EFFORT']?.trim() || '-'} ` +
+      `beszedvege=${process.env['SPEECH_TIMEOUT'] ?? '1500'}ms ` +
+      `felbeszakitas=${process.env['INTERRUPT_SENSITIVITY'] ?? 'low'} ` +
+      `alairas-ellenorzes=${cfg.validateSignature} atkapcsolas=${cfg.ownerPhone !== ''}`,
   );
   scheduleSmokeTest();
 });

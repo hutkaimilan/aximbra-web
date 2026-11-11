@@ -34,7 +34,7 @@ import {
   type CallFacts,
 } from './llm.js';
 import { END_CALL_MARKER, stripMarker } from './hangup.js';
-import { MORE_QUESTIONS_RE, dropSentences, formalize } from './turn.js';
+import { CALLER_ASKED_RE, MORE_QUESTIONS_RE, dropSentences, formalize } from './turn.js';
 import {
   scenarioByKey,
   openerFor,
@@ -101,6 +101,8 @@ export interface SimParams {
   runs: number;
   model?: string;
   effort?: string;
+  /** A teszt-hivo es a tenykinyeres modellje (kulon keret). */
+  auxModel?: string;
   testerModel?: string;
   judgeModel?: string;
   judge: boolean;
@@ -315,7 +317,8 @@ async function agentTurn(
   effort?: string,
 ): Promise<{ text: string; ended: boolean; ttftMs: number; ms: number }> {
   const askedMore = history.some((t) => t.role === 'assistant' && MORE_QUESTIONS_RE.test(t.content));
-  const dropRe = askedMore ? MORE_QUESTIONS_RE : null;
+  const lastCaller = [...history].reverse().find((t) => t.role === 'user')?.content ?? '';
+  const dropRe = askedMore || CALLER_ASKED_RE.test(lastCaller) ? MORE_QUESTIONS_RE : null;
   const prompt = buildSystemPrompt(env().currentProjects, facts, from, lang, history);
   const t0 = Date.now();
   let ttft = -1;
@@ -371,6 +374,7 @@ export async function simulateCall(
   opts: {
     model?: string;
     effort?: string;
+    auxModel?: string;
     testerModel?: string;
     judgeModel?: string;
     judge: boolean;
@@ -408,7 +412,11 @@ export async function simulateCall(
       history.push({ role: 'assistant', content: a.text });
       turns.push({ who: 'agent', text: a.text, ttftMs: a.ttftMs, ms: a.ms });
 
-      const found = await extractFacts(history, FACTS_PROMPT, { maxTokens: 300, timeoutMs: 15_000 });
+      const found = await extractFacts(history, FACTS_PROMPT, {
+        maxTokens: 300,
+        timeoutMs: 15_000,
+        model: opts.auxModel,
+      });
       if (found) facts = mergeFacts(facts, found);
 
       if (a.ended) {
@@ -419,7 +427,15 @@ export async function simulateCall(
         run.ended = 'caller';
         break;
       }
-      const c = await callerTurn(scenario, history, opts.maxTurns - i - 1, opts.testerModel);
+      const tester = opts.testerModel ?? opts.auxModel;
+      let c: { text: string; ended: boolean };
+      try {
+        c = await callerTurn(scenario, history, opts.maxTurns - i - 1, tester);
+      } catch (err) {
+        if (isQuotaError(err)) throw err;
+        await sleep(3_000);
+        c = await callerTurn(scenario, history, opts.maxTurns - i - 1, tester);
+      }
       callerText = c.text || (lang === 'en' ? 'Okay.' : 'Értem.');
       // A hivo elkoszont: meg egy agent-fordulo jar ra (elesben is igy van).
       callerEnded = c.ended;
@@ -483,6 +499,7 @@ export function startSimBatch(params: SimParams): SimBatch {
         const r = await simulateCall(jobs[k]!, {
           model: params.model,
           effort: params.effort,
+          auxModel: params.auxModel,
           testerModel: params.testerModel,
           judgeModel: params.judgeModel,
           judge: params.judge,

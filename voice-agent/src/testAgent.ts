@@ -976,6 +976,7 @@ export async function handleTestRoute(
       runs: clamp(get('runs'), 1, 1, 5),
       model: get('model') || undefined,
       effort: get('effort') || undefined,
+      auxModel: get('auxModel') || undefined,
       testerModel: get('testerModel') || undefined,
       judgeModel: get('judgeModel') || undefined,
       judge: get('judge') !== '0',
