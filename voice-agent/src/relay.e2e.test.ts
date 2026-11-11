@@ -53,6 +53,7 @@ function streamText(res: http.ServerResponse, text: string): void {
  *   kesik  - 3,5 s utan valaszol (PRIMARY_TEXT)
  *   egymp  - 1 s utan valaszol (PRIMARY_TEXT)
  *   hiba   - azonnal 503
+ *   bontas - azonnal valaszol, elkoszones nelkul, a bontas jelevel
  *   gyors  - azonnal valaszol (FALLBACK_TEXT); a nem streamelt hivasokra '{}'
  */
 function startMock(): http.Server {
@@ -81,7 +82,12 @@ function startMock(): http.Server {
       }
       if (parsed.stream) {
         const delay = model === 'kesik' ? 3_500 : model === 'egymp' ? 1_000 : 0;
-        const text = model === 'kesik' || model === 'egymp' ? PRIMARY_TEXT : FALLBACK_TEXT;
+        const text =
+          model === 'bontas'
+            ? 'Köszönöm a tájékoztatást. [[BONT]]'
+            : model === 'kesik' || model === 'egymp'
+              ? PRIMARY_TEXT
+              : FALLBACK_TEXT;
         const t = setTimeout(() => {
           if (!res.destroyed) streamText(res, text);
         }, delay);
@@ -217,4 +223,12 @@ test('egyik modell sem szolal meg: 11 s utan hibauzenet, nem orokos csend', asyn
   const fail = firstAt(got, /megszakadt a kapcsolat/i);
   assert.ok(fail !== undefined, `nincs hibauzenet: ${JSON.stringify(got)}`);
   assert.ok(fail >= 10_800 && fail < 12_500, `a hibauzenet ${fail} ms utan jott`);
+});
+
+test('bontas elkoszones nelkul: a rogzitett elkoszones potolja', async () => {
+  const got = await turn('bontas', 'gyors', 2_500);
+  const text = said(got);
+  assert.match(text, /Köszönöm a tájékoztatást\./);
+  assert.match(text, /viszonthallásra/i, `nincs elkoszones a bontas elott: ${text}`);
+  assert.doesNotMatch(text, /\[\[BONT\]\]/, 'a bontas jele nem hangozhat el');
 });

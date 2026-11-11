@@ -40,6 +40,14 @@ export const FAILURE_MESSAGE =
 export const HOLD_MESSAGE = 'Egy pillanat.';
 export const HOLD_MESSAGE_EN = 'One moment.';
 
+/**
+ * Elkoszones, ha a modell bontani akar, de a bucsumondata kiesett (pl. egy
+ * mondatban volt egy meg nem engedett SMS-ajanlattal). A hivas nem erhet
+ * veget elkoszones nelkul. Visszahivasnal is igaz: ott mi hivtuk.
+ */
+export const GOODBYE_MESSAGE = 'Köszönöm a beszélgetést, viszonthallásra!';
+export const GOODBYE_MESSAGE_EN = 'Thank you for your time, goodbye!';
+
 // Nem "bemutato vonal": ez az erdeklodo-vonal, valodi ugyfelek hivjak.
 // "Köszönöm a beszélgetést": visszahivasnal is igaz (ott mi hivtuk az ugyfelet).
 export const TIME_LIMIT_MESSAGE =
@@ -112,6 +120,7 @@ export function lines(lang: Lang): {
   hold: string;
   timeLimit: string;
   switched: string;
+  goodbye: string;
 } {
   if (lang === 'en') {
     return {
@@ -120,6 +129,7 @@ export function lines(lang: Lang): {
       hold: HOLD_MESSAGE_EN,
       timeLimit: TIME_LIMIT_MESSAGE_EN,
       switched: SWITCHED_MESSAGE_EN,
+      goodbye: GOODBYE_MESSAGE_EN,
     };
   }
   return {
@@ -128,6 +138,7 @@ export function lines(lang: Lang): {
     hold: HOLD_MESSAGE,
     timeLimit: TIME_LIMIT_MESSAGE,
     switched: SWITCHED_MESSAGE,
+    goodbye: GOODBYE_MESSAGE,
   };
 }
 

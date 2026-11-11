@@ -335,6 +335,10 @@ export const CALLER_DONE_RE = new RegExp(
     '(?:akkor|majd) (?:meg|fel)(?:keres|hív)(?:lek|lak|em|om|ük|juk|sük)(?![\\p{L}])',
     '(?:jelentkezni|keresni|hívni) fog(?:ok|unk|lak|om|juk)',
     'átgondolom|átgondoljuk|meggondolom|meggondoljuk|megbeszélem|megbeszéljük',
+    // A mondat koszonettel zarul ("... a számomon lehet elérni. Köszönöm
+    // szépen!"): a hivo bucsuzik (szimulator, 2026-11-11 - erre az agent
+    // elkoszones nelkul bontott).
+    '(?:köszönöm|köszönjük|köszi|thank you|thanks)(?: szépen| a (?:segítséget|tájékoztatást|választ|türelmét|beszélgetést))?[\\s.!]*$',
     "that'?s (?:all|everything|it|what i needed)(?![\\p{L}])",
     'no (?:more|other|further) questions',
     'nothing else',
@@ -367,6 +371,9 @@ export const OFFER_REQUEST_RE = new RegExp(
     'elérhetőség',
     '(?<![\\p{L}])felír',
     '(?<![\\p{L}])a számom',
+    // A hivo megadja az elerhetoseget: kapcsolatot ker.
+    '(?:lehet|tudnak|tudják|tudja|tudnának) (?:engem )?elérni|(?<![\\p{L}])elérhető vagyok|e-?mail ?címem|(?<![\\p{L}])a címem|telefonszámom',
+    "my (?:e-?mail|number|phone number) is|reach me",
     '(?:beszél|kapcsol)\\p{L}*[^.?!]{0,30}(?:kollég|ember|munkatárs|ügyintéz)',
     '(?:kollég|ember|munkatárs|ügyintéz)\\p{L}*[^.?!]{0,20}(?:beszél|kapcsol)',
     'quote|proposal|get back to me',
@@ -421,6 +428,9 @@ export const NUDGE_RE =
  * megadta, más teendőnk nincs."). Ez a hivonak ertelmetlen es gepies.
  */
 export const META_RE = /^\s*mivel (?:a nevét|a cégét|a cégnevet|már (?:megadta|ismerem|tudom))/iu;
+
+/** Elhangzott-e elkoszones (a bontas elott kotelezo). */
+export const GOODBYE_SAID_RE = /viszont(?:látásra|hallásra)|good ?bye|(?<![\p{L}])bye(?![\p{L}])/iu;
 
 /** Ujrakoszones egy kulon mondatban ("Üdvözlöm, Kiss úr."). */
 export const REGREET_SENTENCE_RE =

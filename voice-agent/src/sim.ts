@@ -36,6 +36,7 @@ import {
 import { END_CALL_MARKER, stripMarker } from './hangup.js';
 import {
   CALLER_DONE_RE,
+  GOODBYE_SAID_RE,
   MORE_QUESTIONS_RE,
   NAME_ASK_RE,
   OFFER_REQUEST_RE,
@@ -347,10 +348,14 @@ async function agentTurn(
     if (isQuotaError(err) && !fb) throw err;
     full = await run(fb ?? model);
   }
-  const text = dropSentences(formalize(stripMarker(full)), rules.strict, rules.relaxed);
+  const ended = full.includes(END_CALL_MARKER);
+  let text = dropSentences(formalize(stripMarker(full)), rules.strict, rules.relaxed);
+  if (callback) text = callbackWording(text);
+  // Ugyanaz, mint elesben: bontas elott mindig van elkoszones.
+  if (ended && !GOODBYE_SAID_RE.test(text)) text = `${text} ${lines(lang).goodbye}`.trim();
   return {
-    text: callback ? callbackWording(text) : text,
-    ended: full.includes(END_CALL_MARKER),
+    text,
+    ended,
     ttftMs: ttft,
     ms: Date.now() - t0,
   };

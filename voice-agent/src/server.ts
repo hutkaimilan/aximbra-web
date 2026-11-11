@@ -38,6 +38,7 @@ import { sendMissedCall, sendSummary } from './email.js';
 import { sendContactSms } from './sms.js';
 import {
   FormalFilter,
+  GOODBYE_SAID_RE,
   HOLD_MS,
   SentenceDropFilter,
   callbackWording,
@@ -1119,8 +1120,21 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         s.streamed += rest;
         send(rest, false);
       }
+      // Bontas elott mindig elhangzik az elkoszones. Ha a bucsumondat
+      // kiesett a szuron (pl. egy mondatban volt egy meg nem engedett
+      // SMS-ajanlattal), a rogzitett sor potolja - kulonben a hivo egy
+      // "Köszönöm a tájékoztatást." utan a vonal bontasat hallana.
+      let tail = '';
+      if (filter.found && !GOODBYE_SAID_RE.test(s.streamed)) {
+        tail = say().goodbye;
+        const sep = s.streamed.trim() ? ' ' : '';
+        s.streamed += sep + tail;
+        send(sep + tail, false);
+        console.log(`[ws] elkoszones potolva callSid=${s.callSid}`);
+      }
       send('', true);
-      const spoken = wording(dropSentences(formalize(stripMarker(full)), rules.strict, rules.relaxed));
+      const kept = wording(dropSentences(formalize(stripMarker(full)), rules.strict, rules.relaxed));
+      const spoken = tail ? `${kept} ${tail}`.trim() : kept;
       s.history.push({ role: 'assistant', content: spoken });
       if (filter.found) scheduleHangup(spoken);
     } catch (err) {

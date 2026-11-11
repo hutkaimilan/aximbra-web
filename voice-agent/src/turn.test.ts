@@ -325,3 +325,24 @@ test('ajanlkozo kerdes es sajat szabaly kimondasa kiesik', () => {
     'A beérkező leveleket osztályozza.',
   );
 });
+
+import { GOODBYE_SAID_RE } from './turn.js';
+
+test('bucsuzo hivo: a nev, a szam es a koszonet lezaras (szimulator, lista)', () => {
+  const h = [
+    { role: 'assistant', content: 'Jó napot kívánok!' },
+    { role: 'user', content: 'És az értékesítő agent mennyibe kerül?' },
+    { role: 'assistant', content: 'Az értékesítő agent hatszázezer és másfél millió forint között érhető el.' },
+    {
+      role: 'user',
+      content:
+        'Köszönöm a tájékoztatást. Kovács Éva vagyok a Kovács és Társa Bt.-ból, a jelenleg használt számomon keresztül lehet elérni. Köszönöm szépen!',
+    },
+  ];
+  assert.equal(callerIsWrapping(h), true);
+  const reply = 'Köszönöm, Kovács asszony. Az ajánlatot SMS-ben elküldöm erre a számra. Köszönöm a beszélgetést, viszonthallásra!';
+  assert.equal(dropSentences(reply, dropPattern(h)), reply);
+  assert.equal(OFFER_REQUEST_RE.test('A telefonszámom ez, amiről hívtam.'), true);
+  assert.equal(GOODBYE_SAID_RE.test('Köszönöm a beszélgetést, viszonthallásra!'), true);
+  assert.equal(GOODBYE_SAID_RE.test('Köszönöm a tájékoztatást, Kovács asszony.'), false);
+});
