@@ -1815,3 +1815,15 @@ def test_every_email_ends_with_the_business_identity():
         body = pipeline.followup_body({"lang": lang, "lang2": None, "country": "HU"}, "https://aximbra.hu/neked/x")
         assert body.endswith(playbook.legal_line(lang)), lang
         assert not verify.has_price(body), lang
+
+
+def test_valasz_mas_cimrol_targy_alapjan():
+    # Eles eset: a gombbal kuldott levelnek nincs Message-ID-ja, a bank a
+    # "Webinfo" cimrol valaszolt ugyanarra a targyra.
+    import pipeline
+    lead = {"email": "info@primabanka.sk", "message_id": None, "subject": "Nonstop infolinka v Prima Banke"}
+    assert pipeline._same_thread(lead, {"subject": "RE: Nonstop infolinka v Prima Banke", "in_reply_to": "", "references": ""})
+    assert pipeline._same_thread(lead, {"subject": "Odp: Nonstop  infolinka v Prima Banke", "in_reply_to": "", "references": ""})
+    assert not pipeline._same_thread(lead, {"subject": "Hírlevél novemberre", "in_reply_to": "", "references": ""})
+    lead2 = {"email": "a@b.sk", "message_id": "<x@y>", "subject": "Más"}
+    assert pipeline._same_thread(lead2, {"subject": "valami", "in_reply_to": "<x@y>", "references": ""})

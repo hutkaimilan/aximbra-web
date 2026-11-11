@@ -6,6 +6,7 @@ a teljes folyamat hálózat nélkül tesztelhető.
 """
 import logging
 import os
+import re
 import random
 import threading
 import time
@@ -480,6 +481,28 @@ def scan_replies(store: Store, log: RunLog, *, llm=llm_mod, mailbox_factory=mail
         return _scan_replies(store, log, llm=llm, mailbox_factory=mailbox_factory, slots_fn=slots_fn)
 
 
+_REPLY_PREFIX = re.compile(r"^\s*(?:(?:re|aw|wg|fw|fwd|sv|vs|odp|antw|ref|tr|r|rif|vá|válasz)\s*:\s*)+", re.I)
+
+
+def _norm_subject(s: str) -> str:
+    return re.sub(r"\s+", " ", _REPLY_PREFIX.sub("", s or "")).strip().lower()
+
+
+def _same_thread(lead: dict, m: dict) -> bool:
+    """Ugyanarrol a domainrol, mas cimrol jott level a mi levelunkre valasz-e.
+
+    A levelek nagy resze a panel gombjaval, a tulajdonos sajat levelezojebol
+    ment ki - ilyenkor nincs nalunk Message-ID, igy a valaszt csak a targy
+    koti a levelunkhoz. Eles eset (2026-11-10): a Prima Banka a
+    "Webinfo" cimrol, "Nonstop infolinka v Prima Banke" targgyal mondott
+    nemet, es a rendszer nem vette eszre.
+    """
+    if lead.get("message_id") and lead["message_id"] in (m["in_reply_to"] + m["references"]):
+        return True
+    subj = _norm_subject(lead.get("subject") or "")
+    return len(subj) >= 8 and _norm_subject(m.get("subject") or "") == subj
+
+
 def _scan_replies(store: Store, log: RunLog, *, llm, mailbox_factory, slots_fn) -> RunLog:
     sent = [l for l in store.list("sent") if l["reply_kind"] in ("none", "auto")]
     with mailbox_factory() as mb:
@@ -494,8 +517,7 @@ def _scan_replies(store: Store, log: RunLog, *, llm, mailbox_factory, slots_fn) 
                 continue
             msgs = [m for m in mb.messages_from(lead["email"], 45) if m["from"] == lead["email"]]
             if not msgs and domain_of(lead["email"]) not in _free():
-                msgs = [m for m in mb.messages_from(domain_of(lead["email"]), 45)
-                        if lead["message_id"] and lead["message_id"] in (m["in_reply_to"] + m["references"])]
+                msgs = [m for m in mb.messages_from(domain_of(lead["email"]), 45) if _same_thread(lead, m)]
             if not msgs:
                 continue
             latest = msgs[-1]
