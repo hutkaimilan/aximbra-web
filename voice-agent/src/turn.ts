@@ -424,7 +424,7 @@ export const ERROR_ASKED_RE =
  * felelni. A hivo maga kerdez, ha erdekli.
  */
 export const NUDGE_RE =
-  /(?:^\s*|,\s*)(?:érdekli(?: esetleg)?,? (?:hogy|hogyan|mennyi|milyen|mi )|szeretné(?: esetleg)? tudni|would you like to (?:know|hear) (?:more|how|what|about)|do you want to (?:know|hear) (?:more|how|what|about))[^.!?]*\?\s*$/iu;
+  /(?:^\s*|,\s*)(?:érdekli(?: esetleg)?,? (?:hogy|hogyan|mennyi|milyen|mi )|szeretné(?: esetleg)? tudni|szeretné,? ha (?:\p{L}+ )?(?:elmondanám|bemutatnám|ismertetném|részletezném)|elmondjam|részletezzem|bemutassam|would you like to (?:know|hear) (?:more|how|what|about)|do you want to (?:know|hear) (?:more|how|what|about))[^.!?]*\?\s*$/iu;
 
 /**
  * A modell a sajat szabalyait mondja ki ("Mivel a nevét és a cégét már

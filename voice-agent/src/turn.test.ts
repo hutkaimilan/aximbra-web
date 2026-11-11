@@ -362,3 +362,10 @@ test('elkoszonesnek szamit a "további szép napot" is (szimulator v10)', () => 
   assert.equal(GOODBYE_SAID_RE.test('Thank you, have a nice day!'), true);
   assert.equal(GOODBYE_SAID_RE.test('Jó napot kívánok! Az Aximbrától keresem.'), false);
 });
+
+test('"Szeretné, ha elmondanám...?" is ajanlkozo kerdes (szimulator v12)', () => {
+  assert.equal(NUDGE_RE.test('Szeretné, ha részletesebben elmondanám, hogyan működnek ezek a folyamatok?'), true);
+  assert.equal(NUDGE_RE.test('Szeretné, ha elmondanám az árakat is ezekre az agentekre?'), true);
+  assert.equal(NUDGE_RE.test('Elmondjam az árakat is?'), true);
+  assert.equal(NUDGE_RE.test('Szeretné, ha a kollégám visszahívná?'), false);
+});
