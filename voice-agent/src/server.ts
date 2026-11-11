@@ -69,9 +69,17 @@ const FILLER_AFTER_MS = 2_000;
  * modellt, csak utana kerdezte a tartalekot - az 8-10 s csend volt.
  */
 const HEDGE_AFTER_MS = 2_500;
-/** Egy-egy modellkeres felso korlatja (ms). */
+/**
+ * Egy-egy modellkeres felso korlatja (ms). FIGYELEM: az OpenAI SDK ezt csak
+ * a valasz FEJLECEIG meri - ha a szolgaltato a fejlecet elkuldi, de tokent
+ * nem, ez nem old meg semmit. Ezert van a ket lenti, sajat hatarido.
+ */
 const PRIMARY_TIMEOUT_MS = 12_000;
 const HEDGE_TIMEOUT_MS = 10_000;
+/** Ha eddig EGYIK modell sem szolalt meg, feladjuk: a hivo a hibauzenetet hallja (ms). */
+const NO_TOKEN_DEADLINE_MS = 11_000;
+/** Egy teljes valasz felso korlatja, a megkezdett is (ms). */
+const TURN_DEADLINE_MS = 30_000;
 import { handleTestRoute, handleTestRelay, startTestCall } from './testAgent.js';
 import {
   FAILURE_MESSAGE,
@@ -1011,11 +1019,15 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         let settled = false;
         let lastErr: unknown = new Error('nem indult modellkeres');
         let hedgeTimer: NodeJS.Timeout | null = null;
+        let noTokenTimer: NodeJS.Timeout | null = null;
+        let turnTimer: NodeJS.Timeout | null = null;
 
         const finish = (fn: () => void): void => {
           if (settled) return;
           settled = true;
           if (hedgeTimer) clearTimeout(hedgeTimer);
+          if (noTokenTimer) clearTimeout(noTokenTimer);
+          if (turnTimer) clearTimeout(turnTimer);
           fn();
         };
 
@@ -1029,11 +1041,13 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
             s.history,
             prompt,
             (delta) => {
+              if (settled) return;
               if (!winner) {
                 winner = ctl;
                 gotFirst = true;
                 clearTimeout(filler);
                 if (hedgeTimer) clearTimeout(hedgeTimer);
+                if (noTokenTimer) clearTimeout(noTokenTimer);
                 for (const other of live) if (other !== me) other.ctl.abort();
                 if (label !== 'fo') console.log(`[ws] a tartalek valaszolt (${label}) callSid=${s.callSid}`);
               }
@@ -1082,6 +1096,19 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         };
 
         hedgeTimer = setTimeout(() => hedge('lassu'), HEDGE_AFTER_MS);
+        // Sajat hataridok, a szolgaltatotol fuggetlenul (lasd PRIMARY_TIMEOUT_MS).
+        noTokenTimer = setTimeout(() => {
+          if (winner || settled) return;
+          console.warn(`[ws] ${NO_TOKEN_DEADLINE_MS} ms alatt egyik modell sem szolalt meg callSid=${s.callSid}`);
+          finish(() => reject(new Error('egyik modell sem kezdett el valaszolni')));
+          for (const a of live) a.ctl.abort();
+        }, NO_TOKEN_DEADLINE_MS);
+        turnTimer = setTimeout(() => {
+          if (settled) return;
+          console.warn(`[ws] a valasz ${TURN_DEADLINE_MS} ms alatt sem ert veget callSid=${s.callSid}`);
+          finish(() => reject(new Error('a valasz nem ert veget a hataridoig')));
+          for (const a of live) a.ctl.abort();
+        }, TURN_DEADLINE_MS);
         launch(undefined, PRIMARY_TIMEOUT_MS, 'fo');
       });
 

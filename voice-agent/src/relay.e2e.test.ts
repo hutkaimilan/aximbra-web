@@ -49,6 +49,7 @@ function streamText(res: http.ServerResponse, text: string): void {
 /**
  * Al-modell, a modell neve szerint:
  *   lassu  - soha nem valaszol (a kliens szakitja meg)
+ *   nema   - fejlecet kuld, tokent soha (a stream nyitva marad)
  *   kesik  - 3,5 s utan valaszol (PRIMARY_TEXT)
  *   egymp  - 1 s utan valaszol (PRIMARY_TEXT)
  *   hiba   - azonnal 503
@@ -67,6 +68,12 @@ function startMock(): http.Server {
       }
       const model = parsed.model ?? '';
       if (model === 'lassu') return;
+      if (model === 'nema') {
+        // Fejlec igen, token soha: az SDK idokorlatja ezt nem fogja meg.
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.flushHeaders();
+        return;
+      }
       if (model === 'hiba') {
         res.writeHead(503, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: { message: 'overloaded', code: 503 } }));
@@ -197,4 +204,17 @@ test('a fo modell hibaja: a tartalek azonnal indul', async () => {
 test('mindket modell hibazik: a hivo a hibauzenetet hallja, nem csendet', async () => {
   const got = await turn('hiba', 'hiba', 3_000);
   assert.match(said(got), /megszakadt a kapcsolat/i, `nincs hibauzenet: ${JSON.stringify(got)}`);
+});
+
+test('fejlec van, token nincs: a tartalek beszel, nem nema a vonal', async () => {
+  const got = await turn('nema', 'gyors', 4_500);
+  const answer = firstAt(got, /Persze/);
+  assert.ok(answer !== undefined && answer < 3_600, `a tartalek ${answer} ms utan szolalt meg: ${JSON.stringify(got)}`);
+});
+
+test('egyik modell sem szolal meg: 11 s utan hibauzenet, nem orokos csend', async () => {
+  const got = await turn('nema', 'nema', 13_500);
+  const fail = firstAt(got, /megszakadt a kapcsolat/i);
+  assert.ok(fail !== undefined, `nincs hibauzenet: ${JSON.stringify(got)}`);
+  assert.ok(fail >= 10_800 && fail < 12_500, `a hibauzenet ${fail} ms utan jott`);
 });
