@@ -374,6 +374,9 @@ export const OFFER_REQUEST_RE = new RegExp(
     // A hivo megadja az elerhetoseget: kapcsolatot ker.
     '(?:lehet|tudnak|tudják|tudja|tudnának) (?:engem )?elérni|(?<![\\p{L}])elérhető vagyok|e-?mail ?címem|(?<![\\p{L}])a címem|telefonszámom',
     "my (?:e-?mail|number|phone number) is|reach me",
+    // Tovabblepni akar ("Akkor mi a következő lépés?", szimulator v9).
+    'mi a következő|hogyan tovább|hogyan (?:tudunk|lehet) továbblépni|mi(?:t kell| a teendő) (?:most|ezután|innentől)',
+    "what(?:'s| is) (?:the )?next|next steps?|how do we (?:proceed|move forward)",
     '(?:beszél|kapcsol)\\p{L}*[^.?!]{0,30}(?:kollég|ember|munkatárs|ügyintéz)',
     '(?:kollég|ember|munkatárs|ügyintéz)\\p{L}*[^.?!]{0,20}(?:beszél|kapcsol)',
     'quote|proposal|get back to me',
@@ -421,7 +424,7 @@ export const ERROR_ASKED_RE =
  * felelni. A hivo maga kerdez, ha erdekli.
  */
 export const NUDGE_RE =
-  /^\s*(?:érdekli(?: esetleg)?,? (?:hogy|hogyan|mennyi|milyen|mi )|szeretné(?: esetleg)? tudni|would you like to (?:know|hear) (?:more|how|what|about)|do you want to (?:know|hear) (?:more|how|what|about))[^.!?]*\?\s*$/iu;
+  /(?:^\s*|,\s*)(?:érdekli(?: esetleg)?,? (?:hogy|hogyan|mennyi|milyen|mi )|szeretné(?: esetleg)? tudni|would you like to (?:know|hear) (?:more|how|what|about)|do you want to (?:know|hear) (?:more|how|what|about))[^.!?]*\?\s*$/iu;
 
 /**
  * A modell a sajat szabalyait mondja ki ("Mivel a nevét és a cégét már

@@ -346,3 +346,13 @@ test('bucsuzo hivo: a nev, a szam es a koszonet lezaras (szimulator, lista)', ()
   assert.equal(GOODBYE_SAID_RE.test('Köszönöm a beszélgetést, viszonthallásra!'), true);
   assert.equal(GOODBYE_SAID_RE.test('Köszönöm a tájékoztatást, Kovács asszony.'), false);
 });
+
+test('tovabblepesi szandek es mondat kozepi ajanlkozo kerdes (szimulator v9)', () => {
+  assert.equal(OFFER_REQUEST_RE.test('Értem, köszönöm. Akkor mi a következő'), true);
+  assert.equal(OFFER_REQUEST_RE.test("Okay, so what's the next step?"), true);
+  assert.equal(
+    NUDGE_RE.test('Since you asked about automating the inbox, would you like to know more about how this agent functions?'),
+    true,
+  );
+  assert.equal(NUDGE_RE.test('Melyik érdekli ezek közül?'), false);
+});
