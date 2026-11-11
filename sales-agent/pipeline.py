@@ -37,7 +37,7 @@ FOLLOWUP_AFTER_WORKDAYS = 5
 SEND_GAP = (25, 70)     # másodperc két levél között: nem egyszerre zúdul ki
 MIN_SCORE = 70          # ennél gyengébb illeszkedésre nem pazarolunk levelet
 REPLY_EVERY_MIN = 30    # válaszfigyelés: az érdeklődőnek egy órán belül válaszolni hétszer jobb (HBR, 2,24 M érdeklődő)
-REPLY_HOURS = (7, 21)   # budapesti idő, minden nap
+REPLY_HOURS = (6, 24)   # budapesti idő, minden nap (a tulajdonos minden válaszról tudni akar)
 REPLY_LOCK = threading.Lock()  # a kör és a gyors figyelés ne sorolja be kétszer ugyanazt a választ
 
 

@@ -713,7 +713,11 @@ def followup_drop(lead_id: int):
 
 @app.post("/api/replies/scan", dependencies=[Depends(auth)])
 def replies_scan():
-    return _require_start(job.start("válaszok", lambda log: pipeline.scan_replies(store, log)))
+    def run(log):
+        snap = _reply_snapshot()
+        pipeline.scan_replies(store, log)
+        _notify_each_reply(snap, log)
+    return _require_start(job.start("válaszok", run))
 
 
 # ---- tanácsadó --------------------------------------------------------------
@@ -991,13 +995,72 @@ def _auto_plan(rotate: bool = True) -> dict[str, int]:
     return plan
 
 
+def _reply_snapshot() -> dict:
+    """Melyik leadnek mi a legutobbi valasza (ido + fajta). Ebbol latszik,
+    ha UJ valasz jott - akkor is, ha korabban mar volt (pl. automatikus
+    valasz utan a valodi). A korabbi ellenorzes csak a "meg sosem
+    valaszolt" leadeket nezte, igy egy automatikus valasz utani erdeklodes
+    ertesites nelkul maradt volna."""
+    return {l["id"]: (l["reply_kind"], l.get("reply_at")) for l in store.list()}
+
+
+_KIND_LABEL = {
+    "interested": "ÉRDEKLŐDIK",
+    "no": "nem kér",
+    "other": "válaszolt",
+    "auto": "automatikus válasz",
+    "bounce": "visszapattant",
+}
+
+
+def _notify_each_reply(before: dict, log) -> int:
+    """A tulajdonos kerese (2026-11-11): MINDEN valaszrol kulon ertesites,
+    benne a valasz szovegevel. Az osszefoglalo level ezt nem valtja ki."""
+    to = os.environ.get("NOTIFY_TO", "").strip()
+    changed = [l for l in store.list()
+               if l["reply_kind"] != "none" and before.get(l["id"]) != (l["reply_kind"], l.get("reply_at"))]
+    if not to:
+        return 0
+    panel = os.environ.get("PANEL_URL", "https://aximbra-sales-production.up.railway.app")
+    sent = 0
+    for l in changed:
+        label = _KIND_LABEL.get(l["reply_kind"], l["reply_kind"])
+        subject = f"VÁLASZ ({label}): {l['company']}"
+        if l["reply_kind"] == "interested":
+            subject = "ÉRDEKLŐDŐ! " + subject
+        body = "\n".join([
+            f"Cég: {l['company']} ({l.get('town') or l.get('country') or ''})",
+            f"Cím: {l['email']}",
+            f"Besorolás: {label}",
+            f"A levelünk tárgya: {l.get('subject') or ''}",
+            "",
+            "A válasz:",
+            (l.get("reply_text") or "").strip()[:3000],
+            "",
+            ("A válasz időpontokkal kész a panel Válaszok fülén." if l["reply_kind"] == "interested" else
+             "Tiltólistára került, több levelet nem kap." if l["reply_kind"] in ("no", "bounce") else ""),
+            "Panel: " + panel,
+        ])
+        try:
+            mailer.send(mailer.build_message(to, subject, body))
+            sent += 1
+        except Exception as e:  # noqa: BLE001 — egy ertesites hibaja ne allitsa meg a tobbit
+            logger.warning("valaszertesites hiba (%s): %s", l["company"], e)
+            log.say(f"Az értesítést nem tudtam elküldeni ({l['company']}): {e}")
+    if sent:
+        log.say(f"{sent} válaszértesítés elküldve: {to}")
+    return sent
+
+
 def _morning(log):
     before = {l["id"] for l in store.list("draft")}
     replied_before = {l["id"] for l in store.list() if l["reply_kind"] != "none"}
+    snap = _reply_snapshot()
     try:
         pipeline.scan_replies(store, log)
     except (AuthError, MailError) as e:
         log.say(f"Válaszfigyelés kimaradt: {e}")
+    _notify_each_reply(snap, log)
     n = pipeline.prepare_followups(store, demo_url=_followup_demo_url(create=True))
     log.say(f"{n} utánkövetés vár jóváhagyásra.")
     auto_sent: list[dict] = []
@@ -1098,13 +1161,9 @@ def _reply_watch() -> int:
     """Gyors válaszfigyelés két kör között. Csak ha jött új válasz, akkor
     szól a tulajdonosnak; a vázlatokról a kör értesítése szól."""
     log = pipeline.RunLog()
-    drafts = {l["id"] for l in store.list("draft")}
-    replied_before = {l["id"] for l in store.list() if l["reply_kind"] != "none"}
+    snap = _reply_snapshot()
     pipeline.scan_replies(store, log)
-    new = [l for l in store.list() if l["reply_kind"] != "none" and l["id"] not in replied_before]
-    if new:
-        _notify(log, drafts, replied_before)
-    return len(new)
+    return _notify_each_reply(snap, log)
 
 
 def _load_done() -> set:

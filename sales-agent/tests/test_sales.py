@@ -897,7 +897,7 @@ def test_reply_watch_runs_by_day_every_half_hour():
     assert pipeline.reply_watch_due(d, None)
     assert not pipeline.reply_watch_due(d, d - timedelta(minutes=10))
     assert pipeline.reply_watch_due(d, d - timedelta(minutes=31))
-    assert not pipeline.reply_watch_due(datetime(2026, 10, 1, 23, 0), None)
+    assert not pipeline.reply_watch_due(datetime(2026, 10, 1, 3, 0), None)
 
 
 def test_reply_watch_notifies_only_on_new_replies(monkeypatch, tmp_path):
@@ -906,7 +906,9 @@ def test_reply_watch_notifies_only_on_new_replies(monkeypatch, tmp_path):
     import app as app_mod
     importlib.reload(app_mod)
     told = []
-    monkeypatch.setattr(app_mod, "_notify", lambda *a, **k: told.append(1))
+    monkeypatch.setenv("NOTIFY_TO", "tulaj@example.com")
+    monkeypatch.setenv("GMAIL_USER", "kuldo@example.com")
+    monkeypatch.setattr(app_mod.mailer, "send", lambda msg: told.append(1))
     monkeypatch.setattr(app_mod.pipeline, "scan_replies", lambda st, log: log)
     assert app_mod._reply_watch() == 0 and not told
     lid = app_mod.store.add_lead(dict(CAND, subject="s", body=CLEAN_BODY, lang="hu", country="HU"))
@@ -1856,3 +1858,28 @@ def test_minden_postafiokot_olvas(monkeypatch):
     msgs = mb.messages_from("x@ceg.hu", 45)
     assert [m["text"] for m in msgs] == ["regi", "uj"]   # egyszer, idorendben
     assert mb.ever_contacted("x@ceg.hu", None)     # barmelyik fiokbol
+
+
+def test_minden_valaszrol_kulon_ertesites(store, monkeypatch, tmp_path):
+    # A tulajdonos kerese: minden valaszrol ertesites, akkor is, ha egy
+    # automatikus valasz utan jon a valodi.
+    import importlib
+    import app as app_mod
+    importlib.reload(app_mod)
+    monkeypatch.setattr(app_mod, "store", store)
+    monkeypatch.setenv("NOTIFY_TO", "tulaj@example.com")
+    monkeypatch.setenv("GMAIL_USER", "kuldo@example.com")
+    sent = []
+    monkeypatch.setattr(app_mod.mailer, "send", lambda msg: sent.append(msg))
+    run(store, [dict(CAND)])
+    lid = store.list("draft")[0]["id"]
+    snap = app_mod._reply_snapshot()
+    store.set_reply(lid, "auto", "Megkaptuk a levelét.")
+    assert app_mod._notify_each_reply(snap, pipeline.RunLog()) == 1
+    assert "automatikus" in sent[-1]["Subject"] and "Megkaptuk" in sent[-1].get_content()
+    snap = app_mod._reply_snapshot()
+    assert app_mod._notify_each_reply(snap, pipeline.RunLog()) == 0   # nincs uj valasz, nincs level
+    import time; time.sleep(1.1)  # a reply_at masodperc pontossagu
+    store.set_reply(lid, "interested", "Érdekel, hívjanak!")
+    assert app_mod._notify_each_reply(snap, pipeline.RunLog()) == 1
+    assert sent[-1]["Subject"].startswith("ÉRDEKLŐDŐ!") and "hívjanak" in sent[-1].get_content()

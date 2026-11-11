@@ -15,7 +15,7 @@ name: Wake agents
 
 on:
   schedule:
-    - cron: '0,30 4-19 * * *'
+    - cron: '0,30 4-22 * * *'
   workflow_dispatch:
 
 permissions:
