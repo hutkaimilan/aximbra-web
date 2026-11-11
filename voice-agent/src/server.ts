@@ -312,6 +312,7 @@ const MENU_TIMEOUT_SECONDS = 6;
 const TWIML_PATHS = new Set([
   '/twiml',
   '/twiml/callback',
+  '/twiml/amd',
   '/twiml/lang',
   '/twiml/screen',
   '/twiml/screen-done',
@@ -384,6 +385,22 @@ function twimlFor(
       const peer = normalizeNumber(params.get('To'));
       console.log(`[http] visszahivas fogadva nyelv=${lang} to=${peer || '<ismeretlen>'}`);
       return relayTwiml(host, lang, true, callbackGreeting(lang), peer);
+    }
+
+    case '/twiml/amd': {
+      // Hatterben futo uzenetrogzito-felismeres eredmenye (asyncAmd). A
+      // hivas ekkor mar folyik: ha gep vette fel, REST-tel bontjuk.
+      const by = params.get('AnsweredBy') ?? '';
+      const sid = params.get('CallSid') ?? '';
+      console.log(`[http] visszahivas AMD: ${by || 'ismeretlen'} callSid=${sid}`);
+      if ((by.startsWith('machine') || by === 'fax') && isCallSid(sid)) {
+        void twilio(cfg.twilioAccountSid, cfg.twilioAuthToken)
+          .calls(sid)
+          .update({ status: 'completed' })
+          .then(() => console.log(`[http] uzenetrogzito, bontva callSid=${sid}`))
+          .catch((err: unknown) => console.error('[http] bontas sikertelen:', err));
+      }
+      return '<?xml version="1.0" encoding="UTF-8"?><Response/>';
     }
 
     case '/twiml/screen':
@@ -498,10 +515,15 @@ async function handleCallbackRequest(raw: string, host: string): Promise<Callbac
       // Huszonot masodperc utan a legtobb mobil hangpostara kapcsol; ennel
       // tovabb csengetni csak az uzenetrogzito eselyet noveli.
       timeout: 25,
-      // Uzenetrogzitovel nem beszelgetunk: a /twiml/callback az AnsweredBy
-      // alapjan bont. Az AMD nehany szazadcentbe kerul, egy felmondott
-      // hangposta-percnel nagysagrenddel olcsobb.
+      // Uzenetrogzitovel nem beszelgetunk - de a felismeres a HATTERBEN fut
+      // (asyncAmd). A szinkron valtozat a felvetel utan masodpercekig
+      // hallgatozott, mielott a TwiML-t lekerte: eles hivasban (2026-11-11)
+      // a felvevo kb. 6 s csend utan hallotta a koszonest. Igy azonnal
+      // koszonunk, es ha kiderul, hogy gep vette fel, a /twiml/amd bont.
       machineDetection: 'Enable',
+      asyncAmd: 'true',
+      asyncAmdStatusCallback: `https://${host}/twiml/amd`,
+      asyncAmdStatusCallbackMethod: 'POST',
     });
     console.log(`[callback] hivas inditva to=${verdict.to} lang=${lang} sid=${call.sid}`);
     return { status: 202, body: { ok: true } };
