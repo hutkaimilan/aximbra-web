@@ -50,6 +50,8 @@ function streamText(res: http.ServerResponse, text: string): void {
  * Al-modell, a modell neve szerint:
  *   lassu  - soha nem valaszol (a kliens szakitja meg)
  *   nema   - fejlecet kuld, tokent soha (a stream nyitva marad)
+ *   egyszerlassu - az elso kerese nem valaszol, a tobbi azonnal (PRIMARY_TEXT)
+ *   tartalek5 - 5 s utan valaszol (FALLBACK_TEXT)
  *   kesik  - 3,5 s utan valaszol (PRIMARY_TEXT)
  *   egymp  - 1 s utan valaszol (PRIMARY_TEXT)
  *   hiba   - azonnal 503
@@ -58,6 +60,7 @@ function streamText(res: http.ServerResponse, text: string): void {
  *   gyors  - azonnal valaszol (FALLBACK_TEXT); a nem streamelt hivasokra '{}'
  */
 function startMock(): http.Server {
+  const seen = new Map<string, number>();
   const srv = http.createServer((req, res) => {
     let body = '';
     req.on('data', (c: Buffer) => (body += c.toString('utf8')));
@@ -69,7 +72,10 @@ function startMock(): http.Server {
         /* ures */
       }
       const model = parsed.model ?? '';
+      if (parsed.stream) seen.set(model, (seen.get(model) ?? 0) + 1);
       if (model === 'lassu') return;
+      // Az elso kerese nem valaszol, a masodik azonnal (keresenkent ingadozo kesleltetes).
+      if (model === 'egyszerlassu' && seen.get(model) === 1) return;
       if (model === 'nema') {
         // Fejlec igen, token soha: az SDK idokorlatja ezt nem fogja meg.
         res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -82,13 +88,14 @@ function startMock(): http.Server {
         return;
       }
       if (parsed.stream) {
-        const delay = model === 'kesik' ? 3_500 : model === 'egymp' ? 1_000 : 0;
+        const delay =
+          model === 'kesik' ? 3_500 : model === 'egymp' ? 1_000 : model === 'tartalek5' ? 5_000 : 0;
         const text =
           model === 'bontas'
             ? 'Köszönöm a tájékoztatást. [[BONT]]'
             : model === 'kerdesbont'
               ? 'Van még kérdése, amiben segíthetek? [[BONT]]'
-            : model === 'kesik' || model === 'egymp'
+            : model === 'kesik' || model === 'egymp' || model === 'egyszerlassu'
               ? PRIMARY_TEXT
               : FALLBACK_TEXT;
         const t = setTimeout(() => {
@@ -248,4 +255,12 @@ test('kerdes utan nincs bontas, es nincs pótolt elkoszones sem', async () => {
   assert.match(text, /Van még kérdése/);
   assert.doesNotMatch(text, /viszonthallásra/i, `kerdes utan elkoszont: ${text}`);
   assert.notEqual(got.closedByServer, true, 'kerdes utan bontott');
+});
+
+test('lassu fo modell, lassu tartalek: a fo modell masodik kerese nyer', async () => {
+  const got = await turn('egyszerlassu', 'tartalek5', 5_500);
+  const text = said(got);
+  const answer = firstAt(got, /fő modell/);
+  assert.ok(answer !== undefined && answer >= 2_400 && answer < 3_600, `a valasz ${answer} ms utan jott: ${text}`);
+  assert.doesNotMatch(text, /e-mail rendező/, `a lassu tartalek is beszelt: ${text}`);
 });

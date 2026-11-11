@@ -1016,7 +1016,8 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         const hedgeModel = cfg.fallbackModel || undefined;
         const live: Array<{ ctl: AbortController; done: boolean; label: string }> = [];
         let winner: AbortController | null = null;
-        let hedged = false;
+        let fallbackLaunched = false;
+        let retried = false;
         let settled = false;
         let lastErr: unknown = new Error('nem indult modellkeres');
         let hedgeTimer: NodeJS.Timeout | null = null;
@@ -1078,7 +1079,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
               // a HEDGE_AFTER_MS-ra. Egy eles hivasban ketszer egymas utan
               // elhangzott a "megszakadt a kapcsolat, megismetelne?", pedig
               // a vonallal semmi baj nem volt - csak a modell hibazott.
-              if (!hedged) {
+              if (!fallbackLaunched) {
                 hedge('hiba');
                 return;
               }
@@ -1087,13 +1088,29 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
             .finally(() => ac.signal.removeEventListener('abort', forward));
         };
 
-        const hedge = (why: string): void => {
-          if (hedged || settled || winner || ac.signal.aborted) return;
-          hedged = true;
-          console.warn(
-            `[ws] tartalek indul (${why}${hedgeModel ? `, ${hedgeModel}` : ''}) callSid=${s.callSid}`,
-          );
-          launch(hedgeModel, HEDGE_TIMEOUT_MS, 'tartalek');
+        /**
+         * Tartalek inditasa.
+         *  - Hiba utan: a tartalek-modell azonnal (ha a fo modell 429-cel
+         *    utasit el, ugyanannak ujra szolni ertelmetlen).
+         *  - Lassusag miatt: a tartalek-modell ES a fo modell masodszor is,
+         *    egyszerre. Mert a lassusag kerelmenkent ingadozik: elesben merve
+         *    a fo modell egy kerese 22,7 s-ig tartott, a kovetkezo ketto
+         *    0,6 s alatt jott - a tartalek-modell ugyanakkor 4-5 s volt.
+         */
+        const hedge = (why: 'lassu' | 'hiba'): void => {
+          if (settled || winner || ac.signal.aborted) return;
+          if (!fallbackLaunched) {
+            fallbackLaunched = true;
+            console.warn(
+              `[ws] tartalek indul (${why}${hedgeModel ? `, ${hedgeModel}` : ''}) callSid=${s.callSid}`,
+            );
+            launch(hedgeModel, HEDGE_TIMEOUT_MS, 'tartalek');
+          }
+          const firstStillRunning = live.length > 0 && !live[0]!.done;
+          if (why === 'lassu' && hedgeModel && firstStillRunning && !retried) {
+            retried = true;
+            launch(undefined, HEDGE_TIMEOUT_MS, 'fo-2');
+          }
         };
 
         hedgeTimer = setTimeout(() => hedge('lassu'), HEDGE_AFTER_MS);
