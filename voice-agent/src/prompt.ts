@@ -86,12 +86,15 @@ export const SWITCHED_MESSAGE_EN =
  * bejovo hivasnal: egyszer, az elejen.
  */
 export const CALLBACK_GREETING =
-  'Jó napot kívánok, Aximbra! Ön visszahívást kért az aximbra pont hu oldalon. ' +
+  // "Jo napot kivanok, Aximbra!" ugy hangzott, mintha az Aximbranak
+  // koszonnenk - a tulajdonos kifogasolta. Mi hivunk, ezert azt mondjuk meg,
+  // honnan keressuk.
+  'Jó napot kívánok! Az Aximbrától keresem. Ön visszahívást kért az aximbra pont hu oldalon. ' +
   'Amit elmond, azt bizalmasan kezeljük, kizárólag az ajánlat elkészítéséhez. ' +
   'Miben segíthetek?';
 
 export const CALLBACK_GREETING_EN =
-  'Hello, this is Aximbra. You asked us to call you back on aximbra dot hu. ' +
+  'Hello, I am calling from Aximbra. You asked us to call you back on aximbra dot hu. ' +
   'Anything you tell us is kept confidential and used only to prepare an offer. ' +
   'How can I help you?';
 

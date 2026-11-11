@@ -11,15 +11,17 @@
  * amelyek MINDIG az elso, halozat elotti kapun akadnak fenn. Igy a teszt
  * ingyenes es determinisztikus.
  */
+import { callbackGreeting } from './prompt.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import twilio from 'twilio';
+import WebSocket from 'ws';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const PORT = 18937;
+const PORT = 18938; // kulon port: a testroute e2e a 18937-et hasznalja, parhuzamosan futnak
 const SITE = 'https://aximbra.hu';
 const TOKEN = 'e2e-teszt-token';
 const HOST = 'voice.e2e-test.example';
@@ -147,8 +149,16 @@ test('a visszahivas-vegpont vedve van', async (t) => {
     // A nyelvet a latogato mar kivalasztotta a lapon: itt nincs mit valasztani.
     assert.doesNotMatch(xml, /<Gather/, 'a visszahivasnal nincs nyelvvalaszto menu');
     assert.match(xml, /fix=1/, 'a lapon valasztott nyelvet ne irja felul a felismeres');
-    // Ez a hivas TOLUNK indult: az elso mondatnak ezt ki kell mondania.
-    assert.match(xml, /visszah&#237;v&#225;st k&#233;rt|visszahívást kért/);
+    // A koszonest nem a Twilio mondja ki a felvetel pillanataban (a felvevo
+    // "Hallo"-ja belevagott): a relay koszon, egy masodperc csend utan vagy a
+    // felvevo elso szavara. Ezt a cb=1 jelzi a relaynek.
+    assert.doesNotMatch(xml, /welcomeGreeting=/);
+    assert.match(xml, /cb=1/);
+    // Ez a hivas TOLUNK indult: az elso mondatnak ezt ki kell mondania, es nem
+    // koszonhetunk ugy, mintha az Aximbranak koszonnenk.
+    assert.match(callbackGreeting('hu'), /visszahívást kért/);
+    assert.match(callbackGreeting('hu'), /Az Aximbrától keresem/);
+    assert.doesNotMatch(callbackGreeting('hu'), /Jó napot kívánok, Aximbra/);
   });
 
   await t.test('a hivas az UGYFEL szamat viszi tovabb, nem a sajatunkat', async () => {
@@ -191,7 +201,46 @@ test('a visszahivas-vegpont vedve van', async (t) => {
       AnsweredBy: 'human',
     });
     assert.match(xml, /ttsLanguage="en-US"/);
-    assert.match(xml, /call you back/);
+    assert.match(callbackGreeting('en'), /call you back/);
+  });
+
+  // A relay-socketen: mikor koszonunk a visszahivasban.
+  const relay = async (
+    afterSetup: (ws: WebSocket) => void,
+  ): Promise<{ texts: string[]; ms: number }> => {
+    const ws = new WebSocket(`ws://127.0.0.1:${PORT}/relay?lang=hu&fix=1&cb=1`);
+    await new Promise<void>((ok, bad) => { ws.once('open', () => ok()); ws.once('error', bad); });
+    const texts: string[] = [];
+    const t0 = Date.now();
+    let first = -1;
+    ws.on('message', (raw) => {
+      const m = JSON.parse(String(raw)) as { type?: string; token?: string };
+      if (m.type === 'text' && m.token) {
+        if (first < 0) first = Date.now() - t0;
+        texts.push(m.token);
+      }
+    });
+    ws.send(JSON.stringify({ type: 'setup', from: '+18024249852', callSid: 'CAe2e' }));
+    afterSetup(ws);
+    await new Promise((r) => setTimeout(r, 1600));
+    ws.close();
+    return { texts, ms: first };
+  };
+
+  await t.test('visszahivas: ha a felvevo hallgat, egy masodperc mulva mi koszonunk', async () => {
+    const r = await relay(() => {});
+    assert.equal(r.texts.length, 1, `egy koszones: ${JSON.stringify(r.texts)}`);
+    assert.match(r.texts[0]!, /Az Aximbrától keresem/);
+    assert.ok(r.ms >= 900 && r.ms < 1500, `a koszones ${r.ms} ms utan jott`);
+  });
+
+  await t.test('visszahivas: ha a felvevo szol elobb, arra rogton koszonunk, egyszer', async () => {
+    const r = await relay((ws) => {
+      ws.send(JSON.stringify({ type: 'prompt', voicePrompt: 'Halló, Kovács Péter.', last: true }));
+    });
+    assert.equal(r.texts.length, 1, `egy koszones: ${JSON.stringify(r.texts)}`);
+    assert.match(r.texts[0]!, /Az Aximbrától keresem/);
+    assert.ok(r.ms < 500, `a koszones ${r.ms} ms utan jott`);
   });
 
   await t.test('uzenetrogzitonek nem beszelunk', async () => {

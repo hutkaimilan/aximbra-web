@@ -118,6 +118,13 @@ function voiceFor(lang: Lang): VoiceCfg {
   };
 }
 
+/**
+ * Visszahivasnal ennyit varunk a felvevo "Hallo"-jara, mielott mi koszonnenk.
+ * A tulajdonos kerese: ha egy masodpercen belul nem mutatkozik be, koszonjunk
+ * bele.
+ */
+const CALLBACK_GREET_DELAY_MS = 1000;
+
 /** A felkinalt nyelvek. A ConversationRelay mindegyiket deklaralja. */
 const ALL_LANGS: Lang[] = ['hu', 'en'];
 
@@ -175,8 +182,7 @@ function relayTwiml(
   <Connect>
     <ConversationRelay
       url="wss://${escapeXml(host)}/relay?lang=${lang}${chosen ? '&amp;fix=1' : ''}${peer ? `&amp;peer=${encodeURIComponent(peer)}` : ''}${greeting ? '&amp;cb=1' : ''}"
-      welcomeGreeting="${escapeXml(greeting ?? lines(lang).greeting)}"
-      ttsLanguage="${escapeXml(start.language)}"
+${greeting ? '' : `      welcomeGreeting="${escapeXml(lines(lang).greeting)}"\n`}      ttsLanguage="${escapeXml(start.language)}"
       transcriptionLanguage="${escapeXml(start.language)}"
       hints="Aximbra,AI ügynökség,agent,automatizálás,e-mail rendező,érdeklődő minősítő,árajánlat,elérhetőség"
       ttsProvider="${escapeXml(start.ttsProvider)}"
@@ -731,6 +737,10 @@ interface Session {
   hangup: NodeJS.Timeout | null;
   /** Befejezetlen hivoi mondat utan: ennyit varunk a folytatasra (turn.ts). */
   hold: NodeJS.Timeout | null;
+  /** Visszahivas: elhangzott-e mar a koszonesunk. */
+  greeted: boolean;
+  /** Visszahivas: a koszones idozitoje (CALLBACK_GREET_DELAY_MS). */
+  greetTimer: NodeJS.Timeout | null;
   closed: boolean;
   /** Amit a hivas soran mar megtudtunk a hivorol. */
   facts: CallFacts;
@@ -766,12 +776,9 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     // A welcomeGreeting-et a Twilio mondja ki, nem mi. Ha nem tesszuk be a
     // tortenetbe, a modell nem tud rola, hogy mar koszontunk - es az elso
     // valaszaban ujra bemutatkozik. Pontosan ez tortent elesben.
-    history: [
-      {
-        role: 'assistant',
-        content: isCallback ? callbackGreeting(startLang) : lines(startLang).greeting,
-      },
-    ],
+    // Visszahivasnal a koszonest mi mondjuk ki, kesobb (lasd greetCallback),
+    // ezert ott ures tortenettel indulunk.
+    history: isCallback ? [] : [{ role: 'assistant', content: lines(startLang).greeting }],
     lang: startLang,
     langChecks: 0,
     needsRepeat: false,
@@ -787,6 +794,8 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     timer: null,
     hangup: null,
     hold: null,
+    greeted: !isCallback,
+    greetTimer: null,
     closed: false,
     facts: emptyFacts(),
     extracting: false,
@@ -896,6 +905,26 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
       console.log(`[ws] bontas elkoszones utan callSid=${s.callSid}`);
       ws.close(1000, 'goodbye');
     }, wait);
+  };
+
+  /**
+   * Visszahivas koszonese.
+   *
+   * Kimeno hivasnal az a termeszetes, hogy a felvevo szol elobb ("Hallo",
+   * "Kovacs Peter"). Ha ezt egy masodpercen belul megteszi, arra koszonunk;
+   * ha nem, mi koszonunk bele a csendbe. Korabban a Twilio a felvetel
+   * pillanataban kimondta a koszonest, es a felvevo "Hallo"-ja belevagott.
+   */
+  const greetCallback = (): void => {
+    if (s.greeted || s.closed) return;
+    s.greeted = true;
+    if (s.greetTimer) {
+      clearTimeout(s.greetTimer);
+      s.greetTimer = null;
+    }
+    const text = callbackGreeting(s.lang);
+    send(text, true);
+    s.history.push({ role: 'assistant', content: text });
   };
 
   /** Egy fordulo kimondasa, tokenenkent tovabbitva. */
@@ -1086,6 +1115,12 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
           `[ws] setup from=${s.from} callSid=${s.callSid} ` +
             `nyelv=${s.lang}${langFixed ? ' (valasztott)' : ' (alapertelmezett)'}`,
         );
+        if (!s.greeted && !s.greetTimer) {
+          s.greetTimer = setTimeout(() => {
+            s.greetTimer = null;
+            greetCallback();
+          }, CALLBACK_GREET_DELAY_MS);
+        }
         return;
       }
 
@@ -1140,6 +1175,15 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         s.hold = null;
       }
 
+      // Visszahivas: a felvevo szolalt meg elobb ("Hallo, Kovacs Peter").
+      // Ez a mondat a tortenetbe kerul (igy a nevet is ismerjuk), es erre
+      // koszonunk - kulon valaszt nem adunk ra.
+      if (!s.greeted) {
+        s.history.push({ role: 'user', content: text });
+        greetCallback();
+        return;
+      }
+
       // Elkoszontunk, de a hivo meg mond valamit: nem bontunk ra. Ha csak
       // visszakoszont, a modell ujra elkoszon, es akkor bontunk.
       if (s.hangup) {
@@ -1169,6 +1213,10 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     s.closed = true;
 
     s.abort?.abort();
+    if (s.greetTimer) {
+      clearTimeout(s.greetTimer);
+      s.greetTimer = null;
+    }
     if (s.hold) {
       clearTimeout(s.hold);
       s.hold = null;
