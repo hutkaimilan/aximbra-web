@@ -46,6 +46,17 @@ import {
   looksUnfinished,
 } from './turn.js';
 
+/**
+ * A ConversationRelay "a hivo beszelni kezdett" jelzese (events="speaker-events").
+ * A dokumentacio a nevet (clientSpeaking) adja meg, a pontos mezoket nem,
+ * ezert turelmesen olvassuk: barhol a uzenetben, ki-/bekapcsolt ertekkel.
+ */
+export function isClientSpeakingStart(msg: Record<string, unknown>): boolean {
+  const raw = JSON.stringify(msg);
+  if (!/clientSpeaking/i.test(raw)) return false;
+  return !/"(off|false|stop|stopped|end|ended)"|:\s*false/i.test(raw);
+}
+
 /** Atmeneti modellhiba-e: ezt erdemes egyszer ujraprobalni. */
 function isRetryable(err: unknown): boolean {
   const e = err as { status?: number; name?: string; code?: string } | null;
@@ -192,7 +203,7 @@ ${greeting ? '' : `      welcomeGreeting="${escapeXml(lines(lang).greeting)}"\n`
       speechTimeout="${escapeXml(process.env['SPEECH_TIMEOUT'] ?? '1500')}"
       ignoreBackchannel="true"
       welcomeGreetingInterruptible="none"
-      reportInputDuringAgentSpeech="none">
+${greeting ? '      events="speaker-events"\n' : ''}      reportInputDuringAgentSpeech="none">
 ${ALL_LANGS.map((l) => {
         const v = voiceFor(l);
         return `      <Language code="${escapeXml(v.language)}" ttsProvider="${escapeXml(v.ttsProvider)}" voice="${escapeXml(v.ttsVoice)}" />`;
@@ -1124,6 +1135,19 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         return;
       }
 
+      // Visszahivas, a koszones elott: a Twilio jelzi, hogy a felvevo
+      // beszelni kezdett (speaker-events, clientSpeaking). Ilyenkor nem
+      // koszonunk bele az egy masodperces idozitovel - megvarjuk a mondata
+      // veget (a vegleges prompt jon), legfeljebb harom masodpercig.
+      if (!s.greeted && s.greetTimer && isClientSpeakingStart(msg)) {
+        clearTimeout(s.greetTimer);
+        s.greetTimer = setTimeout(() => {
+          s.greetTimer = null;
+          greetCallback();
+        }, 3000);
+        return;
+      }
+
       // Felbeszakitas: a hivo belevagott a mondatunkba. A Twilio megmondja,
       // meddig jutottunk a felolvasasban.
       if (type === 'interrupt') {
@@ -1165,7 +1189,22 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
 
       // A ConversationRelay reszleges leiratokat is kuldhet; csak a
       // veglegesre valaszolunk, kulonben felmondatokra reagalnank.
-      if (msg['last'] === false) return;
+      //
+      // Visszahivasnal (csak ott kerjuk a reszleges leiratot) a koszones
+      // elott a reszleges leirat azt jelenti: a felvevo eppen beszel
+      // ("Hallo, Kovacs Peter vagyok..."). Ilyenkor nem vagunk bele az egy
+      // masodperces idozitovel, hanem megvarjuk a mondata veget. Ha a vegleges
+      // leirat valamiert nem jonne meg, harom masodperc mulva koszonunk.
+      if (msg['last'] === false) {
+        if (!s.greeted && s.greetTimer) {
+          clearTimeout(s.greetTimer);
+          s.greetTimer = setTimeout(() => {
+            s.greetTimer = null;
+            greetCallback();
+          }, 3000);
+        }
+        return;
+      }
 
       const text = typeof msg['voicePrompt'] === 'string' ? msg['voicePrompt'].trim() : '';
       if (!text) return;

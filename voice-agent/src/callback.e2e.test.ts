@@ -222,7 +222,7 @@ test('a visszahivas-vegpont vedve van', async (t) => {
     });
     ws.send(JSON.stringify({ type: 'setup', from: '+18024249852', callSid: 'CAe2e' }));
     afterSetup(ws);
-    await new Promise((r) => setTimeout(r, 1600));
+    await new Promise((r) => setTimeout(r, 1900));
     ws.close();
     return { texts, ms: first };
   };
@@ -241,6 +241,16 @@ test('a visszahivas-vegpont vedve van', async (t) => {
     assert.equal(r.texts.length, 1, `egy koszones: ${JSON.stringify(r.texts)}`);
     assert.match(r.texts[0]!, /Az Aximbrától keresem/);
     assert.ok(r.ms < 500, `a koszones ${r.ms} ms utan jott`);
+  });
+
+  await t.test('visszahivas: amig a felvevo beszel, nem vagunk bele', async () => {
+    const r = await relay((ws) => {
+      // 0,8 s: elkezd beszelni (clientSpeaking), a vegleges prompt csak 1,4 s-nal jon.
+      setTimeout(() => ws.send(JSON.stringify({ type: 'info', name: 'clientSpeaking', value: 'on' })), 800);
+      setTimeout(() => ws.send(JSON.stringify({ type: 'prompt', voicePrompt: 'Halló, Kovács Péter vagyok.', last: true })), 1400);
+    });
+    assert.equal(r.texts.length, 1, `egy koszones: ${JSON.stringify(r.texts)}`);
+    assert.ok(r.ms >= 1350, `a koszones ${r.ms} ms utan jott - a felvevo meg beszelt`);
   });
 
   await t.test('uzenetrogzitonek nem beszelunk', async () => {
