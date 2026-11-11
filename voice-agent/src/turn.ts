@@ -100,6 +100,48 @@ const FORMAL: Record<string, string> = {
   tőled: 'Öntől',
   hozzád: 'Önhöz',
   rólad: 'Önről',
+  // Gyakori tegezo igealakok -> magazo (E/3, T/3) megfelelojuk. Mindegyik
+  // egyertelmu masodik szemelyu alak, a csere utan a mondat nyelvtanilag
+  // helyes marad. (A tesztekben a modell pl. "Nálatok nagyjából mennyi
+  // e-mail érkezik?"-et irt; a szimulator tobb ilyet is talalt.)
+  szeretnél: 'szeretne',
+  szeretnéd: 'szeretné',
+  szeretnétek: 'szeretnék',
+  tudod: 'tudja',
+  tudnád: 'tudná',
+  tudnál: 'tudna',
+  tudnátok: 'tudnák',
+  tudjátok: 'tudják',
+  mondd: 'mondja',
+  mondjátok: 'mondják',
+  kérlek: 'kérem',
+  nézd: 'nézze',
+  gondolod: 'gondolja',
+  akarod: 'akarja',
+  akarsz: 'akar',
+  akartok: 'akarnak',
+  vagytok: 'vannak',
+  csinálod: 'csinálja',
+  csináljátok: 'csinálják',
+  csináltok: 'csinálnak',
+  használtok: 'használnak',
+  használjátok: 'használják',
+  dolgoztok: 'dolgoznak',
+  foglalkoztok: 'foglalkoznak',
+  küldd: 'küldje',
+  küldjétek: 'küldjék',
+  írj: 'írjon',
+  szólj: 'szóljon',
+  várj: 'várjon',
+  mesélj: 'meséljen',
+  ajánlanál: 'ajánlana',
+  lennél: 'lenne',
+  kérdezel: 'kérdez',
+  hívtál: 'hívott',
+  hívsz: 'hív',
+  maradj: 'maradjon',
+  hallod: 'hallja',
+  figyelj: 'figyeljen',
 };
 
 const FORMAL_RE = new RegExp(`(?<![\\p{L}])(${Object.keys(FORMAL).join('|')})(?![\\p{L}])`, 'giu');
@@ -108,7 +150,9 @@ const FORMAL_RE = new RegExp(`(?<![\\p{L}])(${Object.keys(FORMAL).join('|')})(?!
 export function formalize(text: string): string {
   return text.replace(FORMAL_RE, (m) => {
     const rep = FORMAL[m.toLowerCase()] ?? m;
-    return rep;
+    // Mondat eleji nagybetu megmarad ("Mondd," -> "Mondja,").
+    const upper = m[0] !== undefined && m[0] !== m[0].toLowerCase();
+    return upper ? rep.charAt(0).toUpperCase() + rep.slice(1) : rep;
   });
 }
 

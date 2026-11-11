@@ -51,3 +51,9 @@ test('a mar elhangzott "Van meg kerdese?" kimarad, a tobbi marad', () => {
   // Kikapcsolva mindent atenged.
   assert.equal(dropSentences(text, null), text);
 });
+
+test('a gyakori tegezo igealakok is magazora cserelodnek', () => {
+  assert.equal(formalize('Hányan vagytok, és mit szeretnél automatizálni?'), 'Hányan vannak, és mit szeretne automatizálni?');
+  assert.equal(formalize('Mondd, tudod, mit használtok most?'), 'Mondja, tudja, mit használnak most?');
+  assert.equal(formalize('Kérlek, írj nekünk.'), 'Kérem, írjon nekünk.');
+});

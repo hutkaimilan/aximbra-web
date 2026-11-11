@@ -323,7 +323,7 @@ test('az SMS-t egyszer ajanlja fel, utana nem kinalja ujra', () => {
 test('a magyar prompt sehol nem tegez (a tiltolistan kivul)', () => {
   const p = buildSystemPrompt(0, undefined, '', 'hu', [])
     .split('\n')
-    .filter((l) => !/^23\. |^Megszólítás:/.test(l))
+    .filter((l) => !/^23\. |^Megszólítás:|^1\. MINDIG MAGÁZOL/.test(l))
     .join('\n');
   const found = p.match(/(?<![\p{L}])(nálatok|nektek|titeket|veletek|nálad|neked|beszéljétek|csináljátok|szeretnél)(?![\p{L}])/giu);
   assert.equal(found, null, `tegezo alak a promptban: ${found?.join(', ')}`);
