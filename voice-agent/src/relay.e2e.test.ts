@@ -54,6 +54,7 @@ function streamText(res: http.ServerResponse, text: string): void {
  *   egymp  - 1 s utan valaszol (PRIMARY_TEXT)
  *   hiba   - azonnal 503
  *   bontas - azonnal valaszol, elkoszones nelkul, a bontas jelevel
+ *   kerdesbont - kerdest tesz fel, es megis a bontas jelet irja utana
  *   gyors  - azonnal valaszol (FALLBACK_TEXT); a nem streamelt hivasokra '{}'
  */
 function startMock(): http.Server {
@@ -85,6 +86,8 @@ function startMock(): http.Server {
         const text =
           model === 'bontas'
             ? 'Köszönöm a tájékoztatást. [[BONT]]'
+            : model === 'kerdesbont'
+              ? 'Van még kérdése, amiben segíthetek? [[BONT]]'
             : model === 'kesik' || model === 'egymp'
               ? PRIMARY_TEXT
               : FALLBACK_TEXT;
@@ -123,7 +126,7 @@ async function turn(
   primary: string,
   fallback: string,
   listenMs: number,
-): Promise<Array<{ text: string; at: number }>> {
+): Promise<Array<{ text: string; at: number }> & { closedByServer?: boolean }> {
   const child: ChildProcess = spawn(process.execPath, [path.join(HERE, 'server.js')], {
     cwd: HERE,
     env: {
@@ -151,8 +154,12 @@ async function turn(
       ws.once('open', () => ok());
       ws.once('error', bad);
     });
-    const got: Array<{ text: string; at: number }> = [];
+    const got: Array<{ text: string; at: number }> & { closedByServer?: boolean } = [];
     let t0 = 0;
+    let closing = false;
+    ws.on('close', () => {
+      if (!closing) got.closedByServer = true;
+    });
     ws.on('message', (raw) => {
       const m = JSON.parse(String(raw)) as { type?: string; token?: string };
       if (m.type === 'text' && m.token) got.push({ text: m.token, at: Date.now() - t0 });
@@ -161,6 +168,7 @@ async function turn(
     t0 = Date.now();
     ws.send(JSON.stringify({ type: 'prompt', voicePrompt: 'Az e-mailek kezelése miatt keresem.', last: true }));
     await new Promise((r) => setTimeout(r, listenMs));
+    closing = true;
     ws.close();
     return got;
   } finally {
@@ -226,9 +234,18 @@ test('egyik modell sem szolal meg: 11 s utan hibauzenet, nem orokos csend', asyn
 });
 
 test('bontas elkoszones nelkul: a rogzitett elkoszones potolja', async () => {
-  const got = await turn('bontas', 'gyors', 2_500);
+  const got = await turn('bontas', 'gyors', 9_000);
   const text = said(got);
   assert.match(text, /Köszönöm a tájékoztatást\./);
   assert.match(text, /viszonthallásra/i, `nincs elkoszones a bontas elott: ${text}`);
   assert.doesNotMatch(text, /\[\[BONT\]\]/, 'a bontas jele nem hangozhat el');
+  assert.equal(got.closedByServer, true, 'elkoszones utan nem bontott');
+});
+
+test('kerdes utan nincs bontas, es nincs pótolt elkoszones sem', async () => {
+  const got = await turn('kerdesbont', 'gyors', 6_000);
+  const text = said(got);
+  assert.match(text, /Van még kérdése/);
+  assert.doesNotMatch(text, /viszonthallásra/i, `kerdes utan elkoszont: ${text}`);
+  assert.notEqual(got.closedByServer, true, 'kerdes utan bontott');
 });

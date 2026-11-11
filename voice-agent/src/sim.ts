@@ -348,9 +348,10 @@ async function agentTurn(
     if (isQuotaError(err) && !fb) throw err;
     full = await run(fb ?? model);
   }
-  const ended = full.includes(END_CALL_MARKER);
   let text = dropSentences(formalize(stripMarker(full)), rules.strict, rules.relaxed);
   if (callback) text = callbackWording(text);
+  // Ugyanaz, mint elesben: kerdes utan nincs bontas.
+  const ended = full.includes(END_CALL_MARKER) && !/\?\s*$/u.test(text.trim());
   // Ugyanaz, mint elesben: bontas elott mindig van elkoszones.
   if (ended && !GOODBYE_SAID_RE.test(text)) text = `${text} ${lines(lang).goodbye}`.trim();
   return {

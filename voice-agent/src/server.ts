@@ -1124,8 +1124,17 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
       // kiesett a szuron (pl. egy mondatban volt egy meg nem engedett
       // SMS-ajanlattal), a rogzitett sor potolja - kulonben a hivo egy
       // "Köszönöm a tájékoztatást." utan a vonal bontasat hallana.
+      // Kerdes utan nincs bontas. A promptszabaly ("soha ne tedd ki a jelet,
+      // ha te tettél fel neki kérdést") a szimulatorban nem tartott: a modell
+      // "Van még kérdése...?" utan tette ki a jelet - a hivo a kerdes utan a
+      // vonal bontasat hallotta volna.
+      const endsWithQuestion = /\?\s*$/u.test(s.streamed.trim());
+      const hangUp = filter.found && !endsWithQuestion;
+      if (filter.found && !hangUp) {
+        console.log(`[ws] bontas elmarad: kerdessel zarult a valasz callSid=${s.callSid}`);
+      }
       let tail = '';
-      if (filter.found && !GOODBYE_SAID_RE.test(s.streamed)) {
+      if (hangUp && !GOODBYE_SAID_RE.test(s.streamed)) {
         tail = say().goodbye;
         const sep = s.streamed.trim() ? ' ' : '';
         s.streamed += sep + tail;
@@ -1136,7 +1145,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
       const kept = wording(dropSentences(formalize(stripMarker(full)), rules.strict, rules.relaxed));
       const spoken = tail ? `${kept} ${tail}`.trim() : kept;
       s.history.push({ role: 'assistant', content: spoken });
-      if (filter.found) scheduleHangup(spoken);
+      if (hangUp) scheduleHangup(spoken);
     } catch (err) {
       if (ac.signal.aborted) {
         // Felbeszakitottak. Amit tenylegesen kimondtunk, az kerul a
