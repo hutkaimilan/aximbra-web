@@ -273,3 +273,55 @@ test('megkezdett zaras: a nev megadasa utan az SMS nyugtazasa nem esik ki', () =
     'Két-három hét alatt.',
   );
 });
+
+test('angol lezaras: "that\'s what I needed" nem kerdes', () => {
+  const g = { role: 'assistant', content: 'It is between one hundred fifty and four hundred thousand forints.' };
+  assert.equal(callerIsWrapping([g, { role: 'user', content: "Thanks, that's what I needed." }]), true);
+  assert.equal(callerIsWrapping([g, { role: 'user', content: 'Okay. What happens if it gets something wrong' }]), false);
+  assert.equal(callerIsWrapping([g, { role: 'user', content: 'Thanks. Could you send it over' }]), false);
+});
+
+import { BUGFIX_SAID_RE, NUDGE_RE, META_RE } from './turn.js';
+
+test('felelossegi mondat: a hibajavitas csak kerdesre, a jovahagyas egyszer (szimulator, alap)', () => {
+  const base = [
+    { role: 'assistant', content: 'Jó napot kívánok!' },
+    { role: 'user', content: 'Mennyibe kerül az e-mail rendező?' },
+    { role: 'assistant', content: 'Százötvenezer és négyszázezer forint között.' },
+  ];
+  const reply =
+    'Jellemzően két-három hét. Az agent semmit nem küld ki magától: minden kimenetet egy kolléga hagy jóvá, így a végső döntés és a felelősség az Önöké marad. Ha pedig a rendszerben hibát találunk, azt a havidíj keretében mi javítjuk.';
+  const time = [...base, { role: 'user', content: 'És mennyi idő alatt tudnánk elindítani?' }];
+  assert.equal(
+    dropSentences(reply, dropPattern(time)),
+    'Jellemzően két-három hét. Az agent semmit nem küld ki magától: minden kimenetet egy kolléga hagy jóvá, így a végső döntés és a felelősség az Önöké marad.',
+  );
+  // Ha a hibarol kerdez, a teljes ket mondat elhangzik.
+  const err = [...base, { role: 'user', content: 'És mi történik, ha az agent hibázik?' }];
+  assert.equal(dropSentences(reply, dropPattern(err)), reply);
+  // Masodszorra, kerdes nelkul, a jovahagyas sem ismetlodik.
+  const again = [
+    ...time,
+    { role: 'assistant', content: 'Az agent semmit nem küld ki magától: minden kimenetet egy kolléga hagy jóvá.' },
+    { role: 'user', content: 'Hol tárolódnak az adatok?' },
+  ];
+  assert.equal(
+    dropSentences('Az Önök saját infrastruktúráján. Az agent semmit nem küld ki magától: minden kimenetet egy kolléga hagy jóvá.', dropPattern(again)),
+    'Az Önök saját infrastruktúráján.',
+  );
+  assert.equal(BUGFIX_SAID_RE.test('If we find a bug in the system, we fix it within the monthly maintenance fee.'), true);
+});
+
+test('ajanlkozo kerdes es sajat szabaly kimondasa kiesik', () => {
+  assert.equal(NUDGE_RE.test('Érdekli esetleg, hogyan működik a gyakorlatban a folyamatok jóváhagyása?'), true);
+  assert.equal(NUDGE_RE.test('Szeretné tudni, hogy ez pontosan mennyibe kerülne?'), true);
+  assert.equal(NUDGE_RE.test('Would you like to know more about how it handles the triage process?'), true);
+  assert.equal(NUDGE_RE.test('Melyik érdekli ezek közül?'), false);
+  assert.equal(NUDGE_RE.test('Érdekli inkább a telefonos agent?'), false);
+  assert.equal(META_RE.test('Mivel a nevét és a cégét már megadta, más teendőnk nincs.'), true);
+  const h = [{ role: 'assistant', content: 'Jó napot kívánok!' }, { role: 'user', content: 'Hogyan működik?' }];
+  assert.equal(
+    dropSentences('A beérkező leveleket osztályozza. Érdekli esetleg, hogy milyen folyamatokra építhető ki?', dropPattern(h)),
+    'A beérkező leveleket osztályozza.',
+  );
+});

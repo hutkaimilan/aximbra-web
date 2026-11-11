@@ -286,8 +286,10 @@ export function dropSentences(text: string, drop: RegExp | null, relaxed: RegExp
  * beszelgetes, es a legvegen kerdezze meg." A szimulatorban a modell mar a
  * hivo masodik kerdese utan feltette.
  */
+// Az angol kerdoszavak csak mondat elejen szamitanak: a "Thanks, that's what
+// I needed." nem kerdes, hanem lezaras.
 export const CALLER_ASKED_RE =
-  /\?|(?<![\p{L}])(?:mennyibe|mennyi|hogyan|milyen|mikor|hol|miért|melyik|mi történik|tudna|lehetne|van-e|kell-e|how|what|when|where|why|which)(?![\p{L}])/iu;
+  /\?|(?<![\p{L}])(?:mennyibe|mennyi|hogyan|milyen|mikor|hol|miért|melyik|mi történik|tudna|lehetne|van-e|kell-e)(?![\p{L}])|(?:^|[.!,;]\s*)(?:how|what|when|where|why|which|can you|could you|do you|does it|is it|are you|will it|would it)(?![\p{L}])/iu;
 
 /**
  * Kerdezte-e mar a hivo az arat (barmikor a hivasban).
@@ -333,7 +335,7 @@ export const CALLER_DONE_RE = new RegExp(
     '(?:akkor|majd) (?:meg|fel)(?:keres|hív)(?:lek|lak|em|om|ük|juk|sük)(?![\\p{L}])',
     '(?:jelentkezni|keresni|hívni) fog(?:ok|unk|lak|om|juk)',
     'átgondolom|átgondoljuk|meggondolom|meggondoljuk|megbeszélem|megbeszéljük',
-    "that'?s (?:all|everything|it)(?![\\p{L}])",
+    "that'?s (?:all|everything|it|what i needed)(?![\\p{L}])",
     'no (?:more|other|further) questions',
     'nothing else',
     "i'?ll (?:think about it|get back to you)",
@@ -388,6 +390,37 @@ export const CLOSING_RE =
  */
 export const NAME_ASK_RE =
   /kihez címezzem|melyik cégnél|hogy hívják|mi a (?:neve|cég)|mi az ön neve|a nevét|cég ?nev|melyik (?:cég|szerviz|üzlet|iroda|vállalkozás|szalon|rendelő|bolt|étterem|pékség|stúdió)\p{L}*(?:ről|ből|tól|től| neve)|who should i address|which company|your name/iu;
+
+/**
+ * A felelossegi valasz ket mondata. A promptban szo szerint all, arra az
+ * esetre, ha a hivo megkerdezi, ki felel a hibaert - a modell viszont az
+ * adattarolasi, sot a hataridore vonatkozo kerdesekre is elmondta
+ * (szimulator, 2026-11-11, negy hivasban).
+ *  - A hibajavitas mondata csak akkor, ha a hivo a hibarol kerdezett.
+ *  - A jovahagyas mondata egyszer elhangozhat magatol is (ez a fo
+ *    ervunk), de ismetelni csak kerdesre lehet.
+ */
+export const BUGFIX_SAID_RE =
+  /hibát találunk|keretében (?:mi )?javítjuk|if we find a (?:bug|fault|problem)|we fix it within/iu;
+export const APPROVAL_SAID_RE = /semmit nem küld ki magától|does not send anything out (?:by|on) its own/iu;
+/** A hivo a hibarol, a felelossegrol vagy a kockazatrol kerdez. */
+export const ERROR_ASKED_RE =
+  /hib[aáái]|téved|elront|rossz|felel|baj|kár(?:t|ért|osod)|kockázat|mistake|wrong|error|fault|bug|responsib|liab|fail|risk/iu;
+
+/**
+ * "Érdekli esetleg, hogyan működik...?" - ajanlkozo kerdes, nem a hivo
+ * helyzetere vonatkozik. A szimulatorban rendszeresen igy zarta a
+ * valaszait, a hivo pedig minden alkalommal kenytelen volt "Értem."-mel
+ * felelni. A hivo maga kerdez, ha erdekli.
+ */
+export const NUDGE_RE =
+  /^\s*(?:érdekli(?: esetleg)?,? (?:hogy|hogyan|mennyi|milyen|mi )|szeretné(?: esetleg)? tudni|would you like to (?:know|hear) (?:more|how|what|about)|do you want to (?:know|hear) (?:more|how|what|about))[^.!?]*\?\s*$/iu;
+
+/**
+ * A modell a sajat szabalyait mondja ki ("Mivel a nevét és a cégét már
+ * megadta, más teendőnk nincs."). Ez a hivonak ertelmetlen es gepies.
+ */
+export const META_RE = /^\s*mivel (?:a nevét|a cégét|a cégnevet|már (?:megadta|ismerem|tudom))/iu;
 
 /** Ujrakoszones egy kulon mondatban ("Üdvözlöm, Kiss úr."). */
 export const REGREET_SENTENCE_RE =
@@ -462,7 +495,13 @@ export function dropRules(
   const offerEarlier = callerTexts.some((c) => OFFER_REQUEST_RE.test(c));
   const callerAsks = CALLER_ASKED_RE.test(lastCaller);
 
-  const parts: string[] = [REGREET_SENTENCE_RE.source];
+  const parts: string[] = [REGREET_SENTENCE_RE.source, NUDGE_RE.source, META_RE.source];
+  if (!ERROR_ASKED_RE.test(lastCaller)) {
+    parts.push(BUGFIX_SAID_RE.source);
+    if (history.some((t) => t.role === 'assistant' && APPROVAL_SAID_RE.test(t.content))) {
+      parts.push(APPROVAL_SAID_RE.source);
+    }
+  }
   const moreOk = !askedMore && (callerWrapping || offerNow || timeUp);
   if (!moreOk) parts.push(MORE_QUESTIONS_RE.source);
   // Ha a zaras mar elkezdodott ("Van meg kerdese?" vagy nevkerdes elhangzott),

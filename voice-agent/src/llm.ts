@@ -163,7 +163,7 @@ export async function reviewCall(
 
     const raw = completion.choices[0]?.message?.content?.trim();
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { ok?: unknown; text?: unknown };
+    const parsed = parseJsonReply(raw) as { ok?: unknown; text?: unknown };
     if (typeof parsed.text !== 'string') return null;
     return { ok: parsed.ok === true, text: parsed.text };
   } catch (err) {
@@ -421,10 +421,32 @@ export async function extractFacts(
 
     const raw = completion.choices[0]?.message?.content;
     if (!raw) return null;
-    return JSON.parse(raw) as Partial<CallFacts>;
+    return parseJsonReply(raw) as Partial<CallFacts>;
   } catch (err) {
     console.error('[llm] tenykinyeres sikertelen:', err);
     return null;
+  }
+}
+
+/**
+ * JSON-valasz beolvasasa akkor is, ha a modell kore irt valamit.
+ *
+ * Nehany modell (pl. a Gemma) a gondolatmenetet is a valaszba irja
+ * ("<thought>...</thought>{...}"), mas kodblokkba teszi a JSON-t. A
+ * szimulatorban emiatt minden tenykinyeres elszallt.
+ */
+export function parseJsonReply(raw: string): unknown {
+  const cleaned = raw
+    .replace(/<thought>[\s\S]*?<\/thought>/giu, '')
+    .replace(/```(?:json)?/giu, '')
+    .trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start >= 0 && end > start) return JSON.parse(cleaned.slice(start, end + 1));
+    throw new SyntaxError(`nem JSON valasz: ${cleaned.slice(0, 80)}`);
   }
 }
 
@@ -476,7 +498,7 @@ export async function summarize(history: Turn[]): Promise<Summary | null> {
     const raw = completion.choices[0]?.message?.content;
     if (!raw) return null;
 
-    const parsed = JSON.parse(raw) as Partial<Summary>;
+    const parsed = parseJsonReply(raw) as Partial<Summary>;
 
     const fallback = 'nem hangzott el';
     return {
@@ -536,7 +558,7 @@ export async function chatJson(
       { timeout: opts.timeoutMs ?? 45_000, maxRetries: 1, signal: opts.signal },
     );
     const raw = completion.choices[0]?.message?.content;
-    return raw ? (JSON.parse(raw) as unknown) : null;
+    return raw ? parseJsonReply(raw) : null;
   } catch (err) {
     console.error('[llm] json-hivas sikertelen:', err);
     return null;
