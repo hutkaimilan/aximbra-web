@@ -46,6 +46,11 @@ function effortParam(opts: ReplyOptions): Record<string, unknown> {
 
 let client: OpenAI | null = null;
 
+/** A hatterfeladatok modellje (lasd env.auxModel). */
+function auxModel(): string {
+  return env().auxModel || env().model;
+}
+
 function openai(): OpenAI {
   if (!client) {
     // LLM_BASE_URL-lel ugyanez a kliens más, OpenAI-kompatibilis végpontot
@@ -144,7 +149,7 @@ export async function reviewCall(
   try {
     const completion = await openai().chat.completions.create(
       {
-        model: opts.model ?? env().model,
+        model: opts.model ?? auxModel(),
         messages: [
           { role: 'system', content: REVIEW_PROMPT },
           { role: 'user', content: transcript.slice(0, 12_000) },
@@ -214,7 +219,7 @@ export async function detectSpokenLang(
 
   const completion = await openai().chat.completions.create(
     {
-      model: opts.model ?? env().model,
+      model: opts.model ?? auxModel(),
       messages: [
         { role: 'system', content: LANG_DETECT_PROMPT },
         { role: 'user', content: sample.slice(0, 600) },
@@ -400,7 +405,7 @@ export async function extractFacts(
   try {
     const completion = await openai().chat.completions.create(
       {
-        model: opts.model ?? env().model,
+        model: opts.model ?? auxModel(),
         messages: [
           { role: 'system', content: factsPrompt },
           { role: 'user', content: transcript },
@@ -456,7 +461,7 @@ export async function summarize(history: Turn[]): Promise<Summary | null> {
   try {
     const completion = await openai().chat.completions.create(
       {
-        model: env().model,
+        model: auxModel(),
         messages: [
           { role: 'system', content: SUMMARY_PROMPT },
           { role: 'user', content: transcript },
@@ -519,7 +524,7 @@ export async function chatJson(
   try {
     const completion = await openai().chat.completions.create(
       {
-        model: opts.model ?? env().model,
+        model: opts.model ?? auxModel(),
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: user },

@@ -153,3 +153,42 @@ export async function sendSummary(
     console.error('[email] kivetel:', err);
   }
 }
+
+/**
+ * Nem fogadott hivas jelzese (napi keret vagy foglalt vonalak).
+ *
+ * A hivo ilyenkor azt hallja, hogy visszahivjuk - ez csak akkor igaz, ha a
+ * tulajdonos tud rola. Korabban az elutasitas csak a logba kerult, igy a
+ * bejelentkezo erdeklodo nyomtalanul elveszett.
+ */
+export async function sendMissedCall(from: string, reason: string): Promise<void> {
+  const cfg = env();
+  console.log(`[kimaradt hívás] ${from} · ${reason}`);
+  if (!cfg.notifyEmail || !cfg.resendApiKey) return;
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${cfg.resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: cfg.resendFrom,
+        to: [cfg.notifyEmail],
+        subject: `Nem fogadott hívás: ${from} — hívd vissza`,
+        html:
+          `<p style="font-family:sans-serif;font-size:15px">Az AXIMBRA vonala most nem tudta fogadni ezt a hívást ` +
+          `(${escapeHtml(reason === 'daily' ? 'elfogyott a napi keret' : 'minden vonal foglalt volt')}).</p>` +
+          `<p style="font-family:sans-serif;font-size:20px;font-weight:600">${escapeHtml(from)}</p>` +
+          `<p style="font-family:sans-serif;font-size:14px;color:#555">A hívó azt hallotta, hogy a kollégánk ezen a számon visszahívja.</p>`,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.error(`[email] kimaradt hivas sikertelen (${res.status}): ${body.slice(0, 300)}`);
+    }
+  } catch (err) {
+    console.error('[email] kimaradt hivas kivetel:', err);
+  }
+}

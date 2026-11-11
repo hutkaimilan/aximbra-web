@@ -340,3 +340,9 @@ test('arat csak akkor mond, ha kerdeztek; a "van meg kerdese" egyszer hangzik el
   const h3 = [...h2, { role: 'assistant' as const, content: 'Kétmillió forinttól. Van még kérdése, amiben segíthetek?' }];
   assert.match(buildFactsBlock(emptyFacts(), '', h3), /MÁR ELHANGZOTT/);
 });
+
+test('az idokeret vege elott a modell szolt, hogy zarjon le rendesen', () => {
+  assert.doesNotMatch(buildSystemPrompt(0, emptyFacts(), '', 'hu', [], 200), /MINDJÁRT LEJÁR/);
+  assert.match(buildSystemPrompt(0, emptyFacts(), '', 'hu', [], 50), /MINDJÁRT LEJÁR/);
+  assert.match(buildSystemPrompt(0, emptyFacts(), '', 'en', [], 50), /TIME IS ALMOST UP/);
+});

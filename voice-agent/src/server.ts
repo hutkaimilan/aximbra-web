@@ -34,7 +34,7 @@ import {
   type Turn,
   type CallFacts,
 } from './llm.js';
-import { sendSummary } from './email.js';
+import { sendMissedCall, sendSummary } from './email.js';
 import { sendContactSms } from './sms.js';
 import {
   FormalFilter,
@@ -262,6 +262,8 @@ function agentTwiml(host: string, lang: Lang, from: string, forced: Lang | null)
       `[http] hivas elutasitva (${verdict.reason}) from=${from} ` +
         `${verdict.count}/${verdict.limit}`,
     );
+    // A hivo azt hallja, hogy visszahivjuk: errol a tulajdonosnak tudnia kell.
+    void sendMissedCall(from, verdict.reason);
     return rejectTwiml(verdict.reason, lang);
   }
 
@@ -955,17 +957,24 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     const askedMore = s.history.some((t) => t.role === 'assistant' && MORE_QUESTIONS_RE.test(t.content));
     const dropRe = askedMore ? MORE_QUESTIONS_RE : null;
     const once = new SentenceDropFilter(dropRe);
-    const ask = (timeoutMs: number): Promise<string> =>
+    const ask = (timeoutMs: number, model?: string): Promise<string> =>
       replyStream(
         s.history,
-        buildSystemPrompt(cfg.currentProjects, s.facts, s.from, s.lang, s.history),
+        buildSystemPrompt(
+          cfg.currentProjects,
+          s.facts,
+          s.from,
+          s.lang,
+          s.history,
+          maxCallSeconds() - (Date.now() - s.startedAt) / 1000,
+        ),
         (delta) => {
           const out = once.push(formal.push(filter.push(delta)));
           if (!out) return;
           s.streamed += out;
           send(out, false);
         },
-        { signal: ac.signal, maxTokens: 700, temperature: 0.3, timeoutMs },
+        { signal: ac.signal, maxTokens: 700, temperature: 0.3, timeoutMs, model },
       );
     try {
       let full: string;
@@ -978,9 +987,15 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         // megismetelne?", pedig a vonallal semmi baj nem volt - a hivo
         // feleslegesen mondta el ujra, amit mar egyszer elmondott.
         if (ac.signal.aborted || s.streamed.trim() || !isRetryable(first)) throw first;
-        console.warn(`[ws] modellhiba, ujraprobalas callSid=${s.callSid}:`, String(first));
+        // A tartalek-modellnek kulon kerete van: ha a fo modell 429-cel
+        // utasit el (percenkenti keret), ugyanannak ujra szolni ertelmetlen.
+        const fallback = cfg.fallbackModel || undefined;
+        console.warn(
+          `[ws] modellhiba, ujraprobalas${fallback ? ` (${fallback})` : ''} callSid=${s.callSid}:`,
+          String(first),
+        );
         send(say().hold, true);
-        full = await ask(10_000);
+        full = await ask(10_000, fallback);
       }
       const rest = once.push(formal.push(filter.flush()) + formal.flush()) + once.flush();
       if (rest) {

@@ -530,8 +530,19 @@ export function buildSystemPrompt(
   callerNumber = '',
   lang: Lang = 'hu',
   history: readonly Turn[] = [],
+  /** Ennyi masodperc van hatra a hivas idokeretebol (undefined = nem szamit). */
+  secondsLeft?: number,
 ): string {
+  // Az idokeret vege elott szolunk a modellnek, hogy zarjon le rendesen -
+  // kulonben a hivas egy rogzitett mondattal, mondat kozben szakad meg.
+  const wrapUp =
+    secondsLeft !== undefined && secondsLeft < 75
+      ? lang === 'en'
+        ? '# TIME IS ALMOST UP\n\nLess than a minute is left of this call. In this reply: answer briefly, ask once for their name and company if still unknown, say a colleague will follow up, and say goodbye with the end marker.\n\n'
+        : '# AZ IDŐ MINDJÁRT LEJÁR\n\nEbből a hívásból kevesebb mint egy perc van hátra. Ebben a válaszban: röviden felelj, ha még nem tudod, egyszer kérdezd meg a nevét és a cégét, mondd, hogy a kollégád jelentkezik, és köszönj el a bontásjellel.\n\n'
+      : '';
   const head =
+    wrapUp +
     (lang === 'en' ? ENGLISH_CALL_BLOCK : '') +
     (facts ? buildFactsBlock(facts, callerNumber, history) : '');
   const base = head + SYSTEM_PROMPT_BASE;

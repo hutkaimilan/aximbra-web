@@ -41,6 +41,17 @@ export interface Env {
   port: number;
   openaiApiKey: string;
   model: string;
+  /**
+   * A hatterfeladatok modellje (tenykinyeres, nyelvfelismeres, osszefoglalo,
+   * teszt-ertekeles). Kulon modell = kulon percenkenti keret: a beszelgeto
+   * modell kvotajat igy nem eszi meg a hatter. Ures = ugyanaz, mint a model.
+   */
+  auxModel: string;
+  /**
+   * Erre valtunk, ha a beszelgeto modell atmenetileg nem valaszol (429, 503,
+   * idotullepes). Ures = ugyanazzal a modellel probalkozunk ujra.
+   */
+  fallbackModel: string;
   twilioAuthToken: string;
   publicHostname: string;
   validateSignature: boolean;
@@ -154,6 +165,8 @@ export function env(): Env {
     port: intOption('PORT', 8080, 1, 65535),
     openaiApiKey: required('OPENAI_API_KEY'),
     model: optional('VOICE_MODEL', 'gpt-4.1-mini'),
+    auxModel: optional('AUX_MODEL', ''),
+    fallbackModel: optional('FALLBACK_MODEL', ''),
 
     // A signature-ellenorzeshez az auth token kell (nem az API secret).
     twilioAuthToken,

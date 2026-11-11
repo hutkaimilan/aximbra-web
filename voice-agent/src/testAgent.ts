@@ -93,7 +93,8 @@ function testCfg() {
     sayVoiceEn: process.env['TEST_SAY_VOICE_EN']?.trim() || 'Google.en-US-Wavenet-D',
     // A teszt-agent modellje kulon allithato: itt a gyorsasag fontosabb,
     // mint az eles oldalon. Minden masodperc gondolkodas nema vonal.
-    model: process.env['TEST_MODEL']?.trim() || env().model,
+    // Alapbol a hatter-modellen fut, hogy ne egye a beszelgeto modell keretet.
+    model: process.env['TEST_MODEL']?.trim() || env().auxModel || env().model,
     // Ferfi hang. A Twilio <Say> magyar keszleteben CSAK noi hang van
     // (hu-HU-Standard-B es hu-HU-Wavenet-B), ezert az OpenAI TTS-evel
     // szintetizalunk, es <Play>-jel jatsszuk le.

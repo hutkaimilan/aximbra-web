@@ -46,6 +46,17 @@ import {
 import { env } from './env.js';
 import type { Lang } from './routing.js';
 import crypto from 'node:crypto';
+import { stats } from './limit.js';
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Ha eppen eles hivas fut, a szimulator var: ugyanazon a modell-kereten
+ * osztoznak, es egy teszt nem veheti el a kvotat egy valodi hivotol.
+ */
+async function yieldToLiveCalls(): Promise<void> {
+  while (stats().live > 0) await sleep(5_000);
+}
 
 export interface SimTurn {
   who: 'agent' | 'caller';
@@ -308,21 +319,23 @@ async function agentTurn(
   const prompt = buildSystemPrompt(env().currentProjects, facts, from, lang, history);
   const t0 = Date.now();
   let ttft = -1;
-  const run = (): Promise<string> =>
+  const run = (m?: string): Promise<string> =>
     replyStream(
       history,
       prompt,
       () => {
         if (ttft < 0) ttft = Date.now() - t0;
       },
-      { maxTokens: 700, temperature: 0.3, timeoutMs: 20_000, model, reasoningEffort: effort },
+      { maxTokens: 700, temperature: 0.3, timeoutMs: 20_000, model: m, reasoningEffort: effort },
     );
+  // Ugyanaz a ket lepes, mint elesben: fo modell, hiba eseten a tartalek.
   let full: string;
   try {
-    full = await run();
+    full = await run(model);
   } catch (err) {
-    if (isQuotaError(err)) throw err;
-    full = await run();
+    const fb = env().fallbackModel || undefined;
+    if (isQuotaError(err) && !fb) throw err;
+    full = await run(fb ?? model);
   }
   return {
     text: dropSentences(formalize(stripMarker(full)), dropRe),
@@ -347,7 +360,8 @@ async function callerTurn(
     maxTokens: 160,
     temperature: 0.4,
     timeoutMs: 20_000,
-    model,
+    // A teszt-hivo a hatter-modellen: ne egye a beszelgeto modell keretet.
+    model: model ?? (env().auxModel || undefined),
   });
   return { text: raw.replace(END_MARKER, '').trim(), ended: raw.includes(END_MARKER) };
 }
@@ -384,6 +398,9 @@ export async function simulateCall(
   let callerEnded = false;
   try {
     for (let i = 0; i < opts.maxTurns; i += 1) {
+      await yieldToLiveCalls();
+      // Kis szunet fordulonkent: a percenkenti keret szuk.
+      await sleep(1_500);
       history.push({ role: 'user', content: callerText });
       turns.push({ who: 'caller', text: callerText });
 
