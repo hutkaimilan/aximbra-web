@@ -227,11 +227,11 @@ test('a visszahivas-vegpont vedve van', async (t) => {
     return { texts, ms: first };
   };
 
-  await t.test('visszahivas: ha a felvevo hallgat, egy masodperc mulva mi koszonunk', async () => {
+  await t.test('visszahivas: ha a felvevo hallgat, fel masodpercen belul mi koszonunk', async () => {
     const r = await relay(() => {});
     assert.equal(r.texts.length, 1, `egy koszones: ${JSON.stringify(r.texts)}`);
     assert.match(r.texts[0]!, /Az Aximbrától keresem/);
-    assert.ok(r.ms >= 900 && r.ms < 1500, `a koszones ${r.ms} ms utan jott`);
+    assert.ok(r.ms >= 150 && r.ms < 500, `a koszones ${r.ms} ms utan jott`);
   });
 
   await t.test('visszahivas: ha a felvevo szol elobb, arra rogton koszonunk, egyszer', async () => {
@@ -245,8 +245,8 @@ test('a visszahivas-vegpont vedve van', async (t) => {
 
   await t.test('visszahivas: amig a felvevo beszel, nem vagunk bele', async () => {
     const r = await relay((ws) => {
-      // 0,8 s: elkezd beszelni (clientSpeaking), a vegleges prompt csak 1,4 s-nal jon.
-      setTimeout(() => ws.send(JSON.stringify({ type: 'info', name: 'clientSpeaking', value: 'on' })), 800);
+      // 0,1 s: elkezd beszelni (clientSpeaking), a vegleges prompt csak 1,4 s-nal jon.
+      setTimeout(() => ws.send(JSON.stringify({ type: 'info', name: 'clientSpeaking', value: 'on' })), 100);
       setTimeout(() => ws.send(JSON.stringify({ type: 'prompt', voicePrompt: 'Halló, Kovács Péter vagyok.', last: true })), 1400);
     });
     assert.equal(r.texts.length, 1, `egy koszones: ${JSON.stringify(r.texts)}`);

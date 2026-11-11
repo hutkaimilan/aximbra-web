@@ -131,10 +131,11 @@ function voiceFor(lang: Lang): VoiceCfg {
 
 /**
  * Visszahivasnal ennyit varunk a felvevo "Hallo"-jara, mielott mi koszonnenk.
- * A tulajdonos kerese: ha egy masodpercen belul nem mutatkozik be, koszonjunk
- * bele.
+ * A tulajdonos kerese: legfeljebb fel masodperc csend lehet a felvetel utan.
+ * A felvetel es a setup uzenet kozott mar eltelik ~0,2 s, a felolvasas
+ * indulasa is visz idot, ezert itt csak 0,2 s marad a sajat varakozasra.
  */
-const CALLBACK_GREET_DELAY_MS = 1000;
+const CALLBACK_GREET_DELAY_MS = 200;
 
 /** A felkinalt nyelvek. A ConversationRelay mindegyiket deklaralja. */
 const ALL_LANGS: Lang[] = ['hu', 'en'];
