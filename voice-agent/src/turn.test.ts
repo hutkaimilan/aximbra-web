@@ -252,3 +252,24 @@ test('ajanlatkeres: reszletek kuldese is keres, a "kérdezném" nem', () => {
   assert.equal(OFFER_REQUEST_RE.test('A megrendeléseket e-mailben küldik nekünk.'), false);
   assert.equal(OFFER_REQUEST_RE.test('Do you send invoices to clients?'), false);
 });
+
+test('megkezdett zaras: a nev megadasa utan az SMS nyugtazasa nem esik ki', () => {
+  const h = [
+    { role: 'assistant', content: 'Jó napot kívánok!' },
+    { role: 'user', content: 'Mennyibe kerül az e-mail rendező?' },
+    { role: 'assistant', content: 'Százötvenezer és négyszázezer forint között.' },
+    { role: 'user', content: 'Értem.' },
+    { role: 'assistant', content: 'Van még kérdése, amiben segíthetek?' },
+    { role: 'user', content: 'Nincs, köszönöm.' },
+    { role: 'assistant', content: 'Szívesen elküldöm az ajánlatot SMS-ben erre a számra. Kihez címezzem, és melyik cégnél?' },
+    { role: 'user', content: 'Kovács Éva, Kovács és Társa Bt.' },
+  ];
+  const reply = 'Köszönöm, Kovács asszony. Az ajánlatot SMS-ben elküldöm erre a számra. Köszönöm a beszélgetést, viszonthallásra!';
+  assert.equal(dropSentences(reply, dropPattern(h)), reply);
+  // De ha a zaras kozben ujra kerdez, elobb a valasz jon, SMS nelkul.
+  const asks = [...h.slice(0, -1), { role: 'user', content: 'Előtte még: mennyi idő alatt készül el?' }];
+  assert.equal(
+    dropSentences('Két-három hét alatt. Az ajánlatot SMS-ben elküldöm erre a számra.', dropPattern(asks)),
+    'Két-három hét alatt.',
+  );
+});

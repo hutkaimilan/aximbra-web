@@ -465,9 +465,17 @@ export function dropRules(
   const parts: string[] = [REGREET_SENTENCE_RE.source];
   const moreOk = !askedMore && (callerWrapping || offerNow || timeUp);
   if (!moreOk) parts.push(MORE_QUESTIONS_RE.source);
-  // Korabbi keres utan is csak akkor zarhatunk, ha a hivo eppen nem kerdez:
-  // a kerdesere elobb valaszolunk, a nevkerdes nem kerul a valasz vegere.
-  const closingOk = callerWrapping || timeUp || offerNow || (offerEarlier && !callerAsks);
+  // Ha a zaras mar elkezdodott ("Van meg kerdese?" vagy nevkerdes elhangzott),
+  // a folytatasa (az SMS/ajanlat nyugtazasa, elkoszones) mehet - kulonben a
+  // hivo "Kiss István, Kiss Hajstúdió" valasza utan az "Az ajánlatot SMS-ben
+  // elküldöm" mondat kiesne.
+  const closingStarted = history.some(
+    (t) => t.role === 'assistant' && (MORE_QUESTIONS_RE.test(t.content) || NAME_ASK_RE.test(t.content)),
+  );
+  // Korabbi keres (vagy megkezdett zaras) utan is csak akkor zarhatunk, ha
+  // a hivo eppen nem kerdez: a kerdesere elobb valaszolunk, a nevkerdes nem
+  // kerul a valasz vegere.
+  const closingOk = callerWrapping || timeUp || offerNow || ((offerEarlier || closingStarted) && !callerAsks);
   if (!closingOk) parts.push(CLOSING_RE.source);
   // A nevet/cegnevet egyszer kerdezzuk meg - akkor sem ujra, ha nem felelt.
   if (history.some((t) => t.role === 'assistant' && NAME_ASK_RE.test(t.content))) {
