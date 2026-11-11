@@ -124,7 +124,7 @@ const hu = {
     heading: "Mikor lesz olcsóbb, mint embert fizetni rá?",
     sub: "Az agent az elején drágább: az építést egyszer ki kell fizetni. Utána csak a havidíj megy, a munkaidő ára viszont minden hónapban újra. Állítsd be a saját feladatodra, és megmutatja, hol fordul át — vagy azt, hogy nem fordul át.",
     agentLabel: "Melyik agent",
-    hoursLabel: "Heti hány órát vesz le a válladról",
+    hoursLabel: "Heti hány órát visz el ez a feladat",
     hoursUnit: "óra",
     teamNote: "A multi-agent rendszer egy több osztályon átívelő folyamatot vesz át, ezért itt több ember munkaidejével számolunk: heti 80 óra két teljes állás.",
     wageLabel: "Kinek a bérével számoljunk",

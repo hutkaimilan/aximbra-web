@@ -124,7 +124,7 @@ const en = {
     heading: "When does it get cheaper than paying a person for it?",
     sub: "At the start the agent costs more: the build is paid once. After that only the monthly fee runs, while the same working time has to be paid again every month. Set it to your own task and it shows where it tips over — or that it doesn't.",
     agentLabel: "Which agent",
-    hoursLabel: "Hours a week it takes off your hands",
+    hoursLabel: "Hours a week this task takes",
     hoursUnit: "h",
     teamNote: "A multi-agent system takes over a process that spans several teams, so here we count several people's time: 80 hours a week is two full-time jobs.",
     wageLabel: "Whose wage to compare with",

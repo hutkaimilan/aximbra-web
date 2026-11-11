@@ -127,7 +127,7 @@ const de = {
     heading: "Ab wann ist der Agent günstiger als die Arbeitszeit?",
     sub: "Am Anfang kostet der Agent mehr: Der Aufbau wird einmal bezahlt. Danach läuft nur die Monatsgebühr, während dieselbe Arbeitszeit jeden Monat neu bezahlt werden muss. Stellen Sie Ihre eigene Aufgabe ein — der Rechner zeigt, wo es kippt, oder dass es nicht kippt.",
     agentLabel: "Welcher Agent",
-    hoursLabel: "Wie viele Stunden pro Woche er übernimmt",
+    hoursLabel: "Wie viele Stunden pro Woche diese Aufgabe dauert",
     hoursUnit: "Std.",
     teamNote: "Ein Multi-Agent-System übernimmt einen Prozess über mehrere Abteilungen, deshalb rechnen wir hier mit der Arbeitszeit mehrerer Personen: 80 Stunden pro Woche sind zwei Vollzeitstellen.",
     wageLabel: "Mit welchem Lohn vergleichen",
