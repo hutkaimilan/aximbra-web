@@ -34,7 +34,16 @@ import {
   type CallFacts,
 } from './llm.js';
 import { END_CALL_MARKER, stripMarker } from './hangup.js';
-import { MORE_QUESTIONS_RE, dropPattern, dropSentences, formalize } from './turn.js';
+import {
+  CALLER_DONE_RE,
+  MORE_QUESTIONS_RE,
+  NAME_ASK_RE,
+  OFFER_REQUEST_RE,
+  callbackWording,
+  dropRules,
+  dropSentences,
+  formalize,
+} from './turn.js';
 import {
   scenarioByKey,
   openerFor,
@@ -135,13 +144,12 @@ const PRICE_ASKED_RE =
   /mennyibe|(?<![\p{L}])ár(?:a|at|ak|áról|ban|ért|on|ai|ra)?(?![\p{L}])|költ|díj|fizet|drága|olcsó|kedvezmény|price|cost|how much|fee|budget|(?<![\p{L}])pay/iu;
 const CLOSING_RE =
   /kihez címezzem|melyik cégnél|hogy hívják|mi a (?:neve|cég)|mi az ön neve|a nevét|küldjem|(?<![\p{L}])sms|ajánlatot (?:küld|össze|készít|kér)|elküldöm|felírom|felírhatom|who should i address|which company|send (?:it|you)|text message/iu;
-const NAME_ASK_RE = /kihez címezzem|melyik cégnél|hogy hívják|mi a neve|mi az ön neve|a nevét|who should i address|your name/iu;
 const QUESTION_RE =
   /\?|(?<![\p{L}])(?:mennyibe|hogyan|milyen|mikor|hol|miért|melyik|tudna|lehetne|van-e|kell-e|how|what|when|where|why|which)(?![\p{L}])/iu;
-const OFFER_REQUEST_RE =
-  /ajánlat|küldjenek|küldjön|küldjék|küldené|elérhetőség|felír|címem|a számom|hívjanak|keressenek|kollég|visszahív|quote|send me|my email|call me back|contact/iu;
-const CALLER_DONE_RE =
-  /nincs (?:több|más) kérdés|ennyi (?:lenne|volt|elég)|mindent (?:értek|megértettem)|minden világos|ez (?:minden|elég)|that'?s (?:all|everything)|no (?:more|other) questions/iu;
+// A hivo lezaro / ajanlatkero mondatai: ugyanaz a (javitott) minta, mint
+// elesben (turn.ts). A korabbi laza masolat a "kolléga" szora vagy a
+// "Mennyi lenne?" kerdesre is "keresnek"/"lezarasnak" vette, es ezzel
+// elfedte a valodi siettetett zarast.
 const REGREET_RE = /jó napot|üdvözlöm|(?<![\p{L}])miben segíthetek|(?<![\p{L}])szia(?![\p{L}])/iu;
 const LIST_ASK_RE = /összes|mindet|mindegyik|all (?:of )?(?:the|your) agents/iu;
 const LIST_STEMS: RegExp[] = [
@@ -315,8 +323,9 @@ async function agentTurn(
   lang: Lang,
   model?: string,
   effort?: string,
+  callback = false,
 ): Promise<{ text: string; ended: boolean; ttftMs: number; ms: number }> {
-  const dropRe = dropPattern(history);
+  const rules = dropRules(history);
   const prompt = buildSystemPrompt(env().currentProjects, facts, from, lang, history);
   const t0 = Date.now();
   let ttft = -1;
@@ -338,8 +347,9 @@ async function agentTurn(
     if (isQuotaError(err) && !fb) throw err;
     full = await run(fb ?? model);
   }
+  const text = dropSentences(formalize(stripMarker(full)), rules.strict, rules.relaxed);
   return {
-    text: dropSentences(formalize(stripMarker(full)), dropRe),
+    text: callback ? callbackWording(text) : text,
     ended: full.includes(END_CALL_MARKER),
     ttftMs: ttft,
     ms: Date.now() - t0,
@@ -412,7 +422,7 @@ export async function simulateCall(
       history.push({ role: 'user', content: callerText });
       turns.push({ who: 'caller', text: callerText });
 
-      const a = await agentTurn(history, facts, from, lang, opts.model, opts.effort);
+      const a = await agentTurn(history, facts, from, lang, opts.model, opts.effort, mode === 'callback');
       history.push({ role: 'assistant', content: a.text });
       turns.push({ who: 'agent', text: a.text, ttftMs: a.ttftMs, ms: a.ms });
 

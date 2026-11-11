@@ -101,3 +101,154 @@ test('van meg kerdese: csak nyugtazas utan, es csak egyszer; ujrakoszones nincs'
   const greet = 'Üdvözlöm, Kiss úr! Ez kivitelezhető.';
   assert.equal(dropSentences(greet, dropPattern(statement)), 'Ez kivitelezhető.');
 });
+
+import { CALLER_DONE_RE, OFFER_REQUEST_RE, callbackWording, callerIsWrapping } from './turn.js';
+
+test('lezaras-felismeres: kerdes es meseles kozben nem zarunk (szimulator, 2026-11-11)', () => {
+  // Hamis talalatok a korabbi mintaban: "Mennyi lenne" -> "ennyi lenne", "ez elég nehéz" -> "ez elég".
+  assert.equal(CALLER_DONE_RE.test('Mennyi lenne nagyjából?'), false);
+  assert.equal(CALLER_DONE_RE.test('Napi tizenöt-huszonöt hívást kapunk, és ez elég nehéz, mert munka közben kell felvenni.'), false);
+  assert.equal(CALLER_DONE_RE.test('Ennyi lenne a havidíj?'), false);
+  assert.equal(CALLER_DONE_RE.test('Ennyi lenne, köszönöm.'), true);
+  assert.equal(CALLER_DONE_RE.test('Nekem ez elég.'), true);
+  assert.equal(CALLER_DONE_RE.test('Nincs több kérdésem.'), true);
+  assert.equal(CALLER_DONE_RE.test('Rendben, értem. Akkor ha érdekelni fog, keresni foglak.'), true);
+  assert.equal(CALLER_DONE_RE.test('Majd jelentkezem, viszonthallásra!'), true);
+  assert.equal(CALLER_DONE_RE.test('Az e-mail-kezelés automatizálása miatt keresem önöket.'), false);
+});
+
+test('ajanlatkeres: csak a kifejezett keres szamit', () => {
+  assert.equal(OFFER_REQUEST_RE.test('Egy e-mail rendező agentre kérnék ajánlatot.'), true);
+  assert.equal(OFFER_REQUEST_RE.test('Küldjenek egy árajánlatot!'), true);
+  assert.equal(OFFER_REQUEST_RE.test('Elnézést, gép van a vonalban? Inkább egy kollégával beszélnék.'), true);
+  assert.equal(OFFER_REQUEST_RE.test('Hívjanak vissza holnap.'), true);
+  assert.equal(OFFER_REQUEST_RE.test('Tudna egy kolléga visszahívni? Visszahívnának?'), true);
+  // Ezek NEM keresek - a korabbi minta mindre rakapcsolt.
+  assert.equal(OFFER_REQUEST_RE.test('Igen, én kértem a visszahívást, az e-mailek miatt.'), false);
+  assert.equal(OFFER_REQUEST_RE.test('A kollégáim nem érnek rá, egész nap az ügyfelekkel vannak.'), false);
+  assert.equal(OFFER_REQUEST_RE.test('Mi van benne az ajánlatban?'), false);
+  assert.equal(OFFER_REQUEST_RE.test('Az e-mail-kezelés automatizálása miatt keresem önöket.'), false);
+});
+
+test('a hivo vegzett-e: kerdes, elakadas, "nincs"', () => {
+  const g = { role: 'assistant', content: 'Jó napot kívánok!' };
+  const u = (c: string) => ({ role: 'user', content: c });
+  const a = (c: string) => ({ role: 'assistant', content: c });
+  // Kerdes: soha nem lezaras, akkor sem, ha "értem" is van benne.
+  assert.equal(callerIsWrapping([g, u('Értem. És mennyibe kerül?')]), false);
+  // A mi kerdesunkre adott puszta "Értem." elakadas, nem lezaras.
+  assert.equal(callerIsWrapping([g, u('Fodrászat vagyunk.'), a('Naponta hány hívás jön?'), u('Értem.')]), false);
+  // Allitasunk utan az "Értem." lezaras.
+  assert.equal(callerIsWrapping([g, u('Mennyi idő?'), a('Két-három hét.'), u('Értem.')]), true);
+  // "Van meg kerdese?" utan a "Nincs, köszönöm." lezaras.
+  assert.equal(callerIsWrapping([g, u('Értem.'), a('Van még kérdése, amiben segíthetek?'), u('Nincs, köszönöm.')]), true);
+  assert.equal(callerIsWrapping([g, u('Értem.'), a('Van még kérdése, amiben segíthetek?'), u('Igen, mikor tudnak kezdeni?')]), false);
+});
+
+test('eles minta: a hivo kerdesere nem jon "Van meg kerdese?" (szimulator, fodraszat)', () => {
+  const h = [
+    { role: 'assistant', content: 'Jó napot kívánok! Az Aximbrától keresem.' },
+    { role: 'user', content: 'Jó napot, Kiss István vagyok. Weboldal és telefonos időpontfoglalás miatt hívom önöket.' },
+    { role: 'assistant', content: 'Értem, ez kivitelezhető. Naponta nagyjából hány hívás érkezik Önökhöz?' },
+    { role: 'user', content: 'Értem.' },
+    { role: 'assistant', content: 'Naponta átlagosan hány hívást kell fogadniuk?' },
+    { role: 'user', content: 'Napi tizenöt-huszonöt hívást kapunk, és ez elég nehéz. De az a lényeg, hogy ez kivitelezhető-e, amit mondtam?' },
+  ];
+  const reply = 'Igen, teljes mértékben kivitelezhető. Van még kérdése, amiben segíthetek?';
+  assert.equal(dropSentences(reply, dropPattern(h)), 'Igen, teljes mértékben kivitelezhető.');
+  const closing = 'Igen, kivitelezhető. Kihez címezzem az ajánlatot, és melyik cégnél?';
+  assert.equal(dropSentences(closing, dropPattern(h)), 'Igen, kivitelezhető.');
+});
+
+test('korabbi ajanlatkeres utan: kerdes kozben nincs nevkerdes, utana lehet', () => {
+  const base = [
+    { role: 'assistant', content: 'Jó napot kívánok!' },
+    { role: 'user', content: 'Egy e-mail rendező agentre kérnék ajánlatot.' },
+    { role: 'assistant', content: 'Szívesen. Van még kérdése, mielőtt felírom az adatait?' },
+  ];
+  const r = 'Két-három hét alatt. Kihez címezzem az ajánlatot?';
+  const asks = [...base, { role: 'user', content: 'Mikor tudnának kezdeni?' }];
+  assert.equal(dropSentences(r, dropPattern(asks)), 'Két-három hét alatt.');
+  const tells = [...base, { role: 'user', content: 'Napi harminc-ötven rendelés jön e-mailben.' }];
+  assert.equal(dropSentences(r, dropPattern(tells)), r);
+});
+
+test('visszahivasban "Köszönöm a beszélgetést", nem "a hívást"', () => {
+  assert.equal(callbackWording('Köszönöm a hívást, viszonthallásra!'), 'Köszönöm a beszélgetést, viszonthallásra!');
+  assert.equal(callbackWording('Rendben. Köszönöm szépen a hívást!'), 'Rendben. Köszönöm szépen a beszélgetést!');
+  assert.equal(callbackWording('Thank you for calling, goodbye!'), 'Thank you for your time, goodbye!');
+  assert.equal(callbackWording('Két-három hét alatt elkészül.'), 'Két-három hét alatt elkészül.');
+});
+
+import { MORE_QUESTIONS_RE as MQ, PRICE_ASKED_RE, dropRules } from './turn.js';
+
+test('"Van még esetleg kérdése" es rokonai is felismerve', () => {
+  for (const s of [
+    'Van még kérdése, amiben segíthetek?',
+    'Van még esetleg kérdése, amiben segíthetek, mielőtt rögzítem a részleteket?',
+    'Van esetleg még kérdése?',
+    'Lenne még más kérdése?',
+    'Segíthetek még valamiben?',
+    'Is there anything else I can help with?',
+  ]) assert.equal(MQ.test(s), true, s);
+  assert.equal(MQ.test('Van kérdése az árral kapcsolatban?'), false);
+});
+
+test('arkerdes: "mennyiség", "már", "mennyi idő" nem az', () => {
+  assert.equal(PRICE_ASKED_RE.test('De azelőtt, hogy bármit is mondanék a mennyiségről, hol tárolódnak az adatok?'), false);
+  assert.equal(PRICE_ASKED_RE.test('Már használunk Gmailt.'), false);
+  assert.equal(PRICE_ASKED_RE.test('És mennyi idő, amíg elkészül?'), false);
+  assert.equal(PRICE_ASKED_RE.test('Mennyi lenne nagyjából?'), true);
+  assert.equal(PRICE_ASKED_RE.test('Mennyiért csinálják?'), true);
+  assert.equal(PRICE_ASKED_RE.test('És ezek mennyibe kerülnek?'), true);
+});
+
+test('ha minden mondat kiesne: az ar marad, a tiltott zaro kerdes nem (szimulator, nehez)', () => {
+  const h = [
+    { role: 'assistant', content: 'Jó napot kívánok!' },
+    { role: 'user', content: 'A számlafeldolgozás miatt keresem.' },
+    { role: 'assistant', content: 'Ezt a dokumentum-elemző végzi. Szeretné tudni, mennyibe kerülne?' },
+    { role: 'user', content: 'Értem.' },
+  ];
+  const r = dropRules(h);
+  const reply = 'A dokumentum-elemző kétmillió és négymillió forint között van. Van még kérdése, amiben segíthetek?';
+  assert.equal(dropSentences(reply, r.strict, r.relaxed), 'A dokumentum-elemző kétmillió és négymillió forint között van.');
+  const f = new SentenceDropFilter(r.strict, r.relaxed);
+  assert.equal((f.push(reply) + f.flush()).trim(), 'A dokumentum-elemző kétmillió és négymillió forint között van.');
+});
+
+test('cegnev-kerdes a hivas kozepen kiesik', () => {
+  const h = [
+    { role: 'assistant', content: 'Jó napot kívánok!' },
+    { role: 'user', content: 'Varga Tamás vagyok, autószervizem van. Mennyibe kerül egy ilyen agent?' },
+  ];
+  const reply = 'Az agentjeink százötvenezer forinttól indulnak. Melyik szervizről van szó pontosan?';
+  assert.equal(dropSentences(reply, dropPattern(h)), 'Az agentjeink százötvenezer forinttól indulnak.');
+});
+
+test('"akkor megkereslek" is lezaras', () => {
+  assert.equal(CALLER_DONE_RE.test('Oké, akkor megkereslek. Köszönöm szépen.'), true);
+  assert.equal(CALLER_DONE_RE.test('Rendben, majd felhívom önöket.'), true);
+  assert.equal(CALLER_DONE_RE.test('Megkeresem a számlát, egy pillanat.'), false);
+});
+
+test('a nev-/cegkerdes nem ismetlodik (szimulator, emberkero)', () => {
+  const h = [
+    { role: 'assistant', content: 'Jó napot kívánok!' },
+    { role: 'user', content: 'Rendben, akkor kérem, hogy hívjanak vissza. Kiss Ágnes vagyok.' },
+    { role: 'assistant', content: 'Rendben, Kiss asszony. Melyik cégnél dolgozik?' },
+    { role: 'user', content: 'Értem.' },
+  ];
+  const reply = 'Megértettem, Kiss asszony. Melyik cégnél dolgozik, hogy a kollégáim felkészülhessenek?';
+  assert.equal(dropSentences(reply, dropPattern(h)), 'Megértettem, Kiss asszony.');
+});
+
+test('ajanlatkeres: reszletek kuldese is keres, a "kérdezném" nem', () => {
+  assert.equal(OFFER_REQUEST_RE.test('Right, okay. Could you send some more details to my email so I can look it over with my team?'), true);
+  assert.equal(OFFER_REQUEST_RE.test('Küldjenek egy összefoglalót e-mailben.'), true);
+  assert.equal(OFFER_REQUEST_RE.test('Kérnék egy részletes tájékoztatót.'), true);
+  assert.equal(OFFER_REQUEST_RE.test('Azt kérdezném, mi van az ajánlatban.'), false);
+  assert.equal(OFFER_REQUEST_RE.test('Azt szeretném kérdezni, hogy multiagent rendszert milyen vállalatoknak ajánlanak?'), false);
+  assert.equal(OFFER_REQUEST_RE.test('A megrendeléseket e-mailben küldik nekünk.'), false);
+  assert.equal(OFFER_REQUEST_RE.test('Do you send invoices to clients?'), false);
+});

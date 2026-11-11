@@ -1,15 +1,19 @@
 /**
- * Vegponti teszt a relay valaszidejere: mi tortenik, ha a modell lassu.
+ * Vegponti teszt a relay valaszidejere: mi tortenik, ha a modell lassu vagy
+ * hibazik.
  *
- * Egy al-modellszerver (OpenAI-kompatibilis /chat/completions) a "lassu"
- * modellnel nem kuld semmit, a "gyors" (tartalek) modellnel azonnal valaszol.
- * A relaynek ket masodperc utan "Egy pillanat."-ot kell mondania, het
- * masodperc utan pedig a tartalek-modell valaszat - nema vonal helyett.
+ * Egy al-modellszerver (OpenAI-kompatibilis /chat/completions) a modell
+ * neve szerint viselkedik (lasd startMock). A relaynek:
+ *  - ket masodperc csend utan "Egy pillanat."-ot kell mondania, egyszer;
+ *  - 2,5 masodperc utan a tartalek-modellt is el kell inditania,
+ *    parhuzamosan, es azt kell kimondania, amelyik ELOBB szolal meg;
+ *  - a vesztes modell egyetlen szava sem juthat a vonalra;
+ *  - a fo modell hibaja eseten azonnal a tartalekhoz kell fordulnia.
  *
- * Eles meres alapjan: a modell elso tokenje 0,7 s es 9 s kozott jott, egyszer
+ * Eles meres alapjan: a modell elso tokenje 0,5 s es 9 s kozott jott, egyszer
  * 20 s felett. Egy 20 masodperces csend telefonon "megszakadt a vonal".
  */
-import { test } from 'node:test';
+import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
 import http from 'node:http';
@@ -21,6 +25,9 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 18941;
 const MOCK_PORT = 18942;
 
+const PRIMARY_TEXT = 'Ezt a fő modell mondja.';
+const FALLBACK_TEXT = 'Persze, erre az e-mail rendező való.';
+
 function chunk(text: string): string {
   return `data: ${JSON.stringify({
     id: 'x',
@@ -31,7 +38,22 @@ function chunk(text: string): string {
   })}\n\n`;
 }
 
-/** Al-modell: "lassu" = soha nem valaszol, minden mas azonnal. */
+function streamText(res: http.ServerResponse, text: string): void {
+  res.writeHead(200, { 'content-type': 'text/event-stream' });
+  const words = text.split(/(?<= )/u);
+  for (const w of words) res.write(chunk(w));
+  res.write('data: [DONE]\n\n');
+  res.end();
+}
+
+/**
+ * Al-modell, a modell neve szerint:
+ *   lassu  - soha nem valaszol (a kliens szakitja meg)
+ *   kesik  - 3,5 s utan valaszol (PRIMARY_TEXT)
+ *   egymp  - 1 s utan valaszol (PRIMARY_TEXT)
+ *   hiba   - azonnal 503
+ *   gyors  - azonnal valaszol (FALLBACK_TEXT); a nem streamelt hivasokra '{}'
+ */
 function startMock(): http.Server {
   const srv = http.createServer((req, res) => {
     let body = '';
@@ -43,13 +65,20 @@ function startMock(): http.Server {
       } catch {
         /* ures */
       }
-      if (parsed.model === 'lassu') return; // nem valaszol: a kliens szakitja meg
+      const model = parsed.model ?? '';
+      if (model === 'lassu') return;
+      if (model === 'hiba') {
+        res.writeHead(503, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'overloaded', code: 503 } }));
+        return;
+      }
       if (parsed.stream) {
-        res.writeHead(200, { 'content-type': 'text/event-stream' });
-        res.write(chunk('Persze, '));
-        res.write(chunk('erre az e-mail rendező való.'));
-        res.write('data: [DONE]\n\n');
-        res.end();
+        const delay = model === 'kesik' ? 3_500 : model === 'egymp' ? 1_000 : 0;
+        const text = model === 'kesik' || model === 'egymp' ? PRIMARY_TEXT : FALLBACK_TEXT;
+        const t = setTimeout(() => {
+          if (!res.destroyed) streamText(res, text);
+        }, delay);
+        res.on('close', () => clearTimeout(t));
         return;
       }
       res.writeHead(200, { 'content-type': 'application/json' });
@@ -68,8 +97,20 @@ function startMock(): http.Server {
   return srv;
 }
 
-test('lassu modell: "egy pillanat", majd a tartalek valasza', async () => {
-  const mock = startMock();
+let mock: http.Server;
+before(() => {
+  mock = startMock();
+});
+after(() => {
+  mock.close();
+});
+
+/** Egy fordulo a megadott fo/tartalek modellel; a vonalra kuldott szovegek idobelyeggel. */
+async function turn(
+  primary: string,
+  fallback: string,
+  listenMs: number,
+): Promise<Array<{ text: string; at: number }>> {
   const child: ChildProcess = spawn(process.execPath, [path.join(HERE, 'server.js')], {
     cwd: HERE,
     env: {
@@ -79,8 +120,8 @@ test('lassu modell: "egy pillanat", majd a tartalek valasza', async () => {
       OPENAI_API_KEY: 'sk-test',
       LLM_BASE_URL: `http://127.0.0.1:${MOCK_PORT}/v1`,
       LLM_API_KEY: 'test',
-      VOICE_MODEL: 'lassu',
-      FALLBACK_MODEL: 'gyors',
+      VOICE_MODEL: primary,
+      FALLBACK_MODEL: fallback,
       AUX_MODEL: 'gyors',
       VOICE_REASONING_EFFORT: '',
       TWILIO_AUTH_TOKEN: 'e2e',
@@ -89,6 +130,7 @@ test('lassu modell: "egy pillanat", majd a tartalek valasza', async () => {
       MAX_CALLS_PER_DAY: '100',
     },
   });
+  const exited = new Promise<void>((ok) => child.once('exit', () => ok()));
   try {
     await new Promise((r) => setTimeout(r, 1200));
     const ws = new WebSocket(`ws://127.0.0.1:${PORT}/relay?lang=hu&fix=1`);
@@ -105,20 +147,54 @@ test('lassu modell: "egy pillanat", majd a tartalek valasza', async () => {
     ws.send(JSON.stringify({ type: 'setup', from: '+36301234567', callSid: 'CAe2e' }));
     t0 = Date.now();
     ws.send(JSON.stringify({ type: 'prompt', voicePrompt: 'Az e-mailek kezelése miatt keresem.', last: true }));
-    await new Promise((r) => setTimeout(r, 9_000));
+    await new Promise((r) => setTimeout(r, listenMs));
     ws.close();
-
-    const pause = got.find((g) => /egy pillanat/i.test(g.text));
-    assert.ok(pause, `nem hangzott el "egy pillanat": ${JSON.stringify(got)}`);
-    assert.ok(pause.at >= 1_800 && pause.at < 3_000, `"egy pillanat" ${pause.at} ms utan`);
-    assert.equal(got.filter((g) => /egy pillanat/i.test(g.text)).length, 1, 'csak egyszer');
-
-    const answer = got.filter((g) => !/egy pillanat/i.test(g.text)).map((g) => g.text).join('');
-    assert.match(answer, /e-mail rendező/, `a tartalek valasza nem jott meg: ${JSON.stringify(got)}`);
-    const first = got.find((g) => /Persze/.test(g.text));
-    assert.ok(first && first.at >= 6_800 && first.at < 8_500, `a tartalek ${first?.at} ms utan szolalt meg`);
+    return got;
   } finally {
     child.kill();
-    mock.close();
+    await exited;
   }
+}
+
+const said = (got: Array<{ text: string }>): string => got.map((g) => g.text).join('');
+const firstAt = (got: Array<{ text: string; at: number }>, re: RegExp): number | undefined =>
+  got.find((g) => re.test(g.text))?.at;
+
+test('a fo modell nem szol: "egy pillanat", majd 2,5 s utan a tartalek beszel', async () => {
+  const got = await turn('lassu', 'gyors', 5_000);
+  const pause = firstAt(got, /egy pillanat/i);
+  assert.ok(pause !== undefined, `nem hangzott el "egy pillanat": ${JSON.stringify(got)}`);
+  assert.ok(pause >= 1_800 && pause < 2_450, `"egy pillanat" ${pause} ms utan`);
+  assert.equal(got.filter((g) => /egy pillanat/i.test(g.text)).length, 1, 'csak egyszer');
+  assert.match(said(got), /e-mail rendező való/, `a tartalek valasza nem jott meg: ${JSON.stringify(got)}`);
+  const answer = firstAt(got, /Persze/);
+  assert.ok(answer !== undefined && answer >= 2_400 && answer < 3_600, `a tartalek ${answer} ms utan szolalt meg`);
+});
+
+test('a fo modell keson szolalna meg: a tartalek nyer, a ket valasz nem keveredik', async () => {
+  const got = await turn('kesik', 'gyors', 6_000);
+  const text = said(got);
+  assert.match(text, /e-mail rendező való/);
+  assert.doesNotMatch(text, /fő modell/, `a vesztes modell szava is kiment: ${text}`);
+  const answer = firstAt(got, /Persze/);
+  assert.ok(answer !== undefined && answer < 3_600, `a tartalek ${answer} ms utan szolalt meg`);
+});
+
+test('gyors fo modell: nincs "egy pillanat", nincs tartalek', async () => {
+  const got = await turn('egymp', 'gyors', 4_000);
+  const text = said(got);
+  assert.match(text, /fő modell mondja/);
+  assert.doesNotMatch(text, /egy pillanat|e-mail rendező/i, `felesleges kitoltes vagy tartalek: ${text}`);
+});
+
+test('a fo modell hibaja: a tartalek azonnal indul', async () => {
+  const got = await turn('hiba', 'gyors', 3_000);
+  const answer = firstAt(got, /Persze/);
+  assert.ok(answer !== undefined && answer < 1_500, `a tartalek ${answer} ms utan szolalt meg: ${JSON.stringify(got)}`);
+  assert.doesNotMatch(said(got), /egy pillanat/i);
+});
+
+test('mindket modell hibazik: a hivo a hibauzenetet hallja, nem csendet', async () => {
+  const got = await turn('hiba', 'hiba', 3_000);
+  assert.match(said(got), /megszakadt a kapcsolat/i, `nincs hibauzenet: ${JSON.stringify(got)}`);
 });

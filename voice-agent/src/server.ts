@@ -40,7 +40,8 @@ import {
   FormalFilter,
   HOLD_MS,
   SentenceDropFilter,
-  dropPattern,
+  callbackWording,
+  dropRules,
   dropSentences,
   formalize,
   looksUnfinished,
@@ -59,25 +60,18 @@ export function isClientSpeakingStart(msg: Record<string, unknown>): boolean {
 
 /** Ennyi csend utan mondunk egy rovid "Egy pillanat."-ot (ms). */
 const FILLER_AFTER_MS = 2_000;
-/** Ha eddig sem jott elso token, a tartalek-modellt kerdezzuk (ms). */
-const FIRST_TOKEN_DEADLINE_MS = 7_000;
-
-/** A modell a hatarideig egyetlen tokent sem kuldott. */
-class SlowFirstTokenError extends Error {
-  override name = 'SlowFirstTokenError';
-  constructor() {
-    super('a modell a hatarideig nem kezdett el valaszolni');
-  }
-}
-
-/** Atmeneti modellhiba-e: ezt erdemes egyszer ujraprobalni. */
-function isRetryable(err: unknown): boolean {
-  const e = err as { status?: number; name?: string; code?: string } | null;
-  if (!e) return false;
-  if (e instanceof SlowFirstTokenError) return true;
-  if (typeof e.status === 'number' && [408, 429, 500, 502, 503, 504].includes(e.status)) return true;
-  return /Timeout|Connection/i.test(e.name ?? '') || e.code === 'ETIMEDOUT' || e.code === 'ECONNRESET';
-}
+/**
+ * Ha a fo modell eddig nem kezdett el valaszolni, a tartalek-modell is
+ * elindul, PARHUZAMOSAN (ms). Amelyik elobb ad tokent, az beszel.
+ *
+ * Merve (szimulator, 2026-11-11): az elso token jellemzoen 0,5-2 s, de
+ * fordulonkent 4-9 s is elofordul. A korabbi megoldas 7 s-ig varta a fo
+ * modellt, csak utana kerdezte a tartalekot - az 8-10 s csend volt.
+ */
+const HEDGE_AFTER_MS = 2_500;
+/** Egy-egy modellkeres felso korlatja (ms). */
+const PRIMARY_TIMEOUT_MS = 12_000;
+const HEDGE_TIMEOUT_MS = 10_000;
 import { handleTestRoute, handleTestRelay, startTestCall } from './testAgent.js';
 import {
   FAILURE_MESSAGE,
@@ -970,96 +964,136 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     // Ha a "Van meg kerdese?" mar elhangzott, ujra nem mehet ki (turn.ts).
     // Kiszurt mondatok (turn.ts dropPattern): a mar elhangzott vagy korai
     // "Van meg kerdese?", es az ar, amig a hivo nem kerdezte.
-    const dropRe = dropPattern(s.history, maxCallSeconds() - (Date.now() - s.startedAt) / 1000);
-    const once = new SentenceDropFilter(dropRe);
+    const rules = dropRules(s.history, maxCallSeconds() - (Date.now() - s.startedAt) / 1000);
+    const once = new SentenceDropFilter(rules.strict, rules.relaxed);
+    // Visszahivasban mi hivtuk az ugyfelet: "Köszönöm a beszélgetést" (turn.ts).
+    const wording = (t: string): string => (isCallback && t ? callbackWording(t) : t);
 
-    // A modell valaszideje ingadozik (merve: 0,7 s es 9 s kozott, egyszer
+    // A modell valaszideje ingadozik (merve: 0,5 s es 9 s kozott, egyszer
     // 20 s felett). Nema vonal helyett: ket masodperc utan egy rovid
-    // "Egy pillanat.", het masodperc utan pedig a tartalek-modell.
+    // "Egy pillanat.", ket es fel masodperc utan pedig a tartalek-modell is
+    // indul, parhuzamosan (lasd HEDGE_AFTER_MS).
     let gotFirst = false;
-    let fillerSaid = false;
     const filler = setTimeout(() => {
       if (gotFirst || ac.signal.aborted || s.closed) return;
-      fillerSaid = true;
       send(say().hold, true);
       console.log(`[ws] lassu modell, "egy pillanat" callSid=${s.callSid}`);
     }, FILLER_AFTER_MS);
 
-    const ask = (timeoutMs: number, model?: string, firstTokenMs?: number): Promise<string> => {
-      // Kulon megszakito a probalkozasnak: a hivo felbeszakitasa (ac) es a
-      // lassu elso token (deadline) is leallitja, de csak az elobbi szamit
-      // felbeszakitasnak.
-      const attempt = new AbortController();
-      const forward = (): void => attempt.abort();
-      ac.signal.addEventListener('abort', forward, { once: true });
-      let slow = false;
-      const deadline = firstTokenMs
-        ? setTimeout(() => {
-            if (gotFirst) return;
-            slow = true;
-            attempt.abort();
-          }, firstTokenMs)
-        : null;
-      return replyStream(
-        s.history,
-        buildSystemPrompt(
-          cfg.currentProjects,
-          s.facts,
-          s.from,
-          s.lang,
-          s.history,
-          maxCallSeconds() - (Date.now() - s.startedAt) / 1000,
-        ),
-        (delta) => {
-          gotFirst = true;
-          clearTimeout(filler);
-          const out = once.push(formal.push(filter.push(delta)));
-          if (!out) return;
-          s.streamed += out;
-          send(out, false);
-        },
-        { signal: attempt.signal, maxTokens: 700, temperature: 0.3, timeoutMs, model },
-      )
-        .catch((err: unknown) => {
-          if (slow) throw new SlowFirstTokenError();
-          throw err;
-        })
-        .finally(() => {
-          if (deadline) clearTimeout(deadline);
-          ac.signal.removeEventListener('abort', forward);
-        });
-    };
+    const prompt = buildSystemPrompt(
+      cfg.currentProjects,
+      s.facts,
+      s.from,
+      s.lang,
+      s.history,
+      maxCallSeconds() - (Date.now() - s.startedAt) / 1000,
+    );
+
+    /**
+     * Versenyfutas a fo es a tartalek modell kozott.
+     *
+     * A fo modell indul. Ha HEDGE_AFTER_MS alatt nem ad tokent, vagy hibaval
+     * all le, a tartalek is elindul (ha nincs beallitva, ugyanaz a modell
+     * masodszor: a valaszido kerelmenkent ingadozik). Az a kiserlet beszel,
+     * amelyik ELOBB ad tokent; a masikat azonnal leallitjuk, es a tokenjei
+     * soha nem jutnak a vonalra - a ket valasz nem keveredhet.
+     *
+     * Hiba: ha a beszelo kiserlet szakad meg, az a hiba (a felmondatot a
+     * hivo oldal lezarja). Ha egyik sem szolalt meg, az utolso hiba.
+     * Felbeszakitas (ac): minden kiserlet leall, es az a hiba jon vissza.
+     */
+    const race = (): Promise<string> =>
+      new Promise<string>((resolve, reject) => {
+        const hedgeModel = cfg.fallbackModel || undefined;
+        const live: Array<{ ctl: AbortController; done: boolean; label: string }> = [];
+        let winner: AbortController | null = null;
+        let hedged = false;
+        let settled = false;
+        let lastErr: unknown = new Error('nem indult modellkeres');
+        let hedgeTimer: NodeJS.Timeout | null = null;
+
+        const finish = (fn: () => void): void => {
+          if (settled) return;
+          settled = true;
+          if (hedgeTimer) clearTimeout(hedgeTimer);
+          fn();
+        };
+
+        const launch = (model: string | undefined, timeoutMs: number, label: string): void => {
+          const ctl = new AbortController();
+          const me = { ctl, done: false, label };
+          live.push(me);
+          const forward = (): void => ctl.abort();
+          ac.signal.addEventListener('abort', forward, { once: true });
+          replyStream(
+            s.history,
+            prompt,
+            (delta) => {
+              if (!winner) {
+                winner = ctl;
+                gotFirst = true;
+                clearTimeout(filler);
+                if (hedgeTimer) clearTimeout(hedgeTimer);
+                for (const other of live) if (other !== me) other.ctl.abort();
+                if (label !== 'fo') console.log(`[ws] a tartalek valaszolt (${label}) callSid=${s.callSid}`);
+              }
+              if (winner !== ctl) return;
+              const out = wording(once.push(formal.push(filter.push(delta))));
+              if (!out) return;
+              s.streamed += out;
+              send(out, false);
+            },
+            { signal: ctl.signal, maxTokens: 700, temperature: 0.3, timeoutMs, model },
+          )
+            .then((full) => {
+              me.done = true;
+              // A vesztes (leallitott) kiserlet eredmenye nem szamit.
+              if (winner === ctl) finish(() => resolve(full));
+            })
+            .catch((err: unknown) => {
+              me.done = true;
+              if (ac.signal.aborted || winner === ctl) {
+                finish(() => reject(err));
+                return;
+              }
+              if (winner) return; // a vesztes, amit mi allitottunk le
+              lastErr = err;
+              console.warn(`[ws] modellhiba (${label}) callSid=${s.callSid}:`, String(err));
+              // A fo modell hibaja: a tartalek azonnal indul, nem varunk
+              // a HEDGE_AFTER_MS-ra. Egy eles hivasban ketszer egymas utan
+              // elhangzott a "megszakadt a kapcsolat, megismetelne?", pedig
+              // a vonallal semmi baj nem volt - csak a modell hibazott.
+              if (!hedged) {
+                hedge('hiba');
+                return;
+              }
+              if (live.every((a) => a.done)) finish(() => reject(lastErr));
+            })
+            .finally(() => ac.signal.removeEventListener('abort', forward));
+        };
+
+        const hedge = (why: string): void => {
+          if (hedged || settled || winner || ac.signal.aborted) return;
+          hedged = true;
+          console.warn(
+            `[ws] tartalek indul (${why}${hedgeModel ? `, ${hedgeModel}` : ''}) callSid=${s.callSid}`,
+          );
+          launch(hedgeModel, HEDGE_TIMEOUT_MS, 'tartalek');
+        };
+
+        hedgeTimer = setTimeout(() => hedge('lassu'), HEDGE_AFTER_MS);
+        launch(undefined, PRIMARY_TIMEOUT_MS, 'fo');
+      });
+
     try {
-      let full: string;
-      try {
-        full = await ask(12_000, undefined, FIRST_TOKEN_DEADLINE_MS);
-      } catch (first) {
-        // A modellszolgaltato atmeneti hibaja (503, idotullepes): egyszer
-        // ujraprobaljuk, mielott a hivot ismetlesre kernenk. Egy eles hivasban
-        // ketszer egymas utan elhangzott a "megszakadt a kapcsolat,
-        // megismetelne?", pedig a vonallal semmi baj nem volt - a hivo
-        // feleslegesen mondta el ujra, amit mar egyszer elmondott.
-        if (ac.signal.aborted || s.streamed.trim() || !isRetryable(first)) throw first;
-        // A tartalek-modellnek kulon kerete van: ha a fo modell 429-cel
-        // utasit el (percenkenti keret), ugyanannak ujra szolni ertelmetlen.
-        const fallback = cfg.fallbackModel || undefined;
-        console.warn(
-          `[ws] modellhiba, ujraprobalas${fallback ? ` (${fallback})` : ''} callSid=${s.callSid}:`,
-          String(first),
-        );
-        if (!fillerSaid) {
-          fillerSaid = true;
-          send(say().hold, true);
-        }
-        full = await ask(10_000, fallback);
-      }
-      const rest = once.push(formal.push(filter.flush()) + formal.flush()) + once.flush();
+      const full = await race();
+      const rest = wording(once.push(formal.push(filter.flush()) + formal.flush()) + once.flush());
       if (rest) {
         s.streamed += rest;
         send(rest, false);
       }
       send('', true);
-      const spoken = dropSentences(formalize(stripMarker(full)), dropRe);
+      const spoken = wording(dropSentences(formalize(stripMarker(full)), rules.strict, rules.relaxed));
       s.history.push({ role: 'assistant', content: spoken });
       if (filter.found) scheduleHangup(spoken);
     } catch (err) {

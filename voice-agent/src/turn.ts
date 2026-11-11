@@ -177,9 +177,36 @@ export class FormalFilter {
   }
 }
 
+/**
+ * Visszahivasban MI hivtuk az ugyfelet, ott a "Köszönöm a hívást" tevedes
+ * (szimulator, 2026-11-11: a visszahivas igy zarult). A szoveg a
+ * SentenceDropFilter utan egesz mondatokban jon, igy a tobbszavas csere
+ * nem esik szet a streamelt darabok hataran.
+ */
+const CALLBACK_WORDING: Array<[RegExp, string]> = [
+  [/köszön(öm|jük)(,? szépen)?,? (?:a hívást|a hívását|hogy (?:fel)?hívott)/giu, 'köszön$1$2 a beszélgetést'],
+  [/thank you for calling/giu, 'thank you for your time'],
+  [/thanks for calling/giu, 'thanks for your time'],
+];
+
+export function callbackWording(text: string): string {
+  let out = text;
+  for (const [re, rep] of CALLBACK_WORDING) {
+    out = out.replace(re, (...args: unknown[]) => {
+      const m = String(args[0]);
+      const r = rep.replace(/\$(\d)/gu, (_x, n: string) => String(args[Number(n)] ?? ''));
+      const upper = m[0] !== undefined && m[0] !== m[0].toLowerCase();
+      return upper ? r.charAt(0).toUpperCase() + r.slice(1) : r;
+    });
+  }
+  return out;
+}
+
 /** "Van meg kerdese?" es rokonai - egy hivasban egyszer hangozhat el. */
+// A "Van még esetleg kérdése" alakot a korabbi minta nem ismerte fel
+// (szimulator, 2026-11-11), igy a "mar elhangzott" vedelem sem kapcsolt be.
 export const MORE_QUESTIONS_RE =
-  /\b(van|lenne) (még|esetleg)( még)? (más |egyéb )?(kérdése|kérdés)\b|\bany (other|more) questions\b|\banything else (i can|to) help\b/iu;
+  /(?<![\p{L}])(?:van|lenne|volna) (?:még|esetleg)(?: még| esetleg)? (?:más |egyéb |bármi )?kérdés\p{L}*|segíthetek még|még valamiben|még miben|\bany (?:other|more|further) questions\b|\banything else\b/iu;
 
 /**
  * Mondatonkent szuri a streamelt kimenetet: az `drop` mintara illeszkedo
@@ -194,7 +221,15 @@ export class SentenceDropFilter {
   private buf = '';
   private emitted = false;
   private dropped = '';
-  constructor(private readonly drop: RegExp | null) {}
+  /**
+   * @param relaxed  Ha MINDEN mondat kiesne, ezzel a gyengebb mintaval
+   *                 szurunk ujra, mielott az eredetit engednenk ki. (Pl.
+   *                 "<ar>. Van meg kerdese?" - az ar maradjon, ne mindketto.)
+   */
+  constructor(
+    private readonly drop: RegExp | null,
+    private readonly relaxed: RegExp | null = null,
+  ) {}
   push(delta: string): string {
     if (!this.drop) return delta;
     this.buf += delta;
@@ -220,17 +255,24 @@ export class SentenceDropFilter {
     this.buf = '';
     const keepRest = rest && !this.drop.test(rest) ? rest : '';
     if (keepRest) this.emitted = true;
-    // Ha egyetlen mondat sem maradt, inkabb az eredeti hangzik el, mint a
-    // csend (dropSentences ugyanigy dont, igy a tortenet is ezt rogziti).
-    if (!this.emitted) return this.dropped + rest;
-    return keepRest;
+    if (this.emitted) return keepRest;
+    // Egyetlen mondat sem maradt. Elobb a gyengebb mintaval probaljuk
+    // (dropSentences ugyanigy dont, igy a tortenet is ezt rogziti)...
+    const all = this.dropped + rest;
+    if (this.relaxed) {
+      const g = new SentenceDropFilter(this.relaxed);
+      const kept = g.push(all) + g.flush();
+      if (kept.trim() && g.emitted) return kept;
+    }
+    // ...es ha az sem hagy semmit, inkabb az eredeti hangzik el, mint a csend.
+    return all;
   }
 }
 
 /** Ugyanez kesz szovegre (a tortenetbe ez kerul). */
-export function dropSentences(text: string, drop: RegExp | null): string {
+export function dropSentences(text: string, drop: RegExp | null, relaxed: RegExp | null = null): string {
   if (!drop) return text;
-  const f = new SentenceDropFilter(drop);
+  const f = new SentenceDropFilter(drop, relaxed);
   const out = (f.push(text) + f.flush()).trim();
   // Ha minden mondat kiesne, az eredeti marad: a nema valasz rosszabb.
   return out || text;
@@ -254,8 +296,10 @@ export const CALLER_ASKED_RE =
  * arvalaszt nyelne le, es a hivo hiaba kerdezne ujra. Ezert minden
  * penzre, arra, koltsegre utalo szo "kerdeznek" szamit.
  */
+// "mennyi", de nem "mennyiség" es nem "mennyi idő": a "mennyiségről" szo
+// miatt a szimulatorban kerdes nelkul hangzott el az ar.
 export const PRICE_ASKED_RE =
-  /mennyi|mibe kerül|kerül|(?<![\p{L}])ár(?:a|at|ak|áról|ban|ért|on|ai|ra|ok|akat)?(?![\p{L}])|árak|árajánlat|költ|díj|fizet|pénz|drága|olcsó|kedvezmény|keret|forint|ezer|millió|price|cost|how much|fee|budget|pay|cheap|expensive|discount/iu;
+  /mennyi(?!ség|\s+id[őe])|mibe kerül|kerül|(?<![\p{L}])ár(?:a|at|ak|áról|ban|ért|on|ai|ra|ok|akat)?(?![\p{L}])|árak|árajánlat|költ|díj|fizet|pénz|drága|olcsó|kedvezmény|keret|forint|ezer|millió|price|cost|how much|fee|budget|pay|cheap|expensive|discount/iu;
 
 /** Arat vagy az ajanlat szazalekat kimondo mondat. */
 export const PRICE_SAID_RE =
@@ -265,17 +309,85 @@ export const PRICE_SAID_RE =
 export const CALLER_ACK_RE =
   /^(?:[\s,.!]*(?:hát|na|oké|okés|ok|jó|jól van|értem|rendben|világos|köszönöm|köszönöm szépen|köszi|aha|értettem|szuper|nagyszerű|remek|tökéletes|értem köszönöm|okay|all right|alright|thanks|thank you|got it|i see|right|great|fine))+[\s,.!]*$/iu;
 
-/** A hivo jelezte, hogy vegzett. */
-export const CALLER_DONE_RE =
-  /nincs (?:több|más)|ennyi (?:lenne|volt|elég)|minden világos|ez (?:minden|elég)|nincs kérdés|viszont(?:látásra|hallásra)|that'?s (?:all|everything)|no (?:more|other|further) questions|nothing else|goodbye|(?<![\p{L}])bye(?![\p{L}])/iu;
+/** Nemleges valasz a "Van meg kerdese?"-re ("Nincs, köszönöm."). */
+export const CALLER_NO_MORE_RE =
+  /^[\s,.!]*(?:köszönöm,?\s*)?(?:nem|nincs|nincsen|semmi|egyelőre nem|most nem|nem igazán|no|nope|nothing|not really)(?![\p{L}])/iu;
 
-/** A hivo maga kert ajanlatot, visszahivast vagy embert. */
-export const OFFER_REQUEST_RE =
-  /ajánlat|küldj|küldjenek|küldjön|küldjék|küldené|elérhetőség|felír|a számom|hívjanak|hívjon|keressenek|keressen|visszahív|kolléga|quote|proposal|send me|call me|contact me|colleague/iu;
+/**
+ * A hivo jelezte, hogy vegzett.
+ *
+ * Szohatarral es mondatveggel: a korabbi, laza minta a "Mennyi lenne?"
+ * kerdesben az "ennyi lenne"-t, az "ez elég nehéz" mondatban az "ez elég"-et
+ * talalta meg, es lezarasnak vette - pont a hivo kerdesei kozben engedte
+ * volna a "Van meg kerdese?"-t es az ajanlatot (szimulator, 2026-11-11).
+ */
+export const CALLER_DONE_RE = new RegExp(
+  [
+    'nincs (?:több|más|egyéb) kérdés',
+    '(?:több|más|egyéb) kérdésem nincs',
+    '(?<![\\p{L}])(?:ennyi|ez) (?:lenne|volt|lett volna|minden|elég)(?=\\s*(?:[.!,]|$))',
+    'minden világos',
+    'mindent (?:értek|értettem|megértettem)',
+    'viszont(?:látásra|hallásra)',
+    'majd (?:jelentkezem|jelentkezünk|visszahívom|visszahívjuk|visszaszólok|visszaszólunk|keresem|keressük|hívom|hívjuk)',
+    '(?:akkor|majd) (?:meg|fel)(?:keres|hív)(?:lek|lak|em|om|ük|juk|sük)(?![\\p{L}])',
+    '(?:jelentkezni|keresni|hívni) fog(?:ok|unk|lak|om|juk)',
+    'átgondolom|átgondoljuk|meggondolom|meggondoljuk|megbeszélem|megbeszéljük',
+    "that'?s (?:all|everything|it)(?![\\p{L}])",
+    'no (?:more|other|further) questions',
+    'nothing else',
+    "i'?ll (?:think about it|get back to you)",
+    'goodbye',
+    '(?<![\\p{L}])bye(?![\\p{L}])',
+  ].join('|'),
+  'iu',
+);
+
+/**
+ * A hivo maga kert ajanlatot, visszahivast vagy embert.
+ *
+ * Csak a kifejezett keres szamit. A korabbi minta minden "kolléga",
+ * "visszahív" es "ajánlat" szora rakapcsolt - igy egy visszahivasban a
+ * "visszahívást kértem" vagy a "a kollégáim nem érnek rá" az egesz hivasra
+ * feloldotta a zarast.
+ */
+export const OFFER_REQUEST_RE = new RegExp(
+  [
+    // Kuldesre keres, felszolito/feltételes alakban ("Küldjenek...").
+    '(?<![\\p{L}])(?:küldjenek|küldjön|küldjék|küldené|küldenék|küldenének|küldhetné|küldhetnék|küldhetnének|küldjétek|küldj)(?![\\p{L}])',
+    // Ajanlatot / reszleteket ker. A "kér" nem lehet a "kérdez" eleje:
+    // "Azt kérdezném, mi van az ajánlatban" nem keres.
+    '(?:kér(?!dez|dés)|küld)\\p{L}*[^.?!]{0,40}(?:ár)?(?:ajánlat|részlet|összefoglal|tájékoztat)',
+    '(?:ár)?ajánlat\\p{L}*[^.?!]{0,30}(?:kér(?!dez|dés)|küld|kap)',
+    '(?<![\\p{L}])(?:hívjanak|keressenek)(?![\\p{L}])',
+    '(?:hívjon|keressen) (?:vissza|meg|fel)',
+    'visszahívna|visszahívnának|visszahívhatna|visszahívhatnának|visszahívnátok',
+    'elérhetőség',
+    '(?<![\\p{L}])felír',
+    '(?<![\\p{L}])a számom',
+    '(?:beszél|kapcsol)\\p{L}*[^.?!]{0,30}(?:kollég|ember|munkatárs|ügyintéz)',
+    '(?:kollég|ember|munkatárs|ügyintéz)\\p{L}*[^.?!]{0,20}(?:beszél|kapcsol)',
+    'quote|proposal|get back to me',
+    // "Could you send some more details to my email" (szimulator, kulfoldi)
+    'send\\b[^.?!]{0,30}\\b(?:details|information|info|summary|brochure|offer|it over|to my e-?mail)',
+    '(?:e-?mail|text|call|contact|send) me(?![\\p{L}])',
+    '(?:speak|talk) (?:to|with) (?:a |an |someone|somebody|a real)',
+  ].join('|'),
+  'iu',
+);
 
 /** Zaro lepes: nev/ceg kerdese, ajanlat, SMS vagy e-mail felajanlasa. */
 export const CLOSING_RE =
-  /kihez címezzem|melyik cégnél|hogy hívják|mi a (?:neve|cég)|mi az ön neve|a nevét|küldjem|(?<![\p{L}])sms|ajánlatot (?:küld|össze|készít)|elküldöm az ajánlat|felírhatom|felírom|who should i address|which company|your name|text message|send (?:it|you|the quote)/iu;
+  /kihez címezzem|melyik cégnél|hogy hívják|mi a (?:neve|cég)|mi az ön neve|a nevét|cég ?nev|melyik (?:cég|szerviz|üzlet|iroda|vállalkozás|szalon|rendelő|bolt|étterem|pékség|stúdió)\p{L}*(?:ről|ből|tól|től| neve)|küldjem|(?<![\p{L}])sms|ajánlatot (?:küld|össze|készít)|elküldöm az ajánlat|felírhatom|felírom|who should i address|which company|your name|text message|send (?:it|you|the quote)/iu;
+
+/**
+ * Nev- vagy cegnevkerdes. Egy hivasban legfeljebb EGYSZER hangozhat el: a
+ * szimulatorban az agent a hivo "Értem."-jere szo szerint megismetelte
+ * ("Melyik cégnél dolgozik...?"), elesben pedig harmadszor is - a hivo
+ * tolakodasnak erezte.
+ */
+export const NAME_ASK_RE =
+  /kihez címezzem|melyik cégnél|hogy hívják|mi a (?:neve|cég)|mi az ön neve|a nevét|cég ?nev|melyik (?:cég|szerviz|üzlet|iroda|vállalkozás|szalon|rendelő|bolt|étterem|pékség|stúdió)\p{L}*(?:ről|ből|tól|től| neve)|who should i address|which company|your name/iu;
 
 /** Ujrakoszones egy kulon mondatban ("Üdvözlöm, Kiss úr."). */
 export const REGREET_SENTENCE_RE =
@@ -292,22 +404,79 @@ export const REGREET_SENTENCE_RE =
  *    panasza szo szerint: "egybol kuldeni akarja az ajanlatot";
  *  - ar, amig a hivo nem kerdezte.
  */
+/**
+ * Vegzett-e a hivo: az utolso mondata lezaras, nem kerdes es nem meseles.
+ *
+ *  - Ha kerdez, nem vegzett - akkor sem, ha a mondataban "értem" is van.
+ *  - A puszta "Értem." csak akkor lezaras, ha mi nem kerdeztunk elotte:
+ *    a kerdesunkre adott "Értem." nem valasz, hanem elakadas.
+ *  - A "Van meg kerdese?"-re adott "Nincs" / "Értem, köszönöm" lezaras.
+ */
+export function callerIsWrapping(history: ReadonlyArray<{ role: string; content: string }>): boolean {
+  let lastCaller = '';
+  let lastAgent = '';
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const t = history[i]!;
+    if (!lastCaller && t.role === 'user') {
+      lastCaller = t.content.trim();
+      continue;
+    }
+    if (lastCaller && t.role === 'assistant') {
+      lastAgent = t.content.trim();
+      break;
+    }
+  }
+  if (!lastCaller) return false;
+  if (CALLER_ASKED_RE.test(lastCaller)) return false;
+  if (CALLER_DONE_RE.test(lastCaller)) return true;
+  const ack = CALLER_ACK_RE.test(lastCaller);
+  if (MORE_QUESTIONS_RE.test(lastAgent)) return ack || CALLER_NO_MORE_RE.test(lastCaller);
+  if (!ack) return false;
+  const weAsked = /\?\s*$/u.test(lastAgent);
+  return !weAsked || /köszön|thank/iu.test(lastCaller);
+}
+
 export function dropPattern(
   history: ReadonlyArray<{ role: string; content: string }>,
   secondsLeft?: number,
 ): RegExp | null {
+  return dropRules(history, secondsLeft).strict;
+}
+
+/**
+ * A kiszurendo mondatok mintai: `strict` a teljes, `relaxed` ugyanez az ar
+ * nelkul. Ha a valasz minden mondata kiesne (pl. "<ar>. Van meg kerdese?"),
+ * a `relaxed` donti el, mi marad - az eredeti szoveg csak vegso esetben.
+ */
+export function dropRules(
+  history: ReadonlyArray<{ role: string; content: string }>,
+  secondsLeft?: number,
+): { strict: RegExp; relaxed: RegExp | null } {
   const askedMore = history.some((t) => t.role === 'assistant' && MORE_QUESTIONS_RE.test(t.content));
   const callerTexts = history.filter((t) => t.role === 'user').map((t) => t.content);
   const lastCaller = callerTexts[callerTexts.length - 1] ?? '';
-  const callerWrapping = CALLER_ACK_RE.test(lastCaller) || CALLER_DONE_RE.test(lastCaller);
+  const callerWrapping = callerIsWrapping(history);
   const timeUp = secondsLeft !== undefined && secondsLeft < 75;
+  // Kifejezett ajanlat-/visszahivas-keres MOST, illetve korabban a hivasban.
+  const offerNow = OFFER_REQUEST_RE.test(lastCaller);
+  const offerEarlier = callerTexts.some((c) => OFFER_REQUEST_RE.test(c));
+  const callerAsks = CALLER_ASKED_RE.test(lastCaller);
 
   const parts: string[] = [REGREET_SENTENCE_RE.source];
-  const moreOk = !askedMore && (callerWrapping || OFFER_REQUEST_RE.test(lastCaller) || timeUp);
+  const moreOk = !askedMore && (callerWrapping || offerNow || timeUp);
   if (!moreOk) parts.push(MORE_QUESTIONS_RE.source);
-  const closingOk = callerWrapping || timeUp || callerTexts.some((c) => OFFER_REQUEST_RE.test(c));
+  // Korabbi keres utan is csak akkor zarhatunk, ha a hivo eppen nem kerdez:
+  // a kerdesere elobb valaszolunk, a nevkerdes nem kerul a valasz vegere.
+  const closingOk = callerWrapping || timeUp || offerNow || (offerEarlier && !callerAsks);
   if (!closingOk) parts.push(CLOSING_RE.source);
+  // A nevet/cegnevet egyszer kerdezzuk meg - akkor sem ujra, ha nem felelt.
+  if (history.some((t) => t.role === 'assistant' && NAME_ASK_RE.test(t.content))) {
+    parts.push(NAME_ASK_RE.source);
+  }
+  const build =(ps: string[]): RegExp => new RegExp(ps.map((p) => `(?:${p})`).join('|'), 'iu');
   // Arat csak akkor, ha kerdezik (a "kerdezte" teszt szandekosan tag).
-  if (!callerTexts.some((c) => PRICE_ASKED_RE.test(c))) parts.push(PRICE_SAID_RE.source);
-  return new RegExp(parts.map((p) => `(?:${p})`).join('|'), 'iu');
+  if (!callerTexts.some((c) => PRICE_ASKED_RE.test(c))) {
+    return { strict: build([...parts, PRICE_SAID_RE.source]), relaxed: build(parts) };
+  }
+  return { strict: build(parts), relaxed: null };
 }
