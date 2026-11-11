@@ -1104,3 +1104,9 @@ section { padding: clamp(160px, 20vw, 320px) 0; }
 .doc-contact{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
 .doc-contact a{font-size:13px;color:#00e5ff;text-decoration:none}
 .doc-contact a:hover{text-decoration:underline}
+
+/* A szakaszok összeértek (pl. a "Megtérülés" kártyája és a "Hogyan
+   dolgozunk" címke): a .container felülírja a section függőleges
+   paddingját, így több szakasz között nem maradt hely. Egységes térköz a
+   szakaszok tetején (2026-11-11). */
+main section.container[id]:not(#top) { padding-top: clamp(56px, 7vw, 110px); }
