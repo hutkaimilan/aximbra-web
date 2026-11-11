@@ -57,3 +57,24 @@ test('a gyakori tegezo igealakok is magazora cserelodnek', () => {
   assert.equal(formalize('Mondd, tudod, mit használtok most?'), 'Mondja, tudja, mit használnak most?');
   assert.equal(formalize('Kérlek, írj nekünk.'), 'Kérem, írjon nekünk.');
 });
+
+import { dropPattern } from './turn.js';
+
+test('amig a hivo nem kerdezte, az ar nem hangzik el; utana igen', () => {
+  const h1 = [
+    { role: 'assistant', content: 'Jó napot kívánok!' },
+    { role: 'user', content: 'Papír naptárat használunk, sokszor meg kell szakítani a munkát.' },
+  ];
+  const reply = 'Értem, ezt át tudjuk venni. Az agentjeink százötvenezer forinttól indulnak. Naponta hány hívás jön?';
+  assert.equal(dropSentences(reply, dropPattern(h1)), 'Értem, ezt át tudjuk venni. Naponta hány hívás jön?');
+  const h2 = [...h1, { role: 'assistant', content: 'Értem.' }, { role: 'user', content: 'És mennyibe kerül?' }];
+  assert.equal(dropSentences(reply, dropPattern(h2)), reply);
+});
+
+test('ha minden mondat kiesne, az eredeti hangzik el (nincs nema valasz)', () => {
+  const h = [{ role: 'user', content: 'Mit csinál az e-mail rendező?' }];
+  const only = 'Százötvenezer forinttól indul.';
+  assert.equal(dropSentences(only, dropPattern(h)), only);
+  const f = new SentenceDropFilter(dropPattern(h));
+  assert.equal(f.push(only) + f.flush(), only);
+});

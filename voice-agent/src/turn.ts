@@ -192,6 +192,8 @@ export const MORE_QUESTIONS_RE =
  */
 export class SentenceDropFilter {
   private buf = '';
+  private emitted = false;
+  private dropped = '';
   constructor(private readonly drop: RegExp | null) {}
   push(delta: string): string {
     if (!this.drop) return delta;
@@ -203,15 +205,25 @@ export class SentenceDropFilter {
       const end = m.index + m[0].length;
       const sentence = this.buf.slice(0, end);
       this.buf = this.buf.slice(end);
-      if (!this.drop.test(sentence)) out += sentence;
+      if (this.drop.test(sentence)) {
+        this.dropped += sentence;
+      } else {
+        out += sentence;
+      }
     }
+    if (out) this.emitted = true;
     return out;
   }
   flush(): string {
     if (!this.drop) return '';
     const rest = this.buf;
     this.buf = '';
-    return this.drop.test(rest) ? '' : rest;
+    const keepRest = rest && !this.drop.test(rest) ? rest : '';
+    if (keepRest) this.emitted = true;
+    // Ha egyetlen mondat sem maradt, inkabb az eredeti hangzik el, mint a
+    // csend (dropSentences ugyanigy dont, igy a tortenet is ezt rogziti).
+    if (!this.emitted) return this.dropped + rest;
+    return keepRest;
   }
 }
 
@@ -219,7 +231,9 @@ export class SentenceDropFilter {
 export function dropSentences(text: string, drop: RegExp | null): string {
   if (!drop) return text;
   const f = new SentenceDropFilter(drop);
-  return (f.push(text) + f.flush()).trim();
+  const out = (f.push(text) + f.flush()).trim();
+  // Ha minden mondat kiesne, az eredeti marad: a nema valasz rosszabb.
+  return out || text;
 }
 
 /**
@@ -232,3 +246,33 @@ export function dropSentences(text: string, drop: RegExp | null): string {
  */
 export const CALLER_ASKED_RE =
   /\?|(?<![\p{L}])(?:mennyibe|mennyi|hogyan|milyen|mikor|hol|miért|melyik|mi történik|tudna|lehetne|van-e|kell-e|how|what|when|where|why|which)(?![\p{L}])/iu;
+
+/**
+ * Kerdezte-e mar a hivo az arat (barmikor a hivasban).
+ *
+ * Szandekosan tag: ha ez tevesen "nem"-et mondana, a lenti szuro egy jogos
+ * arvalaszt nyelne le, es a hivo hiaba kerdezne ujra. Ezert minden
+ * penzre, arra, koltsegre utalo szo "kerdeznek" szamit.
+ */
+export const PRICE_ASKED_RE =
+  /mennyi|mibe kerül|kerül|(?<![\p{L}])ár(?:a|at|ak|áról|ban|ért|on|ai|ra|ok|akat)?(?![\p{L}])|árak|árajánlat|költ|díj|fizet|pénz|drága|olcsó|kedvezmény|keret|forint|ezer|millió|price|cost|how much|fee|budget|pay|cheap|expensive|discount/iu;
+
+/** Arat vagy az ajanlat szazalekat kimondo mondat. */
+export const PRICE_SAID_RE =
+  /(?<![\p{L}])(?:forint\p{L}*|ft)(?![\p{L}])|\p{L}*(?:ezer|millió)(?![\p{L}])|százalék|forint|percent|thousand|million/iu;
+
+/**
+ * A kiszurendo mondatok egy mintaban: a mar elhangzott / korai "Van meg
+ * kerdese?", es amig a hivo nem kerdezte, az ar.
+ */
+export function dropPattern(history: ReadonlyArray<{ role: string; content: string }>): RegExp | null {
+  const askedMore = history.some((t) => t.role === 'assistant' && MORE_QUESTIONS_RE.test(t.content));
+  const callerTexts = history.filter((t) => t.role === 'user').map((t) => t.content);
+  const lastCaller = callerTexts[callerTexts.length - 1] ?? '';
+  const parts: string[] = [];
+  if (askedMore || CALLER_ASKED_RE.test(lastCaller)) parts.push(MORE_QUESTIONS_RE.source);
+  // A tulajdonos: arat csak akkor, ha kerdezik. A promptszabaly a
+  // szimulatorban ketszer sem tartott - ez a gepi zar.
+  if (!callerTexts.some((c) => PRICE_ASKED_RE.test(c))) parts.push(PRICE_SAID_RE.source);
+  return parts.length > 0 ? new RegExp(parts.map((p) => `(?:${p})`).join('|'), 'iu') : null;
+}

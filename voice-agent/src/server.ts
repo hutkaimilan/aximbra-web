@@ -37,11 +37,10 @@ import {
 import { sendMissedCall, sendSummary } from './email.js';
 import { sendContactSms } from './sms.js';
 import {
-  CALLER_ASKED_RE,
   FormalFilter,
   HOLD_MS,
-  MORE_QUESTIONS_RE,
   SentenceDropFilter,
+  dropPattern,
   dropSentences,
   formalize,
   looksUnfinished,
@@ -969,10 +968,9 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     // Tegezo nevmas soha nem mehet ki a vonalra (turn.ts).
     const formal = new FormalFilter();
     // Ha a "Van meg kerdese?" mar elhangzott, ujra nem mehet ki (turn.ts).
-    const askedMore = s.history.some((t) => t.role === 'assistant' && MORE_QUESTIONS_RE.test(t.content));
-    // Akkor sem, ha a hivo eppen kerdezett: o meg nem vegzett (turn.ts).
-    const lastCaller = [...s.history].reverse().find((t) => t.role === 'user')?.content ?? '';
-    const dropRe = askedMore || CALLER_ASKED_RE.test(lastCaller) ? MORE_QUESTIONS_RE : null;
+    // Kiszurt mondatok (turn.ts dropPattern): a mar elhangzott vagy korai
+    // "Van meg kerdese?", es az ar, amig a hivo nem kerdezte.
+    const dropRe = dropPattern(s.history);
     const once = new SentenceDropFilter(dropRe);
 
     // A modell valaszideje ingadozik (merve: 0,7 s es 9 s kozott, egyszer

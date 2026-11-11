@@ -34,7 +34,7 @@ import {
   type CallFacts,
 } from './llm.js';
 import { END_CALL_MARKER, stripMarker } from './hangup.js';
-import { CALLER_ASKED_RE, MORE_QUESTIONS_RE, dropSentences, formalize } from './turn.js';
+import { MORE_QUESTIONS_RE, dropPattern, dropSentences, formalize } from './turn.js';
 import {
   scenarioByKey,
   openerFor,
@@ -316,9 +316,7 @@ async function agentTurn(
   model?: string,
   effort?: string,
 ): Promise<{ text: string; ended: boolean; ttftMs: number; ms: number }> {
-  const askedMore = history.some((t) => t.role === 'assistant' && MORE_QUESTIONS_RE.test(t.content));
-  const lastCaller = [...history].reverse().find((t) => t.role === 'user')?.content ?? '';
-  const dropRe = askedMore || CALLER_ASKED_RE.test(lastCaller) ? MORE_QUESTIONS_RE : null;
+  const dropRe = dropPattern(history);
   const prompt = buildSystemPrompt(env().currentProjects, facts, from, lang, history);
   const t0 = Date.now();
   let ttft = -1;
@@ -359,13 +357,19 @@ async function callerTurn(
     role: t.role === 'assistant' ? 'user' : 'assistant',
     content: t.content,
   }));
-  const raw = await reply(flipped, buildTesterPrompt(scenario) + phaseNote(remaining, scenario), {
-    maxTokens: 160,
+  const raw0 = await reply(flipped, buildTesterPrompt(scenario) + phaseNote(remaining, scenario), {
+    maxTokens: 700,
     temperature: 0.4,
     timeoutMs: 20_000,
     // A teszt-hivo a hatter-modellen: ne egye a beszelgeto modell keretet.
     model: model ?? (env().auxModel || undefined),
   });
+  // Nehany modell (pl. Gemma) a gondolatmenetet is a valaszba irja - az nem
+  // a hivo mondata, es a tesztelt agentet osszezavarna.
+  const raw = raw0
+    .replace(/<thought>[\s\S]*?<\/thought>/giu, '')
+    .replace(/<thought>[\s\S]*$/iu, '')
+    .trim();
   return { text: raw.replace(END_MARKER, '').trim(), ended: raw.includes(END_MARKER) };
 }
 
