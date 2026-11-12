@@ -38,6 +38,7 @@ import {
   CALLER_DONE_RE,
   GOODBYE_SAID_RE,
   MORE_QUESTIONS_RE,
+  THANKS_SAID_RE,
   NAME_ASK_RE,
   OFFER_REQUEST_RE,
   callbackWording,
@@ -355,7 +356,10 @@ async function agentTurn(
   // Ugyanaz, mint elesben: kerdes utan nincs bontas.
   const ended = full.includes(END_CALL_MARKER) && !/\?\s*$/u.test(text.trim());
   // Ugyanaz, mint elesben: bontas elott mindig van elkoszones.
-  if (ended && !GOODBYE_SAID_RE.test(text)) text = `${text} ${lines(lang).goodbye}`.trim();
+  if (ended && !GOODBYE_SAID_RE.test(text)) {
+    const bye = THANKS_SAID_RE.test(text) ? (lang === 'en' ? 'Goodbye!' : 'Viszonthallásra!') : lines(lang).goodbye;
+    text = `${text} ${bye}`.trim();
+  }
   return {
     text,
     ended,

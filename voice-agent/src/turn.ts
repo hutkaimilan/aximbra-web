@@ -451,6 +451,20 @@ export const META_RE = /^\s*mivel (?:a nevét|a cégét|a cégnevet|már (?:mega
 export const GOODBYE_SAID_RE =
   /viszont(?:látásra|hallásra)|viszlát|szép (?:napot|estét|hétvégét|délutánt)|jó munkát|minden jót|good ?bye|(?<![\p{L}])bye(?![\p{L}])|have a (?:nice|good|great|lovely) (?:day|evening|weekend)|take care/iu;
 
+/**
+ * Koszonet a beszelgetesert, "viszonthallásra" nelkul. Ilyenkor a bontas
+ * elott csak a "Viszonthallásra!" hianyzik - a teljes rogzitett elkoszones
+ * ketszer mondta volna, hogy "köszönöm a beszélgetést" (szimulator, 2026-11-12).
+ */
+export const THANKS_SAID_RE =
+  /köszön(?:öm|jük)(?: szépen)? a (?:beszélgetést|hívást|türelmét|figyelmét)|thank you for (?:your time|calling|the call)/iu;
+
+/**
+ * "Örülök, hogy tisztázódott." - a hivo puszta "Értem."-jere adott
+ * feltetelezo toltelek (szimulator, 2026-11-12). Kiesik.
+ */
+export const PRESUME_RE = /^\s*örülök, hogy/iu;
+
 /** Ujrakoszones egy kulon mondatban ("Üdvözlöm, Kiss úr."). */
 export const REGREET_SENTENCE_RE =
   /^\s*(?:üdvözlöm|jó napot(?: kívánok)?|szép napot|hello|hi)(?:[\s,]+(?:\p{Lu}\p{L}*\s+)?(?:úr|asszony|hölgyem|uram|\p{Lu}\p{L}*))?\s*[.!]\s*$/iu;
@@ -524,7 +538,7 @@ export function dropRules(
   const offerEarlier = callerTexts.some((c) => OFFER_REQUEST_RE.test(c));
   const callerAsks = CALLER_ASKED_RE.test(lastCaller);
 
-  const parts: string[] = [REGREET_SENTENCE_RE.source, NUDGE_RE.source, META_RE.source];
+  const parts: string[] = [REGREET_SENTENCE_RE.source, NUDGE_RE.source, META_RE.source, PRESUME_RE.source];
   if (!ERROR_ASKED_RE.test(lastCaller)) {
     parts.push(BUGFIX_SAID_RE.source);
     if (history.some((t) => t.role === 'assistant' && APPROVAL_SAID_RE.test(t.content))) {

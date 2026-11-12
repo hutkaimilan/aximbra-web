@@ -40,6 +40,7 @@ import {
   FormalFilter,
   GOODBYE_SAID_RE,
   HOLD_MS,
+  THANKS_SAID_RE,
   SentenceDropFilter,
   callbackWording,
   dropRules,
@@ -1175,7 +1176,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
       }
       let tail = '';
       if (hangUp && !GOODBYE_SAID_RE.test(s.streamed)) {
-        tail = say().goodbye;
+        tail = THANKS_SAID_RE.test(s.streamed) ? (s.lang === 'en' ? 'Goodbye!' : 'Viszonthallásra!') : say().goodbye;
         const sep = s.streamed.trim() ? ' ' : '';
         s.streamed += sep + tail;
         send(sep + tail, false);

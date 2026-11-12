@@ -377,3 +377,11 @@ test('"Miben segíthetek?" nem ismetlodik, a "még" valtozat marad (eles hivas, 
   assert.equal(polishReply('Miben segíthetek?'), 'Hallgatom.');
   assert.equal(polishReply('Van még kérdése? Miben segíthetek még?'), 'Van még kérdése? Miben segíthetek még?');
 });
+
+import { THANKS_SAID_RE } from './turn.js';
+
+test('koszonet utan csak "Viszonthallásra!" kell; az "Örülök, hogy..." kiesik', () => {
+  assert.equal(THANKS_SAID_RE.test('Mivel más kérdése nincs, köszönöm a beszélgetést.'), true);
+  const h = [{ role: 'assistant', content: 'Melyik érdekli?' }, { role: 'user', content: 'Értem.' }];
+  assert.equal(dropSentences('Örülök, hogy tisztázódott. Melyik terület a legsürgősebb?', dropPattern(h)), 'Melyik terület a legsürgősebb?');
+});
