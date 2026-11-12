@@ -1883,3 +1883,13 @@ def test_minden_valaszrol_kulon_ertesites(store, monkeypatch, tmp_path):
     store.set_reply(lid, "interested", "Érdekel, hívjanak!")
     assert app_mod._notify_each_reply(snap, pipeline.RunLog()) == 1
     assert sent[-1]["Subject"].startswith("ÉRDEKLŐDŐ!") and "hívjanak" in sent[-1].get_content()
+
+
+def test_unsend_visszaallitja_a_vazlatot(store):
+    run(store, [dict(CAND)])
+    lid = store.list("draft")[0]["id"]
+    assert store.mark_sent_manual(lid)
+    assert store.unsend(lid)
+    l = store.get(lid)
+    assert l["status"] == "draft" and l["sent_at"] is None
+    assert not store.unsend(lid)  # mar vazlat

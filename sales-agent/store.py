@@ -452,6 +452,15 @@ class Store:
                             "WHERE id = ? AND status IN ('draft','failed')", (now(), lead_id))
             return cur.rowcount == 1
 
+    def unsend(self, lead_id: int) -> bool:
+        """Elkuldottnek jelolt, de valojaban ki nem ment level vissza a
+        vazlatok koze (pl. a kuldo SMTP visszadobta). Csak valasz nelkuli
+        leadre."""
+        with self._conn() as c:
+            cur = c.execute("UPDATE leads SET status = 'draft', sent_at = NULL, message_id = NULL, sent_via = NULL "
+                            "WHERE id = ? AND status = 'sent' AND reply_kind IN ('none','bounce')", (lead_id,))
+            return cur.rowcount == 1
+
     def followup_sent_manual(self, lead_id: int) -> bool:
         with self._conn() as c:
             cur = c.execute("UPDATE leads SET followup_status = 'sent', followup_sent_at = ? "

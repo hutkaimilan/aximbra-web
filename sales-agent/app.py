@@ -328,6 +328,17 @@ def mark_sent(lead_id: int):
     return {"ok": True}
 
 
+class UnsendIn(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=200)
+
+
+@app.post("/api/leads/unsend", dependencies=[Depends(auth)])
+def unsend(body: UnsendIn):
+    """Kuldesi hiba utan (pl. a Gmail "kuldes errol a cimrol" SMTP-je
+    visszadobta) a levelek vissza a vazlatok koze, hogy ujra kimehessenek."""
+    return {"reset": [i for i in body.ids if store.unsend(i)]}
+
+
 @app.post("/api/followups/{lead_id}/mark-sent", dependencies=[Depends(auth)])
 def followup_mark_sent(lead_id: int):
     if not store.followup_sent_manual(lead_id):
