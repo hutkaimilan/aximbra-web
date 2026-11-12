@@ -332,7 +332,7 @@ class UnsendIn(BaseModel):
     ids: list[int] = Field(min_length=1, max_length=200)
 
 
-@app.post("/api/leads/unsend", dependencies=[Depends(auth)])
+@app.post("/api/unsend", dependencies=[Depends(auth)])
 def unsend(body: UnsendIn):
     """Kuldesi hiba utan (pl. a Gmail "kuldes errol a cimrol" SMTP-je
     visszadobta) a levelek vissza a vazlatok koze, hogy ujra kimehessenek."""
