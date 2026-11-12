@@ -385,3 +385,8 @@ test('koszonet utan csak "Viszonthallásra!" kell; az "Örülök, hogy..." kiesi
   const h = [{ role: 'assistant', content: 'Melyik érdekli?' }, { role: 'user', content: 'Értem.' }];
   assert.equal(dropSentences('Örülök, hogy tisztázódott. Melyik terület a legsürgősebb?', dropPattern(h)), 'Melyik terület a legsürgősebb?');
 });
+
+test('"Jó, viszont" es "egy ember végzi, és" befejezetlen (eles hivas, 2026-11-12)', () => {
+  assert.equal(looksUnfinished('Jó, viszont'), true);
+  assert.equal(looksUnfinished('Az a baj, hogy mind a három területet egy ember végzi, és'), true);
+});

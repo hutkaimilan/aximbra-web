@@ -61,6 +61,21 @@ export function isClientSpeakingStart(msg: Record<string, unknown>): boolean {
   return !/"(off|false|stop|stopped|end|ended)"|:\s*false/i.test(raw);
 }
 
+/**
+ * A felolvasas tempoja (SSML prosody, Google/Amazon hangoknal). A
+ * tulajdonos (2026-11-12): "hadar, hagyjon nagyobb szunetet a szavak
+ * kozott - egy picivel tobbet". TTS_RATE pl. "92%"; ures = alapertelmezett.
+ * A szoveg mondatonkent megy ki (SentenceDropFilter), igy minden darab
+ * onallo, jol formalt SSML. Visszaallitas: a TTS_RATE torlese.
+ */
+const TTS_RATE = /^\d{2,3}%$/.test(process.env['TTS_RATE'] ?? '') ? process.env['TTS_RATE']! : '';
+
+function withRate(text: string): string {
+  if (!TTS_RATE || !text.trim()) return text;
+  const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `<speak><prosody rate="${TTS_RATE}">${safe}</prosody></speak>`;
+}
+
 /** Ennyi csend utan mondunk egy rovid "Egy pillanat."-ot (ms). */
 const FILLER_AFTER_MS = 2_000;
 /**
@@ -858,7 +873,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
 
   const send = (text: string, last = false): void => {
     if (ws.readyState !== ws.OPEN) return;
-    ws.send(JSON.stringify({ type: 'text', token: text, last }));
+    ws.send(JSON.stringify({ type: 'text', token: withRate(text), last }));
   };
 
   /**

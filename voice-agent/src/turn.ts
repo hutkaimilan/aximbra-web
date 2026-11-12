@@ -12,7 +12,8 @@
  */
 
 /** Ennyit varunk egy befejezetlennek tuno mondat folytatasara (ms). */
-export const HOLD_MS = 1800;
+// 1800 ms-nal egy eles hivasban a gondolkodo hivo szavaba vagott (2026-11-12).
+export const HOLD_MS = 2500;
 
 /** Rovid, de onmagukban teljes valaszok - ezekre nem varunk. */
 const COMPLETE_SHORT = new Set([
@@ -32,6 +33,8 @@ const DANGLING = new Set([
   'ugye', 'ami', 'amit', 'amire', 'amely', 'akkor', 'szóval', 'szoval', 'hát',
   'hat', 'például', 'peldaul', 'mint', 'vagy', 'illetve', 'is', 'pedig', 'ha',
   'amikor', 'ahol', 'aki', 'ööö', 'öö', 'ő', 'hmm', 'izé', 'ize', 'teszem',
+  // Eles hivas, 2026-11-12: "Jó, viszont" utan az agent belevagott.
+  'viszont', 'azonban', 'ugyanis', 'hanem', 'ezért', 'mivel', 'hiszen', 'vagyis',
   'mondjuk', 'valamint', 'továbbá', 'tovabba', 'csak', 'így', 'igy',
   'the', 'and', 'so', 'because', 'but', 'or', 'that', 'which', 'like', 'um', 'uh',
   'with', 'to', 'of', 'for', 'if', 'when',
