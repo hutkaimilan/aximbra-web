@@ -67,6 +67,20 @@ def make_router(agent, state: dict) -> APIRouter:
             raise HTTPException(401, "érvénytelen link")
         return FileResponse(PAGE, headers={"Cache-Control": "no-store"})
 
+    # Telepíthető alkalmazás (gépen és telefonon): ezek nyilvánosak, adatot nem tartalmaznak.
+    STATIC = {"manifest.json": "application/manifest+json", "icon.svg": "image/svg+xml",
+              "icon-192.png": "image/png", "icon-512.png": "image/png", "sw.js": "text/javascript"}
+
+    def _static_route(name: str, media: str):
+        # Fájlonként külön útvonal: egy általános "/{name}" elnyelné a /health végpontot is.
+        def handler():
+            return FileResponse(PAGE.parent / name, media_type=media,
+                                headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"})
+        router.add_api_route("/" + name, handler, methods=["GET"], include_in_schema=False)
+
+    for _name, _media in STATIC.items():
+        _static_route(_name, _media)
+
     @router.post("/api/login")
     def login(body: Login, response: Response):
         if not password():

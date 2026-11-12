@@ -7,6 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Milán Trader</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -88,7 +91,8 @@ input.slider::-moz-range-track{height:4px;border-radius:99px;background:var(--li
 </head>
 <body>
 <div id="login"><div class="brand" style="margin-bottom:18px"><div class="logo">M</div><div><b>MILÁN // TRADER</b><small>Belépés</small></div></div>
-<form id="lf" class="row"><input id="pw" type="password" placeholder="Jelszó" autocomplete="current-password"><button class="go" style="height:44px">Belép</button></form><div id="le" class="dn" style="margin-top:10px;font-size:12px"></div></div>
+<form id="lf" class="row"><input id="pw" type="password" placeholder="Jelszó" autocomplete="current-password"><button class="go" style="height:44px">Belép</button></form><div id="le" class="dn" style="margin-top:10px;font-size:12px"></div>
+<div class="mut" style="margin-top:18px;font-size:12.5px;line-height:1.5">Jelszó helyett a <b style="color:var(--tx)">titkos belépési linkkel</b> lépj be (amit Claude adott, <span class="mono">…/?k=…</span> végű). Elég egyszer megnyitni ezen az eszközön: utána egy évig bent maradsz.</div></div>
 
 <div id="app" style="display:none">
 <div class="top"><div class="row">
@@ -305,6 +309,7 @@ async function pollState(){S=await api('/api/state');renderState()}
 let timers=[];async function boot(){timers.forEach(clearInterval);try{await pollState();$('#login').style.display='none';$('#app').style.display='block';
  await Promise.all([pollEvents(),loadChat(),loadNews()]);timers=[setInterval(()=>pollEvents().catch(()=>{}),5000),setInterval(()=>pollState().catch(()=>{}),10000),setInterval(()=>loadNews(),120000)];
  if(window.Notification&&Notification.permission==='default')document.addEventListener('click',()=>Notification.requestPermission(),{once:true})}catch(e){if(e!==0)$('#le').textContent=e.message||''}}
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 boot();
 </script>
 </body>

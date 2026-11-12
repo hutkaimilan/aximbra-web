@@ -55,3 +55,24 @@ def test_ai_trader_ignores_unknown_symbols_and_closed_markets():
         import importlib
         importlib.reload(ai_trader)
     assert not ag.store.open_positions()
+
+
+def test_install_files_are_public_and_health_not_shadowed(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from web import make_router
+    ag, _, _ = make_agent()
+    monkeypatch.setenv("WEB_PASSWORD", "x")
+    app = FastAPI()
+    app.include_router(make_router(ag, {}))
+
+    @app.get("/health")
+    def health():
+        return {"ok": True}
+
+    c = TestClient(app, base_url="https://testserver")
+    assert c.get("/manifest.json").json()["display"] == "standalone"
+    assert c.get("/sw.js").status_code == 200 and c.get("/icon-512.png").status_code == 200
+    assert c.get("/health").json() == {"ok": True}
+    assert c.get("/titkos.db").status_code == 404
