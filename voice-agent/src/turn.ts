@@ -202,6 +202,18 @@ export function callbackWording(text: string): string {
   return out;
 }
 
+/**
+ * A koszonesben mar elhangzott "Miben segithetek?" ujra nem hangzik el:
+ * eles hivas (2026-11-12) - a hivo minden felmondatara ("Először is.")
+ * ugyanezzel felelt. Helyette egy rovid "Hallgatom." A "Miben segíthetek
+ * még?" (zaro kerdes) ezt nem erinti.
+ */
+export function polishReply(text: string): string {
+  return text.replace(/(?<![\p{L}])([mM])iben segíthetek(?: (?:Önnek|önnek|Önöknek))?\s*\?/gu, (_m, c: string) =>
+    c === 'M' ? 'Hallgatom.' : 'hallgatom.',
+  );
+}
+
 /** "Van meg kerdese?" es rokonai - egy hivasban egyszer hangozhat el. */
 // A "Van még esetleg kérdése" alakot a korabbi minta nem ismerte fel
 // (szimulator, 2026-11-11), igy a "mar elhangzott" vedelem sem kapcsolt be.

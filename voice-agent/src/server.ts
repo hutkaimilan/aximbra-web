@@ -43,6 +43,7 @@ import {
   SentenceDropFilter,
   callbackWording,
   dropRules,
+  polishReply,
   dropSentences,
   formalize,
   looksUnfinished,
@@ -998,7 +999,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     const rules = dropRules(s.history, maxCallSeconds() - (Date.now() - s.startedAt) / 1000);
     const once = new SentenceDropFilter(rules.strict, rules.relaxed);
     // Visszahivasban mi hivtuk az ugyfelet: "Köszönöm a beszélgetést" (turn.ts).
-    const wording = (t: string): string => (isCallback && t ? callbackWording(t) : t);
+    const wording = (t: string): string => (t ? polishReply(isCallback ? callbackWording(t) : t) : t);
 
     // A modell valaszideje ingadozik (merve: 0,5 s es 9 s kozott, egyszer
     // 20 s felett). Nema vonal helyett: ket masodperc utan egy rovid

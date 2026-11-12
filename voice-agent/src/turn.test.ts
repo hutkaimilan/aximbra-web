@@ -369,3 +369,11 @@ test('"Szeretné, ha elmondanám...?" is ajanlkozo kerdes (szimulator v12)', () 
   assert.equal(NUDGE_RE.test('Elmondjam az árakat is?'), true);
   assert.equal(NUDGE_RE.test('Szeretné, ha a kollégám visszahívná?'), false);
 });
+
+import { polishReply } from './turn.js';
+
+test('"Miben segíthetek?" nem ismetlodik, a "még" valtozat marad (eles hivas, 2026-11-12)', () => {
+  assert.equal(polishReply('Értem, miben segíthetek Önnek?'), 'Értem, hallgatom.');
+  assert.equal(polishReply('Miben segíthetek?'), 'Hallgatom.');
+  assert.equal(polishReply('Van még kérdése? Miben segíthetek még?'), 'Van még kérdése? Miben segíthetek még?');
+});

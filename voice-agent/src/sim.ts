@@ -42,6 +42,7 @@ import {
   OFFER_REQUEST_RE,
   callbackWording,
   dropRules,
+  polishReply,
   dropSentences,
   formalize,
 } from './turn.js';
@@ -156,7 +157,7 @@ const LIST_ASK_RE = /összes|mindet|mindegyik|all (?:of )?(?:the|your) agents/iu
 const LIST_STEMS: RegExp[] = [
   /e-?mail rendez/iu, /adminisztrác/iu, /kutatás/iu, /érdeklődő/iu, /tartalom/iu,
   /webshop/iu, /értékesítő/iu, /üzemeltet/iu, /nis ?2|nis kettő/iu, /ügyfélszolgálat/iu,
-  /toborz/iu, /dokumentum/iu, /pénzügyi/iu, /több-?agent|multi/iu,
+  /toborz/iu, /dokumentum/iu, /pénzügyi/iu, /több-?agent|multi/iu, /egyedi/iu,
 ];
 
 function words(text: string): number {
@@ -232,7 +233,7 @@ export function checkTranscript(turns: SimTurn[], scenarioKey: string): SimIssue
     if (listAsked && !listAnswered && (scenarioKey === 'lista' || LIST_ASK_RE.test(prevText))) {
       listAnswered = true;
       const hit = LIST_STEMS.filter((r) => r.test(text)).length;
-      if (hit < 13) add('lista_hianyos', i, `${hit}/14 agent: ${text}`);
+      if (hit < 14) add('lista_hianyos', i, `${hit}/15 agent: ${text}`);
     } else if (words(text) > 75) {
       add('tul_hosszu', i, `${words(text)} szo: ${text}`);
     }
@@ -350,6 +351,7 @@ async function agentTurn(
   }
   let text = dropSentences(formalize(stripMarker(full)), rules.strict, rules.relaxed);
   if (callback) text = callbackWording(text);
+  text = polishReply(text);
   // Ugyanaz, mint elesben: kerdes utan nincs bontas.
   const ended = full.includes(END_CALL_MARKER) && !/\?\s*$/u.test(text.trim());
   // Ugyanaz, mint elesben: bontas elott mindig van elkoszones.

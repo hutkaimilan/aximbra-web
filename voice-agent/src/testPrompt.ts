@@ -173,6 +173,21 @@ export const SCENARIOS: Record<string, Scenario> = {
       'Sorolja fel az osszes agentet, mindegyikrol egy mondatban. A vegen: ' +
       'melyik lenne jo egy kis kereskedo cegnek.',
   },
+  // Eles hivas, 2026-11-12: a hivo a lista utan mindegyikrol tobbet kert,
+  // az agent "az elobb felsoroltam" valasszal elharitotta, a hivo letette.
+  reszletes: {
+    key: 'reszletes',
+    label: 'Mindegyik agentrol tobbet ker',
+    lang: 'hu',
+    contact: 'ez a telefonszám, amiről hívsz, a neved Fekete Dóra, a cég a Fekete Kft.',
+    persona:
+      'Fekete Dora vagy, egy 20 fos szolgaltato ceg irodavezetoje. Magazol. Eloszor az osszes ' +
+      'agent felsorolasat kered. Ha megkaptad, azt mondod: "A weboldalon tizenot van. Mindegyikrol ' +
+      'szeretnek egy kis informaciot kapni." Ha az agent ezt elharitja vagy visszakerdez, ' +
+      'ingerulten megismetled.',
+    reason: 'Atfogo kepet akarsz az osszes agentrol, reszletesen.',
+    questions: 'Az osszes agent felsorolasa, aztan mindegyikrol egy-ket mondat.',
+  },
   // A szimulatorhoz (es telefonos teszthez) felvett hivotipusok. Mindegyik egy
   // olyan helyzet, ahol az agent eddig hibazott, vagy hibazhat.
   arerzekeny: {
@@ -277,6 +292,9 @@ export function openerFor(scenario: Scenario): string {
   }
   if (scenario.key === 'tegezo') {
     return 'Szia, Nagy Bence vagyok egy fuvarozó cégtől. Mondd, mit tudnátok nekünk ajánlani?';
+  }
+  if (scenario.key === 'reszletes') {
+    return 'Jó napot kívánok. Az oldalon lévő agentekkel kapcsolatban érdeklődnék: tudna mondani valami hasznos információt mindegyikről, külön-külön?';
   }
   if (scenario.key === 'lista') {
     return 'Jó napot! Azt szeretném kérni, hogy sorolja fel az összes agentet, ami elérhető, és dióhéjban mondja el, melyik mire jó.';
