@@ -19,7 +19,7 @@ const sk = {
     intro: "AI AGENTI · AXIMBRA",
   },
   hero: {
-    phoneCta: { badge: "AI", note: "Preberá ho AI agent · po anglicky a po maďarsky", origin: "Číslo v USA (Twilio) — hovory z nemaďarských čísel prijíma AI agent; na začiatku si vyberiete maďarčinu alebo angličtinu" },
+    phoneCta: { badge: "AI", note: "Preberá ho AI agent · po anglicky a po maďarsky", origin: "Číslo v USA (Twilio) — všetky hovory prijíma AI agent; na začiatku si vyberiete maďarčinu alebo angličtinu" },
     // A "hivjon vissza" urlap. A lap egy amerikai szamot hirdet; egy
     // magyar cegvezeto azt nem tarcsazza, bejovo hivast viszont felvesz.
     callback: {
@@ -132,7 +132,7 @@ const sk = {
     videoBig: "▶ Video momentálne nie je dostupné",
   },
   contact: {
-    phoneOrigin: "Číslo v USA (Twilio). Hovory z nemaďarských čísel prijíma AI agent, po anglicky.",
+    phoneOrigin: "Číslo v USA (Twilio). Všetky hovory prijíma AI agent, po anglicky.",
     heading: "Ktorá úloha ti zožerie týždeň?",
     para: "Napíš to v jednej vete. Do dvoch pracovných dní ti povieme, či sa oplatí postaviť naň agenta — a ak nie, aj to.",
     phoneDisabled: "Telefónny agent — čoskoro",

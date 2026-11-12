@@ -27,7 +27,7 @@ const zh = {
     sub: "我们为企业打造只做一件具体工作的 AI 代理——分拣邮件、评估潜在客户、接听电话。交付的不是演示，而是一套能运行的系统，并由我们持续维护。",
     ctaPrimary: "查看 AI 代理",
     ctaGhost: "实际运行",
-    phoneCta: { badge: "AI", note: "由 AI 代理接听 · 说匈牙利语和英语（不说中文）", origin: "美国号码（Twilio）——来自非匈牙利号码的来电由 AI 代理接听，通话开始时可选择匈牙利语或英语" },
+    phoneCta: { badge: "AI", note: "由 AI 代理接听 · 说匈牙利语和英语（不说中文）", origin: "美国号码（Twilio）——所有来电均由 AI 代理接听，通话开始时可选择匈牙利语或英语。联系我本人请发邮件。" },
     // A "hivjon vissza" urlap. A +86 nincs az engedelyezett orszaghivok kozott,
     // ezert a minta magyar mobilszam: a celcsoport itt van, magyar szamon.
     callback: {
@@ -255,8 +255,8 @@ const zh = {
   contact: {
     heading: "哪项任务占用了您一整周？",
     para: "用一句话写下来。两个工作日内，我们会告诉您是否值得为它构建一个代理——如果不值得，也会直说。",
-    phoneNote: "由 AI 代理接听 · 通话开始时选择匈牙利语或英语 · 来自匈牙利号码的来电会转给我本人",
-    phoneOrigin: "美国号码（Twilio）。来自非匈牙利号码的来电由 AI 代理接听，您说的内容会通过邮件转给我。",
+    phoneNote: "由 AI 代理接听 · 通话开始时选择匈牙利语或英语 · 联系我本人请发邮件",
+    phoneOrigin: "美国号码（Twilio）。所有来电均由 AI 代理接听，您说的内容会通过邮件转给我。",
     form: {
       name: "您的姓名",
       email: "电子邮箱",
@@ -279,7 +279,7 @@ const zh = {
     person: "个体经营者（匈牙利）",
     taxLabel: "税号",
     euVatLabel: "欧盟增值税号",
-    phoneNote: "AI 电话代理 · 来自匈牙利号码的来电直接转给我",
+    phoneNote: "AI 电话代理 · 联系我本人请发邮件",
     replyNote: "我会在一个工作日内回复邮件。如果没有收到回复，那是出了问题——请再写一次。",
   },
   footer: {

@@ -19,7 +19,7 @@ const it = {
     intro: "AGENTI IA · AXIMBRA",
   },
   hero: {
-    phoneCta: { badge: "IA", note: "Risposto da un agente IA · in inglese e ungherese", origin: "Numero USA (Twilio) — le chiamate da numeri non ungheresi le prende l'agente IA; all'inizio scegli ungherese o inglese" },
+    phoneCta: { badge: "IA", note: "Risposto da un agente IA · in inglese e ungherese", origin: "Numero USA (Twilio) — tutte le chiamate le prende l'agente IA; all'inizio scegli ungherese o inglese" },
     // A "hivjon vissza" urlap. A lap egy amerikai szamot hirdet; egy
     // magyar cegvezeto azt nem tarcsazza, bejovo hivast viszont felvesz.
     callback: {
@@ -132,7 +132,7 @@ const it = {
     videoBig: "▶ Il video al momento non è disponibile",
   },
   contact: {
-    phoneOrigin: "Numero USA (Twilio). Le chiamate da numeri non ungheresi le prende l'agente IA, in inglese.",
+    phoneOrigin: "Numero USA (Twilio). Tutte le chiamate le prende l'agente IA, in inglese.",
     heading: "Quale attività ti divora la settimana?",
     para: "Scrivila in una frase. Entro due giorni lavorativi ti diciamo se vale la pena costruirci un agente — e se no, anche quello.",
     phoneDisabled: "Agente telefonico — presto",

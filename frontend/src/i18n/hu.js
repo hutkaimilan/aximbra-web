@@ -24,7 +24,7 @@ const hu = {
     sub: "Hétfő reggel kétszáz olvasatlan levél, elmaradt hívások, kézzel begépelt számlák? Olyan AI agenteket építünk, amelyek ezt a munkát átveszik. Nem demót adunk át, hanem működő rendszert, amit mi tartunk életben.",
     ctaPrimary: "Próbáld ki élőben",
     ctaGhost: "Működés közben",
-    phoneCta: { badge: "HÍVJ", note: "Magyar számról én veszem fel · ha nem érek rá, az AI agent", origin: "Amerikai szám (Twilio) — külföldi számról az AI agent fogadja, és a hívás elején magyar vagy angol nyelvet választhatsz" },
+    phoneCta: { badge: "HÍVJ", note: "Az AI agent veszi fel · magyarul és angolul", origin: "Amerikai szám (Twilio) — minden hívást az AI agent fogad, és a hívás elején magyar vagy angol nyelvet választhatsz. Engem e-mailben érsz el." },
     // A "hivjon vissza" urlap. A lap egy amerikai szamot hirdet; egy
     // magyar cegvezeto azt nem tarcsazza, bejovo hivast viszont felvesz.
     callback: {
@@ -223,7 +223,7 @@ const hu = {
     role: "Alapító · az AXIMBRA egyszemélyes műhely, nem ügynökségi apparátus.",
     imprint: "Impresszum és jogi adatok →",
     paragraphs: [
-      "Az AXIMBRA-t egy ember viszi: aki felveszi a telefont, az írja a kódot is. Ennek van előnye és van ára, és mindkettőt érdemes tudni előre. Az előnye, hogy nincs átadás-átvétel három ember között, és nem kell projektmenedzsert fizetned azért, hogy a fejlesztőhöz eljusson, amit mondtál. Az ára, hogy egyszerre kevés projekt fér be.",
+      "Az AXIMBRA-t egy ember viszi: aki az e-mailedre válaszol, az írja a kódot is. Ennek van előnye és van ára, és mindkettőt érdemes tudni előre. Az előnye, hogy nincs átadás-átvétel három ember között, és nem kell projektmenedzsert fizetned azért, hogy a fejlesztőhöz eljusson, amit mondtál. Az ára, hogy egyszerre kevés projekt fér be.",
       "Ezért nem is ígérek gyors bővülést. Amit ígérek: ami elkészül, azt én tartom életben, és ha valami elromlik, nem egy ügyfélszolgálati jegyet kapsz.",
     ],
     proof: [
@@ -254,8 +254,8 @@ const hu = {
   contact: {
     heading: "Melyik feladat viszi el a heted?",
     para: "Írd meg egy mondatban. Egy munkanapon belül megmondjuk, megéri-e agentet építeni rá — és ha nem, azt is.",
-    phoneNote: "Magyar számról hívva engem ér el · külföldi számról az AI agent veszi fel",
-    phoneOrigin: "Amerikai szám (Twilio). Ha nem veszem fel, az AI agent fogadja a hívást, és e-mailben megkapom, amit mondtál.",
+    phoneNote: "Az AI agent veszi fel · engem e-mailben érsz el",
+    phoneOrigin: "Amerikai szám (Twilio). Minden hívást az AI agent fogad, és e-mailben megkapom, amit mondtál.",
     form: {
       name: "Neved",
       email: "E-mail-cím",
@@ -278,7 +278,7 @@ const hu = {
     person: "egyéni vállalkozó",
     taxLabel: "Adószám",
     euVatLabel: "Közösségi adószám",
-    phoneNote: "magyar számról engem ér el, külföldiről az AI agentet",
+    phoneNote: "az AI agent veszi fel, engem e-mailben érsz el",
     replyNote: "E-mailre egy munkanapon belül válaszolok. Ha nem érkezik válasz, az hiba — írj rá újra.",
   },
   footer: {

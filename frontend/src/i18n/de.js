@@ -27,7 +27,7 @@ const de = {
     sub: "Montagmorgen 200 ungelesene Mails, verpasste Anrufe, Lieferscheine von Hand abgetippt? Fachkräfte fehlen, die Routinearbeit bleibt. Wir bauen KI-Agenten, die diese Arbeit übernehmen — als laufendes System, das wir betreuen.",
     ctaPrimary: "Live ausprobieren",
     ctaGhost: "Live ansehen",
-    phoneCta: { badge: "KI", note: "Ein KI-Agent nimmt ab · auf Englisch und Ungarisch", origin: "US-Nummer (Twilio). Anrufe aus dem Ausland nimmt der KI-Agent an; zu Beginn wählen Sie Englisch oder Ungarisch. Für Ihr Projekt kann ein Agent auch Deutsch sprechen." },
+    phoneCta: { badge: "KI", note: "Ein KI-Agent nimmt ab · auf Englisch und Ungarisch", origin: "US-Nummer (Twilio). Alle Anrufe nimmt der KI-Agent an; zu Beginn wählen Sie Englisch oder Ungarisch. Für Ihr Projekt kann ein Agent auch Deutsch sprechen." },
     // A "hivjon vissza" urlap. Nemet szammal is mukodik, de a demo-agent
     // angolul es magyarul beszel - ezt kimondjuk, nem a hivasban derul ki.
     callback: {
@@ -257,7 +257,7 @@ const de = {
     heading: "Welche Aufgabe frisst Ihre Woche?",
     para: "Beschreiben Sie sie in einem Satz. Innerhalb eines Werktags sagen wir Ihnen, ob sich ein Agent dafür lohnt — und wenn nicht, auch das.",
     phoneNote: "Ein KI-Agent nimmt ab · zu Beginn Englisch oder Ungarisch wählen",
-    phoneOrigin: "US-Nummer (Twilio). Anrufe aus dem Ausland nimmt der KI-Agent an, und ich bekomme Ihr Anliegen per E-Mail.",
+    phoneOrigin: "US-Nummer (Twilio). Alle Anrufe nimmt der KI-Agent an, und ich bekomme Ihr Anliegen per E-Mail.",
     phoneDisabled: "Telefon-Agent — demnächst",
     form: {
       name: "Ihr Name",

@@ -24,7 +24,7 @@ const en = {
     sub: "Two hundred unread emails on Monday morning, missed calls, invoices typed in by hand? We build AI agents that take that work over. We don't hand over a demo, but a working system that we keep alive.",
     ctaPrimary: "Try it live",
     ctaGhost: "See it live",
-    phoneCta: { badge: "AI", note: "Answered by an AI agent · in English & Hungarian", origin: "US number (Twilio) — calls from Hungarian numbers ring through to me, and the agent lets you pick Hungarian or English at the start" },
+    phoneCta: { badge: "AI", note: "Answered by an AI agent · in English & Hungarian", origin: "US number (Twilio) — every call is answered by the AI agent, which lets you pick Hungarian or English at the start. You reach me by email." },
     // A "hivjon vissza" urlap. A lap egy amerikai szamot hirdet; egy
     // magyar cegvezeto azt nem tarcsazza, bejovo hivast viszont felvesz.
     callback: {
@@ -254,8 +254,8 @@ const en = {
   contact: {
     heading: "Which task eats up your week?",
     para: "Write it in one sentence. Within one working day we'll tell you whether it's worth building an agent for it — and if not, that too.",
-    phoneNote: "Answered by an AI agent · pick Hungarian or English at the start · calls from Hungarian numbers reach me",
-    phoneOrigin: "US number (Twilio). Calls from non-Hungarian numbers go to the AI agent, and I get what you said by email.",
+    phoneNote: "Answered by an AI agent · pick Hungarian or English at the start · you reach me by email",
+    phoneOrigin: "US number (Twilio). Every call goes to the AI agent, and I get what you said by email.",
     form: {
       name: "Your name",
       email: "Email address",
@@ -278,7 +278,7 @@ const en = {
     person: "sole trader (Hungary)",
     taxLabel: "Tax number",
     euVatLabel: "EU VAT",
-    phoneNote: "AI phone agent · Hungarian numbers reach me directly",
+    phoneNote: "AI phone agent · you reach me by email",
     replyNote: "I answer email within one working day. If no answer arrives, that is a fault — write again.",
   },
   footer: {

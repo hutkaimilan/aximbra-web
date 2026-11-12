@@ -19,7 +19,7 @@ const ro = {
     intro: "AGENȚI AI · AXIMBRA",
   },
   hero: {
-    phoneCta: { badge: "AI", note: "Preluat de un agent AI · în engleză și maghiară", origin: "Număr din SUA (Twilio) — apelurile de pe numere din afara Ungariei le preia agentul AI; la început alegi maghiară sau engleză" },
+    phoneCta: { badge: "AI", note: "Preluat de un agent AI · în engleză și maghiară", origin: "Număr din SUA (Twilio) — toate apelurile le preia agentul AI; la început alegi maghiară sau engleză" },
     // A "hivjon vissza" urlap. A lap egy amerikai szamot hirdet; egy
     // magyar cegvezeto azt nem tarcsazza, bejovo hivast viszont felvesz.
     callback: {
@@ -132,7 +132,7 @@ const ro = {
     videoBig: "▶ Videoclipul nu este disponibil momentan",
   },
   contact: {
-    phoneOrigin: "Număr din SUA (Twilio). Apelurile de pe numere din afara Ungariei le preia agentul AI, în engleză.",
+    phoneOrigin: "Număr din SUA (Twilio). Toate apelurile le preia agentul AI, în engleză.",
     heading: "Ce sarcină îți mănâncă săptămâna?",
     para: "Scrie-o într-o propoziție. În două zile lucrătoare îți spunem dacă merită construit un agent pentru ea — și dacă nu, tot îți spunem.",
     phoneDisabled: "Agent telefonic — în curând",
