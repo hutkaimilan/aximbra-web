@@ -1893,3 +1893,50 @@ def test_unsend_visszaallitja_a_vazlatot(store):
     l = store.get(lid)
     assert l["status"] == "draft" and l["sent_at"] is None
     assert not store.unsend(lid)  # mar vazlat
+
+
+# ---- utánkövetés a háttérben ---------------------------------------------------
+
+def _due_followup(store):
+    lid = _sent(store)
+    with store._conn() as c:
+        c.execute("UPDATE leads SET sent_at = ? WHERE id = ?", ("2026-09-21T08:00:00+00:00", lid))
+    assert pipeline.prepare_followups(store, datetime(2026, 9, 28, 9, tzinfo=timezone.utc)) == 1
+    return lid
+
+
+def test_followups_many_sends_in_background_without_panel(store):
+    lid = _due_followup(store)
+    m, log = FakeMailer(), pipeline.RunLog()
+    assert pipeline.send_followups_many(store, [lid], log, mailer=m, sleep=lambda s: None) == 1
+    assert store.get(lid)["followup_status"] == "sent" and len(m.sent) == 1
+    assert pipeline.send_followups_many(store, [lid], log, mailer=m, sleep=lambda s: None) == 0
+
+
+def test_auto_followups_weekday_hours_and_toggle(store):
+    lid = _due_followup(store)
+    m = FakeMailer()
+    sat = datetime(2026, 10, 3, 10, 0, tzinfo=timezone.utc)
+    assert pipeline.auto_followups(store, pipeline.RunLog(), now=sat, mailer=m, sleep=lambda s: None) == 0
+    store.set_setting("auto_followup", "off")
+    assert pipeline.auto_followups(store, pipeline.RunLog(), now=WEEKDAY_10, mailer=m, sleep=lambda s: None) == 0
+    store.set_setting("auto_followup", "on")
+    assert pipeline.auto_followups(store, pipeline.RunLog(), now=WEEKDAY_10, mailer=m, sleep=lambda s: None) == 1
+    assert store.get(lid)["followup_status"] == "sent"
+
+
+def test_auto_followups_pause_after_recent_bounce(store):
+    lid = _due_followup(store)
+    with store._conn() as c:  # egy másik, friss visszapattanás: a sor másolata
+        cols = [r[1] for r in c.execute("PRAGMA table_info(leads)") if r[1] != "id"]
+        sel = ", ".join("'x@y.hu'" if k == "email" else k for k in cols)
+        c.execute(f"INSERT INTO leads ({', '.join(cols)}) SELECT {sel} FROM leads WHERE id = ?", (lid,))
+        c.execute("UPDATE leads SET reply_kind = 'bounce', followup_status = 'dropped', reply_at = ? "
+                  "WHERE id != ?", (datetime.now(timezone.utc).isoformat(timespec="seconds"), lid))
+    now = datetime.now(timezone.utc).replace(hour=10)
+    while now.weekday() >= 5:
+        now += timedelta(days=1)
+    log = pipeline.RunLog()
+    assert pipeline.auto_followups(store, log, now=now, mailer=FakeMailer(), sleep=lambda s: None) == 0
+    assert any("SZÜNETEL" in s for s in log.lines)
+    assert store.get(lid)["followup_status"] == "draft"

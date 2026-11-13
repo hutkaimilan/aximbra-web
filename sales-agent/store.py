@@ -506,6 +506,17 @@ class Store:
             b = c.execute("SELECT COUNT(*) FROM leads WHERE followup_sent_at LIKE ?", (today + "%",)).fetchone()[0]
         return a + b
 
+    def followups_sent_today(self) -> int:
+        today = datetime.now(timezone.utc).date().isoformat()
+        with self._conn() as c:
+            return c.execute("SELECT COUNT(*) FROM leads WHERE followup_sent_at LIKE ?",
+                             (today + "%",)).fetchone()[0]
+
+    def bounces_since(self, since_iso: str) -> int:
+        with self._conn() as c:
+            return c.execute("SELECT COUNT(*) FROM leads WHERE reply_kind = 'bounce' AND reply_at >= ?",
+                             (since_iso,)).fetchone()[0]
+
     def auto_sent_today(self) -> int:
         today = datetime.now(timezone.utc).date().isoformat()
         with self._conn() as c:

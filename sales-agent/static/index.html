@@ -295,9 +295,12 @@ details summary{cursor:pointer}
   <section id="tab-replies" class="hide"><div id="replies"></div></section>
   <section id="tab-follow" class="hide">
     <div class="row" style="margin-bottom:12px">
+      <button class="pri" id="sendFollow">Mind kiküldése a háttérben</button>
       <button id="prepFollow">Esedékes utánkövetések előkészítése</button>
       <button id="scan">Válaszok ellenőrzése most</button>
+      <button id="autoFollow"></button>
     </div>
+    <p class="muted" id="followinfo" style="margin:-4px 0 12px"></p>
     <div id="follow"></div>
     <div id="demopages"></div>
   </section>
@@ -586,6 +589,13 @@ function render() {
     $("#joblog").textContent = S.job.log.join("\n");
   }
   $("#go").disabled = S.job.running;
+  if (S.auto_followup) {
+    const af = S.auto_followup;
+    $("#autoFollow").textContent = af.on ? "Magától küldés: BE" : "Magától küldés: KI";
+    $("#followinfo").textContent = af.on
+      ? `Az utánkövetések magától mennek minden hétköznap délelőtti körben (napi max ${af.daily}, ma ${af.sent_today} ment ki). Ha visszapattan egy levél, megáll.`
+      : "Az utánkövetések magától küldése ki van kapcsolva.";
+  }
   $("#autoinfo").textContent = S.config.auto ? `Automatikus kör minden nap: ${S.config.auto_times.join(" és ")} — válaszok, utánkövetések, új vázlatok. ${S.auto_send.on ? `Magától küldés BE (naponta max ${S.auto_send.daily}).` : "Küldeni te küldesz."}` : "Az automatikus kör ki van kapcsolva.";
 }
 
@@ -746,6 +756,18 @@ document.addEventListener("click", async (e) => {
   } catch (err) { flash(err.message); }
   finally { e.target.disabled = false; e.target.textContent = "Demóoldal készítése"; }
 });
+$("#sendFollow").onclick = async () => {
+  const n = S.leads.filter((l) => l.followup_status === "draft" && l.reply_kind === "none").length;
+  if (!n) { flash("Nincs kiküldhető utánkövetés."); return; }
+  if (!confirm(`${n} utánkövetés vár. A szerver küldi ki őket a napi keretig, 25–70 mp szünetekkel. Az oldalt bezárhatod. Indulhat?`)) return;
+  try { const r = await api("/api/followups/send", {ids: []}); flash(`${r.count} utánkövetés küldése elindult a háttérben. Bezárhatod az oldalt.`); refresh(); }
+  catch (e) { flash(e.message); }
+};
+$("#autoFollow").onclick = async () => {
+  const on = !(S.auto_followup && S.auto_followup.on);
+  try { await api("/api/auto-followup", {on}); flash(on ? "Az utánkövetések magától mennek." : "Az utánkövetések magától küldése kikapcsolva."); refresh(); }
+  catch (e) { flash(e.message); }
+};
 $("#prepFollow").onclick = async () => { try { const r = await api("/api/followups/prepare", {}); flash(`${r.prepared} utánkövetés előkészítve.`); refresh(); } catch (e) { flash(e.message); } };
 $("#dScan").onclick = () => $("#scan").click();
 $("#scan").onclick = async () => { try { await api("/api/replies/scan", {}); flash("Válaszok ellenőrzése elindult."); refresh(); } catch (e) { flash(e.message); } };

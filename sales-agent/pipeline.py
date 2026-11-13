@@ -454,6 +454,65 @@ def send_followup(store: Store, lead_id: int, *, mailer=mailer_mod) -> tuple[boo
     return True, "elküldve"
 
 
+def send_followups_many(store: Store, ids: list[int], log: RunLog, *, mailer=mailer_mod,
+                        sleep=time.sleep, prefix: str = "") -> int:
+    """Utánkövetések a háttérben, egymás után, szünettel. A böngészőnek nem
+    kell nyitva lennie: a szerver küldi, a napi keretig."""
+    sent = 0
+    for n, lead_id in enumerate(ids):
+        try:
+            ok, why = send_followup(store, lead_id, mailer=mailer)
+        except mailer.AuthError as e:
+            log.say(f"{prefix}Leálltam: {e}")
+            break
+        lead = store.get(lead_id) or {}
+        log.say(f"{prefix}{'✓' if ok else '✗'} utánkövetés: {lead.get('company', lead_id)}: {why}")
+        if not ok and "napi" in why:
+            break
+        if ok:
+            sent += 1
+            if n < len(ids) - 1:
+                sleep(random.uniform(*SEND_GAP))
+    return sent
+
+
+def followup_cfg() -> dict:
+    return {
+        "daily": _env_int("FOLLOWUP_DAILY", 12, 0, 18),
+        "bounce_days": 2,     # ha ennyi napon belül visszapattant levél, nem küld magától
+        "hours": (8, 17),     # hétköznap, budapesti munkaidőben
+    }
+
+
+def auto_followups(store: Store, log: RunLog, *, now: datetime, mailer=mailer_mod, sleep=time.sleep) -> int:
+    """Az esedékes utánkövetések magától, a legrégebbiekkel kezdve. Megáll, ha
+    ki van kapcsolva, hétvége/munkaidőn kívül van, vagy nemrég visszapattant
+    egy levél (pl. elromlott a küldő fiók) — rossz küldést nem sorozunk."""
+    if store.get_setting("auto_followup") == "off":
+        return 0
+    cfg = followup_cfg()
+    if now.weekday() >= 5 or not (cfg["hours"][0] <= now.hour < cfg["hours"][1]):
+        log.say("Utánkövetés magától: most nincs munkaidő, ebben a körben nem küld.")
+        return 0
+    since = (now.astimezone(timezone.utc) - timedelta(days=cfg["bounce_days"])).isoformat(timespec="seconds")
+    if store.bounces_since(since):
+        log.say("Utánkövetés magától: SZÜNETEL, mert az elmúlt napokban visszapattant levél. "
+                "Nézd meg a küldő fiókot; ha rendben, a panelről elküldheted.")
+        return 0
+    room = min(cfg["daily"] - store.followups_sent_today(), DAILY_CAP - store.sent_today())
+    if room <= 0:
+        log.say("Utánkövetés magától: a mai keret betelt.")
+        return 0
+    due = sorted((l for l in store.list("sent") if l["followup_status"] == "draft" and l["reply_kind"] == "none"),
+                 key=lambda l: l["sent_at"] or "")
+    ids = [l["id"] for l in due[:room]]
+    if not ids:
+        return 0
+    n = send_followups_many(store, ids, log, mailer=mailer, sleep=sleep, prefix="magától ")
+    log.say(f"Utánkövetés magától: {n} kiment, {max(0, len(due) - n)} vár még.")
+    return n
+
+
 def prepare_answer(store: Store, lead_id: int, *, llm=llm_mod, slots_fn=calendar_slots.slots_for) -> dict:
     """Érdeklődőnek: 3 szabad időpont a naptárból, és a válasz megírva."""
     lead = store.get(lead_id)

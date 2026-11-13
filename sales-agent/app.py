@@ -201,6 +201,9 @@ def state():
         "cap": pipeline.DAILY_CAP,
         "auto_send": {"on": store.get_setting("auto_send") == "on", "sent_today": store.auto_sent_today(),
                       **pipeline.readiness(store)},
+        "auto_followup": {"on": store.get_setting("auto_followup") != "off",
+                          "daily": pipeline.followup_cfg()["daily"],
+                          "sent_today": store.followups_sent_today()},
         "countries": {k: v["name"] for k, v in COUNTRIES.items()},
         "sectors": {k: v["hu"] for k, v in SECTORS.items()},
         "roles": list(outreach.ROLES),
@@ -703,6 +706,37 @@ def followups_prepare():
     return {"prepared": pipeline.prepare_followups(store, demo_url=_followup_demo_url(create=False))}
 
 
+class FollowSendIn(BaseModel):
+    ids: list[int] = Field(default_factory=list, max_length=200)
+
+
+@app.post("/api/followups/send", dependencies=[Depends(auth)])
+def followups_send_all(body: FollowSendIn):
+    """Az esedékes utánkövetések kiküldése a háttérben (a panel bezárható).
+    Üres lista = mind, a legrégebbiekkel kezdve, a napi keretig."""
+    if not _can_send():
+        raise HTTPException(409, "A Gmail nincs összekötve: nyomd meg a „Gmail összekötése” gombot.")
+    due = sorted((l for l in store.list("sent") if l["followup_status"] == "draft" and l["reply_kind"] == "none"),
+                 key=lambda l: l["sent_at"] or "")
+    want = set(body.ids)
+    ids = [l["id"] for l in due if not want or l["id"] in want]
+    room = max(0, pipeline.DAILY_CAP - store.sent_today())
+    if not ids:
+        raise HTTPException(400, "Nincs kiküldhető utánkövetés.")
+    if not room:
+        raise HTTPException(409, f"Elérted a napi {pipeline.DAILY_CAP} levelet, holnap folytatom.")
+    ids = ids[:room]
+    _require_start(job.start("utánkövetések küldése",
+                             lambda log: pipeline.send_followups_many(store, ids, log)))
+    return {"ok": True, "count": len(ids)}
+
+
+@app.post("/api/auto-followup", dependencies=[Depends(auth)])
+def auto_followup_toggle(body: AutoSendIn):
+    store.set_setting("auto_followup", "on" if body.on else "off")
+    return {"on": body.on}
+
+
 @app.post("/api/followups/{lead_id}/send", dependencies=[Depends(auth)])
 def followup_send(lead_id: int):
     if job.running and job.kind == "küldés":
@@ -1083,6 +1117,11 @@ def _morning(log):
         except Exception as e:  # noqa: BLE001 — a küldés hibája ne vigye el az összefoglalót
             logger.exception("magától küldés hiba")
             log.say(f"Magától küldés hiba: {e}")
+        try:
+            pipeline.auto_followups(store, log, now=datetime.now(TZ))
+        except Exception as e:  # noqa: BLE001
+            logger.exception("magától utánkövetés hiba")
+            log.say(f"Utánkövetés magától hiba: {e}")
     finally:
         _notify(log, before, replied_before, auto_sent)
 
