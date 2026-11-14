@@ -128,24 +128,24 @@ OPT_OUT = {
 
 # Az ajánlat, a tulajdonos döntése: az első 15 ügyfélnek egy hónap ingyen; ha
 # bármi baj van, nem fizetnek semmit, és leállítjuk az agentet; ha marad, az igény
-# alapján felbecsült összeg csak 20%-át kérjük; a havi karbantartásról előre
+# alapján felbecsült összeg csak 40%-át kérjük; a havi karbantartásról előre
 # megállapodunk. Fix mondat minden nyelven (a modell nem fogalmazza át): az első
 # levél utóiratában, az utánkövetésben és a demóoldalon ugyanez áll. A százalék
 # miatt a verify.rule_violations a mondatot kiveszi a statisztika-szabály elől.
 OFFER = {
-    "hu": "Az első 15 ügyfelünknek: egy hónapig ingyen kipróbálható. Ha bármi nem tetszik, nem kell fizetni semmit, és leállítjuk; ha marad, az igény alapján felbecsült összegnek csak a 20%-át kérjük, a havi karbantartási díjról előre megállapodunk.",
-    "en": "For our first 15 customers: use the agent free for a month. If anything is not right, you pay nothing and we switch it off; if you keep it, you pay just 20% of the price we estimate from your needs, and we agree the monthly maintenance fee in advance.",
-    "sk": "Pre prvých 15 zákazníkov: mesiac ho môžete používať zadarmo. Ak vám niečo nebude vyhovovať, nezaplatíte nič a agenta vypneme; ak si ho necháte, zaplatíte len 20 % z ceny odhadnutej podľa vašich potrieb a mesačný poplatok za údržbu si dohodneme vopred.",
-    "ro": "Pentru primii 15 clienți: îl puteți folosi gratuit o lună. Dacă ceva nu vă convine, nu plătiți nimic și îl oprim; dacă îl păstrați, plătiți doar 20% din prețul estimat în funcție de nevoile dumneavoastră, iar taxa lunară de întreținere o stabilim dinainte.",
-    "hr": "Za prvih 15 kupaca: mjesec dana ga možete koristiti besplatno. Ako vam nešto ne odgovara, ne plaćate ništa i isključujemo ga; ako ga zadržite, plaćate samo 20 % cijene procijenjene prema vašim potrebama, a mjesečnu naknadu za održavanje dogovaramo unaprijed.",
-    "sl": "Za prvih 15 strank: mesec dni ga lahko uporabljate brezplačno. Če vam kaj ne ustreza, ne plačate ničesar in ga izklopimo; če ga obdržite, plačate le 20 % cene, ocenjene glede na vaše potrebe, mesečno vzdrževalnino pa se vnaprej dogovorimo.",
-    "fr": "Pour nos 15 premiers clients : vous l’utilisez gratuitement pendant un mois. Si quelque chose ne vous convient pas, vous ne payez rien et nous l’arrêtons ; si vous le gardez, vous ne payez que 20 % du prix estimé selon vos besoins, et nous convenons à l’avance des frais de maintenance mensuels.",
-    "nl": "Voor onze eerste 15 klanten: u gebruikt de agent een maand gratis. Als er iets niet bevalt, betaalt u niets en zetten we hem uit; als u hem houdt, betaalt u slechts 20% van de prijs die we op basis van uw behoeften inschatten, en de maandelijkse onderhoudsvergoeding spreken we vooraf af.",
-    "sv": "För våra första 15 kunder: ni använder agenten gratis i en månad. Om något inte passar betalar ni ingenting och vi stänger av den; om ni behåller den betalar ni bara 20 % av det pris vi uppskattar utifrån era behov, och den månatliga underhållsavgiften kommer vi överens om i förväg.",
-    "fi": "Ensimmäisille 15 asiakkaalle: voitte käyttää agenttia kuukauden ilmaiseksi. Jos jokin ei miellytä, ette maksa mitään ja suljemme sen; jos pidätte sen, maksatte vain 20 % tarpeidenne perusteella arvioidusta hinnasta, ja kuukausittaisesta ylläpitomaksusta sovimme etukäteen.",
-    "pt": "Para os nossos primeiros 15 clientes: podem usar o agente gratuitamente durante um mês. Se algo não vos agradar, não pagam nada e desligamos o agente; se ficarem com ele, pagam apenas 20% do preço estimado segundo as vossas necessidades, e a mensalidade de manutenção combinamos de antemão.",
+    "hu": "Az első 15 ügyfelünknek: egy hónapig ingyen kipróbálható. Ha bármi nem tetszik, nem kell fizetni semmit, és leállítjuk; ha marad, az igény alapján felbecsült összegnek csak a 40%-át kérjük, a havi karbantartási díjról előre megállapodunk.",
+    "en": "For our first 15 customers: use the agent free for a month. If anything is not right, you pay nothing and we switch it off; if you keep it, you pay just 40% of the price we estimate from your needs, and we agree the monthly maintenance fee in advance.",
+    "sk": "Pre prvých 15 zákazníkov: mesiac ho môžete používať zadarmo. Ak vám niečo nebude vyhovovať, nezaplatíte nič a agenta vypneme; ak si ho necháte, zaplatíte len 40 % z ceny odhadnutej podľa vašich potrieb a mesačný poplatok za údržbu si dohodneme vopred.",
+    "ro": "Pentru primii 15 clienți: îl puteți folosi gratuit o lună. Dacă ceva nu vă convine, nu plătiți nimic și îl oprim; dacă îl păstrați, plătiți doar 40% din prețul estimat în funcție de nevoile dumneavoastră, iar taxa lunară de întreținere o stabilim dinainte.",
+    "hr": "Za prvih 15 kupaca: mjesec dana ga možete koristiti besplatno. Ako vam nešto ne odgovara, ne plaćate ništa i isključujemo ga; ako ga zadržite, plaćate samo 40 % cijene procijenjene prema vašim potrebama, a mjesečnu naknadu za održavanje dogovaramo unaprijed.",
+    "sl": "Za prvih 15 strank: mesec dni ga lahko uporabljate brezplačno. Če vam kaj ne ustreza, ne plačate ničesar in ga izklopimo; če ga obdržite, plačate le 40 % cene, ocenjene glede na vaše potrebe, mesečno vzdrževalnino pa se vnaprej dogovorimo.",
+    "fr": "Pour nos 15 premiers clients : vous l’utilisez gratuitement pendant un mois. Si quelque chose ne vous convient pas, vous ne payez rien et nous l’arrêtons ; si vous le gardez, vous ne payez que 40 % du prix estimé selon vos besoins, et nous convenons à l’avance des frais de maintenance mensuels.",
+    "nl": "Voor onze eerste 15 klanten: u gebruikt de agent een maand gratis. Als er iets niet bevalt, betaalt u niets en zetten we hem uit; als u hem houdt, betaalt u slechts 40% van de prijs die we op basis van uw behoeften inschatten, en de maandelijkse onderhoudsvergoeding spreken we vooraf af.",
+    "sv": "För våra första 15 kunder: ni använder agenten gratis i en månad. Om något inte passar betalar ni ingenting och vi stänger av den; om ni behåller den betalar ni bara 40 % av det pris vi uppskattar utifrån era behov, och den månatliga underhållsavgiften kommer vi överens om i förväg.",
+    "fi": "Ensimmäisille 15 asiakkaalle: voitte käyttää agenttia kuukauden ilmaiseksi. Jos jokin ei miellytä, ette maksa mitään ja suljemme sen; jos pidätte sen, maksatte vain 40 % tarpeidenne perusteella arvioidusta hinnasta, ja kuukausittaisesta ylläpitomaksusta sovimme etukäteen.",
+    "pt": "Para os nossos primeiros 15 clientes: podem usar o agente gratuitamente durante um mês. Se algo não vos agradar, não pagam nada e desligamos o agente; se ficarem com ele, pagam apenas 40% do preço estimado segundo as vossas necessidades, e a mensalidade de manutenção combinamos de antemão.",
 }
-# A korábbi szövegek („az ár fele", „30%"): a még el nem küldött vázlatokban ezeket
+# A korábbi szövegek („az ár fele", „30%", „20%"): a még el nem küldött vázlatokban ezeket
 # cseréli le az újra (pipeline.refresh_offers).
 OFFERS_PREVIOUS = [
     {
@@ -173,6 +173,19 @@ OFFERS_PREVIOUS = [
         "sv": "Ni använder agenten gratis i en månad. Om något inte passar betalar ni ingenting och vi stänger av den; om ni behåller den betalar ni 30 % av det överenskomna priset, därefter en månatlig underhållsavgift som vi kommer överens om i förväg.",
         "fi": "Voitte käyttää agenttia kuukauden ilmaiseksi. Jos jokin ei miellytä, ette maksa mitään ja suljemme sen; jos pidätte sen, maksatte 30 % sovitusta hinnasta ja sen jälkeen kuukausittaisen ylläpitomaksun, josta sovimme etukäteen.",
         "pt": "Podem usar o agente gratuitamente durante um mês. Se algo não vos agradar, não pagam nada e desligamos o agente; se ficarem com ele, pagam 30% do preço acordado e depois uma mensalidade de manutenção combinada de antemão.",
+    },
+    {
+        "hu": "Az első 15 ügyfelünknek: egy hónapig ingyen kipróbálható. Ha bármi nem tetszik, nem kell fizetni semmit, és leállítjuk; ha marad, az igény alapján felbecsült összegnek csak a 20%-át kérjük, a havi karbantartási díjról előre megállapodunk.",
+        "en": "For our first 15 customers: use the agent free for a month. If anything is not right, you pay nothing and we switch it off; if you keep it, you pay just 20% of the price we estimate from your needs, and we agree the monthly maintenance fee in advance.",
+        "sk": "Pre prvých 15 zákazníkov: mesiac ho môžete používať zadarmo. Ak vám niečo nebude vyhovovať, nezaplatíte nič a agenta vypneme; ak si ho necháte, zaplatíte len 20 % z ceny odhadnutej podľa vašich potrieb a mesačný poplatok za údržbu si dohodneme vopred.",
+        "ro": "Pentru primii 15 clienți: îl puteți folosi gratuit o lună. Dacă ceva nu vă convine, nu plătiți nimic și îl oprim; dacă îl păstrați, plătiți doar 20% din prețul estimat în funcție de nevoile dumneavoastră, iar taxa lunară de întreținere o stabilim dinainte.",
+        "hr": "Za prvih 15 kupaca: mjesec dana ga možete koristiti besplatno. Ako vam nešto ne odgovara, ne plaćate ništa i isključujemo ga; ako ga zadržite, plaćate samo 20 % cijene procijenjene prema vašim potrebama, a mjesečnu naknadu za održavanje dogovaramo unaprijed.",
+        "sl": "Za prvih 15 strank: mesec dni ga lahko uporabljate brezplačno. Če vam kaj ne ustreza, ne plačate ničesar in ga izklopimo; če ga obdržite, plačate le 20 % cene, ocenjene glede na vaše potrebe, mesečno vzdrževalnino pa se vnaprej dogovorimo.",
+        "fr": "Pour nos 15 premiers clients : vous l’utilisez gratuitement pendant un mois. Si quelque chose ne vous convient pas, vous ne payez rien et nous l’arrêtons ; si vous le gardez, vous ne payez que 20 % du prix estimé selon vos besoins, et nous convenons à l’avance des frais de maintenance mensuels.",
+        "nl": "Voor onze eerste 15 klanten: u gebruikt de agent een maand gratis. Als er iets niet bevalt, betaalt u niets en zetten we hem uit; als u hem houdt, betaalt u slechts 20% van de prijs die we op basis van uw behoeften inschatten, en de maandelijkse onderhoudsvergoeding spreken we vooraf af.",
+        "sv": "För våra första 15 kunder: ni använder agenten gratis i en månad. Om något inte passar betalar ni ingenting och vi stänger av den; om ni behåller den betalar ni bara 20 % av det pris vi uppskattar utifrån era behov, och den månatliga underhållsavgiften kommer vi överens om i förväg.",
+        "fi": "Ensimmäisille 15 asiakkaalle: voitte käyttää agenttia kuukauden ilmaiseksi. Jos jokin ei miellytä, ette maksa mitään ja suljemme sen; jos pidätte sen, maksatte vain 20 % tarpeidenne perusteella arvioidusta hinnasta, ja kuukausittaisesta ylläpitomaksusta sovimme etukäteen.",
+        "pt": "Para os nossos primeiros 15 clientes: podem usar o agente gratuitamente durante um mês. Se algo não vos agradar, não pagam nada e desligamos o agente; se ficarem com ele, pagam apenas 20% do preço estimado segundo as vossas necessidades, e a mensalidade de manutenção combinamos de antemão.",
     },
 ]
 PS_PREFIX = {"hu": "Ui.:", "fr": "P.-S. :"}

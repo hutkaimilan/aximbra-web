@@ -1772,11 +1772,11 @@ def test_linkedin_finds_the_decision_maker_at_companies_we_emailed(store, monkey
 
 
 def test_offer_percentage_is_allowed_but_other_statistics_are_not():
-    """Az ajánlat rögzített mondata a 20%-ot tartalmazza (a tulajdonos döntése):
+    """Az ajánlat rögzített mondata a 40%-ot tartalmazza (a tulajdonos döntése):
     ez nem „statisztika”, de bármi más százalék továbbra is az."""
     import playbook
     for lang, offer in playbook.OFFER.items():
-        assert "20" in offer and "15" in offer, lang
+        assert "40" in offer and "15" in offer, lang
     ok = _lead(body=CLEAN_BODY + "\n\n" + playbook.OFFER["hu"])
     assert not any("statisztik" in x for x in verify.rule_violations(ok))
     bad = _lead(body="A hívások 40%-át elveszítik.\n\n" + CLEAN_BODY + "\n\n" + playbook.OFFER["hu"])
@@ -1792,7 +1792,7 @@ def test_refresh_offers_replaces_the_old_text_in_unsent_drafts_only(store):
     assert a and "az ár felét" in store.get(a)["body"]
     assert pipeline.refresh_offers(store) == 1
     body = store.get(a)["body"]
-    assert playbook.OFFER["hu"] in body and old not in body and "20%" in body
+    assert playbook.OFFER["hu"] in body and old not in body and "40%" in body
     assert pipeline.refresh_offers(store) == 0          # másodszor nincs mit cserélni
 
 
