@@ -13,6 +13,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
+import email.utils
 import json
 
 import calendar_slots
@@ -318,6 +319,9 @@ def auto_send(store: Store, log: RunLog, *, now: datetime, mailer=mailer_mod, sl
         log.say("Magától küldés kikapcsolva: " + "; ".join(r["why"]))
         return []
     since = (now.astimezone(timezone.utc) - timedelta(days=cfg["brake_days"])).isoformat(timespec="seconds")
+    if sender_blocked(store, now):
+        log.say("Magától küldés: SZÜNETEL, mert a küldő fiók visszadobja a leveleket (CustomFromDenied).")
+        return []
     out = store.auto_outcomes(since)
     if out["bounced"] >= cfg["brake_bounces"]:
         store.set_setting("auto_send", "off")
@@ -495,7 +499,7 @@ def auto_followups(store: Store, log: RunLog, *, now: datetime, mailer=mailer_mo
         log.say("Utánkövetés magától: most nincs munkaidő, ebben a körben nem küld.")
         return 0
     since = (now.astimezone(timezone.utc) - timedelta(days=cfg["bounce_days"])).isoformat(timespec="seconds")
-    if store.bounces_since(since):
+    if store.bounces_since(since) or sender_blocked(store, now):
         log.say("Utánkövetés magától: SZÜNETEL, mert az elmúlt napokban visszapattant levél. "
                 "Nézd meg a küldő fiókot; ha rendben, a panelről elküldheted.")
         return 0
@@ -562,11 +566,45 @@ def _same_thread(lead: dict, m: dict) -> bool:
     return len(subj) >= 8 and _norm_subject(m.get("subject") or "") == subj
 
 
+# A Gmail "küldés erről a címről" SMTP-je (Brevo) visszadobja a levelet. Ilyenkor
+# a hibaüzenetben NINCS benne a címzett, ezért a leadenkénti felismerés nem
+# látja: 2026-11-12/13-án így pattant vissza 32 levél jelzés nélkül.
+_SENDER_BROKEN = re.compile(r"CustomFromDenied|SMTP account is not yet activated|"
+                            r"E-mail küldése erről a címről|Send mail as", re.I)
+SENDER_BLOCK_DAYS = 2
+
+
+def _detect_broken_sender(store: Store, log: RunLog, bounces: list[dict]) -> None:
+    latest = 0.0
+    for b in bounces:
+        if _SENDER_BROKEN.search((b.get("text") or "") + " " + (b.get("subject") or "")):
+            try:
+                latest = max(latest, email.utils.parsedate_to_datetime(b.get("date") or "").timestamp())
+            except (TypeError, ValueError, IndexError):
+                latest = max(latest, time.time())
+    if not latest:
+        return
+    iso = datetime.fromtimestamp(latest, timezone.utc).isoformat(timespec="seconds")
+    if (store.get_setting("sender_broken_at") or "") < iso:
+        store.set_setting("sender_broken_at", iso)
+        log.say("KÜLDÉS ELROMLOTT: a Gmail a feladó-alias SMTP-je miatt visszadobja a leveleket "
+                "(CustomFromDenied). A magától küldés szünetel, amíg nincs javítva.")
+
+
+def sender_blocked(store: Store, now: datetime) -> bool:
+    at = store.get_setting("sender_broken_at")
+    if not at:
+        return False
+    since = (now.astimezone(timezone.utc) - timedelta(days=SENDER_BLOCK_DAYS)).isoformat(timespec="seconds")
+    return at >= since
+
+
 def _scan_replies(store: Store, log: RunLog, *, llm, mailbox_factory, slots_fn) -> RunLog:
     sent = [l for l in store.list("sent") if l["reply_kind"] in ("none", "auto")]
     with mailbox_factory() as mb:
         # Visszapattanók: a hibaüzenet szövegében ott a címzett címe.
         bounces = mb.bounces_since(21)
+        _detect_broken_sender(store, log, bounces)
         for lead in sent:
             if any(lead["email"] in (b["text"] or "").lower() for b in bounces):
                 store.set_reply(lead["id"], "bounce", "a levél nem kézbesíthető")

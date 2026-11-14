@@ -205,6 +205,7 @@ def state():
         "auto_followup": {"on": store.get_setting("auto_followup") != "off",
                           "daily": pipeline.followup_cfg()["daily"],
                           "sent_today": store.followups_sent_today()},
+        "sender_broken_at": store.get_setting("sender_broken_at"),
         "countries": {k: v["name"] for k, v in COUNTRIES.items()},
         "sectors": {k: v["hu"] for k, v in SECTORS.items()},
         "roles": list(outreach.ROLES),

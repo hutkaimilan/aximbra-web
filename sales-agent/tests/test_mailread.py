@@ -115,3 +115,22 @@ def test_api_locks_out_after_bad_tokens(tmp_path, monkeypatch, accounts):
     for _ in range(app_mod.AUTH_FAIL_LIMIT):
         assert c.get("/api/mailbox/accounts", headers={"X-Mailbox-Token": "rossz"}).status_code == 401
     assert c.get("/api/mailbox/accounts", headers={"X-Mailbox-Token": TOKEN}).status_code == 429
+
+
+def test_broken_sender_dsn_pauses_auto_sending(tmp_path):
+    from datetime import datetime, timezone
+    import pipeline
+    from store import Store
+    st = Store(str(tmp_path / "b.db"))
+    log = pipeline.RunLog()
+    dsn = {"subject": "Delivery Status Notification (Failure)", "date": "Fri, 13 Nov 2026 03:20:10 -0800",
+           "text": "https://support.google.com/mail/?p=CustomFromDenied 502 5.7.0 Your SMTP account is not yet activated."}
+    pipeline._detect_broken_sender(st, log, [{"subject": "x", "date": "", "text": "user unknown"}])
+    assert st.get_setting("sender_broken_at") is None
+    pipeline._detect_broken_sender(st, log, [dsn])
+    assert st.get_setting("sender_broken_at") == "2026-11-13T11:20:10+00:00"
+    assert pipeline.sender_blocked(st, datetime(2026, 11, 14, 10, tzinfo=timezone.utc))
+    assert not pipeline.sender_blocked(st, datetime(2026, 11, 16, 10, tzinfo=timezone.utc))
+    st.set_setting("auto_followup", "on")
+    assert pipeline.auto_followups(st, log, now=datetime(2026, 11, 13, 13, tzinfo=timezone.utc)) == 0
+    assert any("SZÜNETEL" in line for line in log.lines)
