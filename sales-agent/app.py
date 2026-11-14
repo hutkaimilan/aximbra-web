@@ -25,6 +25,7 @@ import content
 import demopage
 import gmail_api
 import llm
+import mailread
 import outreach
 import websearch
 import mailer
@@ -1251,6 +1252,67 @@ def _scheduler():
         except Exception:  # noqa: BLE001
             logger.exception("ütemező hiba")
         time.sleep(30)
+
+
+# ---- postafiók olvasása (csak olvasás) -----------------------------------
+# A tulajdonos kérése (2026-11-15): a Claude lásson rá minden levelére. Külön,
+# hosszú MAILBOX_TOKEN védi (nem a panel jelszava), IP-nkénti hibás-kulcs
+# korláttal és óránkénti kérés-plafonnal.
+MAILBOX_RATE = 240  # kérés / óra összesen
+_mbox_hits: list[float] = []
+_mbox_fails: dict[str, list[float]] = {}
+_mbox_lock = threading.Lock()
+
+
+def mailbox_auth(request: Request, x_mailbox_token: str = Header(default="")):
+    want = os.environ.get("MAILBOX_TOKEN", "")
+    if len(want) < 32:
+        raise HTTPException(503, "Nincs beállítva MAILBOX_TOKEN.")
+    ip, t = _client_ip(request), time.time()
+    with _mbox_lock:
+        _prune(_mbox_fails, AUTH_FAIL_WINDOW, t)
+        recent = [x for x in _mbox_fails.get(ip, []) if t - x < AUTH_FAIL_WINDOW]
+        _mbox_fails[ip] = recent
+        if len(recent) >= AUTH_FAIL_LIMIT:
+            raise HTTPException(429, "Túl sok hibás kulcs.")
+    if not secrets.compare_digest(x_mailbox_token.encode(), want.encode()):
+        with _mbox_lock:
+            _mbox_fails.setdefault(ip, []).append(t)
+        time.sleep(1)
+        raise HTTPException(401, "Hibás kulcs.")
+    with _mbox_lock:
+        _mbox_hits[:] = [x for x in _mbox_hits if t - x < 3600]
+        if len(_mbox_hits) >= MAILBOX_RATE:
+            raise HTTPException(429, "Óránkénti keret elfogyott.")
+        _mbox_hits.append(t)
+
+
+@app.get("/api/mailbox/accounts", dependencies=[Depends(mailbox_auth)])
+def mailbox_accounts():
+    return {"accounts": mailread.accounts()}
+
+
+@app.get("/api/mailbox/search", dependencies=[Depends(mailbox_auth)])
+def mailbox_search(q: str = "", account: str = "", folders: str = "all,spam,trash", limit: int = 20):
+    try:
+        return mailread.search(q, account or None, folders, limit)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except (AuthError, MailError) as e:
+        raise HTTPException(502, str(e))
+
+
+@app.get("/api/mailbox/message", dependencies=[Depends(mailbox_auth)])
+def mailbox_message(account: str, id: str):
+    try:
+        m = mailread.get(account, id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except (AuthError, MailError) as e:
+        raise HTTPException(502, str(e))
+    if not m:
+        raise HTTPException(404, "Nincs ilyen levél.")
+    return m
 
 
 @app.post("/api/content/run")
