@@ -71,4 +71,9 @@ MARKETING_RULES = """PROVEN CRAFT RULES (follow them unless the brief says other
 14. Comments are worth more than likes in the feed: end the post with one genuine, easy question to the reader
    about their own situation — never "comment YES below" style bait, which the platforms penalise.
 15. Carousels and documents keep LinkedIn readers 2–3x longer than a single image: when the brief does not fix
-   the form, an explainer belongs in a carousel."""
+   the form, an explainer belongs in a carousel.
+16. DEMO REEL (when the brief has "Hook:" / "Demó:" / "Demo:" parts): the agent in the brief is real and working,
+   so the video SHOWS it working. Scene 1 is a "hook" of max 2 seconds with the brief's hook sentence. Then at
+   least two animated UI scenes ("inbox", "call", "sms", "site" or "steps") carry the demo step by step, with
+   sample data only. Name the agent. The last scene is one "cta": "aximbra.hu", inviting the viewer to try the
+   live demo. No generic AI imagery, no robots, no abstract 'future of AI' scenes."""

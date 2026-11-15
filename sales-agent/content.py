@@ -136,10 +136,44 @@ def _market(store, now: datetime) -> dict:
 
 # ---- melyik agent kerül ma sorra --------------------------------------------
 
-# A tizenöt kártya és a telefonos agent. A telefonos a második: az első
-# napon (2026-10-08) az e-mail rendező már kiment, így ő jön utána.
-ROTATION = (AGENTS[0], VOICE_AGENT, *AGENTS[1:])
+# Csak a működő agentekről megy videó (a tulajdonos döntése, 2026-11-15): amiről
+# demó-Reel készül, annak tényleg futnia kell. Ha egy újabb agent elkészül, a
+# kulcsát ide kell felvenni. A telefonos a második: az e-mail rendező után jön.
+DEMO_KEYS = ("email", "voice", "leads", "webshop", "sales")
+_BY_KEY = {a["key"]: a for a in (*AGENTS, VOICE_AGENT)}
+ROTATION = tuple(_BY_KEY[k] for k in DEMO_KEYS)
 AGENT_KEYS = tuple(a["key"] for a in ROTATION)
+
+# Mit mutasson a demó agentenként: melyik jelenetfajta viszi a működést a
+# videós agentnél (inbox, call, sms, site), és hol próbálható ki.
+DEMO_HOW = {
+    "email": "inbox-jelenet: egy közös postafiók 4–5 levele sorra címkét kap (kategória, sürgősség, felelős). "
+             "Kipróbálható élőben az aximbra.hu-n, mintapostafiókon.",
+    "voice": "call-jelenet: az AI felveszi a telefont, magázva válaszol, kérdez, és a végén összefoglalja a "
+             "kérést. Kipróbálható élőben: az aximbra.hu-n visszahívást lehet kérni.",
+    "leads": "steps- vagy compare-jelenet: 3–4 beérkező érdeklődés pontszámot és teendőt kap (ma hívd / később / "
+             "nem illik). Kipróbálható élőben az aximbra.hu-n.",
+    "webshop": "inbox-jelenet vásárlói levelekkel (hol a csomag, visszaküldés, számla), mindegyik mellett a kész "
+               "válasz és a rendelés állapota. Kipróbálható élőben az aximbra.hu-n.",
+    "sales": "steps-jelenet: cég weboldala → egy valódi megfigyelés → rövid, személyre szabott levélvázlat → az ember "
+             "jóváhagyja. Ez az AXIMBRA saját értékesítése, élesben fut.",
+}
+
+# Ugyanarról az agentről több szögből: körönként (5 naponta) vált a szög.
+ANGLES = (
+    "Gyorsaság: ami kézzel fél óra, azt a néző a szeme előtt látja lefutni (időt, megtakarítást NE számszerűsíts).",
+    "Előtte–utána: bal oldalt a mai kézi káosz, jobb oldalt ugyanaz az agenttel.",
+    "Egy eset végig: egyetlen hétköznapi helyzet az elejétől a végéig, lépésenként.",
+    "Mit NEM csinál: az agent javasol, az ember jóváhagy — semmi nem megy ki magától, ha a cég nem kéri.",
+)
+
+
+# Demó-Reel hossza: rövid, hogy végignézzék.
+DEMO_SECONDS = 30
+
+
+def pick_angle(day) -> str:
+    return ANGLES[(day.toordinal() // len(ROTATION)) % len(ANGLES)]
 HISTORY_KEEP = 2 * len(ROTATION)
 SECTOR_KEYS = tuple(SECTORS)
 
@@ -193,7 +227,7 @@ FORM_HU = {"video": "rövid videó", "image": "egyetlen kép", "carousel": "kép
 
 
 def _prompt(m: dict, recent: list[str], today: str, agent: dict, sector: str = "",
-            weekday: tuple = ("", ""), forms: dict | None = None) -> str:
+            weekday: tuple = ("", ""), forms: dict | None = None, angle: str = "") -> str:
     forms = forms or {}
     sec = SECTORS.get(sector) or {}
     def block(g):
@@ -214,7 +248,16 @@ A MAI AGENT — mindkét téma erről szól, másikról ma nem írsz:
   angolul: {agent["en"]} — {agent["en_what"]}
 A sorrendet nem te döntöd el: minden agent sorra kerül, ma ez következik. Ha ez a mai agent nem illik a lenti
 piaci jelekhez, akkor sem váltasz agentet — olyan helyzetet keresel, ahol ennek az agentnek van dolga.
-Nem kötelező kimondani az agent nevét: elég, ha a téma az ő helyzetéről szól, és abból látszik, mit old meg.
+
+EZ DEMÓ-VIDEÓ: ez az agent kész és működik, a videó azt mutatja, ahogy dolgozik — nem ígéretet, nem koncepciót.
+  Mit mutasson: {DEMO_HOW.get(agent["key"], "a képernyőn látszó működést, lépésenként")}
+  A mai szög: {angle or ANGLES[0]}
+  Felépítés (írd bele a témába így: "Hook: …", "Demó: …", "Zárás: …"):
+  - Hook (első 2 másodperc): egy erős, IGAZ mondat a néző helyzetéről, pl. "Ez az AI felveszi helyetted a telefont."
+  - Demó: a képernyőn lépésenként látszik, ahogy az agent dolgozik, mintaadatokkal (kitalált, általános tárgysorok,
+    nem valódi cég). Ez viszi a videó nagyobb részét.
+  - Zárás: "Próbálja ki élőben: aximbra.hu" — egyetlen felhívás.
+Az agent nevét mondd ki.
 
 A MAI IPARÁG — mindkét téma ebben játszódik, másik iparágat ma nem hozol:
   {sec.get("hu", sector)} ({sector})
@@ -254,7 +297,7 @@ Szabályok (marketingkutatás alapján):
    "en": angolul írd, Instagramra: vizuálisabb, rövidebb, erős első kép. Ugyanez a videó magyarul és angolul is
    kimegy, ezért magyar és nemzetközi cégvezetőknek egyaránt szóljon: ne legyen benne csak egy országra
    érthető utalás (helyi szabály, ünnep, pénznem)
-7. Mindkét téma 2–4 mondat, 200–600 karakter: mit mutasson, kinek, milyen hangulatban, mi a zárás.
+7. Mindkét téma 300–900 karakter, a Hook / Demó / Zárás felépítésben: mit mutasson, kinek, milyen hangulatban.
 
 Csak JSON-t adj vissza:
 {{"hu": {{"brief": "..."}}, "en": {{"brief": "..."}}}}"""
@@ -275,7 +318,7 @@ def generate(store, now: datetime, agent: dict, sector: str = "") -> dict:
     forms = {lang: pick_form(lang, day) for lang in ROUTES}
     weekday = (HU_DAYS[day.weekday()], EN_DAYS[day.weekday()])
     data = llm.extract_json(llm._ask(_prompt(m, recent[-10:], day.isoformat(), agent,
-                                             sector, weekday, forms)))
+                                             sector, weekday, forms, pick_angle(day))))
     if not isinstance(data, dict):
         raise llm.LLMError("a témaíró nem objektumot adott")
     out = {}
@@ -347,7 +390,8 @@ def run(store, now: datetime, say=logger.info) -> dict:
                 continue
             b = briefs[lang]
             item = {"id": f"sales-{day}-{lang}", "brief": b["brief"], "lang": lang,
-                    "targets": [target], "form": b["form"], "source": source}
+                    "targets": [target], "form": b["form"], "source": source,
+                    "seconds": DEMO_SECONDS}
             if target == "instagram":
                 # Egy videó, két nyelven: magyarul készül, a videós agent angolra is
                 # lefordítja, és mindkettőt kiposztolja.

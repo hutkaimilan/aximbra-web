@@ -1370,9 +1370,9 @@ def test_content_covers_every_agent_before_repeating_any(store, monkeypatch):
 
     order = _json.loads(store.get_setting("content_agents"))
     assert order == [a["key"] for a in ROT]               # mind sorra kerül, pont egyszer
-    assert len(set(order)) == len(ROT) >= 16
+    # Csak a működő agentekről megy demó-videó (2026-11-15).
+    assert order == ["email", "voice", "leads", "webshop", "sales"]
     assert "voice" in order                               # a telefonos agent is, pedig nem kártya
-    assert {a["key"] for a in AGENTS} <= set(order)
 
     # Egy nap = egy agent, és az a LinkedInre is, az Instagramra is kimegy.
     day = (start + timedelta(days=3)).date().isoformat()
@@ -1444,6 +1444,25 @@ def test_the_prompt_names_today_s_weekday():
                         {"hu": "video", "en": "image"})
     assert "csütörtök" in p and "Thursday" in p and "szerda" not in p
     assert "rövid videó" in p and "egyetlen kép" in p
+
+
+def test_demo_reel_prompt_shows_the_working_agent_and_rotates_the_angle():
+    """Csak működő agentről megy videó, demóként: hook, képernyős működés, zárás."""
+    import content
+    from datetime import date
+    m = {"groups": {"hu": {"sectors": __import__("collections").Counter(), "pains": [], "signals": []},
+                    "en": {"sectors": __import__("collections").Counter(), "pains": [], "signals": []}},
+         "names": set(), "best": []}
+    assert set(content.DEMO_HOW) == set(content.AGENT_KEYS)
+    d = date(2026, 11, 16)
+    angle = content.pick_angle(d)
+    p = content._prompt(m, [], d.isoformat(), content.ROTATION[0], "logistics",
+                        (content.HU_DAYS[d.weekday()], content.EN_DAYS[d.weekday()]),
+                        {"hu": "video", "en": "video"}, angle)
+    assert "DEMÓ-VIDEÓ" in p and content.DEMO_HOW["email"] in p and angle in p
+    assert "Hook" in p and "aximbra.hu" in p
+    # Egy teljes kör (5 nap) után vált a szög, így ugyanaz az agent más szögből jön vissza.
+    assert content.pick_angle(d) != content.pick_angle(d + timedelta(days=len(content.ROTATION)))
 
 
 def test_rotation_lists_exactly_the_agents_the_website_sells():
