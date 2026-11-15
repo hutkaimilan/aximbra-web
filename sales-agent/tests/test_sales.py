@@ -1465,6 +1465,17 @@ def test_demo_reel_prompt_shows_the_working_agent_and_rotates_the_angle():
     assert content.pick_angle(d) != content.pick_angle(d + timedelta(days=len(content.ROTATION)))
 
 
+def test_content_now_sends_today_immediately_but_only_once(store, monkeypatch):
+    import content
+    night = datetime(2026, 11, 15, 1, 20)
+    assert not content.lang_due("hu", night, store)
+    monkeypatch.setenv("CONTENT_NOW", "2026-11-15")
+    assert content.lang_due("hu", night, store) and content.lang_due("en", night, store)
+    store.set_setting("content_sent_hu", "2026-11-15")
+    assert not content.lang_due("hu", night, store)                       # nem duplán
+    assert not content.lang_due("en", night + timedelta(days=1), store)   # másnap hatástalan
+
+
 def test_rotation_lists_exactly_the_agents_the_website_sells():
     """Ha az oldalra új agentkártya kerül, de a névsorba nem, arról megint nulla
     poszt menne ki — csendben, ugyanúgy, mint eddig. A forrás az aximbra.hu

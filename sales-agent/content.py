@@ -91,6 +91,10 @@ def lang_due(lang: str, now: datetime, store) -> bool:
     (h, m), days = schedule()[lang]
     if now.weekday() not in days or store.get_setting(f"content_sent_{lang}") == now.date().isoformat():
         return False
+    # Kézi próba: CONTENT_NOW=<mai dátum> esetén a mai posztok azonnal mennek, nem várnak
+    # a szokott időpontra. Napi egyszer, ugyanúgy, mint máskor; másnap magától hatástalan.
+    if (os.environ.get("CONTENT_NOW") or "").strip() == now.date().isoformat():
+        return True
     start = now.replace(hour=h, minute=m, second=0, microsecond=0)
     return start <= now < start + timedelta(minutes=WINDOW_MIN)
 
