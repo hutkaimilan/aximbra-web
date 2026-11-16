@@ -1331,8 +1331,9 @@ def test_content_sends_two_briefs_once_and_never_leaks_names(store, monkeypatch)
     content.run(store, now.replace(hour=12, minute=30))                    # ebédidőben az Instagram
     assert [s["id"] for s in sent] == ["sales-2026-10-06-hu", "sales-2026-10-06-en"]
     assert sent[0]["targets"] == ["linkedin"] and sent[1]["targets"] == ["instagram"]
-    # Instagram: egy videó magyarul, a videós agent angolra is lefordítja és kiposztolja.
-    assert sent[1]["lang"] == "hu" and sent[1]["twins"] == ["en"] and "twins" not in sent[0]
+    # Mindkét platformra egy videó magyarul, a videós agent angolra is lefordítja és kiposztolja.
+    assert sent[1]["lang"] == "hu" and sent[1]["twins"] == ["en"]
+    assert sent[0]["lang"] == "hu" and sent[0]["twins"] == ["en"]
     # A formát a kód adja, nem a modell (az itt mást írt vissza).
     assert sent[0]["form"] == content.pick_form("hu", now.date())
     assert sent[1]["form"] == content.pick_form("en", now.date())

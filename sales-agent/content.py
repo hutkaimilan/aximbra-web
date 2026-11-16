@@ -396,10 +396,10 @@ def run(store, now: datetime, say=logger.info) -> dict:
             item = {"id": f"sales-{day}-{lang}", "brief": b["brief"], "lang": lang,
                     "targets": [target], "form": b["form"], "source": source,
                     "seconds": DEMO_SECONDS}
-            if target == "instagram":
-                # Egy videó, két nyelven: magyarul készül, a videós agent angolra is
-                # lefordítja, és mindkettőt kiposztolja.
-                item.update(lang=IG_LANGS[0], twins=list(IG_LANGS[1:]))
+            # Egy videó, két nyelven: magyarul készül, a videós agent angolra is
+            # lefordítja, és mindkettőt kiposztolja — Instagramra és LinkedInre is
+            # (a tulajdonos kérése, 2026-11-16).
+            item.update(lang=IG_LANGS[0], twins=list(IG_LANGS[1:]))
             _send(item)
             store.set_setting(f"content_sent_{lang}", day)
             sent[lang] = b["brief"]
