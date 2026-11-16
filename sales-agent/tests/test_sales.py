@@ -581,16 +581,17 @@ def test_hungarian_business_abroad_gets_both_languages(store):
         if lead["lang"] == "hu":
             return {"subject": "Esti foglalások", "body": "Jó napot!\n\nAz oldalukon azt írják, hogy asztalt csak "
                     "telefonon foglalnak, és ez nem mindig könnyű.\n\nMilán · AXIMBRA · aximbra.hu\n\n" + OPT_OUT["hu"]}
-        return {"subject": "Večerné rezervácie", "body": "Dobrý deň,\n\nna vašej stránke píšete, že rezervácie sú "
-                "len telefonicky a že to nie je vždy ľahké.\n\nMilán · AXIMBRA · aximbra.hu/sk\n\n" + OPT_OUT["sk"]}
+        return {"subject": "Evening bookings", "body": "Hello,\n\nyour website says that bookings are taken "
+                "by phone only, and that this is not always easy.\n\nMilán · AXIMBRA · aximbra.hu/en\n\n" + OPT_OUT["en"]}
     llm.compose = compose
     llm.critique = lambda lead, s, b: {"score": 9, "issues": [], "subject": s, "body": b}
     pipeline.research_run(store, {"SK": 1}, pipeline.RunLog(), llm=llm,
                           fetch=lambda url: PAGE.replace("kertbisztro.hu", "kertbisztro.sk"), mailbox_factory=FakeMailbox)
     lead = store.list("draft")[0]
-    assert seen == ["hu", "sk"] and lead["lang"] == "sk" and lead["lang2"] == "hu"
-    hu_part, sk_part = lead["body"].split(verify.SEPARATOR)
-    assert "Jó napot" in hu_part and "Dobrý deň" in sk_part and lead["subject"] == "Esti foglalások / Večerné rezervácie"
+    # Magyarul és angolul — a szlovák kimarad (2026-11-16).
+    assert seen == ["hu", "en"] and lead["lang"] == "en" and lead["lang2"] == "hu"
+    hu_part, en_part = lead["body"].split(verify.SEPARATOR)
+    assert "Jó napot" in hu_part and "Hello" in en_part and lead["subject"] == "Esti foglalások / Evening bookings"
     assert not verify.mixed_language(lead) and "VEGYES" not in (lead["warnings"] or "")
 
 
@@ -1694,9 +1695,10 @@ def test_offer_is_in_every_follow_up_word_for_word():
     import playbook
     for lang in playbook.OFFER:
         lead = {"lang": lang, "lang2": None, "country": "HU"}
-        assert playbook.OFFER[lang] in pipeline.followup_body(lead), lang
+        want = playbook.OFFER[playbook.letter_lang(lang)]   # csak magyarul vagy angolul megy ki
+        assert want in pipeline.followup_body(lead), lang
         with_demo = pipeline.followup_body(lead, "https://aximbra.hu/neked/x")
-        assert playbook.OFFER[lang] in with_demo and "https://aximbra.hu/neked/x" in with_demo, lang
+        assert want in with_demo and "https://aximbra.hu/neked/x" in with_demo, lang
         assert not verify.has_price(with_demo), lang
 
 
@@ -1971,3 +1973,54 @@ def test_auto_followups_pause_after_recent_bounce(store):
     assert pipeline.auto_followups(store, log, now=now, mailer=FakeMailer(), sleep=lambda s: None) == 0
     assert any("SZÜNETEL" in s for s in log.lines)
     assert store.get(lid)["followup_status"] == "draft"
+
+
+def test_letters_go_out_only_in_hungarian_or_english():
+    """2026-11-16: a választ a tulajdonosnak kell elolvasnia — magyar cégnek magyarul, mindenki másnak angolul."""
+    import playbook
+    assert playbook.letter_lang("HU") == "hu"
+    for c in ("SK", "RO", "FR", "BE", "SE", "FI", "PT", "NL", "GB", "US"):
+        assert playbook.letter_lang(c) == "en", c
+    for lang in ("sk", "ro", "fr", "nl", "sv", "fi", "pt", "hr", "sl"):
+        body = pipeline.followup_body({"lang": lang, "lang2": None, "country": "SK"}, "https://aximbra.hu/neked/x")
+        assert playbook.OFFER["en"] in body and playbook.OFFER[lang] not in body, lang
+    # Dél-szlovákiai magyar cég: magyarul és angolul, a szlovák kimarad.
+    both = pipeline.followup_body({"lang": "sk", "lang2": "hu", "country": "SK"})
+    assert playbook.OFFER["hu"] in both and playbook.OFFER["en"] in both and playbook.OFFER["sk"] not in both
+    assert playbook.site_for({"lang": "en", "country": "SK"}) == "aximbra.hu/en"
+
+
+def test_english_only_rewrites_unsent_foreign_drafts_and_follow_ups(store):
+    import playbook
+
+    class EnLLM(FakeLLM):
+        def compose(self, lead):
+            assert lead["lang"] == "en"
+            return {"subject": "Evening bookings by phone",
+                    "body": "Hello,\n\nYour website says tables are booked by phone only.\n\n"
+                            "Who answers on a busy Friday evening?\n\nMilán Hutkai · AXIMBRA · aximbra.hu/en\n\n"
+                            + playbook.offer_ps("en") + "\n\n" + OPT_OUT["en"]}
+
+        def critique(self, lead, subject, body):
+            return {"score": 9, "issues": [], "subject": subject, "body": body}
+
+    draft_id = store.add_lead(_lead(company="Slovak Draft s.r.o.", email="a@sk-draft.sk", country="SK", lang="sk",
+                                    lang2=None, subject="Rezervácie", body="Dobrý deň, slovenský text."))
+    sent_id = store.add_lead(_lead(company="Slovak Sent s.r.o.", email="b@sk-sent.sk", country="SK", lang="sk",
+                                   lang2=None))
+    store.claim_for_send(sent_id)
+    store.mark_sent(sent_id, "<m@x>")
+    store.set_followup_draft(sent_id, "Dobrý deň, pozrite si https://aximbra.hu/neked/slovak-sent-ab12 prosím.")
+    hu_id = store.add_lead(_lead(company="Magyar Kft", email="c@magyar.hu", country="HU", lang="hu", lang2=None))
+
+    res = pipeline.english_only(store, llm=EnLLM([]), say=lambda m: None)
+    assert res["drafts"] == 1 and res["followups"] == 1 and res["failed"] == 0
+    d = store.get(draft_id)
+    assert d["lang"] == "en" and d["subject"] == "Evening bookings by phone" and "Dobrý" not in d["body"]
+    s = store.get(sent_id)
+    assert s["lang"] == "en" and "https://aximbra.hu/neked/slovak-sent-ab12" in s["followup_body"]
+    assert playbook.OFFER["en"] in s["followup_body"] and "Dobrý" not in s["followup_body"]
+    h = store.get(hu_id)
+    assert h["lang"] == "hu" and h["body"] == CLEAN_BODY
+    # Másodszorra már nincs mit tenni.
+    assert pipeline.english_only(store, llm=EnLLM([]), say=lambda m: None) == {"drafts": 0, "followups": 0, "sent": 0, "failed": 0}

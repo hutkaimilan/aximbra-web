@@ -636,8 +636,9 @@ def test_followup_with_demo_leads_with_the_page_in_every_language():
         assert body.index("aximbra.hu/neked/") < len(body) // 2   # a link elöl van, nem a végén
     hu = pipeline.followup_body({"lang": "hu"}, "https://aximbra.hu/neked/kert-1")
     assert "elsikkadt" not in hu and hu.startswith("Jó napot!\n\nAz előző levelem óta")
-    sk, hu2 = pipeline.followup_body({"lang": "hu", "lang2": "sk"}, "https://aximbra.hu/neked/x").split("— — —")
-    assert sk.startswith("Dobrý deň") and "Jó napot" in hu2
+    # Idegen nyelven nem megy ki: a szlovák helyett angol (2026-11-16).
+    en, hu2 = pipeline.followup_body({"lang": "hu", "lang2": "sk"}, "https://aximbra.hu/neked/x").split("— — —")
+    assert en.startswith(FOLLOW_UP_DEMO["en"][:8]) and "Dobrý deň" not in en and "Jó napot" in hu2
     assert "neked" not in pipeline.followup_body({"lang": "en"})
 
 

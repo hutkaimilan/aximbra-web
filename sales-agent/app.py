@@ -1341,6 +1341,20 @@ def _content_round(now: datetime) -> None:
         logger.warning("tartalomtéma kimaradt: %s", e)
 
 
+def _english_only_once():
+    """Egyszer fut le: a régi, idegen nyelvű vázlatok angolra cserélése. Ha valamelyik
+    nem sikerült, a következő induláskor újrapróbálja (csak azokat)."""
+    if store.get_setting("english_only_done"):
+        return
+    try:
+        res = pipeline.english_only(store)
+        logger.info("csak magyar/angol átállás: %s", res)
+        if not res["failed"]:
+            store.set_setting("english_only_done", "1")
+    except Exception:  # noqa: BLE001
+        logger.exception("a csak magyar/angol átállás nem sikerült")
+
+
 @app.on_event("startup")
 def _startup():
     stuck = store.list("sending")
@@ -1352,4 +1366,5 @@ def _startup():
             logger.info("az ajánlat szövege frissítve %d vázlatban", n)
     except Exception:  # noqa: BLE001 — a frissítés hibája nem állíthatja le az indulást
         logger.exception("az ajánlat frissítése nem sikerült")
+    threading.Thread(target=_english_only_once, daemon=True).start()
     threading.Thread(target=_scheduler, daemon=True).start()

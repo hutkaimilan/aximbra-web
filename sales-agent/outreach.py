@@ -434,7 +434,7 @@ def _from_leads(store, want: int, say) -> int:
         if not pick:
             continue
         key, h = pick
-        lang = lead.get("lang") or playbook.COUNTRIES.get(lead["country"], {}).get("lang", "en")
+        lang = playbook.letter_lang(lead.get("lang") or lead["country"])
         fact = (lead.get("observation") or "").strip()
         profile = (f"{h['title']}\n{h.get('text', '')}".strip()
                    + (f"\n\nA cég saját weboldaláról (ellenőrzött): {fact}" if fact else ""))
@@ -481,7 +481,7 @@ def daily_round(store, say=logger.info) -> int:
         except (ValueError, llm.LLMError) as e:
             say(f"LinkedIn ({sector}, {country}): a keresés nem sikerült ({e}).")
             continue
-        lang = playbook.COUNTRIES[country]["lang"]
+        lang = playbook.letter_lang(country)
         for p in found["profiles"]:
             if added >= want:
                 break

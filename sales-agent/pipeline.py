@@ -208,7 +208,7 @@ def _consider(store, cand, country, log, *, llm, fetch, mailbox) -> bool:
 
     # A levél az ország nyelvén megy. Ha a hely oldala magyar (dél-szlovákiai,
     # erdélyi magyar vállalkozás), előtte egy teljes magyar változat is.
-    country_lang = COUNTRIES[cand["country"]]["lang"]
+    country_lang = playbook.letter_lang(cand["country"])
     site_lang = verify.detect_lang(cand["observation"]) or verify.detect_lang((obs_page or "")[:3000])
     lead = {**cand, "lang": country_lang, "lang2": "hu" if site_lang == "hu" and country_lang != "hu" else None}
     langs = verify.letter_langs(lead)
@@ -396,6 +396,7 @@ def followup_body(lead: dict, demo_url: str | None = None) -> str:
     """Az utánkövető levél a lead nyelvén (kétnyelvű leadnél mindkettőn). Ha van
     a cégnek demóoldala, a levél azzal kezd: ez az új, amiért írunk."""
     langs = [lead["lang2"], lead["lang"]] if lead.get("lang2") else [lead["lang"]]
+    langs = list(dict.fromkeys(playbook.letter_lang(l) for l in langs))
     parts = []
     for lang in langs:
         if demo_url:
@@ -634,6 +635,64 @@ def _scan_replies(store: Store, log: RunLog, *, llm, mailbox_factory, slots_fn) 
                      "auto": "automatikus válasz", "other": "válaszolt"}[kind]
             log.say(f"• {lead['company']}: {label}")
     return log
+
+
+DEMO_LINK_RE = re.compile(r"https?://[^\s)>\]]*aximbra\.hu/neked/[^\s)>\]]+")
+
+
+def _compose_versions(lead: dict, llm) -> dict:
+    """Ugyanaz a levélírás, mint egy új leadnél (nyelvenként írás + bírálat), egy
+    meglévő vázlat újraírásához. LLMError, ha nem lett tiszta nyelvű levél."""
+    langs = verify.letter_langs(lead)
+    versions = {}
+    for lang in langs:
+        one = {**lead, "lang": lang, "lang2": None}
+        for _ in range(2):
+            one.update(llm.compose(one))
+            if not verify.mixed_language(one):
+                break
+        else:
+            raise llm_mod.LLMError(f"kétszer is vegyes nyelvű lett a(z) {lang} változat")
+        one.update(_reviewed(llm, one))
+        versions[lang] = one
+    out = {"subject": " / ".join(versions[l]["subject"] for l in langs),
+           "body": f"\n\n{verify.SEPARATOR}\n\n".join(versions[l]["body"] for l in langs)}
+    if verify.mixed_language({**lead, **out}):
+        raise llm_mod.LLMError("vegyes nyelvű levél lett")
+    return out
+
+
+def english_only(store, *, llm=llm_mod, say=logger.info) -> dict:
+    """Egyszeri átállás: ami még nem ment ki és nem magyarul vagy angolul szól, azt
+    angolra cseréljük. Az első levelet a levélíró újraírja, az utánkövetést a sablon
+    angol változata váltja (a cég demóoldal-linkjével együtt). Az elküldött leadek
+    nyelvét is angolra állítjuk, hogy a későbbi utánkövetés és válaszjavaslat angol legyen."""
+    out = {"drafts": 0, "followups": 0, "sent": 0, "failed": 0}
+    for lead in store.list():
+        lang, lang2 = lead.get("lang") or "", lead.get("lang2")
+        new_lang = playbook.letter_lang(lang or lead.get("country") or "")
+        new_lang2 = lang2 if lang2 in playbook.LETTER_LANGS and lang2 != new_lang else None
+        if lang == new_lang and lang2 == new_lang2:
+            continue
+        new = {**lead, "lang": new_lang, "lang2": new_lang2}
+        if lead.get("status") in ("draft", "failed"):
+            try:
+                v = _compose_versions(new, llm)
+            except Exception as e:  # noqa: BLE001 — egy hibás vázlat ne állítsa le a többit
+                out["failed"] += 1
+                say(f"{lead.get('company')}: az angol változat nem készült el ({e})")
+                continue
+            if store.edit(lead["id"], v["subject"], v["body"]):
+                store.set_lang(lead["id"], new_lang, new_lang2)
+                out["drafts"] += 1
+        else:
+            if lead.get("followup_status") == "draft":
+                m = DEMO_LINK_RE.search(lead.get("followup_body") or "")
+                if store.update_followup_draft(lead["id"], followup_body(new, m.group(0) if m else None)):
+                    out["followups"] += 1
+            store.set_lang(lead["id"], new_lang, new_lang2)
+            out["sent"] += 1
+    return out
 
 
 def refresh_offers(store) -> int:

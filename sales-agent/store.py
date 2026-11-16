@@ -554,6 +554,10 @@ class Store:
 
     # ---- utánkövetés -----------------------------------------------------
 
+    def set_lang(self, lead_id: int, lang: str, lang2: str | None) -> None:
+        with self._conn() as c:
+            c.execute("UPDATE leads SET lang = ?, lang2 = ? WHERE id = ?", (lang, lang2, lead_id))
+
     def set_followup_draft(self, lead_id: int, body: str) -> None:
         with self._conn() as c:
             c.execute("UPDATE leads SET followup_status = 'draft', followup_body = ? "

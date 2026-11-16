@@ -65,6 +65,20 @@ def legal_line(lang: str) -> str:
     return LEGAL_LINE["hu" if lang == "hu" else "other"]
 
 
+# A levelek, utánkövetések és LinkedIn-üzenetek csak magyarul vagy angolul mennek
+# (a tulajdonos döntése, 2026-11-16): a választ neki kell elolvasnia és megválaszolnia.
+# Az ország saját nyelve ("lang") csak a kereséshez kell (keresőkifejezések).
+LETTER_LANGS = ("hu", "en")
+
+
+def letter_lang(country_or_lang: str) -> str:
+    """Országkódból vagy nyelvkódból a levél nyelve: magyar cégnek magyar, mindenki másnak angol."""
+    v = (country_or_lang or "").strip()
+    if v.upper() in COUNTRIES:
+        return "hu" if COUNTRIES[v.upper()]["lang"] == "hu" else "en"
+    return "hu" if v.lower() == "hu" else "en"
+
+
 def country_ready(country: str) -> bool:
     """Postacímet kérő országba csak beállított POSTAL_ADDRESS mellett írunk."""
     c = COUNTRIES.get(country)
@@ -335,7 +349,7 @@ SIGNAL_TYPES = ("job_ad", "review", "notice", "opening", "none")
 
 def site_for(lead: dict) -> str:
     """Magyar változathoz a magyar oldal, akárhol van a cég."""
-    return "aximbra.hu" if lead["lang"] == "hu" else COUNTRIES[lead["country"]]["site"]
+    return "aximbra.hu" if lead["lang"] == "hu" else "aximbra.hu/en"
 
 
 def research_prompt(country: str, count: int, exclude_domains: list[str], focus: str = "") -> str:
