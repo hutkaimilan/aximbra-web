@@ -2024,3 +2024,29 @@ def test_english_only_rewrites_unsent_foreign_drafts_and_follow_ups(store):
     assert h["lang"] == "hu" and h["body"] == CLEAN_BODY
     # Másodszorra már nincs mit tenni.
     assert pipeline.english_only(store, llm=EnLLM([]), say=lambda m: None) == {"drafts": 0, "followups": 0, "sent": 0, "failed": 0}
+
+
+def test_extra_linkedin_round_sends_a_new_agent_in_two_languages_once(store, monkeypatch):
+    import json as _json
+    import content
+    monkeypatch.setenv("CONTENT_DAILY", "1")
+    monkeypatch.setenv("AGENT_TOKEN", "x" * 32)
+    night = datetime(2026, 11, 16, 21, 10)
+    day = night.date().isoformat()
+    for lang in content.ROUTES:                                   # a mai posztok már kimentek
+        store.set_setting(f"content_sent_{lang}", day)
+    store.set_setting("content_agents", _json.dumps(["email", "voice"]))
+    assert not content.due(night, store)
+    monkeypatch.setenv("CONTENT_EXTRA_LI", day)
+    assert content.due(night, store)
+    monkeypatch.setattr(content.llm, "_ask", lambda prompt: _json.dumps(
+        {"hu": {"brief": "AXIMBRA. Hook: egy beérkező érdeklődés. Demó: pontszám és teendő. Zárás: aximbra.hu"},
+         "en": {"brief": "AXIMBRA. Hook: one incoming lead. Demo: score and next step. Close: aximbra.hu"}}))
+    sent = []
+    monkeypatch.setattr(content, "_send", lambda item: sent.append(item))
+    content.run(store, night)
+    assert len(sent) == 1 and sent[0]["targets"] == ["linkedin"] and sent[0]["twins"] == ["en"]
+    assert sent[0]["id"] == f"sales-{day}-hu-extra" and "leads" in sent[0]["source"]
+    assert not content.due(night.replace(hour=22), store)          # egyszer
+    content.run(store, night.replace(hour=22))
+    assert len(sent) == 1

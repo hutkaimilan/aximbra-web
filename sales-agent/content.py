@@ -99,10 +99,35 @@ def lang_due(lang: str, now: datetime, store) -> bool:
     return start <= now < start + timedelta(minutes=WINDOW_MIN)
 
 
+def extra_due(now: datetime, store) -> bool:
+    """Kézi, egyszeri plusz LinkedIn-kör: CONTENT_EXTRA_LI=<mai dátum> esetén a soron
+    következő agentről egy új videó megy ki LinkedInre magyarul és angolul — akkor is,
+    ha a napi poszt már kiment. Naponta egyszer; másnap magától hatástalan."""
+    day = now.date().isoformat()
+    return ((os.environ.get("CONTENT_EXTRA_LI") or "").strip() == day
+            and store.get_setting("content_extra_li") != day)
+
+
+def _extra_round(store, now: datetime, say) -> dict:
+    day = now.date().isoformat()
+    agent, sector = pick_agent(store), pick_sector(store)
+    b = generate(store, now, agent, sector)["hu"]
+    store.set_setting("content_agents", json.dumps((_history(store) + [agent["key"]])[-HISTORY_KEEP:]))
+    store.set_setting("content_sectors", json.dumps(
+        (_history(store, "content_sectors", SECTOR_KEYS) + [sector])[-2 * len(SECTOR_KEYS):]))
+    item = {"id": f"sales-{day}-hu-extra", "brief": b["brief"], "lang": IG_LANGS[0], "twins": list(IG_LANGS[1:]),
+            "targets": ["linkedin"], "form": b["form"], "source": f"sales agent · {agent['key']} (extra)",
+            "seconds": DEMO_SECONDS}
+    _send(item)
+    store.set_setting("content_extra_li", day)
+    say(f"Plusz LinkedIn-téma elküldve ({agent['key']}, {sector}): {b['brief'][:80]}")
+    return {"linkedin_extra": b["brief"]}
+
+
 def due(now: datetime, store) -> bool:
     """Valamelyik platformnak most van az ideje, és az utolsó próbálkozás
     óta eltelt RETRY_MIN perc."""
-    if not any(lang_due(lang, now, store) for lang in ROUTES):
+    if not any(lang_due(lang, now, store) for lang in ROUTES) and not extra_due(now, store):
         return False
     last = store.get_setting("content_last_try") or ""
     try:
@@ -355,6 +380,8 @@ def run(store, now: datetime, say=logger.info) -> dict:
         return {}
     try:
         store.set_setting("content_last_try", now.isoformat(timespec="seconds"))
+        if extra_due(now, store) and not any(lang_due(lang, now, store) for lang in ROUTES):
+            return _extra_round(store, now, say)
         day = now.date().isoformat()
         try:
             briefs = json.loads(store.get_setting(f"content_briefs_{day}") or "{}")
