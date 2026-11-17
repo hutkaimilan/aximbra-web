@@ -1908,8 +1908,9 @@ def test_minden_valaszrol_kulon_ertesites(store, monkeypatch, tmp_path):
     lid = store.list("draft")[0]["id"]
     snap = app_mod._reply_snapshot()
     store.set_reply(lid, "auto", "Megkaptuk a levelét.")
-    assert app_mod._notify_each_reply(snap, pipeline.RunLog()) == 1
-    assert "automatikus" in sent[-1]["Subject"] and "Megkaptuk" in sent[-1].get_content()
+    # automatikus valaszrol nincs ertesites (2026-11-17: elarasztotta a postafiokot)
+    assert app_mod._notify_each_reply(snap, pipeline.RunLog()) == 0
+    assert sent == []
     snap = app_mod._reply_snapshot()
     assert app_mod._notify_each_reply(snap, pipeline.RunLog()) == 0   # nincs uj valasz, nincs level
     import time; time.sleep(1.1)  # a reply_at masodperc pontossagu

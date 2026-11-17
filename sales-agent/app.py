@@ -1064,8 +1064,12 @@ def _notify_each_reply(before: dict, log) -> int:
     """A tulajdonos kerese (2026-11-11): MINDEN valaszrol kulon ertesites,
     benne a valasz szovegevel. Az osszefoglalo level ezt nem valtja ki."""
     to = os.environ.get("NOTIFY_TO", "").strip()
+    # Automatikus valaszrol (szabadsag, "megkaptuk", jegyszam) NEM megy ertesites:
+    # minden kikuldott levelre jon egy, es a tulajdonos postafiokjat elarasztotta
+    # (2026-11-17). A panel Valaszok fulen tovabbra is latszanak.
     changed = [l for l in store.list()
-               if l["reply_kind"] != "none" and before.get(l["id"]) != (l["reply_kind"], l.get("reply_at"))]
+               if l["reply_kind"] not in ("none", "auto")
+               and before.get(l["id"]) != (l["reply_kind"], l.get("reply_at"))]
     if not to:
         return 0
     panel = os.environ.get("PANEL_URL", "https://aximbra-sales-production.up.railway.app")
