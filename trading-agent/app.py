@@ -44,14 +44,14 @@ def _binance_executor() -> tuple[BinanceExecutor, float]:
     if not client.is_demo and os.environ.get("BINANCE_LIVE_CONFIRM", "") != "VALODI_PENZ":
         # Éles címre csak kifejezett, külön jóváhagyással: egy elgépelt URL ne kereskedjen valódi pénzzel.
         raise SystemExit("éles Binance-cím BINANCE_LIVE_CONFIRM=VALODI_PENZ nélkül — leállok")
-    last = None
-    for attempt in range(3):
-        try:
-            return BinanceExecutor(client), client.free("USDT")
-        except ExchangeError as e:
-            last = e
-            time.sleep(3 * (attempt + 1))
-    raise SystemExit(f"a Binance-fiók nem érhető el: {last}")
+    # A kezdő egyenleg csak egy új (még üres) naplóhoz kell. Ha a Binance épp nem válaszol, a bot ettől
+    # még elindul: a meglévő napló megmarad, a kereskedési kör pedig piaconként kezeli a tőzsdei hibát.
+    # (Korábban itt leállt, és egy Binance-kimaradás alatt újraindulási hurokba került.)
+    try:
+        return BinanceExecutor(client), client.free("USDT")
+    except ExchangeError as e:
+        logger.warning("a Binance-egyenleg most nem kérdezhető le (%s); a meglévő naplóval indulok", e)
+        return BinanceExecutor(client), cfg.start_equity
 
 
 if MODE == "binance":
