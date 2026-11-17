@@ -1268,6 +1268,8 @@ app.include_router(api_router)
 
 from mail_agent import router as mail_agent_router  # noqa: E402 - after api_router
 app.include_router(mail_agent_router)
+from owner_inbox import router as owner_inbox_router  # noqa: E402
+app.include_router(owner_inbox_router)
 
 from lead_intake import router as contact_router  # noqa: E402 - after api_router
 app.include_router(contact_router)

@@ -567,6 +567,12 @@ async def connect(drafts: bool = False, cleanup: bool = False, lang: str = "hu")
 
 @router.get("/callback")
 async def callback(code: str = "", state: str = "", error: str = ""):
+    # A tulajdonos tartós, csak olvasó csatlakozása ugyanezt a regisztrált
+    # visszahívási címet használja; az `owner.` előtagú állapot oda tartozik.
+    from owner_inbox import handle_callback as _owner_cb, is_owner_state  # noqa: E402
+
+    if is_owner_state(state):
+        return await _owner_cb(code, state, error)
     # A nyelvi előtag az OAuth-állapotból jön vissza. Enélkül a látogató a
     # magyar lapon köt ki, akármelyik nyelven indult — és onnantól magyar
     # felületen nézi a saját postafiókját.
