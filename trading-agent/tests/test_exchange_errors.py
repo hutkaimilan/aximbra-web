@@ -56,3 +56,56 @@ def test_get_requests_retry_transient_errors(monkeypatch):
 
     c = BinanceClient("k", pem, client=httpx.Client(transport=httpx.MockTransport(handler)))
     assert c.free("USDT") == 10 and len(calls) == 3
+
+
+def _client(handler, monkeypatch):
+    import httpx
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    import exchange
+    monkeypatch.setattr(exchange.time, "sleep", lambda s: None)
+    pem = Ed25519PrivateKey.generate().private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()
+    return BinanceClient("k", pem, client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+
+def test_get_order_falls_back_to_all_orders_on_persistent_502(monkeypatch):
+    import httpx
+
+    def handler(request):
+        if request.url.path == "/api/v3/order":
+            return httpx.Response(502, text="bad gateway")
+        assert request.url.path == "/api/v3/allOrders"
+        return httpx.Response(200, json=[{"clientOrderId": "other", "status": "FILLED"},
+                                         {"clientOrderId": "mtb-stop", "status": "NEW", "executedQty": "0"}])
+
+    c = _client(handler, monkeypatch)
+    assert c.get_order("SOLUSDT", "mtb-stop")["status"] == "NEW"
+    assert c.get_order("SOLUSDT", "missing") is None          # teljes lista, nincs benne
+
+
+def test_get_order_fallback_failure_keeps_original_error(monkeypatch):
+    import httpx
+    import pytest
+
+    def handler(request):
+        return httpx.Response(502, text="bad gateway")
+
+    c = _client(handler, monkeypatch)
+    with pytest.raises(ExchangeError, match="502"):
+        c.get_order("SOLUSDT", "mtb-stop")
+
+
+def test_get_order_truncated_list_is_not_treated_as_missing(monkeypatch):
+    import httpx
+    import pytest
+
+    def handler(request):
+        if request.url.path == "/api/v3/order":
+            return httpx.Response(502, text="bad gateway")
+        return httpx.Response(200, json=[{"clientOrderId": f"o{i}"} for i in range(BinanceClient.ALL_ORDERS_LIMIT)])
+
+    c = _client(handler, monkeypatch)
+    with pytest.raises(ExchangeError):
+        c.get_order("SOLUSDT", "mtb-stop")

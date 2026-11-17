@@ -194,13 +194,31 @@ class BinanceClient:
             }
         return self._filters[symbol]
 
+    ALL_ORDERS_LIMIT = 500
+
     def get_order(self, symbol: str, cid: str) -> dict | None:
         try:
             return self._request("GET", "/api/v3/order", {"symbol": symbol, "origClientOrderId": cid}, signed=True)
         except ExchangeError as e:
             if e.code == -2013:   # Order does not exist
                 return None
-            raise
+            if e.code is not None:
+                raise
+            # Átmeneti hiba az egyedi lekérdezésnél (a demó /order végpontja órákig 502-zött):
+            # ugyanezt az állapotot a megbízáslistából is ki tudjuk olvasni.
+            try:
+                orders = self._request_once("GET", "/api/v3/allOrders",
+                                            {"symbol": symbol, "limit": self.ALL_ORDERS_LIMIT}, signed=True)
+            except ExchangeError:
+                raise e from None
+            if not isinstance(orders, list):
+                raise e from None
+            for o in orders:
+                if o.get("clientOrderId") == cid:
+                    return o
+            if len(orders) < self.ALL_ORDERS_LIMIT:
+                return None   # a teljes lista megvan, és nincs benne: nem jött létre
+            raise e from None   # csonka lista: nem mondhatjuk biztosan, hogy nincs ilyen
 
     def place(self, params: dict) -> dict:
         """Megbízás idempotensen: bizonytalan eredménynél lekérdez, mielőtt bármit újra küldene."""
