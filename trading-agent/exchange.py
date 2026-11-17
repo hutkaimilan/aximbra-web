@@ -122,6 +122,21 @@ class BinanceClient:
         return "demo-api" in self.base or "testnet" in self.base
 
     def _request(self, method: str, path: str, params: dict | None = None, signed: bool = False):
+        """GET-nél (lekérdezés, mellékhatás nélkül) átmeneti hibára — 5xx, időtúllépés, hálózat —
+        háromszor próbálkozunk növekvő várakozással. Megbízást (POST/DELETE) itt nem ismétlünk:
+        azt a place() kezeli lekérdezéssel, hogy ne legyen dupla vétel."""
+        attempts = 3 if method == "GET" else 1
+        for attempt in range(attempts):
+            try:
+                return self._request_once(method, path, params, signed)
+            except ExchangeError as e:
+                transient = e.code is None and ("szerverhiba" in str(e) or "nem érhető el" in str(e)
+                                                or "időben" in str(e))
+                if not transient or attempt == attempts - 1:
+                    raise
+                time.sleep(1.5 * (attempt + 1))
+
+    def _request_once(self, method: str, path: str, params: dict | None = None, signed: bool = False):
         params = {k: v for k, v in (params or {}).items() if v is not None}
         headers = {}
         if signed:

@@ -278,6 +278,9 @@ class Agent:
                 self._tick_symbol(sym, prices)
             except MarketError as e:
                 self._data_problem(sym, str(e))
+            except ExchangeError as e:
+                # Egy instrumentum tőzsdei hibája nem állíthatja meg a többit (stop, kilépés, új jelzés).
+                self._exchange_problem(sym, str(e))
         if self.batch_checks and self._checks:
             self.notify(f"🔍 Napi döntések ({len(self._checks)} piac)\n" + "\n".join(self._checks),
                         email=False, kind="check", push=None)
@@ -299,6 +302,10 @@ class Agent:
         self._data_ok(sym)
 
         self._reconcile_pending(sym, prices)
+        if self.store.get(f"pending_entry:{sym}") and self.executor.live:
+            # Egy korábbi vétel sorsa még nem tisztázott: amíg nem tudjuk, megvettük-e,
+            # erre a coinra nem nyitunk újat (különben kétszer vásárolhatnánk).
+            return
         pos = self.store.open_position_for(sym)
         if pos is not None:
             self._trail(pos, candles, prices)
@@ -477,7 +484,22 @@ class Agent:
         if self.store.open_position_for(sym) is not None:
             self.store.delete(f"pending_entry:{sym}")
             return
-        fill = self.executor.lookup(sym, info["cid"] + "-b")
+        try:
+            fill = self.executor.lookup(sym, info["cid"] + "-b")
+        except ExchangeError as e:
+            # A tőzsde most nem válaszol: a függő vételt megtartjuk, a következő körben újra megnézzük.
+            # Ha 5 percnél tovább nem ellenőrizhető, egyszer szólunk.
+            since = float(self.store.get(f"pending_fail_since:{sym}", "0") or 0) or self.clock()
+            self.store.set(f"pending_fail_since:{sym}", since)
+            logger.warning("%s: a függő vétel ellenőrzése nem sikerült (%s), később újra", sym, e)
+            if self.clock() - since > 300 and not self.store.get(f"pending_alerted:{sym}"):
+                self.store.set(f"pending_alerted:{sym}", "1")
+                self.notify(f"{self.label}\n⚠️ {sym}: egy félbemaradt vételt 5 perce nem tudok ellenőrizni, mert a "
+                            f"Binance hibát ad ({e}). Újrapróbálom; a többi piacot közben rendesen kezelem.",
+                            kind="riskoff", push=4)
+            return
+        self.store.delete(f"pending_fail_since:{sym}")
+        self.store.delete(f"pending_alerted:{sym}")
         if fill is None:
             self.store.delete(f"pending_entry:{sym}")   # a vétel nem jött létre
             return
@@ -542,7 +564,12 @@ class Agent:
             if hit:
                 self._close(pos, hit[0], hit[1], prices)
             return
-        state = self.executor.stop_state(pos.symbol, pos.stop_cid)
+        try:
+            state = self.executor.stop_state(pos.symbol, pos.stop_cid)
+        except ExchangeError as e:
+            # Nem tudjuk lekérdezni a stopot: nem zárunk vakon (a stop a tőzsdén van és véd), következő körben újra.
+            logger.warning("%s: a tőzsdei stop állapota most nem kérdezhető le: %s", pos.symbol, e)
+            return
         if state is not None and state[0] == "filled":
             self._book_exit(pos, state[1], "stop (tőzsdei)", prices)
         elif state is not None:
@@ -765,6 +792,17 @@ class Agent:
         self.store.set(key, self._now().isoformat(timespec="seconds"))
         self.notify(f"⚠️ {sym}: nincs megbízható piaci adat ({error}). Amíg ez tart, nem adok tanácsot, "
                     "és a stopokat sem tudom figyelni.")
+
+    def _exchange_problem(self, sym: str, error: str) -> None:
+        """Tőzsdei (Binance) hiba egy instrumentumnál: naplózzuk, és óránként legfeljebb egyszer szólunk."""
+        logger.warning("%s: tőzsdei hiba, a következő körben újra: %s", sym, error)
+        last = float(self.store.get(f"exchange_alert:{sym}", "0") or 0)
+        if self.clock() - last < 3600:
+            return
+        self.store.set(f"exchange_alert:{sym}", self.clock())
+        self.notify(f"{self.label}\n⚠️ {sym}: a Binance most hibát ad ({error}). Ezt a piacot a következő percben "
+                    "újra megnézem; a többit közben rendesen kezelem, a tőzsdei stopok érvényben vannak.",
+                    email=False, kind="riskoff", push=3)
 
     def _data_ok(self, sym: str) -> None:
         key = f"data_alert:{sym}"
