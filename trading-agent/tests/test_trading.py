@@ -742,3 +742,12 @@ def test_resolve_prefers_longest_alias():
     assert ag.resolve("vegyél olaj részvényt")[1] == "XOM"
     assert ag.resolve("vegyél olajat")[1] == "CL=F"
     assert ag.resolve("vegyél Teslát")[1] == "TSLA"
+
+
+def test_px_keeps_significant_digits_for_cheap_assets():
+    from agent import fmt_px as px
+    assert px(61605.67) == "61,605.67"
+    assert px(568.2) == "568.20"
+    assert px(0.95) == "0.95"
+    assert px(0.06123) == "0.06123"
+    assert px(1.2134) == "1.2134"

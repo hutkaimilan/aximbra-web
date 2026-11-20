@@ -49,6 +49,13 @@ def _usd(x: float) -> str:
     return f"{x:,.2f} USDT"
 
 
+def fmt_px(x: float) -> str:
+    """Árformázás, ami az olcsó eszközöknél is mutatja a lényeges jegyeket (DOGE 0.06 → 0.06123, nem 0.06)."""
+    if abs(x) >= 100:
+        return f"{x:,.2f}"
+    return f"{x:.5g}"
+
+
 class Agent:
     def __init__(self, cfg: Config, store: Store, market: Market, bot=None, llm=None, clock=time.time,
                  mailer=None, executor=None, push=None):
@@ -195,8 +202,8 @@ class Agent:
             why = (out[0].get("outcome") or "") if out else ""
             return f"{self.name_of(sym)}: nem nyitottam. {why}"
         p = new[0]
-        return (f"✅ Megvettem: {self.name_of(sym)}\n{p.qty:.4f} db @ {p.entry_price:,.2f} = {p.qty * p.entry_price:,.0f} $\n"
-                f"Stop: {p.stop:,.2f} (követő stop: ha nő az ár, a stop is felmegy).")
+        return (f"✅ Megvettem: {self.name_of(sym)}\n{p.qty:.4f} db @ {fmt_px(p.entry_price)} = {p.qty * p.entry_price:,.0f} $\n"
+                f"Stop: {fmt_px(p.stop)} (követő stop: ha nő az ár, a stop is felmegy).")
 
     def ai_entry(self, sym: str, side: int, frac: float, stop_pct: float, reason: str) -> str:
         """Az AI-kereskedő vétele (vagy shortja): a számla értékének frac része, stop_pct távolságú stoppal."""
@@ -229,9 +236,9 @@ class Agent:
                                                      "trend": "up" if side == 1 else "down", "momentum": ""},
                                                     ensure_ascii=False))
         self.notify(f"{self.label}\n{'🟢 VÉTEL' if side == 1 else '🔻 SHORT'} (AI) — {name}\n"
-                    f"{p.qty:.4f} db @ {p.entry_price:,.2f} = {p.qty * p.entry_price:,.0f} $ | stop {p.stop:,.2f}\n"
+                    f"{p.qty:.4f} db @ {fmt_px(p.entry_price)} = {p.qty * p.entry_price:,.0f} $ | stop {fmt_px(p.stop)}\n"
                     f"Ok: {reason}", kind="trade", push=4)
-        return f"{'vétel' if side == 1 else 'short'} {name}: {p.qty * p.entry_price:,.0f} $ @ {p.entry_price:,.2f}"
+        return f"{'vétel' if side == 1 else 'short'} {name}: {p.qty * p.entry_price:,.0f} $ @ {fmt_px(p.entry_price)}"
 
     def manual_exit(self, sym: str, reason: str = "a megbízó kérésére") -> str:
         pos = self.store.open_position_for(sym)
@@ -245,7 +252,7 @@ class Agent:
         closed = self.store.get_position(pos.id)
         if closed.status != "closed":
             return f"{self.name_of(sym)}: az eladás nem sikerült, a pozíció nyitva maradt."
-        return f"✅ Eladtam: {self.name_of(sym)} @ {closed.exit_price:,.2f}, eredmény {closed.pnl:+,.2f} $"
+        return f"✅ Eladtam: {self.name_of(sym)} @ {fmt_px(closed.exit_price)}, eredmény {closed.pnl:+,.2f} $"
 
     def resolve(self, text: str):
         """Szövegből (név, jel, becenév) a hozzá tartozó számla és instrumentum. (agent, sym) vagy None."""
@@ -394,7 +401,7 @@ class Agent:
             head = "🟢 VISSZAPATTANÁSRA FOGADOK (VÉTEL)"
         self.notify(
             f"{self.label}\n{head} — {self.name_of(sym)}\n"
-            f"Belépés: {p.entry_price:,.2f} | Stop: {p.stop:,.2f} | Cél: {p.target:,.2f}\n"
+            f"Belépés: {fmt_px(p.entry_price)} | Stop: {fmt_px(p.stop)} | Cél: {fmt_px(p.target)}\n"
             f"Méret: {p.qty:.6f} ({_usd(p.qty * p.entry_price)}) | Kockázat: {_usd(p.risk_amount)} ({risk_pct:.2%})\n"
             f"Ok: {sig.reason}" + (f"\n\n🧠 {why_text}" if why_text else ""))
 
@@ -420,7 +427,7 @@ class Agent:
         why_text = self._explain("Számolj be a pozíció zárásáról: mi történt, és mit jelent ez a terv szempontjából.",
                                  facts)
         self.notify(f"{self.label}\n{icon} ZÁRÁS — {self.name_of(pos.symbol)} ({reason})\n"
-                    f"Belépés: {pos.entry_price:,.2f} → Kilépés: {exit_px:,.2f}\n"
+                    f"Belépés: {fmt_px(pos.entry_price)} → Kilépés: {fmt_px(exit_px)}\n"
                     f"Eredmény: {pnl:+,.2f} USDT {r}" + (f"\nOk: {detail}" if detail else "")
                     + (f"\n\n🧠 {why_text}" if why_text else ""))
 
@@ -466,7 +473,7 @@ class Agent:
             return
         try:
             self.executor.protect(p.symbol, p.qty, p.stop, p.stop_cid)
-            self.notify(f"{self.label}\n🛡 {p.symbol}: védőstop leadva a tőzsdén {p.stop:,.2f}-n "
+            self.notify(f"{self.label}\n🛡 {p.symbol}: védőstop leadva a tőzsdén {fmt_px(p.stop)}-n "
                         f"({p.qty:.6f} db). Ha az ár ide esik, a Binance automatikusan elad.", kind="trade", push=3)
         except ExchangeError as e:
             logger.error("%s: a stop leadása nem sikerült: %s", p.symbol, e)
@@ -507,7 +514,7 @@ class Agent:
         self.store.delete(f"pending_entry:{sym}")
         if pos_id:
             self.notify(f"{self.label}\n🔧 {sym}: egy félbemaradt vételt rendeztem a tőzsdei adatok alapján "
-                        f"({fill.qty:.6f} @ {fill.price:,.2f}), és leadom a stopot.")
+                        f"({fill.qty:.6f} @ {fmt_px(fill.price)}), és leadom a stopot.")
             self._protect_or_exit(pos_id, prices)
 
     def _trail(self, pos: Position, candles, prices: dict[str, float]) -> None:
@@ -547,7 +554,7 @@ class Agent:
         else:
             self.store.set_stop(pos.id, new)
         locked = pos.qty * (new - pos.entry_price) - pos.entry_fee
-        self.notify(f"{self.label}\n🔒 {self.name_of(pos.symbol)}: a stopot felhúztam {old:,.2f} → {new:,.2f}\n"
+        self.notify(f"{self.label}\n🔒 {self.name_of(pos.symbol)}: a stopot felhúztam {fmt_px(old)} → {fmt_px(new)}\n"
                     + (f"Ennyi nyereség már biztosítva: {locked:+,.2f}" if locked > 0 else
                        "A pozíció innen már nem zárhat veszteséggel (a díjat leszámítva)."),
                     email=False, kind="trade", push=3)
@@ -594,7 +601,7 @@ class Agent:
             closed = self.store.get_position(pos.id)
             r = f"{closed.r_multiple:+.2f}R" if closed.r_multiple is not None else ""
             self.notify(f"{self.label}\n{'🟢' if pnl > 0 else '🔴'} ZÁRÁS — {pos.symbol} ({reason})\n"
-                        f"Belépés: {pos.entry_price:,.2f} → Kilépés: {fill.price:,.2f}\n"
+                        f"Belépés: {fmt_px(pos.entry_price)} → Kilépés: {fmt_px(fill.price)}\n"
                         f"Eredmény: {pnl:+,.2f} USDT {r}")
 
     def _exit_failed(self, pos: Position, error: ExchangeError) -> None:
@@ -690,8 +697,9 @@ class Agent:
         ind = strategy.compute(candles)
         f, sl, r, close = ind["fast"][-1], ind["slow"][-1], ind["regime"][-1], candles[-1].close
         if close <= r:
+            level = f"{r:,.0f}" if r >= 1000 else fmt_px(r)
             return (f"NEM VESZEK — esik a piac (az ár {r / close - 1:.1%}-kal a hosszú távú átlag alatt). "
-                    f"Esésben vásárolni a leggyakoribb veszteségforrás; akkor veszek, ha {r:,.0f} fölé megy")
+                    f"Esésben vásárolni a leggyakoribb veszteségforrás; akkor veszek, ha {level} fölé megy")
         if f <= sl:
             return "MÉG NEM VESZEK — a hosszú trend emelkedő, de a rövid távú lendület még gyenge"
         return "NEM VESZEK MOST — emelkedik, de a belépési pont már elment; a következő lendületnél lépek"
@@ -704,9 +712,9 @@ class Agent:
         trend = "emelkedő (EMA200 felett)" if close > r else "csökkenő (EMA200 alatt)"
         if pos is not None:
             why = (f"nyitott pozíció: {pos.qty * (price - pos.entry_price):+,.2f} USDT, "
-                   f"stop {pos.stop:,.2f}, cél {pos.target:,.2f}")
+                   f"stop {fmt_px(pos.stop)}, cél {fmt_px(pos.target)}")
         elif close <= r:
-            why = f"csökkenő trendben nem veszek; az EMA200 ({r:,.2f}) {r / close - 1:+.1%}-ra van"
+            why = f"csökkenő trendben nem veszek; az EMA200 ({fmt_px(r)}) {r / close - 1:+.1%}-ra van"
         elif f <= sl:
             why = "a trend emelkedő, de az EMA20 még az EMA50 alatt van: várom a felfelé keresztezést"
         else:
@@ -718,9 +726,9 @@ class Agent:
             short = ("pozícióban" if pos is not None else
                      "nem veszek, esik" if close <= r else "várok, a lendület még gyenge" if f <= sl
                      else "várok jobb belépőre")
-            self._checks.append(f"• {self.name_of(sym)}: {close:,.2f} — {short}")
+            self._checks.append(f"• {self.name_of(sym)}: {fmt_px(close)} — {short}")
             return
-        self.notify(f"🔍 {sym} döntés ({close:,.2f})\nTrend: {trend}. Döntés: {why}.",
+        self.notify(f"🔍 {sym} döntés ({fmt_px(close)})\nTrend: {trend}. Döntés: {why}.",
                     email=False, kind="check", push=None)
 
     # --- radar és védekezés -----------------------------------------------------
@@ -830,14 +838,14 @@ class Agent:
                  f"Számla: {_usd(equity)} ({equity / start - 1:+.2%} a kezdethez képest)" if start else
                  f"Számla: {_usd(equity)}",
                  f"Készpénz: {_usd(self.store.cash())}"]
-        lines.append(f"Árak: " + ", ".join(f"{s} {prices[s]:,.2f}" for s in self.cfg.symbols if s in prices))
+        lines.append(f"Árak: " + ", ".join(f"{s} {fmt_px(prices[s])}" for s in self.cfg.symbols if s in prices))
         if positions:
             lines.append("Nyitott pozíciók:")
             for p in positions:
                 px = prices.get(p.symbol)
                 unreal = f"{p.side * p.qty * (px - p.entry_price):+,.2f} USDT" if px else "ár nem elérhető"
                 lines.append(f"• {self.name_of(p.symbol)} {'emelkedésre' if p.side == 1 else 'ESÉSRE'}: "
-                             f"belépés {p.entry_price:,.2f}, stop {p.stop:,.2f}, cél {p.target:,.2f}, most {unreal}")
+                             f"belépés {fmt_px(p.entry_price)}, stop {fmt_px(p.stop)}, cél {fmt_px(p.target)}, most {unreal}")
         else:
             lines.append("Nincs nyitott pozíció. Döntéseim:")
             for sym in self.cfg.symbols:
