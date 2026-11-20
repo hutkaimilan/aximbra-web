@@ -1809,9 +1809,14 @@ def test_offer_percentage_is_allowed_but_other_statistics_are_not():
     ez nem „statisztika”, de bármi más százalék továbbra is az."""
     import playbook
     for lang, offer in playbook.OFFER.items():
-        assert "40" in offer and "15" in offer, lang
+        # 2026-11-20: az első ügyfél ingyen (referenciáért), a következő 14-nek 40%.
+        assert "40" in offer and "14" in offer and "15" not in offer, lang
     ok = _lead(body=CLEAN_BODY + "\n\n" + playbook.OFFER["hu"])
     assert not any("statisztik" in x for x in verify.rule_violations(ok))
+    # Az ajánlatban szereplő „első ügyfelünk … referenciáért” nem hivatkozás meglévő ügyfélre.
+    assert not any("referenci" in x for x in verify.rule_violations(ok))
+    fake = _lead(body="Egyik ügyfelünknél bevált.\n\n" + CLEAN_BODY + "\n\n" + playbook.OFFER["hu"])
+    assert any("referenci" in x for x in verify.rule_violations(fake))
     bad = _lead(body="A hívások 40%-át elveszítik.\n\n" + CLEAN_BODY + "\n\n" + playbook.OFFER["hu"])
     assert any("statisztik" in x for x in verify.rule_violations(bad))
 

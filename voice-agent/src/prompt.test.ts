@@ -238,7 +238,10 @@ test('telefonos/foglalo agentre nem az ugyfelszolgalati arat mondja, es benne az
   const prompt = buildSystemPrompt(0, facts(), '');
   assert.match(prompt, /TELEFONOS AGENT ÉS IDŐPONTFOGLALÁS/);
   assert.match(prompt, /SOHA ne mondd az ügyfélszolgálati agent árát/);
-  assert.match(prompt, /első tizenöt ügyfelünknek/);
+  // 2026-11-20: az első ügyfél ingyen, referenciáért; a következő 14-nek 40%.
+  assert.match(prompt, /legelső ügyfelünk bármelyik agentet teljesen ingyen kapja meg, cserébe egy referenciáért/);
+  assert.match(prompt, /következő tizennégy ügyfélnek/);
+  assert.doesNotMatch(prompt, /első tizenöt ügyfelünknek/);
   assert.match(prompt, /LEGFELJEBB EGYSZER/);
   assert.match(prompt, /MÁR elmondta bármikor a hívásban/);
   assert.match(prompt, /egy első agent jellemzően két-három hét/);

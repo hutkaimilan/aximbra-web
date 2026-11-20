@@ -386,12 +386,13 @@ def rule_violations(lead: dict) -> list[str]:
     """Minden gépileg ellenőrizhető szabály egy helyen. Üres = tiszta."""
     text = f"{lead.get('subject') or ''}\n{lead.get('body') or ''}"
     v = target_problems(lead) + check_letter(lead)
-    if _REFERENCE_RE.search(text):
-        v.append("ügyfélre/referenciára hivatkozik")
-    # Az ajánlat rögzített mondata (a 30%) a tulajdonos döntése, nem állítás.
+    # Az ajánlat rögzített mondata a tulajdonos döntése, nem állítás: benne van a 40%,
+    # az „első ügyfelünk” és a „referenciáért” is, ezért a szabályok előtt kivesszük.
     plain = text
     for offer in OFFER.values():
         plain = plain.replace(offer, "")
+    if _REFERENCE_RE.search(plain):
+        v.append("ügyfélre/referenciára hivatkozik")
     if _STAT_RE.search(plain):
         v.append("számot/statisztikát állít")
     if _NAME_RE.search(text):

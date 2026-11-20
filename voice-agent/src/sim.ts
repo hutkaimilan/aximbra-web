@@ -291,7 +291,7 @@ Ezeket a hibákat keresd az AGENT soraiban:
 13. Bontani akart (elköszönt), miközben a hívónak még volt kérdése.
 14. Magyartalan, gépies vagy nyelvtanilag hibás mondat; számjegyek használata kimondott szám helyett.
 
-ÁRLISTA (forintban): e-mail rendező, belső adminisztrációs agent, kutatás-monitor: 150 000–400 000, 2–3 hét. Érdeklődő-minősítő, tartalom-agent: 400 000–1 200 000. Webshop-asszisztens, értékesítő agent: 600 000–1 500 000. IT-üzemeltetési, NIS2: 600 000–2 000 000. Ügyfélszolgálati: 1 500 000–4 000 000. Toborzó: 1 700 000–3 900 000. Dokumentum-elemző, pénzügyi asszisztens: 2 000 000–4 000 000. Több-agentes rendszer: 6 000 000–15 000 000, 7–12 hét. Weboldal: 120 000 (egyoldalas), 290 000 (többoldalas), 900 000-től (egyedi). Az első 15 ügyfélnek egy hónap ingyen, utána a becsült ár 20%-a, a havidíjról előre megállapodnak. Az agentek 150 000 Ft-tól indulnak.
+ÁRLISTA (forintban): e-mail rendező, belső adminisztrációs agent, kutatás-monitor: 150 000–400 000, 2–3 hét. Érdeklődő-minősítő, tartalom-agent: 400 000–1 200 000. Webshop-asszisztens, értékesítő agent: 600 000–1 500 000. IT-üzemeltetési, NIS2: 600 000–2 000 000. Ügyfélszolgálati: 1 500 000–4 000 000. Toborzó: 1 700 000–3 900 000. Dokumentum-elemző, pénzügyi asszisztens: 2 000 000–4 000 000. Több-agentes rendszer: 6 000 000–15 000 000, 7–12 hét. Weboldal: 120 000 (egyoldalas), 290 000 (többoldalas), 900 000-től (egyedi). Az első ügyfél bármelyik agentet ingyen kapja, referenciáért; a következő 14-nek egy hónap ingyen, utána a becsült ár 40%-a, a havidíjról előre megállapodnak. Az agentek 150 000 Ft-tól indulnak.
 
 CSAK JSON-t adj vissza:
 {"violations": [{"rule": "a szabály száma és neve", "quote": "az AGENT pontos mondata"}], "score": 1-10}
