@@ -44,6 +44,12 @@ class WalletReq(BaseModel):
     price: float | None = None
 
 
+class TransferReq(BaseModel):
+    account: str = Field(pattern="^(crypto|world)$")
+    direction: str = Field(pattern="^(in|out)$")
+    amount: float
+
+
 class WatchReq(BaseModel):
     symbols: list[str] = Field(max_length=60)
 
@@ -193,6 +199,7 @@ def make_router(agent, state: dict, wallet=None) -> APIRouter:
                 "history": agent.store.equity_history(int(time.time()) - 30 * 86400),
                 "last_tick_age": None if state.get("last_tick") is None else round(time.time() - state["last_tick"]),
                 "server_time": time.time(), "books": worlds, "main": main,
+                "wallet": wallet.balance() if wallet is not None else None,
                 "system": {"llm": agent.llm.provider if agent.llm else None, "push": agent.push is not None,
                            "radar_age": None if not state.get("radar_tick") else round(time.time() - state["radar_tick"]),
                            "world_age": None if not state.get("world_tick") else round(time.time() - state["world_tick"]),
@@ -326,6 +333,17 @@ def make_router(agent, state: dict, wallet=None) -> APIRouter:
             return w.sell(body.symbol, body.qty, price=body.price)
         except WalletError as e:
             raise HTTPException(400, str(e)) from None
+
+    @router.post("/api/transfer")
+    def transfer(body: TransferReq, mtb_session: str | None = Cookie(default=None)):
+        auth(mtb_session)
+        try:
+            out = need_wallet().transfer(body.account, body.direction, body.amount)
+        except WalletError as e:
+            raise HTTPException(400, str(e)) from None
+        with cache_lock:
+            cache["at"] = 0.0                    # a következő állapotlekérés már az új egyenleget mutassa
+        return out
 
     @router.get("/api/wallet/outlook")
     def wallet_outlook(sym: str, mtb_session: str | None = Cookie(default=None)):

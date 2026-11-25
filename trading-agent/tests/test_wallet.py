@@ -104,65 +104,69 @@ def test_buy_at_given_price_records_that_price():
     assert w.ledger()[1]["AAPL"].qty == pytest.approx(4)
 
 
-def uptrend_with_fresh_cross():
-    closes = [100 + i * 0.5 for i in range(260)] + [230 - i * 1.2 for i in range(1, 31)]
-    while True:
-        closes.append(closes[-1] * 1.01)
-        cs = candles(closes)
-        sig = strategy.evaluate(cs, None, allowed={"trend_long", "pull_long"})
-        if sig and sig.action == "enter":
-            return cs
-        assert len(closes) < 600
+class FakeAccount:
+    """Egy számla (agent) annyiban, amennyit a tárca használ: store + equity()."""
+    def __init__(self, cash):
+        self.store = Store(":memory:", cash)
+        self.extra = 0.0                         # a nyitott pozíciók értékének helyettesítője
+
+    def equity(self, prices):
+        return self.store.cash() + self.extra
+
+    def _prices(self, syms, known):
+        return {}
 
 
-def test_scan_suggests_buy_amount_and_asks_for_money_when_short():
-    cs = uptrend_with_fresh_cross()
-    m = FakeMarket({"AAPL": cs[-1].close, "KO": 50.0}, {"AAPL": cs})
-    w, sent, _ = make(m, watch=("AAPL",))
-    w.deposit(1000)
-    w.buy("KO", 950)                             # szinte minden pénz be van fektetve
-    out = [x for x in w.scan() if "AAPL" in x]
-    assert len(out) == 1 and "tegyél be" in out[0]
-    assert w.scan() == []                        # ugyanarra a napra nem szól kétszer
+def with_accounts(cash_crypto=5000.0, cash_world=9949.0):
+    w, sent, clock = make()
+    c, wd = FakeAccount(cash_crypto), FakeAccount(cash_world)
+    w.accounts = {"crypto": ("Kripto", c), "world": ("Részvény", wd)}
+    return w, sent, c, wd
 
 
-def test_scan_on_empty_wallet_says_deposit_first():
-    cs = uptrend_with_fresh_cross()
-    w, _, _ = make(FakeMarket({"AAPL": cs[-1].close}, {"AAPL": cs}), watch=("AAPL",))
-    out = w.scan()
-    assert len(out) == 1 and "tegyél be pénzt" in out[0]
+def test_transfer_out_then_in_keeps_total_and_result():
+    w, _, c, _ = with_accounts()
+    r = w.transfer("crypto", "out", 2000)
+    assert r == {"wallet": pytest.approx(2000), "account": pytest.approx(3000)}
+    assert c.store.start_equity() == pytest.approx(3000)      # az eredmény nem torzul
+    r = w.transfer("crypto", "in", 500)
+    assert r["wallet"] == pytest.approx(1500) and r["account"] == pytest.approx(3500)
+    assert c.equity({}) - c.store.start_equity() == pytest.approx(0)
 
 
-def test_scan_says_buy_with_amount_within_limits():
-    cs = uptrend_with_fresh_cross()
-    w, sent, _ = make(FakeMarket({"AAPL": cs[-1].close}, {"AAPL": cs}), watch=("AAPL",))
-    w.deposit(10_000)
-    out = w.scan()
-    assert len(out) == 1 and "VEDD" in out[0]
-    amount = float(out[0].split("Javasolt összeg: ")[1].split(" $")[0].replace(",", ""))
-    assert 10 <= amount <= 2_500                 # legfeljebb a tárca 25%-a
+@pytest.mark.parametrize("acc,direction,amount", [
+    ("crypto", "in", 1),          # üres a tárca
+    ("crypto", "out", 5001),      # több, mint a szabad készpénz
+    ("nincs", "out", 1),
+    ("crypto", "oldalra", 1),
+    ("crypto", "out", -3),
+])
+def test_invalid_transfers_change_nothing(acc, direction, amount):
+    w, _, c, wd = with_accounts()
+    with pytest.raises(WalletError):
+        w.transfer(acc, direction, amount)
+    assert w.balance() == 0 and c.store.cash() == 5000 and wd.store.cash() == 9949
 
 
-def test_scan_says_sell_when_price_breaks_protective_level():
-    closes = [100 + i * 0.5 for i in range(260)]
-    cs = candles(closes)
-    m = FakeMarket({"AAPL": closes[-1]}, {"AAPL": cs})
-    w, sent, clock = make(m, watch=())
-    clock[0] = cs[-1].close_time / 1000 - 5 * 86400
-    w.deposit(1000)
-    w.buy("AAPL", 500)
-    crash = closes + [closes[-1] * 0.8]          # egy nagy esés a vétel után
-    m.series["AAPL"] = candles(crash)
-    m.prices["AAPL"] = crash[-1]
-    out = w.scan()
-    assert len(out) == 1 and "ADD EL" in out[0]
+def test_failed_account_credit_rolls_back_wallet():
+    w, _, c, _ = with_accounts()
+    w.transfer("crypto", "out", 1000)
+    def boom(delta):
+        raise RuntimeError("lemez")
+    c.store.move_capital = boom
+    with pytest.raises(RuntimeError):
+        w.transfer("crypto", "in", 300)
+    assert w.balance() == pytest.approx(1000)
 
 
-def test_scan_skips_broken_symbol_and_keeps_going():
-    cs = uptrend_with_fresh_cross()
-    w, _, _ = make(FakeMarket({"AAPL": cs[-1].close}, {"AAPL": cs}), watch=("NOPE", "AAPL"))
-    w.deposit(10_000)
-    assert len(w.scan()) == 1
+def test_account_drop_alert_once_and_not_on_withdrawal():
+    w, sent, c, _ = with_accounts()
+    w.scan()                                     # csúcs: eredmény 0
+    w.transfer("crypto", "out", 3000)            # kivét: nem esés
+    assert w.scan() == []
+    c.extra = -600                               # 600 $ veszteség a 2000 $-os számlán
+    assert len(w.scan()) == 1 and "Kripto" in sent[-1]
+    assert w.scan() == []                        # ugyanarra a csúcsra csak egyszer
 
 
 def test_outlook_reports_frequencies_not_certainty():

@@ -1,4 +1,8 @@
-"""Saját tárca: egyenleg, befizetés, kivét, vétel, eladás — és a bot tanácsai hozzá, 0–24.
+"""Saját tárca: szabad pénz, amit a két számla (kripto, illetve részvény és világpiac) és a tárca között
+lehet mozgatni (Betesz / Kivesz). A számla eredményét a mozgatás nem torzítja: a készpénz és a kezdőtőke
+együtt mozog. A bot 0–24 figyeli a számlákat, és szól, ha egy számla a csúcsától nagyot esett.
+
+A régebbi funkciók (vétel/eladás a tárcából, figyelőlista, előrejelzés) az API-ban megmaradtak.
 
 A tárca a te pénzed nyilvántartása (könyvelés), nem tőzsdei megbízás: a bot nem utal és nem köt a
 nevedben, a valódi számládhoz nem nyúl. Vételnél a tárca egyenlegéből levonja az összeget, eladásnál
@@ -73,6 +77,11 @@ def _now_iso(clock) -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(clock()))
 
 
+def _usd(x: float) -> str:
+    """1234.5 → "1 234,50 $" (magyar írásmód)."""
+    return f"{x:,.2f}".replace(",", " ").replace(".", ",") + " $"
+
+
 def _amount(x, what: str = "összeg") -> float:
     try:
         v = float(x)
@@ -93,11 +102,14 @@ def _symbol(s) -> str:
 
 
 class Wallet:
-    def __init__(self, store, market, notify, clock=time.time, watch: tuple[str, ...] = DEFAULT_WATCH):
+    def __init__(self, store, market, notify, clock=time.time, watch: tuple[str, ...] = DEFAULT_WATCH,
+                 accounts: dict | None = None):
         """store: Store (a SQLite-kapcsolatát használja); market: candles()/price() — Yahoo-jelölésekkel;
         notify(text, kind=..., push=...) — a bot meglévő értesítő csatornái."""
         self.store, self.market, self.notify, self.clock = store, market, notify, clock
         self.default_watch = tuple(watch)
+        # számlák, amelyekre a tárcából pénzt lehet tenni: {"crypto": (név, agent), "world": (név, agent)}
+        self.accounts = dict(accounts or {})
         self._lock = threading.RLock()          # a pénzmozgások sorban, egyszerre egy
         with store._lock, store._conn:
             store._conn.executescript(SCHEMA)
@@ -161,6 +173,34 @@ class Wallet:
                 raise WalletError(f"nincs ennyi szabad pénz a tárcában (szabad: {bal:,.2f} $)")
             self._insert("withdraw", amt, note=note)
             return self.summary(prices={})
+
+    def transfer(self, account: str, direction: str, amount) -> dict:
+        """Pénz a tárca és egy számla között. direction: "in" = a tárcából a számlára, "out" = a számláról a tárcába.
+        Számlára csak a tárca szabad egyenlegéből, számláról csak a számla szabad (nem pozícióban lévő) készpénzéből."""
+        if account not in self.accounts:
+            raise WalletError("ismeretlen számla")
+        if direction not in ("in", "out"):
+            raise WalletError("ismeretlen irány")
+        amt = _amount(amount)
+        name, ag = self.accounts[account]
+        with self._lock:
+            if direction == "in":
+                bal = self.balance()
+                if amt > bal + EPS:
+                    raise WalletError(f"a tárcában csak {_usd(bal)} szabad pénz van")
+                tx = self._insert("withdraw", amt, note=f"→ {name}")
+                try:
+                    ag.store.move_capital(amt)
+                except Exception:
+                    with self.store._lock, self.store._conn:      # visszavonás: a pénz nem veszhet el
+                        self.store._conn.execute("DELETE FROM wallet_tx WHERE id = ?", (tx,))
+                    raise
+            else:
+                if not ag.store.move_capital(-amt):
+                    raise WalletError(f"a(z) {name} számlán csak {_usd(ag.store.cash())} szabad készpénz van "
+                                      "(a többi nyitott pozícióban áll)")
+                self._insert("deposit", amt, note=f"← {name}")
+        return {"wallet": self.balance(), "account": ag.store.cash()}
 
     def _price(self, sym: str, price=None) -> float:
         if price is not None:
@@ -296,67 +336,31 @@ class Wallet:
         return max(h.avg - STOP_ATR * a, hi - TRAIL_ATR * a)
 
     def scan(self) -> list[str]:
-        """Egy figyelőkör: tételek eladási jelzése, figyelt eszközök vételi jelzése, értesítés teendő esetén.
-        A hibás eszközt kihagyja (egy rossz jelölés nem állíthatja le a többit). Visszaadja a kiküldött üzeneteket."""
-        sent: list[str] = []
-        summ = self.summary()
-        total, bal = summ["total"], summ["balance"]
-        held = {x["symbol"]: x for x in summ["holdings"]}
-        _, hold, _ = self.ledger()
-        for sym in list(dict.fromkeys(list(held) + self.watchlist())):
+        """Figyelőkör: ha egy számla értéke a csúcsától 10%-nál többet esett, egyszer szól (csúcsonként),
+        hogy érdemes-e pénzt kivenni a tárcába. A számlák saját kötéseiről a bot külön értesít."""
+        sent = []
+        for key, (name, ag) in self.accounts.items():
             try:
-                cs = self.market.candles(sym, "1d", limit=400)
-            except MarketError as e:
-                logger.warning("tárca: %s kihagyva (%s)", sym, e)
+                eq = ag.equity(ag._prices([p.symbol for p in ag.store.open_positions()], {}))
+            except Exception:
+                logger.exception("tárca: a(z) %s számla értéke nem számolható", name)
                 continue
-            if len(cs) < strategy.MIN_BARS:
+            # A betét/kivét ne számítson esésnek: a csúcsot a kezdőtőkéhez mért eredményen követjük.
+            res = eq - ag.store.start_equity()
+            pk = f"wallet:peak:{key}"
+            peak = float(self.store.get(pk, "nan"))
+            if math.isnan(peak) or res > peak:
+                self.store.set(pk, res)
+                self.store.delete(f"wallet:dd:{key}")
                 continue
-            ind = strategy.compute(cs)
-            day = time.strftime("%Y-%m-%d", time.gmtime(cs[-1].close_time / 1000))
-            last = cs[-1].close
-            if sym in hold:
-                h, x = hold[sym], held[sym]
-                stop = self._stop_for(h, cs, ind)
-                f, s, r = ind["fast"][-1], ind["slow"][-1], ind["regime"][-1]
-                why = None
-                if stop is not None and last < stop:
-                    why = f"a záróár ({last:,.4g}) a védőszint ({stop:,.4g}) alá esett"
-                elif None not in (f, s, r) and f < s and last < r:
-                    why = "a trend megtört (rövid átlag a hosszú alatt, ár a 200 napos átlag alatt)"
-                if why and self._once(f"sell:{sym}:{day}"):
-                    pnl = x["pnl"] or 0.0
-                    msg = (f"🔴 TEENDŐ: ADD EL — {sym}\nJavaslat: mind a {h.qty:.6g} darabot (~{x['value']:,.0f} $).\n"
-                           f"Ok: {why}.\nEredmény most: {pnl:+,.0f} $ ({(x['pnl_pct'] or 0):+.1f}%).\n"
-                           "Ha eladtad, rögzítsd a Tárca fülön (Eladás), és a pénz visszakerül az egyenlegre.")
-                    self.notify(msg, kind="wallet", push=5)
-                    sent.append(msg)
-                continue
-            sig = strategy.evaluate(cs, None, allowed=BUY_KINDS)
-            if not sig or sig.action != "enter" or sig.side != 1 or not sig.stop or sig.stop >= last:
-                continue
-            per_unit = last - sig.stop
-            want = min(total * RISK_PCT / per_unit * last, total * MAX_POS_FRAC) if total > 0 else 0.0
-            if not self._once(f"buy:{sym}:{day}"):
-                continue
-            try:
-                ol = self.outlook(sym, cs)["text"]
-            except WalletError:
-                ol = ""
-            if want < MIN_TRADE:
-                msg = (f"🟢 VÉTELI HELYZET — {sym} ({last:,.4g})\nOk: {sig.reason}.\n"
-                       "A tárcádban ehhez túl kevés a pénz: ha venni szeretnél, előbb tegyél be pénzt a Tárca fülön.\n" + ol)
-            elif bal + EPS < want:
-                need = want - bal
-                msg = (f"🟢 VÉTELI HELYZET — {sym} ({last:,.4g})\nJavasolt összeg: {want:,.0f} $, "
-                       f"de szabadon csak {bal:,.0f} $ van.\nTEENDŐ: tegyél be kb. {need:,.0f} $-t, vagy vegyél kevesebbet.\n"
-                       f"Ok: {sig.reason}. Védőszint: {sig.stop:,.4g}.\n" + ol)
-            else:
-                msg = (f"🟢 TEENDŐ: VEDD — {sym} ({last:,.4g})\nJavasolt összeg: {want:,.0f} $ "
-                       f"(a tárca {want / total:.0%}-a; a védőszintig a kockázat ~{total * RISK_PCT:,.0f} $).\n"
-                       f"Ok: {sig.reason}. Védőszint: {sig.stop:,.4g} — ha alá esik, szólok, hogy add el.\n" + ol)
-            self.notify(msg, kind="wallet", push=4)
-            sent.append(msg)
-        self._check_drawdown(summ)
+            drop = peak - res
+            if eq > 0 and drop > 0.10 * eq and not self.store.get(f"wallet:dd:{key}"):
+                self.store.set(f"wallet:dd:{key}", int(self.clock()))
+                msg = (f"⚠️ TEENDŐ? A(z) {name} számla a csúcsa óta {drop:,.0f} $-t esett (most {eq:,.0f} $).\n"
+                       "Ha óvatosabb lennél, a Kivesz gombbal tegyél át pénzt a tárcába; a nyitott pozíciókat a bot "
+                       "a védőszinteknél magától zárja.")
+                self.notify(msg, kind="wallet", push=5)
+                sent.append(msg)
         return sent
 
     def _check_drawdown(self, summ: dict) -> None:

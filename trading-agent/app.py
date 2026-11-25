@@ -141,8 +141,12 @@ def _recent_news() -> list[dict]:
 # --- saját tárca: a megbízó pénzének nyilvántartása és a bot tanácsai (a bot nem köt és nem utal) ---
 wallet = None
 if os.environ.get("WALLET", "on").lower() != "off":
+    accounts = {"crypto": ("Kripto", agent)}
+    if world is not None:
+        accounts["world"] = ("Részvény és világpiac", world)
     wallet = Wallet(store, world.market if world is not None else YahooMarket(),
-                    notify=lambda text, kind="wallet", push=None: agent.notify(text, kind=kind, push=push))
+                    notify=lambda text, kind="wallet", push=None: agent.notify(text, kind=kind, push=push),
+                    accounts=accounts)
 
 app = FastAPI(title="AXIMBRA trading agent")
 app.include_router(make_router(agent, state, wallet))

@@ -74,15 +74,13 @@ Akkor, ha **legalább 3 hónap papírkereskedés és legalább 30 lezárt köté
 Ha ez nem teljesül, a stratégián kell változtatni, nem a valódi pénz felé lépni.
 Az alapstratégia egy átlátható kiindulópont, nem bizonyított előny.
 
-## Saját tárca (Tárca fül)
+## Saját tárca és a két számla
 
-A megbízó pénzének nyilvántartása: **Betesz / Kivesz**, **Vétel** (az összeg levonódik az egyenlegből) és
-**Eladás** (az ellenérték jóváíródik). A bot nem köt és nem utal a nevedben — a valódi számlához nem nyúl.
+A felület három részből áll: **Áttekintés**, **Pozíciók**, **Chat**.
 
-- A bot 15 percenként (`WALLET_SECONDS`) figyeli a tételeket és a figyelőlistát, és szól (push + e-mail + élő
-  felület), ha teendő van: **VEDD** javasolt összeggel, **ADD EL** (védőszint alatt vagy megtört trendnél),
-  **tegyél be pénzt** (ha a javasolt vételhez nincs elég), illetve ha a befektetések a csúcsuktól 10%-nál többet estek.
-- Méretezés kódban: vételenként legfeljebb a tárca 2%-a a kockázat a védőszintig, eszközönként legfeljebb 25%.
-- **Előrejelzés**: az elmúlt ~2 év hasonló helyzeteiben hányszor volt feljebb az ár 5 és 20 nap múlva, medián
-  és rossz/jó eset. Ez múltbeli gyakoriság, nem biztos jóslat.
-- Kikapcsolás: `WALLET=off`.
+- **Teljes egyenleg** = tárca + kripto számla + részvény és világpiaci számla.
+- **Tárca**: szabad pénz. A számláknál a **Betesz** gomb a tárcából tesz át pénzt, a **Kivesz** a számla
+  szabad (nem pozícióban álló) készpénzéből a tárcába. A számla eredménye a mozgatástól nem változik.
+- A bot 15 percenként (`WALLET_SECONDS`) figyel, és szól (push + e-mail + felület), ha egy számla a
+  csúcsától a számla értékének 10%-ánál többet esett. A kötésekről a bot ugyanúgy értesít, mint eddig.
+- Kikapcsolás: `WALLET=off`. A bot semmilyen valódi pénzt nem mozgat: mindkét számla demó/játékpénz.

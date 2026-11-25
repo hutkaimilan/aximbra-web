@@ -164,6 +164,18 @@ class Store:
     def start_equity(self) -> float:
         return float(self.get("start_equity", "0"))
 
+    def move_capital(self, delta: float) -> bool:
+        """Pénz be (+) vagy ki (−) a számlára: a készpénz és a kezdőtőke együtt mozog, így az eredmény
+        nem torzul. Egy tranzakcióban, a zár alatt: kivétnél False, ha nincs ennyi szabad készpénz."""
+        with self._lock, self._conn:
+            cash = float(self._conn.execute("SELECT value FROM kv WHERE key = 'cash'").fetchone()["value"])
+            start = float(self._conn.execute("SELECT value FROM kv WHERE key = 'start_equity'").fetchone()["value"])
+            if cash + delta < -1e-9:
+                return False
+            self._conn.execute("UPDATE kv SET value = ? WHERE key = 'cash'", (repr(cash + delta),))
+            self._conn.execute("UPDATE kv SET value = ? WHERE key = 'start_equity'", (repr(start + delta),))
+            return True
+
     # --- jelzések ------------------------------------------------------------
     def record_signal(self, symbol: str, candle_time: int, action: str, price: float, reason: str) -> bool:
         """True, ha új; False, ha ezt a jelzést már feldolgoztuk (újraindulás, ismételt ciklus)."""
