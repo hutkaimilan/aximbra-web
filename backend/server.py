@@ -1251,7 +1251,15 @@ def draft_sys(tone: str, lang: str = "hu") -> str:
         "Reply with a VALID JSON object ONLY, no explanation, with these keys: "
         "targy (the reply's subject line, max 120 characters), "
         "valasz (the full reply text, with a salutation and a sign-off). "
-        "Rules: the reply MUST be in the same language as the incoming email. "
+        # A kulcsnevek magyarok, és a modell ebből is a válasz nyelvére
+        # következtetett: egy angol levélre magyar választ írt. A kulcsok nem
+        # cserélhetők (a lap azokat olvassa), ezért ki kell mondani, hogy semmit
+        # nem jelentenek a nyelvről.
+        "Rules: write the reply in THE SAME LANGUAGE AS THE INCOMING EMAIL BODY below. "
+        "The JSON key names (targy, valasz) are fixed identifiers that happen to be "
+        "Hungarian: they say NOTHING about the reply's language. If the email is in "
+        "English, both the subject and the reply text must be in English; if it is in "
+        "German, both must be in German. "
         f"Tone: {DRAFT_TONES[tone]}. "
         "NEVER invent a fact, a price, a deadline, a name or a contact detail: when something is not "
         "in the email, leave a square-bracketed placeholder in its place, for example [date] or [amount]. "

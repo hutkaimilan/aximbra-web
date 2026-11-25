@@ -1792,6 +1792,8 @@ def test_the_draft_prompt_does_not_look_hungarian_to_the_model():
     sys_msg = server.draft_sys("hivatalos", "en")
     for hu in ("magázódó", "hangnem", "tisztelettudó"):
         assert hu not in sys_msg, f"magyar szó a rendszerüzenetben: {hu}"
-    assert "same language as the incoming email" in sys_msg
+    assert "SAME LANGUAGE AS THE INCOMING EMAIL BODY" in sys_msg
+    # A kulcsnevek magyarok; ki kell mondani, hogy nem a nyelvről szólnak.
+    assert "say NOTHING about the reply's language" in sys_msg
     # A kulcsokat a lap küldi, azok nem változhatnak.
     assert set(server.DRAFT_TONES) == {"hivatalos", "kozvetlen"}
