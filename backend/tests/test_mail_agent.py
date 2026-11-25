@@ -1741,3 +1741,40 @@ def test_an_expired_session_is_revoked_too(monkeypatch):
     finally:
         loop.close()
     assert "expired-test" not in mail_agent._sessions and revoked == [creds]
+
+
+def test_the_english_sample_inbox_covers_the_same_cases():
+    """Az angol demó nem fordítás, de ugyanazt kell bizonyítania.
+
+    A válogatás értelme, hogy van benne azonnali ügy, csaló levél, automata
+    értesítés, hírlevél és egy csak csatolmányból álló levél. Ha ezek közül
+    bármelyik kiesik, a lista semmit nem mond arról, hogy az agent tud-e
+    rangsorolni — csak arról, hogy minden levelet fontosnak lát.
+    """
+    from sample_inbox import SAMPLE_EMAILS_EN, SAMPLE_EMAILS_HU, sample_set
+
+    assert len(SAMPLE_EMAILS_EN) == len(SAMPLE_EMAILS_HU)
+    assert [e["id"] for e in SAMPLE_EMAILS_EN] == [e["id"] for e in SAMPLE_EMAILS_HU]
+    assert [e["days_ago"] for e in SAMPLE_EMAILS_EN] == [e["days_ago"] for e in SAMPLE_EMAILS_HU]
+    assert any(e.get("attachments") for e in SAMPLE_EMAILS_EN), "nincs csak-csatolmány eset"
+    assert any(not e["subject"] for e in SAMPLE_EMAILS_EN), "nincs tárgy nélküli eset"
+    joined = " ".join(e["body"] for e in SAMPLE_EMAILS_EN).lower()
+    assert "unsubscribe" in joined, "nincs hírlevél"
+    assert "automated" in joined or "automatic" in joined, "nincs automata értesítés"
+    # A csaló levél feladója nem a megnevezett cég doménjéről ír: ezen bukik meg.
+    phish = next(e for e in SAMPLE_EMAILS_EN if "FINAL NOTICE" in e["subject"])
+    assert "-secure.biz" in phish["sender"]
+    assert sample_set("en") is SAMPLE_EMAILS_EN
+    assert sample_set("hu") is SAMPLE_EMAILS_HU
+    assert sample_set("de") is SAMPLE_EMAILS_HU       # amire nincs készlet, az magyar
+
+
+def test_an_empty_subject_is_left_to_the_page():
+    """A „(nincs tárgy)” felirat a lapé: a kiszolgáló nem írhat magyarul egy angol lapra."""
+    from datetime import datetime, timezone
+    from sample_inbox import sample_emails
+
+    for lang in ("hu", "en"):
+        subjects = [e["subject"] for e in sample_emails(datetime.now(timezone.utc), lang)]
+        assert "" in subjects
+        assert not any("nincs tárgy" in (s or "") for s in subjects)

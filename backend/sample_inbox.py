@@ -166,7 +166,177 @@ SAMPLE_EMAILS = [
 ]
 
 
-def sample_emails(now):
+# Ugyanaz a tíz eset angolul. Nem fordítás: egy angol ajánlatkérésben más a
+# cégforma, a pénznem és az udvariassági formula, és a csaló levél is csak
+# akkor hihető, ha a saját nyelvén az. A sorrend és a szerep viszont pontosan
+# megegyezik a magyarral, hogy a demó mindkét nyelven ugyanazt bizonyítsa.
+#
+# A hatóságot szándékosan nem valódi hivatal küldi: a levelek kitaláltak, és
+# egy létező adóhatóság nevében írni akkor sem helyes, ha a lap kiírja róla.
+SAMPLE_EMAILS_EN = [
+    {
+        "id": "sample-01",
+        "days_ago": 0,
+        "sender": "Anna Coleman <anna.coleman@pinewoodrooms.co.uk>",
+        "subject": "Delivery overdue - day 3",
+        "body": (
+            "Good morning,\n\n"
+            "I ordered 40 bedding sets last Tuesday. Your confirmation said they would "
+            "arrive on Thursday. Since then I have had no update at all, and nobody "
+            "picks up the phone.\n\n"
+            "We open for the season on Saturday with 18 rooms still unmade. If the "
+            "order is not here by Friday I will have to buy elsewhere and ask for the "
+            "deposit back.\n\n"
+            "Please let me know today whether I can count on it.\n\n"
+            "Kind regards,\nAnna Coleman\nPinewood Rooms"
+        ),
+    },
+    {
+        "id": "sample-02",
+        "days_ago": 0,
+        "sender": "Gregory Tate <g.tate@medisource-group.com>",
+        "subject": "Request for quote - 250 units, annual framework",
+        "body": (
+            "Dear Sir or Madam,\n\n"
+            "I handle procurement for a healthcare group with 12 sites. Our current "
+            "supplier's contract ends in December and I have to put three quotes in "
+            "front of the board.\n\n"
+            "What I need a price for: 250 units per quarter under an annual framework "
+            "agreement, delivered to site. The decision is made together with our "
+            "finance director.\n\n"
+            "If I have your quote by the end of next week I can take it into the "
+            "November decision round. After that the budget does not reopen until "
+            "spring.\n\n"
+            "Many thanks,\nGregory Tate\nHead of Procurement"
+        ),
+    },
+    {
+        "id": "sample-03",
+        "days_ago": 1,
+        "sender": "Business Registry Office <noreply@registry-notices.example>",
+        "subject": "Notice: missing documents - 2026 Q3 return",
+        "body": (
+            "Dear Filer,\n\n"
+            "In connection with the return you submitted for Q3 2026 we have issued a "
+            "request for missing documents. The request is available in your filing "
+            "portal.\n\n"
+            "The deadline for supplying them is 15 days from delivery of this notice. "
+            "If the deadline passes, the case continues on the basis of the data "
+            "already held.\n\n"
+            "This is an automated message. Please do not reply."
+        ),
+    },
+    {
+        "id": "sample-04",
+        "days_ago": 1,
+        "sender": "Peter Nagy <peter.nagy@buildinvest-group.com>",
+        "subject": "Re: Re: Draft agreement - clause 4.2",
+        "body": (
+            "Hello,\n\n"
+            "Our partner accepts the 60-day payment term in the draft, but wants the "
+            "late-payment penalty in clause 4.2 capped. They propose 0.05% per day "
+            "instead of 0.1%, with a ceiling at 5% of the contract value.\n\n"
+            "Legal says this is workable. Before I send it back: is the cap acceptable "
+            "to you? If yes, I will have the amended draft out on Monday.\n\n"
+            "Best,\nPeter"
+        ),
+    },
+    {
+        "id": "sample-05",
+        "days_ago": 2,
+        "sender": "Invoicing <system@invoice-service.example>",
+        "subject": "Invoice issued - INV-2026-0417",
+        "body": (
+            "This is an automated notification.\n\n"
+            "Invoice INV-2026-0417 has been issued successfully and submitted to the "
+            "tax authority. Amount: 1,270.00 EUR. Customer: BuildInvest Ltd.\n\n"
+            "The invoice can be downloaded from your account. No action is needed."
+        ),
+    },
+    {
+        "id": "sample-06",
+        "days_ago": 3,
+        "sender": "Sophie Hart <sophie@hartstudio.co.uk>",
+        "subject": "",
+        "body": (
+            "Hi,\n\n"
+            "Sending over the material you asked for. The details are in the attached "
+            "document, the important part starts on page 3.\n\n"
+            "Sophie"
+        ),
+        "attachments": ["quote_details.docx"],
+    },
+    {
+        "id": "sample-07",
+        "days_ago": 4,
+        "sender": "Customer Service <info@billing-centre-secure.biz>",
+        "subject": "FINAL NOTICE - settle your debt within 24 hours!",
+        "body": (
+            "Dear Customer,\n\n"
+            "Our records show an OUTSTANDING BALANCE of 184.90 EUR on your account. "
+            "Unless it is settled within 24 HOURS your service will be SUSPENDED and "
+            "the case passed to debt collection.\n\n"
+            "Settle now: http://billing-centre-secure.biz/pay?ref=8841\n\n"
+            "Ignore this message if you have already paid."
+        ),
+    },
+    {
+        "id": "sample-08",
+        "days_ago": 5,
+        "sender": "Martin Shaw <martin.shaw@logipart-eu.com>",
+        "subject": "Automatic reply: Out of office",
+        "body": (
+            "Thank you for your message.\n\n"
+            "I am out of the office until 2 December with limited access to email. In "
+            "urgent matters please contact my colleague at office@logipart-eu.com.\n\n"
+            "This is an automatic reply."
+        ),
+    },
+    {
+        "id": "sample-09",
+        "days_ago": 7,
+        "sender": "Chris Vidal <chris@vidal-bistro.com>",
+        "subject": "Question about last month's invoice",
+        "body": (
+            "Hello,\n\n"
+            "On the September invoice there is a line called 'other services' for "
+            "145.00 EUR. I cannot match it to anything we ordered.\n\n"
+            "Could you tell me what it covers? If it is an error I would ask for a "
+            "corrected invoice.\n\n"
+            "Thanks,\nChris"
+        ),
+    },
+    {
+        "id": "sample-10",
+        "days_ago": 9,
+        "sender": "Marketing Weekly <news@digital-trends-weekly.example>",
+        "subject": "5 AI trends that will rewrite marketing in 2027",
+        "body": (
+            "Hi there,\n\n"
+            "In this issue: generative search, agentic automation, and why the "
+            "traditional newsletter no longer works.\n\n"
+            "Read the full article on our site.\n\n"
+            "Unsubscribe: link at the bottom of this email."
+        ),
+    },
+]
+
+# A magyar marad az alapértelmezés; a régi név a hívók kedvéért megmarad.
+SAMPLE_EMAILS_HU = SAMPLE_EMAILS
+SAMPLE_SETS = {"hu": SAMPLE_EMAILS_HU, "en": SAMPLE_EMAILS_EN}
+
+
+def sample_set(lang: str = "hu") -> list:
+    """A nyelvhez tartozó példa levelek. Amire nincs külön készlet, az magyar.
+
+    A többi nyelven (német, francia, román...) az angol levél idegenebb lenne,
+    mint a magyar: ott az osztályozás és a válasz úgyis a felület nyelvén
+    készül, a bemenet nyelve pedig a valóságban is vegyes.
+    """
+    return SAMPLE_SETS.get((lang or "hu").strip().lower(), SAMPLE_EMAILS_HU)
+
+
+def sample_emails(now, lang: str = "hu"):
     """A példa levelek valódi dátumokkal, a hívás pillanatához igazítva.
 
     A dátum relatívan tárolódik, mert egy demó, amiben minden levél fél éve
@@ -175,12 +345,13 @@ def sample_emails(now):
     from datetime import timedelta
 
     out = []
-    for e in SAMPLE_EMAILS:
+    for e in sample_set(lang):
         sent = now - timedelta(days=e["days_ago"], hours=2)
         out.append({
             "id": e["id"],
             "sender": e["sender"],
-            "subject": e["subject"] or "(nincs tárgy)",
+            # Üres tárgynál a feliratot a lap teszi hozzá, a saját nyelvén.
+            "subject": e["subject"],
             "snippet": e["body"][:120],
             "date": sent.isoformat(),
             "body": e["body"],

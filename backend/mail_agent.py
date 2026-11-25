@@ -699,7 +699,7 @@ async def search(request: Request, q: str = ""):
     if sess.get("sample"):
         from sample_inbox import sample_emails  # noqa: runtime only
 
-        hits = _sample_search(sample_emails(datetime.now(timezone.utc)), query)
+        hits = _sample_search(sample_emails(datetime.now(timezone.utc), sess.get("lang", "hu")), query)
         return {"query": query, "total": len(hits), "results": hits}
 
     # A keresés Gmail-hívásokba kerül, tehát munkamenetenként korlátos.
@@ -1188,7 +1188,7 @@ async def run_sample(sid: str):
     state = sess["state"]
     if state["running"]:
         return
-    emails = sample_emails(datetime.now(timezone.utc))
+    emails = sample_emails(datetime.now(timezone.utc), sess.get("lang", "hu"))
     state.update({"running": True, "total": len(emails), "message": "running"})
     # A futás levelei egy csomagban mennek a modellhez (lásd server._batch_group).
     _batch_group.set(sid)
