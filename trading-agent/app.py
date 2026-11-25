@@ -283,9 +283,13 @@ def _telegram_loop() -> None:
 
 @app.on_event("startup")
 def _startup() -> None:
-    if wallet is not None and os.environ.get("WALLET_RETURN_ONCE") == "1":    # egyszeri javítás: a tárca pénze vissza a számlákra
+    if wallet is not None and os.environ.get("WALLET_CLEAR_ONCE") == "1":     # egyszeri javítás a megbízó kérésére
         try:
-            logger.info("tárca visszaállítás: %s", wallet.return_all())
+            logger.info("tárca visszaállítás: %s", wallet.return_all())        # ami számláról jött, visszamegy
+            rest = wallet.balance()
+            if rest >= 0.01:                                                    # a kézzel betett maradék törlése (könyvelt kivét)
+                wallet.withdraw(rest, note="törölve a megbízó kérésére")
+            logger.info("tárca törlés után: %s", wallet.balance())
         except Exception:
             logger.exception("a tárca visszaállítása nem sikerült")
     if os.environ.get("TRADING_LOOP", "on").lower() == "off":
