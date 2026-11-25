@@ -997,6 +997,8 @@ _batch_group: contextvars.ContextVar = contextvars.ContextVar("agent_batch_group
 AGENT_BATCH_SIZE = max(1, int(_env_float("AGENT_BATCH_SIZE", 10)))
 AGENT_BATCH_WINDOW = 1.5  # mp: ennyit vár a csomag a többi levélre, mielőtt elindul
 AGENT_BATCH_BODY_CHARS = 3000
+# Ennyi levelet kérdezünk meg egyszerre, ha a csomag nem adott rájuk választ.
+AGENT_RETRY_CONCURRENCY = 5
 _batches: dict = {}
 _batch_tasks: set = set()
 
@@ -1069,6 +1071,15 @@ def _batch_results(raw: str) -> dict:
     return out
 
 
+def _batch_fallback_pointless(e: Exception) -> bool:
+    """Igaz, ha a csomag hibáját az egyes hívások is megkapnák.
+
+    A napi keret és a napi kvóta nem a csomagtól romlott el: tíz külön hívás
+    ugyanúgy elszállna, csak tízszer annyit próbálkozna.
+    """
+    return isinstance(e, HTTPException) or _daily_quota(e)
+
+
 async def _run_batch(lang: str, items: list):
     try:
         if len(items) == 1:
@@ -1081,24 +1092,46 @@ async def _run_batch(lang: str, items: list):
             raw = await _call_llm(agent_sys(lang) + AGENT_BATCH_RULES, text,
                                   max_tokens=min(8000, 450 * len(items) + 200))
             by_id = _batch_results(raw)
-    except Exception as e:  # noqa - minden várakozó ugyanazt a hibát kapja
-        for _, fut in items:
-            if not fut.done():
-                fut.set_exception(e)
-        return
-    for i, (email, fut) in enumerate(items, 1):
-        if fut.done():  # a hívó közben feladta
-            continue
-        row = by_id.get(str(i))
-        if row is None:
-            # A modell kihagyott egyet: azt az egyet külön kérdezzük meg.
-            try:
-                row = await _classify_single(email, lang)
-            except Exception as e:  # noqa
+    except Exception as e:  # noqa
+        if _batch_fallback_pointless(e):
+            for _, fut in items:
                 if not fut.done():
                     fut.set_exception(e)
+            return
+        # A csomag csak gyorsítás, nem feltétel. Eddig egyetlen elhasalt
+        # csomaghívás az egész futást kinyírta — mind a tíz levél ugyanazt a
+        # hibát kapta, és a látogató üres postafiókot látott. A szolgáltató
+        # ötszázas hibája, egy félbevágott válasz vagy egy elrontott JSON nem
+        # érheti el ezt: ilyenkor levelenként kérdezünk újra. A teljes hibaüzenet
+        # is kell, mert a kivétel neve önmagában semmit nem mond a naplóban.
+        logger.warning("batch classify failed (%s), falling back one by one: %s",
+                       type(e).__name__, e)
+        by_id = {}
+    # Amit a csomag nem adott meg, azt levelenként kérdezzük meg. Egyesével ez
+    # tíz levélnél fél perc is lehet, és addig a lap pörgőt mutat, ezért
+    # párhuzamosan megy — ugyanannyi szálon, mint az éles postafiók futása.
+    missing = [(i, email, fut) for i, (email, fut) in enumerate(items, 1)
+               if not fut.done() and by_id.get(str(i)) is None]
+    if missing:
+        gate = asyncio.Semaphore(min(len(missing), AGENT_RETRY_CONCURRENCY))
+
+        async def _alone(email):
+            async with gate:
+                return await _classify_single(email, lang)
+
+        for (i, _e, fut), row in zip(missing, await asyncio.gather(
+                *(_alone(e) for _, e, _ in missing), return_exceptions=True)):
+            if fut.done():
                 continue
-        if not fut.done():
+            if isinstance(row, BaseException):
+                fut.set_exception(row)
+            else:
+                by_id[str(i)] = row
+    for i, (email, fut) in enumerate(items, 1):
+        if fut.done():  # a hívó közben feladta, vagy fent hibát kapott
+            continue
+        row = by_id.get(str(i))
+        if row is not None:
             fut.set_result(row)
 
 

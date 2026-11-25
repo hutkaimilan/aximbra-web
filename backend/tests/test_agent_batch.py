@@ -95,3 +95,51 @@ def test_without_a_run_group_it_stays_a_single_call(monkeypatch):
     monkeypatch.setitem(server._state, "cost", 0.0)
     asyncio.run(server.classify_one(_email(1)))
     assert len(calls) == 1 and not calls[0]["batch"]
+
+
+def _llm_batch_fails(calls, exc):
+    """A csomaghívás elszáll, az egyes hívások mennek."""
+    async def fake(system_msg, user_text, max_tokens=600, **kw):
+        batch = "BATCH MODE" in system_msg
+        calls.append({"batch": batch})
+        if batch:
+            raise exc
+        subj = re.search(r"Tárgy: (.*)", user_text).group(1)
+        return json.dumps({"category": "other", "urgency": 2, "needs_reply": "nem",
+                           "summary": subj})
+    return fake
+
+
+def test_a_failed_batch_falls_back_to_one_call_per_email(monkeypatch):
+    """Egy elhasalt csomag nem viheti el az egész futást.
+
+    Élesben a szolgáltató ötszázas hibája mind a tíz levelet kinyírta, és a
+    látogató üres postafiókot kapott: a demó értéke pont ez a lista.
+    """
+    calls = []
+    monkeypatch.setattr(server, "_call_llm", _llm_batch_fails(calls, RuntimeError("boom")))
+    monkeypatch.setitem(server._state, "cost", 0.0)
+    monkeypatch.setattr(server, "AGENT_BATCH_WINDOW", 0.05)
+    out = asyncio.run(_run("sess-fallback", [_email(n) for n in range(4)]))
+    assert [o["summary"] for o in out] == [f"tárgy {n}" for n in range(4)]
+    assert sum(1 for c in calls if c["batch"]) == 1
+    assert sum(1 for c in calls if not c["batch"]) == 4
+
+
+def test_the_daily_ceiling_is_not_retried_four_more_times(monkeypatch):
+    """A napi keretnél a levelenkénti újrakérdezés csak több hívás, nem megoldás."""
+    from fastapi import HTTPException
+    calls = []
+    monkeypatch.setattr(server, "_call_llm",
+                        _llm_batch_fails(calls, HTTPException(status_code=429, detail="keret")))
+    monkeypatch.setitem(server._state, "cost", 0.0)
+    monkeypatch.setattr(server, "AGENT_BATCH_WINDOW", 0.05)
+
+    async def go():
+        return await asyncio.gather(*(server.classify_one(e, "hu") for e in
+                                      [_email(n) for n in range(4)]),
+                                    return_exceptions=True)
+    server._batch_group.set("sess-ceiling")
+    out = asyncio.run(go())
+    assert all(isinstance(o, HTTPException) for o in out)
+    assert sum(1 for c in calls if not c["batch"]) == 0
