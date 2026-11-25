@@ -1778,3 +1778,20 @@ def test_an_empty_subject_is_left_to_the_page():
         subjects = [e["subject"] for e in sample_emails(datetime.now(timezone.utc), lang)]
         assert "" in subjects
         assert not any("nincs tárgy" in (s or "") for s in subjects)
+
+
+def test_the_draft_prompt_does_not_look_hungarian_to_the_model():
+    """A fogalmazó a bejövő levél nyelvén válaszol — ha a prompt nem beszél bele.
+
+    Élesben egy angol ügyfél magyar választervezetet kapott: a levelet magyar
+    mezőnevek közé tettük („Feladó", „Levél törzse"), a hangnemet pedig magyarul
+    írtuk le, és a modell ebből a levél nyelvére következtetett.
+    """
+    import server
+
+    sys_msg = server.draft_sys("hivatalos", "en")
+    for hu in ("magázódó", "hangnem", "tisztelettudó"):
+        assert hu not in sys_msg, f"magyar szó a rendszerüzenetben: {hu}"
+    assert "same language as the incoming email" in sys_msg
+    # A kulcsokat a lap küldi, azok nem változhatnak.
+    assert set(server.DRAFT_TONES) == {"hivatalos", "kozvetlen"}

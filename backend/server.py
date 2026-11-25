@@ -1197,9 +1197,16 @@ AI_NOTICE = AI_NOTICES["hu"]
 def ai_notice(lang: str = "hu") -> str:
     return AI_NOTICES.get(lang, AI_NOTICES["hu"])
 
+# A hangnem leírása a modellnek szól, és szándékosan angolul: a fogalmazónak a
+# bejövő levél nyelvén kell válaszolnia, és egy magyarul megfogalmazott
+# utasítástól magyarul válaszolt egy angol levélre is. A kulcsok maradnak, mert
+# azokat a lap küldi.
 DRAFT_TONES = {
-    "hivatalos": "hivatalos, tisztelettudó, magázódó üzleti hangnem",
-    "kozvetlen": "közvetlen, barátságos, tegező hangnem, de nem bizalmaskodó",
+    "hivatalos": ("formal, respectful business tone; where the language has a polite "
+                  "second person (Hungarian magázódás, German Sie, French vous), use it"),
+    "kozvetlen": ("direct, friendly tone; where the language has an informal second "
+                  "person (Hungarian tegezés, German du, French tu), use it, but never "
+                  "over-familiar"),
 }
 
 
@@ -1259,11 +1266,15 @@ async def draft_one(email: dict, tone: str = "hivatalos", lang: str = "hu") -> d
         raise HTTPException(status_code=429, detail="Az agent mára elérte a napi keretét.")
     if tone not in DRAFT_TONES:
         tone = "hivatalos"
+    # A mezőnevek angolok, nem magyarok: a fogalmazónak a bejövő levél nyelvén
+    # kell válaszolnia, és a magyar keret („Feladó", „Levél törzse") magyarnak
+    # mutatta a levelet akkor is, ha angolul írták — így egy angol ügyfél magyar
+    # választervezetet kapott.
     text = (
-        f"Feladó: {email.get('sender', '')}\n"
-        f"Tárgy: {email.get('subject', '')}\n"
-        f"Dátum: {email.get('date', '')}\n\n"
-        f"Levél törzse:\n{(email.get('body') or email.get('snippet') or '')[:6000]}"
+        f"From: {email.get('sender', '')}\n"
+        f"Subject: {email.get('subject', '')}\n"
+        f"Date: {email.get('date', '')}\n\n"
+        f"Body:\n{(email.get('body') or email.get('snippet') or '')[:6000]}"
     )
     system_msg = draft_sys(tone, lang)
 
