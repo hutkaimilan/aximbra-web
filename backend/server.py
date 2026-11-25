@@ -172,6 +172,8 @@ GEMINI_JSON_RULES = (
 
 
 RATE_LIMIT_WAITS = (5, 10, 20, 30)
+# Szolgáltatói 5xx (503: túlterhelt modell) utáni várakozások másodpercben.
+SERVER_ERROR_WAITS = (1.5, 4, 9)
 
 
 def _daily_quota(e: Exception) -> bool:
@@ -223,7 +225,12 @@ async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600,
 
     resp = None
     waits = list(RATE_LIMIT_WAITS)
-    for _ in range(3 + len(waits)):
+    # A szolgáltató ötszázasai (tipikusan 503: a modell épp túlterhelt) másodpercek
+    # alatt elmúlnak. Az SDK saját újrapróbálkozása ki van kapcsolva, hogy a
+    # várakozás itt, egy helyen legyen szabályozva — e nélkül egyetlen 503 egy
+    # egész demófutást elvitt.
+    server_waits = list(SERVER_ERROR_WAITS)
+    for _ in range(3 + len(waits) + len(server_waits)):
         try:
             resp = await client.chat.completions.create(**kwargs)
             break
@@ -233,6 +240,11 @@ async def _call_llm(system_msg: str, user_text: str, max_tokens: int = 600,
             if not waits or not wait_on_limit or _daily_quota(exc):
                 raise
             await asyncio.sleep(waits.pop(0))
+        except (InternalServerError, APIConnectionError, APITimeoutError) as exc:
+            if not server_waits:
+                logger.warning("model call gave up after server errors: %s", exc)
+                raise
+            await asyncio.sleep(server_waits.pop(0))
         except BadRequestError as exc:
             msg = str(exc)
             if "temperature" in msg and "temperature" in kwargs:

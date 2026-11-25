@@ -143,3 +143,47 @@ def test_the_daily_ceiling_is_not_retried_four_more_times(monkeypatch):
     out = asyncio.run(go())
     assert all(isinstance(o, HTTPException) for o in out)
     assert sum(1 for c in calls if not c["batch"]) == 0
+
+
+def test_a_503_is_waited_out_instead_of_killing_the_run(monkeypatch):
+    """A modell túlterheltsége (503) másodpercek alatt elmúlik.
+
+    Az SDK saját újrapróbálkozása ki van kapcsolva, ezért egyetlen 503 eddig
+    végigszaladt a hívón: a csomag elhasalt, és vele a demó.
+    """
+    import httpx
+    from openai import InternalServerError
+
+    def _boom():
+        req = httpx.Request("POST", "https://api.example/v1/chat/completions")
+        return InternalServerError("Error code: 503",
+                                   response=httpx.Response(503, request=req), body=None)
+
+    calls = {"n": 0}
+    sleeps = []
+
+    class _Resp:
+        choices = [type("C", (), {"message": type("M", (), {"content": '{"ok": 1}'})(),
+                                  "finish_reason": "stop"})()]
+
+    async def create(**kw):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise _boom()
+        return _Resp()
+
+    class _Client:
+        chat = type("Chat", (), {"completions": type("Cmp", (), {"create": staticmethod(create)})()})()
+
+        def with_options(self, **kw):
+            return self
+
+    async def fake_sleep(s):
+        sleeps.append(s)
+
+    monkeypatch.setattr(server, "_llm_client", lambda: (_Client(), "m"))
+    monkeypatch.setattr(server.asyncio, "sleep", fake_sleep)
+    out = asyncio.run(server._call_llm("sys", "user"))
+    assert out == '{"ok": 1}'
+    assert calls["n"] == 3, "nem próbálta újra a 503-at"
+    assert sleeps == [1.5, 4], f"nem várt a próbálkozások között: {sleeps}"
