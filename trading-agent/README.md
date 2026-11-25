@@ -73,3 +73,16 @@ Akkor, ha **legalább 3 hónap papírkereskedés és legalább 30 lezárt köté
 
 Ha ez nem teljesül, a stratégián kell változtatni, nem a valódi pénz felé lépni.
 Az alapstratégia egy átlátható kiindulópont, nem bizonyított előny.
+
+## Saját tárca (Tárca fül)
+
+A megbízó pénzének nyilvántartása: **Betesz / Kivesz**, **Vétel** (az összeg levonódik az egyenlegből) és
+**Eladás** (az ellenérték jóváíródik). A bot nem köt és nem utal a nevedben — a valódi számlához nem nyúl.
+
+- A bot 15 percenként (`WALLET_SECONDS`) figyeli a tételeket és a figyelőlistát, és szól (push + e-mail + élő
+  felület), ha teendő van: **VEDD** javasolt összeggel, **ADD EL** (védőszint alatt vagy megtört trendnél),
+  **tegyél be pénzt** (ha a javasolt vételhez nincs elég), illetve ha a befektetések a csúcsuktól 10%-nál többet estek.
+- Méretezés kódban: vételenként legfeljebb a tárca 2%-a a kockázat a védőszintig, eszközönként legfeljebb 25%.
+- **Előrejelzés**: az elmúlt ~2 év hasonló helyzeteiben hányszor volt feljebb az ár 5 és 20 nap múlva, medián
+  és rossz/jó eset. Ez múltbeli gyakoriság, nem biztos jóslat.
+- Kikapcsolás: `WALLET=off`.

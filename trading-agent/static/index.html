@@ -136,6 +136,19 @@ input.slider::-moz-range-track{height:4px;border-radius:99px;background:var(--li
   <div class="card"><div class="h"><span>Eseménynapló</span></div><div class="filters" id="ef"></div><div id="evlist"></div></div>
 </section>
 <!-- CHAT -->
+<section class="view" id="vwal">
+  <div class="card"><div class="h"><span>👛 Saját tárca · a te pénzed nyilvántartása</span><span class="chip acc">a bot nem köt helyetted</span></div>
+    <div class="grid g3"><div class="kpi"><div class="l">Szabad egyenleg</div><div class="v" id="wBal">–</div></div><div class="kpi"><div class="l">Befektetve (most)</div><div class="v" id="wInv">–</div></div><div class="kpi"><div class="l">Összesen · eredmény</div><div class="v" id="wTot">–</div><div class="s" id="wPnl"></div></div></div>
+    <div class="row" style="margin-top:12px;gap:8px"><input id="wAmt" type="number" min="0" step="any" inputmode="decimal" placeholder="Összeg ($)"><button class="go" style="height:44px" id="wDep">Betesz</button><button class="go" style="height:44px" id="wWd">Kivesz</button></div>
+    <div class="row" style="margin-top:8px;gap:8px"><input id="wSym" placeholder="Jelölés (AAPL, BTC-USD)" autocomplete="off"><input id="wQty" type="number" min="0" step="any" inputmode="decimal" placeholder="Db (eladásnál; üres = mind)"></div>
+    <div class="row" style="margin-top:8px;gap:8px"><button class="go" style="height:44px;flex:1" id="wBuy">Vétel (az összegért)</button><button class="go" style="height:44px;flex:1" id="wSell">Eladás</button><button class="go" style="height:44px;flex:1" id="wOl">Előrejelzés</button></div>
+    <div id="wMsg" class="mut" style="margin-top:8px;font-size:12px"></div></div>
+  <div class="card"><div class="h"><span>Tételek</span><span class="chip" id="wN">0</span></div><div class="tscroll"><table id="wHold"></table></div></div>
+  <div class="card"><div class="h"><span>🔮 Előrejelzés · múltbeli gyakoriság</span></div><div id="wOut" class="mut" style="font-size:13px">Írj be egy jelölést, és nyomd meg az Előrejelzés gombot.</div></div>
+  <div class="card"><div class="h"><span>Figyelt eszközök · ezekről szól a bot</span></div><div class="row" style="gap:8px"><input id="wWatch" autocomplete="off"><button class="go" style="height:44px" id="wWs">Mentés</button></div></div>
+  <div class="card"><div class="h"><span>Pénzmozgások</span></div><div class="tscroll"><table id="wTx"></table></div></div>
+</section>
+
 <section class="view" id="vchat">
   <div class="msgs" id="msgs"></div>
   <div class="qs"><button>Mibe van most pénzed?</button><button>Vegyél olaj részvényt</button><button>Vegyél aranyat</button><button>Mi történik a piacon?</button><button>Miért nem vettél még?</button><button>/vilag</button><button>/radar</button><button>/vedekezes</button></div>
@@ -160,6 +173,7 @@ input.slider::-moz-range-track{height:4px;border-radius:99px;background:var(--li
   <button data-v="vmkt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/></svg>Piac</button>
   <button data-v="vnews"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h13v14H6a2 2 0 0 1-2-2zM17 9h3v8a2 2 0 0 1-2 2"/><path d="M8 9h5M8 13h5"/></svg>Hírek</button>
   <button data-v="vlog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Napló</button>
+  <button data-v="vwal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M16 14h2"/></svg>Tárca</button>
   <button data-v="vchat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat</button>
 </nav>
 </div>
@@ -173,7 +187,7 @@ let S=null,lastId=0,events=[],first=true,book='all',range=7,efilter='all',nfilte
 async function api(p,o){const r=await fetch(p,{credentials:'same-origin',...o});if(r.status===401){showLogin();throw 0}if(!r.ok){let m='';try{m=(await r.json()).detail}catch{}throw new Error(m||r.status)}return r.json()}
 function showLogin(){$('#app').style.display='none';$('#login').style.display='block'}
 $('#lf').onsubmit=async e=>{e.preventDefault();try{await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#pw').value})});boot()}catch(x){if(x!==0)$('#le').textContent=x.message}};
-$$('#nav button').forEach(b=>b.onclick=()=>{$$('#nav button').forEach(x=>x.classList.toggle('on',x===b));$$('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vchat')setTimeout(()=>$('#msgs').scrollTop=1e9,50);if(b.dataset.v==='vnews')loadNews();window.scrollTo(0,0)});
+$$('#nav button').forEach(b=>b.onclick=()=>{$$('#nav button').forEach(x=>x.classList.toggle('on',x===b));$$('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vchat')setTimeout(()=>$('#msgs').scrollTop=1e9,50);if(b.dataset.v==='vnews')loadNews();if(b.dataset.v==='vwal')loadWallet();window.scrollTo(0,0)});
 setInterval(()=>{$('#clock').textContent=new Date().toLocaleString('hu-HU',{weekday:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'})},1000);
 function books(){return S?[{key:'main',...S.main},...(S.books||[]).filter(b=>!b.error).map((b,i)=>({key:'w'+i,...b}))]:[]}
 const short=l=>(l||'').replace(/^[^\p{L}]+/u,'').split('—')[0].trim();
@@ -283,8 +297,8 @@ $$('#ef button').forEach(b=>b.onclick=()=>{efilter=b.dataset.k;$$('#ef button').
 const evBody=b=>{const u=(b.match(/https?:\/\/\S+/)||[])[0];const t=b.replace(/https?:\/\/\S+/g,'').trim();return esc(t)+(u?` <a class="cy" href="${esc(u)}" target="_blank" rel="noopener">↗ cikk</a>`:'')};
 const evHtml=e=>`<div class="ev k-${esc(e.kind)}"><div class="ts">${tm(e.created_at)} · ${EK[e.kind]||e.kind}</div><div class="t">${esc(e.title)}</div>${e.body?`<div class="b">${evBody(e.body)}</div>`:''}</div>`;
 function renderEvents(){const xs=events.filter(e=>efilter==='all'||e.kind===efilter).slice(-120).reverse();$('#evlist').innerHTML=xs.map(evHtml).join('')||'<div class="empty">Nincs ilyen esemény.</div>';
- $('#homeev').innerHTML=events.filter(e=>['trade','riskoff','news','move'].includes(e.kind)).slice(-6).reverse().map(evHtml).join('')||'<div class="empty">Még nincs riasztás.</div>'}
-async function pollEvents(){const r=await api('/api/events?after='+lastId);const loud=[];for(const e of r.events){lastId=Math.max(lastId,e.id);events.push(e);if(!first&&['trade','riskoff'].includes(e.kind))loud.push(e)}
+ $('#homeev').innerHTML=events.filter(e=>['trade','riskoff','news','move','wallet'].includes(e.kind)).slice(-6).reverse().map(evHtml).join('')||'<div class="empty">Még nincs riasztás.</div>'}
+async function pollEvents(){const r=await api('/api/events?after='+lastId);const loud=[];for(const e of r.events){lastId=Math.max(lastId,e.id);events.push(e);if(!first&&['trade','riskoff','wallet'].includes(e.kind))loud.push(e)}
  if(events.length>600)events=events.slice(-600);if(r.events.length)renderEvents();if(loud.length){beep();if(window.Notification&&Notification.permission==='granted')loud.forEach(e=>new Notification(e.title,{body:(e.body||'').slice(0,140)}))}first=false}
 function beep(){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();o.connect(g);g.connect(audio.destination);o.frequency.value=880;g.gain.value=.06;o.start();o.stop(audio.currentTime+.2)}catch{}}
 /* hírek */
@@ -305,6 +319,20 @@ async function send(text){if(!text.trim())return;addMsg('user',text);const w=add
  catch(e){if(e===0)return;if(a===0){w.textContent='🔄 megszakadt a kapcsolat, újrapróbálom…';await new Promise(r=>setTimeout(r,3000))}else w.textContent='Nem sikerült elküldeni. Próbáld újra pár másodperc múlva.'}}}
 async function waitReply(w){const before=(await api('/api/chat')).messages.length;for(let i=0;i<20;i++){await new Promise(r=>setTimeout(r,10000));try{const m=(await api('/api/chat')).messages,l=m[m.length-1];if(m.length>before&&l&&l.role==='assistant'){w.textContent=l.content;return}}catch{}}}
 $('#sf').onsubmit=e=>{e.preventDefault();const v=$('#tx').value;$('#tx').value='';send(v)};$$('.qs button').forEach(b=>b.onclick=()=>send(b.textContent));
+const KIND={deposit:'Betét',withdraw:'Kivét',buy:'Vétel',sell:'Eladás'};
+async function loadWallet(){try{const w=await api('/api/wallet');
+ $('#wBal').textContent=nf(w.balance)+' $';$('#wInv').textContent=nf(w.invested)+' $';$('#wTot').textContent=nf(w.total)+' $';
+ $('#wPnl').innerHTML=`<span class="${cls(w.pnl)}">${sg(w.pnl)}${nf(w.pnl)} $</span> a befizetésekhez képest`;$('#wN').textContent=w.holdings.length;
+ $('#wHold').innerHTML='<tr><th>Eszköz</th><th>Db</th><th>Átlagár</th><th>Ár</th><th>Érték</th><th>Eredmény</th></tr>'+(w.holdings.map(h=>`<tr><td>${esc(h.symbol)}</td><td>${nf(h.qty,4)}</td><td>${px(h.avg)}</td><td>${px(h.price)}</td><td>${nf(h.value)}</td><td class="${cls(h.pnl)}">${h.pnl==null?'–':sg(h.pnl)+nf(h.pnl)} (${pct(h.pnl_pct,1)})</td></tr>`).join('')||'<tr><td colspan="6" class="mut">Még nincs tétel.</td></tr>');
+ $('#wTx').innerHTML='<tr><th>Mikor</th><th>Mi</th><th>Eszköz</th><th>Db</th><th>Ár</th><th>Összeg</th></tr>'+(w.transactions.map(t=>`<tr><td>${tm(t.created_at)}</td><td>${KIND[t.kind]}</td><td>${esc(t.symbol||'')}</td><td>${t.qty==null?'':nf(t.qty,4)}</td><td>${t.price==null?'':px(t.price)}</td><td class="${['deposit','sell'].includes(t.kind)?'up':'dn'}">${['deposit','sell'].includes(t.kind)?'+':'−'}${nf(t.amount)}</td></tr>`).join('')||'<tr><td colspan="6" class="mut">Még nincs mozgás.</td></tr>');
+ if(document.activeElement!==$('#wWatch'))$('#wWatch').value=w.watch.join(', ')}catch(e){if(e!==0)$('#wMsg').textContent=e.message||'Hiba'}}
+async function wAct(action){const amount=parseFloat($('#wAmt').value),symbol=$('#wSym').value.trim(),q=parseFloat($('#wQty').value);
+ const body={action};if(action!=='sell')body.amount=amount;if(['buy','sell'].includes(action))body.symbol=symbol;if(action==='sell'&&!isNaN(q))body.qty=q;
+ $('#wMsg').textContent='…';try{await api('/api/wallet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});$('#wMsg').textContent='Rögzítve.';$('#wAmt').value='';$('#wQty').value='';loadWallet()}catch(e){if(e!==0)$('#wMsg').textContent=e.message||'Hiba'}}
+['deposit','withdraw','buy','sell'].forEach((a,i)=>$(['#wDep','#wWd','#wBuy','#wSell'][i]).onclick=()=>wAct(a));
+$('#wOl').onclick=async()=>{const s=$('#wSym').value.trim();if(!s){$('#wOut').textContent='Írj be egy jelölést.';return}$('#wOut').textContent='Számolok…';
+ try{const o=await api('/api/wallet/outlook?sym='+encodeURIComponent(s));$('#wOut').innerHTML=`<b>${esc(o.symbol)}</b> ${px(o.price)} · ${esc(o.state_hu)}<br>`+o.horizons.map(h=>h.up_pct==null?`${h.days} nap: kevés hasonló eset`:`${h.days} nap múlva: <b>${nf(h.up_pct,0)}%</b>-ban volt feljebb · medián <span class="${cls(h.median_pct)}">${pct(h.median_pct,1)}</span> · rossz eset ${pct(h.low_pct,1)}, jó eset ${pct(h.high_pct,1)} (${h.n} eset)`).join('<br>')+`<br><span class="dim">${esc(o.text)}</span>`}catch(e){if(e!==0)$('#wOut').textContent=e.message||'Hiba'}};
+$('#wWs').onclick=async()=>{try{await api('/api/wallet/watch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbols:$('#wWatch').value.split(/[\s,;]+/).filter(Boolean)})});$('#wMsg').textContent='Figyelőlista mentve.';loadWallet()}catch(e){if(e!==0)$('#wMsg').textContent=e.message||'Hiba'}};
 async function pollState(){S=await api('/api/state');renderState()}
 let timers=[];async function boot(){timers.forEach(clearInterval);try{await pollState();$('#login').style.display='none';$('#app').style.display='block';
  await Promise.all([pollEvents(),loadChat(),loadNews()]);timers=[setInterval(()=>pollEvents().catch(()=>{}),5000),setInterval(()=>pollState().catch(()=>{}),10000),setInterval(()=>loadNews(),120000)];

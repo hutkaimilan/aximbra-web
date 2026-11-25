@@ -21,6 +21,9 @@ from fastapi import APIRouter, Cookie, HTTPException, Response
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
+from market import MarketError
+from wallet import WalletError
+
 COOKIE = "mtb_session"
 PAGE = Path(__file__).parent / "static" / "index.html"
 
@@ -33,7 +36,19 @@ class Chat(BaseModel):
     text: str = Field(min_length=1, max_length=1000)
 
 
-def make_router(agent, state: dict) -> APIRouter:
+class WalletReq(BaseModel):
+    action: str = Field(pattern="^(deposit|withdraw|buy|sell)$")
+    amount: float | None = None
+    symbol: str | None = Field(default=None, max_length=20)
+    qty: float | None = None
+    price: float | None = None
+
+
+class WatchReq(BaseModel):
+    symbols: list[str] = Field(max_length=60)
+
+
+def make_router(agent, state: dict, wallet=None) -> APIRouter:
     router = APIRouter()
     fails: list[float] = []
     fails_lock = threading.Lock()
@@ -284,5 +299,50 @@ def make_router(agent, state: dict) -> APIRouter:
             return {"reply": result["reply"], "pending": False}
         return {"reply": "⏳ Az AI most lassan válaszol. A válaszom pár perc múlva megjelenik itt magától.",
                 "pending": True}
+
+    # --- saját tárca -----------------------------------------------------------
+    def need_wallet():
+        if wallet is None:
+            raise HTTPException(404, "a tárca nincs bekapcsolva")
+        return wallet
+
+    @router.get("/api/wallet")
+    def wallet_get(mtb_session: str | None = Cookie(default=None)):
+        auth(mtb_session)
+        w = need_wallet()
+        return {**w.summary(), "transactions": w.transactions(50), "watch": w.watchlist()}
+
+    @router.post("/api/wallet")
+    def wallet_post(body: WalletReq, mtb_session: str | None = Cookie(default=None)):
+        auth(mtb_session)
+        w = need_wallet()
+        try:
+            if body.action == "deposit":
+                return w.deposit(body.amount)
+            if body.action == "withdraw":
+                return w.withdraw(body.amount)
+            if body.action == "buy":
+                return w.buy(body.symbol, body.amount, price=body.price)
+            return w.sell(body.symbol, body.qty, price=body.price)
+        except WalletError as e:
+            raise HTTPException(400, str(e)) from None
+
+    @router.get("/api/wallet/outlook")
+    def wallet_outlook(sym: str, mtb_session: str | None = Cookie(default=None)):
+        auth(mtb_session)
+        try:
+            return need_wallet().outlook(sym)
+        except WalletError as e:
+            raise HTTPException(400, str(e)) from None
+        except MarketError as e:
+            raise HTTPException(502, f"nincs adat: {e}") from None
+
+    @router.post("/api/wallet/watch")
+    def wallet_watch(body: WatchReq, mtb_session: str | None = Cookie(default=None)):
+        auth(mtb_session)
+        try:
+            return {"watch": need_wallet().set_watchlist(body.symbols)}
+        except WalletError as e:
+            raise HTTPException(400, str(e)) from None
 
     return router

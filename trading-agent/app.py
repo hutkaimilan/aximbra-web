@@ -22,6 +22,7 @@ from llm import LLM
 from mailer import Mailer
 from push import Push
 from radar import Radar
+from wallet import Wallet
 from web import make_router
 from world import YahooMarket
 from market import Market
@@ -137,8 +138,14 @@ def _recent_news() -> list[dict]:
                         "érintett": a.get("assets")})
     return out[:25]
 
+# --- saját tárca: a megbízó pénzének nyilvántartása és a bot tanácsai (a bot nem köt és nem utal) ---
+wallet = None
+if os.environ.get("WALLET", "on").lower() != "off":
+    wallet = Wallet(store, world.market if world is not None else YahooMarket(),
+                    notify=lambda text, kind="wallet", push=None: agent.notify(text, kind=kind, push=push))
+
 app = FastAPI(title="AXIMBRA trading agent")
-app.include_router(make_router(agent, state))
+app.include_router(make_router(agent, state, wallet))
 
 
 @app.get("/health")
@@ -230,6 +237,19 @@ def _radar_loop() -> None:
         time.sleep(30)
 
 
+def _wallet_loop() -> None:
+    """A tárca figyelése 0–24: alapból 15 percenként (WALLET_SECONDS)."""
+    time.sleep(120)
+    while True:
+        started = time.time()
+        try:
+            wallet.scan()
+            state["wallet_tick"] = time.time()
+        except Exception:
+            logger.exception("a tárca figyelése hibával állt le")
+        time.sleep(max(60.0, float(os.environ.get("WALLET_SECONDS", "900")) - (time.time() - started)))
+
+
 def _telegram_loop() -> None:
     offset = int(store.get("tg_offset", "0"))
     while True:
@@ -269,6 +289,8 @@ def _startup() -> None:
         threading.Thread(target=_ai_loop, name="ai-trader", daemon=True).start()
     if os.environ.get("RADAR", "on").lower() != "off":
         threading.Thread(target=_radar_loop, name="radar", daemon=True).start()
+    if wallet is not None:
+        threading.Thread(target=_wallet_loop, name="wallet", daemon=True).start()
     if bot is not None:
         threading.Thread(target=_telegram_loop, name="telegram", daemon=True).start()
     hello = (f"🚀 Elindultam ({executor.name}). Figyelem: {', '.join(cfg.symbols)} ({cfg.interval}). "
