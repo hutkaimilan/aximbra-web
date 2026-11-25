@@ -25,6 +25,7 @@ from market import MarketError
 from wallet import WalletError
 
 COOKIE = "mtb_session"
+SESSION_SECONDS = 10 * 365 * 86400      # a belépés ~10 évig megmarad, és minden megnyitáskor megújul
 PAGE = Path(__file__).parent / "static" / "index.html"
 
 
@@ -75,7 +76,7 @@ def make_router(agent, state: dict, wallet=None) -> APIRouter:
             raise HTTPException(401, "nincs belépve")
 
     @router.get("/")
-    def page(k: str | None = None):
+    def page(k: str | None = None, mtb_session: str | None = Cookie(default=None)):
         if not password():
             raise HTTPException(404, "a webes felület nincs bekapcsolva")
         link_key = os.environ.get("WEB_LINK_KEY", "")
@@ -83,10 +84,13 @@ def make_router(agent, state: dict, wallet=None) -> APIRouter:
             # Titkos link: jelszó gépelése nélkül belép, a süti 1 évig megmarad, a kulcs eltűnik a címsorból.
             if len(link_key) >= 24 and hmac.compare_digest(k.encode(), link_key.encode()):
                 r = RedirectResponse("/", status_code=303)
-                r.set_cookie(COOKIE, token(), max_age=365 * 86400, httponly=True, secure=True, samesite="lax")
+                r.set_cookie(COOKIE, token(), max_age=SESSION_SECONDS, httponly=True, secure=True, samesite="lax")
                 return r
             raise HTTPException(401, "érvénytelen link")
-        return FileResponse(PAGE, headers={"Cache-Control": "no-store"})
+        resp = FileResponse(PAGE, headers={"Cache-Control": "no-store"})
+        if mtb_session and hmac.compare_digest(mtb_session, token()):      # érvényes belépés: a lejárat tolódik
+            resp.set_cookie(COOKIE, token(), max_age=SESSION_SECONDS, httponly=True, secure=True, samesite="lax")
+        return resp
 
     # Telepíthető alkalmazás (gépen és telefonon): ezek nyilvánosak, adatot nem tartalmaznak.
     STATIC = {"manifest.json": "application/manifest+json", "icon.svg": "image/svg+xml",
@@ -116,7 +120,7 @@ def make_router(agent, state: dict, wallet=None) -> APIRouter:
                 fails.append(now)
         if not ok:
             raise HTTPException(401, "hibás jelszó")
-        response.set_cookie(COOKIE, token(), max_age=30 * 86400, httponly=True, secure=True, samesite="strict")
+        response.set_cookie(COOKIE, token(), max_age=SESSION_SECONDS, httponly=True, secure=True, samesite="lax")
         return {"ok": True}
 
     @router.post("/api/logout")
