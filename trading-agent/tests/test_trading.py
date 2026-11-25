@@ -531,6 +531,7 @@ def test_web_requires_login_and_serves_state(monkeypatch):
     ag, _, _ = make_agent()
     ag.radar = radar.Radar(ag.store, None)
     monkeypatch.setenv("WEB_PASSWORD", "titok-jelszo")
+    monkeypatch.setenv("WEB_REQUIRE_LOGIN", "on")
     app = FastAPI()
     app.include_router(make_router(ag, {"last_tick": None}))
     c = TestClient(app, base_url="https://testserver")
@@ -591,6 +592,7 @@ def test_secret_link_logs_in_without_password(monkeypatch):
     from web import make_router
     ag, _, _ = make_agent()
     monkeypatch.setenv("WEB_PASSWORD", "jelszo")
+    monkeypatch.setenv("WEB_REQUIRE_LOGIN", "on")
     monkeypatch.setenv("WEB_LINK_KEY", "k" * 32)
     app = FastAPI()
     app.include_router(make_router(ag, {}))
@@ -751,3 +753,18 @@ def test_px_keeps_significant_digits_for_cheap_assets():
     assert px(0.95) == "0.95"
     assert px(0.06123) == "0.06123"
     assert px(1.2134) == "1.2134"
+
+
+def test_web_is_open_without_password_by_default(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from web import make_router
+    ag, _, _ = make_agent()
+    ag.radar = radar.Radar(ag.store, None)
+    monkeypatch.delenv("WEB_REQUIRE_LOGIN", raising=False)
+    monkeypatch.setenv("WEB_PASSWORD", "titok")
+    app = FastAPI()
+    app.include_router(make_router(ag, {"last_tick": None}))
+    c = TestClient(app, base_url="https://testserver")
+    assert c.get("/").status_code == 200 and c.get("/api/state").status_code == 200

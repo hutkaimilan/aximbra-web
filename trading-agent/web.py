@@ -25,6 +25,11 @@ from market import MarketError
 from wallet import WalletError
 
 COOKIE = "mtb_session"
+# A megbízó kérésére az oldal jelszó nélkül nyílik. Visszakapcsolás: WEB_REQUIRE_LOGIN=on (és WEB_PASSWORD).
+def is_open() -> bool:
+    return os.environ.get("WEB_REQUIRE_LOGIN", "off").lower() != "on"
+
+
 SESSION_SECONDS = 10 * 365 * 86400      # a belépés ~10 évig megmarad, és minden megnyitáskor megújul
 PAGE = Path(__file__).parent / "static" / "index.html"
 
@@ -70,6 +75,8 @@ def make_router(agent, state: dict, wallet=None) -> APIRouter:
         return hmac.new(password().encode(), b"mtb-session-v1", hashlib.sha256).hexdigest()
 
     def auth(session: str | None) -> None:
+        if is_open():
+            return
         if not password():
             raise HTTPException(404, "a webes felület nincs bekapcsolva (WEB_PASSWORD)")
         if not session or not hmac.compare_digest(session, token()):
@@ -77,6 +84,8 @@ def make_router(agent, state: dict, wallet=None) -> APIRouter:
 
     @router.get("/")
     def page(k: str | None = None, mtb_session: str | None = Cookie(default=None)):
+        if is_open():
+            return FileResponse(PAGE, headers={"Cache-Control": "no-store"})
         if not password():
             raise HTTPException(404, "a webes felület nincs bekapcsolva")
         link_key = os.environ.get("WEB_LINK_KEY", "")
