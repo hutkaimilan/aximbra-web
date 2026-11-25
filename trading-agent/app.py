@@ -283,6 +283,11 @@ def _telegram_loop() -> None:
 
 @app.on_event("startup")
 def _startup() -> None:
+    if wallet is not None and os.environ.get("WALLET_RETURN_ONCE") == "1":    # egyszeri javítás: a tárca pénze vissza a számlákra
+        try:
+            logger.info("tárca visszaállítás: %s", wallet.return_all())
+        except Exception:
+            logger.exception("a tárca visszaállítása nem sikerült")
     if os.environ.get("TRADING_LOOP", "on").lower() == "off":
         logger.info("TRADING_LOOP=off: a háttérszálak nem indulnak")
         return

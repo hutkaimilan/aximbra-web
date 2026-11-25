@@ -345,6 +345,14 @@ def make_router(agent, state: dict, wallet=None) -> APIRouter:
             cache["at"] = 0.0                    # a következő állapotlekérés már az új egyenleget mutassa
         return out
 
+    @router.post("/api/transfer/return")
+    def transfer_return(mtb_session: str | None = Cookie(default=None)):
+        auth(mtb_session)
+        out = need_wallet().return_all()
+        with cache_lock:
+            cache["at"] = 0.0
+        return out
+
     @router.get("/api/wallet/outlook")
     def wallet_outlook(sym: str, mtb_session: str | None = Cookie(default=None)):
         auth(mtb_session)

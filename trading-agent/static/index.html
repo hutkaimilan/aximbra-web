@@ -69,6 +69,7 @@ form.send{display:flex;gap:8px;margin-top:12px}
     <div class="card">
       <div class="acct"><div><div class="lbl">👛 Tárca · szabad pénz</div><div class="mid" id="walletBal">–</div></div></div>
       <div class="mut sm">Innen teszel pénzt a számlákra, és ide veszed ki.</div>
+      <div class="btns" id="retBox" style="display:none"><button id="ret">Mind vissza a számlákra</button></div>
     </div>
     <div id="accounts"></div>
     <div class="card"><h3>Értesítések</h3><div id="events"><div class="empty">Betöltés…</div></div></div>
@@ -120,7 +121,7 @@ function accounts(){if(!S)return[];const a=[{key:'crypto',name:'₿ Kripto szám
 function render(){const A=accounts();if(!A.length)return;const wal=S.wallet||0;
  const total=wal+A.reduce((s,a)=>s+a.equity,0),pnl=A.reduce((s,a)=>s+a.equity-a.start,0);
  $('#total').textContent=usd(total);$('#totalPnl').innerHTML=`Eredmény eddig: ${signed(pnl)}`;
- $('#walletBal').textContent=usd(wal,2);
+ $('#walletBal').textContent=usd(wal,2);$('#retBox').style.display=wal>=0.01?'flex':'none';
  const ok=S.last_tick_age!=null&&S.last_tick_age<300;$('#dot').className='dot '+(ok?'on':'off');$('#liveTx').textContent=ok?'A bot figyel':'A bot nem válaszol';
  $('#banner').innerHTML=A.filter(a=>a.paused).map(a=>`<div class="banner">🛑 ${esc(a.name)}: védekező mód — ${esc(a.paused)}. Feloldás a Chatben: /folytat</div>`).join('');
  $('#accounts').innerHTML=A.map(a=>{const p=a.equity-a.start;return `<div class="card">
@@ -144,6 +145,7 @@ $('#mOk').onclick=async()=>{const amount=parseFloat($('#mAmt').value);if(!(amoun
  $('#mOk').disabled=true;try{await post('/api/transfer',{account:M.acc,direction:M.dir,amount});$('#modal').classList.remove('on');await poll()}
  catch(e){if(e!==0)$('#mErr').textContent=e.message;$('#mOk').disabled=false}};
 
+$('#ret').onclick=async()=>{$('#ret').disabled=true;try{await post('/api/transfer/return',{});await poll()}catch(e){if(e!==0)alert(e.message)}$('#ret').disabled=false};
 const LOUD=['trade','riskoff','wallet','move'];
 function renderEvents(){const xs=EV.filter(e=>LOUD.includes(e.kind)).slice(-10).reverse();
  $('#events').innerHTML=xs.map(e=>`<div class="row"><div><div class="t">${esc(e.title)}</div>${e.body?`<div class="s">${esc(e.body).slice(0,220)}</div>`:''}</div><div class="r mut sm">${when(e.created_at)}</div></div>`).join('')||'<div class="empty">Még nincs értesítés.</div>'}

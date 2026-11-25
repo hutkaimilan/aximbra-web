@@ -202,6 +202,23 @@ class Wallet:
                 self._insert("deposit", amt, note=f"← {name}")
         return {"wallet": self.balance(), "account": ag.store.cash()}
 
+    def return_all(self) -> dict:
+        """A tárcában álló pénzből annyit visszatesz az egyes számlákra, amennyit onnan áttettek
+        (a „← név” és „→ név” megjegyzésű mozgások egyenlege). A kézzel betett pénzhez nem nyúl."""
+        moved = {}
+        with self._lock:
+            rows = self._rows()
+            left = self.balance()
+            for key, (name, _ag) in self.accounts.items():
+                net = sum(float(r["amount"]) for r in rows if r["kind"] == "deposit" and r["note"] == f"← {name}") \
+                    - sum(float(r["amount"]) for r in rows if r["kind"] == "withdraw" and r["note"] == f"→ {name}")
+                amt = round(min(net, left), 2)
+                if amt >= 0.01:
+                    self.transfer(key, "in", amt)
+                    left -= amt
+                    moved[key] = amt
+        return {"moved": moved, "wallet": self.balance()}
+
     def _price(self, sym: str, price=None) -> float:
         if price is not None:
             return _amount(price, "ár")

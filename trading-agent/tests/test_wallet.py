@@ -159,6 +159,21 @@ def test_failed_account_credit_rolls_back_wallet():
     assert w.balance() == pytest.approx(1000)
 
 
+def test_return_all_puts_money_back_where_it_came_from():
+    w, _, c, wd = with_accounts()
+    w.transfer("crypto", "out", 3000)
+    w.transfer("world", "out", 1000)
+    w.deposit(500)                                # kézzel betett pénz: nem megy vissza
+    w.transfer("world", "in", 400)
+    r = w.return_all()
+    assert r["moved"] == {"crypto": pytest.approx(3000), "world": pytest.approx(600)}
+    assert c.store.cash() == pytest.approx(5000)
+    assert wd.store.cash() == pytest.approx(9949)
+    assert w.balance() == pytest.approx(500)
+    assert c.store.start_equity() == pytest.approx(5000)
+    assert w.return_all()["moved"] == {}          # másodszor már nincs mit visszatenni
+
+
 def test_account_drop_alert_once_and_not_on_withdrawal():
     w, sent, c, _ = with_accounts()
     w.scan()                                     # csúcs: eredmény 0
