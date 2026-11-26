@@ -1,0 +1,60 @@
+# A DNS kézi vezérlése, mert a fejlesztői környezetből nem megy.
+#
+# Az api.cloudflare.com elérése onnan szervezeti szabályból tiltott. A GitHub
+# futtatója viszont eléri, a token pedig repository secretként áll — így a
+# DNS-műveletek naplózottan futnak, és nem kell senkinek kattintgatnia.
+#
+# Indítás: Actions → "DNS" → Run workflow, vagy az API-n keresztül.
+name: DNS
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Parancs, pl.: show | proxy www off | set CNAME www t44uikmi.up.railway.app'
+        required: true
+        default: 'show'
+        type: string
+      apply:
+        description: 'Írjon is, ne csak megmutassa'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  # Két egyszerre futó DNS-írás ugyanazon a zónán egymásra írna.
+  group: dns-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # A `secrets` környezet nem használható `if:` feltételben, ezért a
+      # hiányzó tokent a lépésen belül kell elkapni — különben a hibaüzenet
+      # egy nyers 401 lenne a Cloudflare-től.
+      - name: Van-e token
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          if [ -z "${CF_API_TOKEN}" ]; then
+            echo "::error::Hiányzik a CF_API_TOKEN repository secret."
+            echo "Settings → Secrets and variables → Actions → New repository secret"
+            echo "Név: CF_API_TOKEN — érték: a Cloudflare 'Edit zone DNS' tokenje az aximbra.hu zónára."
+            exit 1
+          fi
+          echo "token megvan"
+
+      - name: DNS
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ZONE: aximbra.hu
+        # A bemenet a Python argv-jébe megy, nem a shellbe: a szkript csak
+        # Cloudflare DNS-hívásokat tud indítani, mást nem.
+        run: |
+          python3 tools/dns/cf.py ${{ inputs.command }} ${{ inputs.apply && '--apply' || '' }}
