@@ -1,0 +1,14 @@
+# Generált anyag: a rögzítés, a felolvasás és a kész videók nem kerülnek a repóba.
+*.png
+!axi_referencia.png
+*.mp4
+*.raw
+*.wav
+*.mp3
+tts/
+clips/
+chk/
+sims.json
+live.json
+states.json
+clipmap.json
