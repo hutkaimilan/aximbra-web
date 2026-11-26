@@ -2056,3 +2056,24 @@ def test_extra_linkedin_round_sends_a_new_agent_in_two_languages_once(store, mon
     assert not content.due(night.replace(hour=22), store)          # egyszer
     content.run(store, night.replace(hour=22))
     assert len(sent) == 1
+
+
+def test_auto_switches_can_be_set_from_railway_variables(store, monkeypatch):
+    """A panel jelszava nélkül is be lehessen kapcsolni a magától küldést (AUTO_SEND, AUTO_FOLLOWUP)."""
+    import app as app_mod
+    monkeypatch.delenv("AUTO_SEND", raising=False)
+    monkeypatch.delenv("AUTO_FOLLOWUP", raising=False)
+    store.set_setting("auto_send", "off")
+    assert app_mod.apply_auto_switches(store) == {}            # üres változó: a panel értéke marad
+    assert store.get_setting("auto_send") == "off"
+    monkeypatch.setenv("AUTO_SEND", "on")
+    monkeypatch.setenv("AUTO_FOLLOWUP", "ON ")
+    assert app_mod.apply_auto_switches(store) == {"auto_send": "on", "auto_followup": "on"}
+    assert store.get_setting("auto_send") == "on" and store.get_setting("auto_followup") == "on"
+    # A vészfék kikapcsolja; egy újraindítás ugyanazzal a változóval NEM kapcsolja vissza.
+    store.set_setting("auto_send", "off")
+    assert app_mod.apply_auto_switches(store) == {}
+    assert store.get_setting("auto_send") == "off"
+    monkeypatch.setenv("AUTO_SEND", "talán")                    # értelmetlen érték: nem nyúl hozzá
+    assert app_mod.apply_auto_switches(store) == {}
+    assert store.get_setting("auto_send") == "off"

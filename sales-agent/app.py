@@ -1359,8 +1359,29 @@ def _english_only_once():
         logger.exception("a csak magyar/angol átállás nem sikerült")
 
 
+AUTO_SWITCHES = (("AUTO_SEND", "auto_send"), ("AUTO_FOLLOWUP", "auto_followup"))
+
+
+def apply_auto_switches(st) -> dict:
+    """A magától küldés kapcsolói a Railway-változókból is állíthatók (AUTO_SEND,
+    AUTO_FOLLOWUP = on/off), nem csak a panelről. Csak akkor érvényesül, amikor a
+    változó értéke megváltozik: ha közben a vészfék (visszapattanás) vagy a panel
+    kikapcsolta, egy újraindítás nem kapcsolja vissza. Üres változó: a panel értéke marad."""
+    out = {}
+    for env, key in AUTO_SWITCHES:
+        v = (os.environ.get(env) or "").strip().lower()
+        if v in ("on", "off") and st.get_setting(f"{key}_env_applied") != v:
+            st.set_setting(key, v)
+            st.set_setting(f"{key}_env_applied", v)
+            out[key] = v
+    return out
+
+
 @app.on_event("startup")
 def _startup():
+    switched = apply_auto_switches(store)
+    if switched:
+        logger.info("magától küldés a változók szerint: %s", switched)
     stuck = store.list("sending")
     if stuck:
         logger.warning("%d levél 'sending' állapotban maradt — kézi ellenőrzés kell", len(stuck))
